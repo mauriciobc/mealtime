@@ -1,0 +1,57 @@
+### Variáveis
+@baseUrl = http://localhost:3001/api
+@authToken = seu_token_aqui
+
+### Registro de usuário
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "João Silva",
+  "email": "joao@example.com",
+  "password": "senha123"
+}
+
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "joao@example.com",
+  "password": "senha123"
+}
+
+### Criar domicílio
+POST {{baseUrl}}/households
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Casa do João"
+}
+
+### Obter detalhes do domicílio
+GET {{baseUrl}}/households/1
+Authorization: Bearer {{authToken}}
+
+### Atualizar domicílio
+PUT {{baseUrl}}/households/1
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Nova Casa do João"
+}
+
+### Atualizar código de convite
+POST {{baseUrl}}/households/1/refresh-invite
+Authorization: Bearer {{authToken}}
+
+### Entrar em um domicílio
+POST {{baseUrl}}/households/join
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "inviteCode": "codigo_de_convite_aqui"
+} 
