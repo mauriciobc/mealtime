@@ -1,8 +1,9 @@
 ### Variáveis
 @baseUrl = http://localhost:3001/api
-@authToken = seu_token_aqui
+@authToken = {{login.response.body.token}}
 
 ### Registro de usuário
+# @name register
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
@@ -13,6 +14,7 @@ Content-Type: application/json
 }
 
 ### Login
+# @name login
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
@@ -22,6 +24,7 @@ Content-Type: application/json
 }
 
 ### Criar domicílio
+# @name createHousehold
 POST {{baseUrl}}/households
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
@@ -31,11 +34,11 @@ Authorization: Bearer {{authToken}}
 }
 
 ### Obter detalhes do domicílio
-GET {{baseUrl}}/households/1
+GET {{baseUrl}}/households/{{createHousehold.response.body.id}}
 Authorization: Bearer {{authToken}}
 
 ### Atualizar domicílio
-PUT {{baseUrl}}/households/1
+PUT {{baseUrl}}/households/{{createHousehold.response.body.id}}
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
 
@@ -44,14 +47,73 @@ Authorization: Bearer {{authToken}}
 }
 
 ### Atualizar código de convite
-POST {{baseUrl}}/households/1/refresh-invite
+POST {{baseUrl}}/households/{{createHousehold.response.body.id}}/refresh-invite
 Authorization: Bearer {{authToken}}
 
-### Entrar em um domicílio
+### Entrar em um domicílio (para testar com outro usuário)
 POST {{baseUrl}}/households/join
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
 
 {
-  "inviteCode": "codigo_de_convite_aqui"
-} 
+  "inviteCode": "{{createHousehold.response.body.inviteCode}}"
+}
+
+### Endpoints de Gatos ###
+
+# @name createCat
+POST {{baseUrl}}/cats
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Miau",
+  "photo_url": "https://example.com/cat.jpg",
+  "birthdate": "2020-01-01",
+  "weight": 4.5,
+  "restrictions": ["Ração especial", "Alérgico a peixe"],
+  "notes": "Gato muito carinhoso e brincalhão"
+}
+
+###
+
+# @name listCats
+GET {{baseUrl}}/cats
+Authorization: Bearer {{authToken}}
+
+###
+
+# @name getCatDetails
+GET {{baseUrl}}/cats/{{createCat.response.body.id}}
+Authorization: Bearer {{authToken}}
+
+###
+
+# @name updateCat
+PUT {{baseUrl}}/cats/{{createCat.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Miau Atualizado",
+  "weight": 4.8,
+  "notes": "Gato muito carinhoso, brincalhão e agora mais gordinho"
+}
+
+###
+
+# @name deleteCat
+DELETE {{baseUrl}}/cats/{{createCat.response.body.id}}
+Authorization: Bearer {{authToken}}
+
+###
+
+# @name addCatToGroup
+POST {{baseUrl}}/cats/{{createCat.response.body.id}}/groups/1
+Authorization: Bearer {{authToken}}
+
+###
+
+# @name removeCatFromGroup
+DELETE {{baseUrl}}/cats/{{createCat.response.body.id}}/groups/1
+Authorization: Bearer {{authToken}} 
