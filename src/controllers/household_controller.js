@@ -1,5 +1,6 @@
 // Local Imports
 const Household = require('../models/household')
+const { getTimezones, getAllTimezones } = require('../utils/timezone')
 
 // Error Handlers
 const handleError = (res, err) => {
@@ -13,7 +14,7 @@ const handleError = (res, err) => {
 // Controller Methods
 const create = async (req, res) => {
   try {
-    const { name } = req.body
+    const { name, timezone } = req.body
     const { id: adminId } = req.user
 
     if (!name?.trim()) {
@@ -22,7 +23,7 @@ const create = async (req, res) => {
       })
     }
 
-    const household = await Household.create({ name, adminId })
+    const household = await Household.create({ name, adminId, timezone })
     return res.status(201).json(household)
   } catch (err) {
     return handleError(res, err)
@@ -50,7 +51,7 @@ const getDetails = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { householdId } = req.params
-    const { name } = req.body
+    const { name, timezone } = req.body
 
     if (!name?.trim()) {
       return res.status(400).json({ 
@@ -58,7 +59,7 @@ const update = async (req, res) => {
       })
     }
 
-    const household = await Household.update(householdId, { name })
+    const household = await Household.update(householdId, { name, timezone })
     
     if (!household) {
       return res.status(404).json({ 
@@ -126,11 +127,58 @@ const refreshInviteCode = async (req, res) => {
   }
 }
 
+const updateTimezone = async (req, res) => {
+  try {
+    const { householdId } = req.params
+    const { timezone } = req.body
+
+    if (!timezone?.trim()) {
+      return res.status(400).json({ 
+        error: 'Timezone é obrigatório' 
+      })
+    }
+
+    const household = await Household.updateTimezone(householdId, timezone)
+    
+    if (!household) {
+      return res.status(404).json({ 
+        error: 'Domicílio não encontrado' 
+      })
+    }
+
+    // Notifica membros sobre a atualização via Socket.IO
+    req.io.to(`household:${householdId}`).emit('household:timezone_updated', {
+      householdId,
+      timezone
+    })
+    
+    return res.json(household)
+  } catch (err) {
+    return handleError(res, err)
+  }
+}
+
+const listTimezones = async (req, res) => {
+  try {
+    const grouped = req.query.grouped === 'true'
+    
+    if (grouped) {
+      return res.json(getTimezones())
+    }
+    
+    return res.json(getAllTimezones())
+  } catch (err) {
+    return handleError(res, err)
+  }
+}
+
 // Exports
 module.exports = {
   create,
   getDetails,
   update,
   join,
-  refreshInviteCode
+  refreshInviteCode,
+  updateTimezone,
+  listTimezones
 } 

@@ -10,6 +10,7 @@ const socketIo = require('socket.io');
 const db = require('./config/database');
 const authRoutes = require('./routes/auth_routes');
 const configureHouseholdRoutes = require('./routes/household_routes');
+const configureCatRoutes = require('./routes/cat_routes');
 
 // Hoisted Variables and References
 const PORT = process.env.PORT || 3001;
@@ -34,11 +35,42 @@ const io = socketIo(server, {
 
 // Middleware Setup
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ charset: 'utf-8' }));
+app.use(express.urlencoded({ extended: true, charset: 'utf-8' }));
+
+// Configuração de codificação
+app.use((req, res, next) => {
+  res.charset = 'utf-8';
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  
+  // Força a codificação da resposta para UTF-8
+  if (res.json) {
+    const original = res.json;
+    res.json = function (...args) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      return original.apply(res, args);
+    };
+  }
+  
+  next();
+});
+
+// Middleware de tratamento de erros de JSON
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({
+      error: 'JSON malformado',
+      details: 'A requisição contém JSON inválido. Verifique o formato dos dados.',
+      debug: NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+  next(err);
+});
 
 // Routes Setup
 app.use('/api/auth', authRoutes);
 app.use('/api/households', configureHouseholdRoutes(io));
+app.use('/api/cats', configureCatRoutes(io));
 
 // Base Routes
 app.get('/', (_, res) => 

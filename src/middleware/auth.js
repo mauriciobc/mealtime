@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 
-const auth = async (req, res, next) => {
+const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     
@@ -19,7 +19,16 @@ const auth = async (req, res, next) => {
         return res.status(401).json({ error: 'Usuário não encontrado' });
       }
 
-      req.user = user;
+      req.user = {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        householdId: user.household_id,
+        timezone: user.timezone,
+        language: user.language
+      };
+
       return next();
     } catch (err) {
       return res.status(401).json({ error: 'Token inválido' });
@@ -29,4 +38,4 @@ const auth = async (req, res, next) => {
   }
 };
 
-module.exports = auth; 
+module.exports = { authenticate }; 

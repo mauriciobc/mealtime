@@ -3,14 +3,22 @@ const path = require('path');
 
 const dbPath = path.resolve(__dirname, '../../database.sqlite');
 
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) {
-    console.error('Erro ao conectar ao banco de dados:', err.message);
-  } else {
-    console.log('Conectado ao banco de dados SQLite');
-    initializeDatabase();
+const db = new sqlite3.Database(
+  path.join(__dirname, '../../database.sqlite'),
+  sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE,
+  err => {
+    if (err) {
+      console.error('Erro ao conectar ao banco de dados:', err);
+      process.exit(1);
+    } else {
+      console.log('Conectado ao banco de dados SQLite');
+      initializeDatabase();
+    }
   }
-});
+);
+
+// Configura o SQLite para usar UTF-8
+db.run('PRAGMA encoding = "UTF-8"');
 
 function initializeDatabase() {
   db.serialize(() => {

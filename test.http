@@ -1,6 +1,13 @@
 ### Variáveis
 @baseUrl = http://localhost:3001/api
-@authToken = {{login.response.body.token}}
+@randomEmail = joao{{$timestamp}}@example.com
+@fixedToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiaWF0IjoxNzQyMTQ1NDAyLCJleHAiOjE3NDI3NTAyMDJ9.yRWsXYzw_-Jp3yfg1E6L2GufE_IUOUawUgdlditmCto
+
+### Listar todas as timezones disponíveis
+GET {{baseUrl}}/households/timezones
+
+### Listar timezones agrupadas por região
+GET {{baseUrl}}/households/timezones?grouped=true
 
 ### Registro de usuário
 # @name register
@@ -9,7 +16,7 @@ Content-Type: application/json
 
 {
   "name": "João Silva",
-  "email": "joao@example.com",
+  "email": "{{randomEmail}}",
   "password": "senha123"
 }
 
@@ -19,41 +26,55 @@ POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "joao@example.com",
+  "email": "{{randomEmail}}",
   "password": "senha123"
 }
+
+### Capturar token do login
+@authToken = {{login.response.body.token}}
 
 ### Criar domicílio
 # @name createHousehold
 POST {{baseUrl}}/households
 Content-Type: application/json
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 {
-  "name": "Casa do João"
+  "name": "Casa do João",
+  "timezone": "America/Sao_Paulo"
 }
 
 ### Obter detalhes do domicílio
 GET {{baseUrl}}/households/{{createHousehold.response.body.id}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 ### Atualizar domicílio
 PUT {{baseUrl}}/households/{{createHousehold.response.body.id}}
 Content-Type: application/json
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 {
-  "name": "Nova Casa do João"
+  "name": "Nova Casa do João",
+  "timezone": "America/Recife"
+}
+
+### Atualizar apenas a timezone do domicílio
+PATCH {{baseUrl}}/households/{{createHousehold.response.body.id}}/timezone
+Content-Type: application/json
+Authorization: Bearer {{fixedToken}}
+
+{
+  "timezone": "America/Manaus"
 }
 
 ### Atualizar código de convite
 POST {{baseUrl}}/households/{{createHousehold.response.body.id}}/refresh-invite
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 ### Entrar em um domicílio (para testar com outro usuário)
 POST {{baseUrl}}/households/join
 Content-Type: application/json
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 {
   "inviteCode": "{{createHousehold.response.body.inviteCode}}"
@@ -64,7 +85,7 @@ Authorization: Bearer {{authToken}}
 # @name createCat
 POST {{baseUrl}}/cats
 Content-Type: application/json
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 {
   "name": "Miau",
@@ -79,20 +100,20 @@ Authorization: Bearer {{authToken}}
 
 # @name listCats
 GET {{baseUrl}}/cats
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 ###
 
 # @name getCatDetails
 GET {{baseUrl}}/cats/{{createCat.response.body.id}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 ###
 
 # @name updateCat
 PUT {{baseUrl}}/cats/{{createCat.response.body.id}}
 Content-Type: application/json
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 {
   "name": "Miau Atualizado",
@@ -104,16 +125,134 @@ Authorization: Bearer {{authToken}}
 
 # @name deleteCat
 DELETE {{baseUrl}}/cats/{{createCat.response.body.id}}
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 ###
 
 # @name addCatToGroup
 POST {{baseUrl}}/cats/{{createCat.response.body.id}}/groups/1
-Authorization: Bearer {{authToken}}
+Authorization: Bearer {{fixedToken}}
 
 ###
 
 # @name removeCatFromGroup
 DELETE {{baseUrl}}/cats/{{createCat.response.body.id}}/groups/1
-Authorization: Bearer {{authToken}} 
+Authorization: Bearer {{fixedToken}} 
+
+### Endpoints de Grupos de Gatos ###
+
+# @name createGroup
+POST {{baseUrl}}/cat-groups
+Content-Type: application/json
+Authorization: Bearer {{fixedToken}}
+
+{
+  "name": "Gatos Adultos"
+}
+
+###
+
+# @name listGroups
+GET {{baseUrl}}/cat-groups
+Authorization: Bearer {{fixedToken}}
+
+###
+
+# @name getGroupDetails
+GET {{baseUrl}}/cat-groups/{{createGroup.response.body.id}}
+Authorization: Bearer {{fixedToken}}
+
+###
+
+# @name updateGroup
+PUT {{baseUrl}}/cat-groups/{{createGroup.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{fixedToken}}
+
+{
+  "name": "Gatos Sênior"
+}
+
+###
+
+# @name deleteGroup
+DELETE {{baseUrl}}/cat-groups/{{createGroup.response.body.id}}
+Authorization: Bearer {{fixedToken}}
+
+###
+
+# @name getGroupCats
+GET {{baseUrl}}/cat-groups/{{createGroup.response.body.id}}/cats
+Authorization: Bearer {{fixedToken}}
+
+### Endpoints de Agendamentos ###
+
+# @name createSchedule
+POST {{baseUrl}}/cats/{{createCat.response.body.id}}/schedules
+Content-Type: application/json
+Authorization: Bearer {{fixedToken}}
+
+{
+  "type": "fixed",
+  "times": ["08:00", "12:00", "18:00"]
+}
+
+###
+
+# @name createIntervalSchedule
+POST {{baseUrl}}/cats/{{createCat.response.body.id}}/schedules
+Content-Type: application/json
+Authorization: Bearer {{fixedToken}}
+
+{
+  "type": "interval",
+  "interval_minutes": 240
+}
+
+###
+
+# @name listSchedules
+GET {{baseUrl}}/cats/{{createCat.response.body.id}}/schedules
+Authorization: Bearer {{fixedToken}}
+
+###
+
+# @name updateSchedule
+PUT {{baseUrl}}/schedules/{{createSchedule.response.body.id}}
+Content-Type: application/json
+Authorization: Bearer {{fixedToken}}
+
+{
+  "type": "fixed",
+  "times": ["07:00", "13:00", "19:00"]
+}
+
+###
+
+# @name deleteSchedule
+DELETE {{baseUrl}}/schedules/{{createSchedule.response.body.id}}
+Authorization: Bearer {{fixedToken}}
+
+### Endpoints de Registros de Alimentação ###
+
+# @name createFeedingLog
+POST {{baseUrl}}/cats/{{createCat.response.body.id}}/feeding-logs
+Content-Type: application/json
+Authorization: Bearer {{fixedToken}}
+
+{
+  "portion_size": 100,
+  "notes": "Comeu toda a porção"
+}
+
+###
+
+# @name listFeedingLogs
+GET {{baseUrl}}/cats/{{createCat.response.body.id}}/feeding-logs
+Authorization: Bearer {{fixedToken}}
+
+###
+
+# @name getFeedingLogDetails
+GET {{baseUrl}}/feeding-logs/{{createFeedingLog.response.body.id}}
+Authorization: Bearer {{fixedToken}} 

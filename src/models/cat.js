@@ -20,6 +20,28 @@ const validateFields = fields => {
   }
 }
 
+const parseRestrictions = restrictions => {
+  if (!restrictions) return null
+  
+  // Se já for um array, retorna como está
+  if (Array.isArray(restrictions)) {
+    return restrictions
+  }
+  
+  // Se for string, tenta converter de JSON
+  if (typeof restrictions === 'string') {
+    try {
+      const parsed = JSON.parse(restrictions)
+      return Array.isArray(parsed) ? parsed : null
+    } catch (e) {
+      console.error('Erro ao converter restrições:', e)
+      return null
+    }
+  }
+  
+  return null
+}
+
 // Cat Model
 class Cat {
   static async create(householdId, fields) {
@@ -27,17 +49,30 @@ class Cat {
     
     const { name, photo_url, birthdate, weight, restrictions, notes } = fields
     
+    // Garante que restrictions seja um JSON válido de array ou null
+    const restrictionsJson = Array.isArray(restrictions) 
+      ? JSON.stringify(restrictions)
+      : null
+    
     return new Promise((resolve, reject) => {
       db.run(
         `INSERT INTO cats (
           name, photo_url, birthdate, weight, restrictions, notes, household_id
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [name, photo_url, birthdate, weight, restrictions, notes, householdId],
+        [
+          name, 
+          photo_url, 
+          birthdate, 
+          weight, 
+          restrictionsJson,
+          notes, 
+          householdId
+        ],
         function(err) {
           if (err) return reject(handleDbError(err))
           
-          this.findById(this.lastID)
-            .then(resolve)
+          Cat.findById(this.lastID)
+            .then(cat => resolve(cat))
             .catch(reject)
         }
       )
@@ -52,7 +87,15 @@ class Cat {
         LEFT JOIN households h ON h.id = c.household_id
         WHERE c.id = ?`,
         [id],
-        (err, cat) => err ? reject(handleDbError(err)) : resolve(cat)
+        (err, cat) => {
+          if (err) return reject(handleDbError(err))
+          
+          if (cat) {
+            cat.restrictions = parseRestrictions(cat.restrictions)
+          }
+          
+          resolve(cat)
+        }
       )
     })
   }
@@ -62,13 +105,30 @@ class Cat {
       db.all(
         'SELECT * FROM cats WHERE household_id = ? ORDER BY name',
         [householdId],
-        (err, cats) => err ? reject(handleDbError(err)) : resolve(cats)
+        (err, cats) => {
+          if (err) return reject(handleDbError(err))
+          
+          if (cats) {
+            cats.forEach(cat => {
+              cat.restrictions = parseRestrictions(cat.restrictions)
+            })
+          }
+          
+          resolve(cats)
+        }
       )
     })
   }
 
   static async update(id, fields) {
     validateFields(fields)
+    
+    // Garante que restrictions seja um JSON válido de array ou null
+    if ('restrictions' in fields) {
+      fields.restrictions = Array.isArray(fields.restrictions) 
+        ? JSON.stringify(fields.restrictions)
+        : null
+    }
     
     const updates = Object.entries(fields)
       .map(([key, _]) => `${key} = ?`)
@@ -80,8 +140,13 @@ class Cat {
       db.run(
         `UPDATE cats SET ${updates} WHERE id = ?`,
         values,
-        err => err ? reject(handleDbError(err)) : 
-          this.findById(id).then(resolve).catch(reject)
+        err => {
+          if (err) return reject(handleDbError(err))
+          
+          Cat.findById(id)
+            .then(cat => resolve(cat))
+            .catch(reject)
+        }
       )
     })
   }
@@ -105,7 +170,17 @@ class Cat {
         WHERE cgm.group_id = ?
         ORDER BY c.name`,
         [groupId],
-        (err, cats) => err ? reject(handleDbError(err)) : resolve(cats)
+        (err, cats) => {
+          if (err) return reject(handleDbError(err))
+          
+          if (cats) {
+            cats.forEach(cat => {
+              cat.restrictions = parseRestrictions(cat.restrictions)
+            })
+          }
+          
+          resolve(cats)
+        }
       )
     })
   }

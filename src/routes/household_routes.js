@@ -3,7 +3,7 @@ const express = require('express')
 
 // Local Imports
 const HouseholdController = require('../controllers/household_controller')
-const auth = require('../middleware/auth')
+const { authenticate } = require('../middleware/auth')
 
 // Router Setup
 const router = express.Router()
@@ -19,12 +19,16 @@ const configureRoutes = io => {
   // Inject Socket.IO into requests
   router.use(injectIo(io))
 
+  // Public Routes
+  router.get('/timezones', HouseholdController.listTimezones)
+  
   // Protected Routes
-  router.post('/', auth, HouseholdController.create)
-  router.get('/:householdId', auth, HouseholdController.getDetails)
-  router.put('/:householdId', auth, HouseholdController.update)
-  router.post('/join', auth, HouseholdController.join)
-  router.post('/:householdId/refresh-invite', auth, HouseholdController.refreshInviteCode)
+  router.post('/', authenticate, HouseholdController.create)
+  router.get('/:householdId', authenticate, HouseholdController.getDetails)
+  router.put('/:householdId', authenticate, HouseholdController.update)
+  router.post('/join', authenticate, HouseholdController.join)
+  router.post('/:householdId/refresh-invite', authenticate, HouseholdController.refreshInviteCode)
+  router.patch('/:householdId/timezone', authenticate, HouseholdController.updateTimezone)
 
   return router
 }

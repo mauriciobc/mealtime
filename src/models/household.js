@@ -3,9 +3,11 @@ const crypto = require('crypto')
 
 // Local Imports
 const db = require('../config/database')
+const { isValidTimezone } = require('../utils/timezone')
 
 // Hoisted Variables
 const INVITE_CODE_LENGTH = 8
+const DEFAULT_TIMEZONE = 'UTC'
 
 // Utility Functions
 const generateInviteCode = () => 
@@ -18,34 +20,69 @@ const handleDbError = err => {
   throw { code: 'SQLITE_ERROR', message: err.message }
 }
 
+const validateTimezone = timezone => {
+  if (!timezone) return DEFAULT_TIMEZONE
+  
+  if (!isValidTimezone(timezone)) {
+    throw { 
+      code: 'VALIDATION_ERROR', 
+      message: `Timezone inválida: ${timezone}` 
+    }
+  }
+  
+  return timezone
+}
+
 // Household Model
 class Household {
-  static async create({ name, adminId }) {
+  static async create({ name, adminId, timezone = DEFAULT_TIMEZONE }) {
+    const validatedTimezone = validateTimezone(timezone)
     const inviteCode = generateInviteCode()
     
     return new Promise((resolve, reject) => {
-      db.run(
-        `INSERT INTO households (name, invite_code) VALUES (?, ?)`,
-        [name, inviteCode],
-        function(err) {
-          if (err) return reject(handleDbError(err))
-          
-          const householdId = this.lastID
-          
-          // Atualiza o usuário admin com o household_id
-          db.run(
-            `UPDATE users SET household_id = ?, role = 'admin' WHERE id = ?`,
-            [householdId, adminId],
-            err => err ? reject(handleDbError(err)) : 
-              resolve({ 
-                id: householdId, 
-                name, 
-                inviteCode,
-                adminId 
-              })
-          )
-        }
-      )
+      db.serialize(() => {
+        db.run('BEGIN TRANSACTION')
+
+        db.run(
+          `INSERT INTO households (name, invite_code, timezone) VALUES (?, ?, ?)`,
+          [name, inviteCode, validatedTimezone],
+          function(err) {
+            if (err) {
+              db.run('ROLLBACK')
+              return reject(handleDbError(err))
+            }
+            
+            const householdId = this.lastID
+            
+            // Atualiza o usuário admin com o household_id
+            db.run(
+              `UPDATE users SET household_id = ?, role = 'admin' WHERE id = ?`,
+              [householdId, adminId],
+              err => {
+                if (err) {
+                  db.run('ROLLBACK')
+                  return reject(handleDbError(err))
+                }
+
+                db.run('COMMIT', err => {
+                  if (err) {
+                    db.run('ROLLBACK')
+                    return reject(handleDbError(err))
+                  }
+
+                  resolve({ 
+                    id: householdId, 
+                    name, 
+                    inviteCode,
+                    timezone: validatedTimezone,
+                    adminId 
+                  })
+                })
+              }
+            )
+          }
+        )
+      })
     })
   }
 
@@ -88,11 +125,31 @@ class Household {
     })
   }
 
-  static async update(id, { name }) {
+  static async update(id, { name, timezone }) {
+    const updates = []
+    const params = []
+
+    if (name) {
+      updates.push('name = ?')
+      params.push(name)
+    }
+
+    if (timezone) {
+      const validatedTimezone = validateTimezone(timezone)
+      updates.push('timezone = ?')
+      params.push(validatedTimezone)
+    }
+
+    if (updates.length === 0) {
+      return this.findById(id)
+    }
+
+    params.push(id)
+
     return new Promise((resolve, reject) => {
       db.run(
-        'UPDATE households SET name = ? WHERE id = ?',
-        [name, id],
+        `UPDATE households SET ${updates.join(', ')} WHERE id = ?`,
+        params,
         err => err ? reject(handleDbError(err)) : 
           this.findById(id).then(resolve).catch(reject)
       )
@@ -134,6 +191,19 @@ class Household {
             err => err ? reject(handleDbError(err)) : resolve({ householdId, userId })
           )
         }
+      )
+    })
+  }
+
+  static async updateTimezone(id, timezone) {
+    const validatedTimezone = validateTimezone(timezone)
+    
+    return new Promise((resolve, reject) => {
+      db.run(
+        'UPDATE households SET timezone = ? WHERE id = ?',
+        [validatedTimezone, id],
+        err => err ? reject(handleDbError(err)) : 
+          this.findById(id).then(resolve).catch(reject)
       )
     })
   }
