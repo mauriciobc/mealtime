@@ -9,6 +9,7 @@ const socketIo = require('socket.io');
 // Local Imports
 const db = require('./config/database');
 const authRoutes = require('./routes/auth_routes');
+const configureHouseholdRoutes = require('./routes/household_routes');
 
 // Hoisted Variables and References
 const PORT = process.env.PORT || 3001;
@@ -34,7 +35,10 @@ const io = socketIo(server, {
 // Middleware Setup
 app.use(cors());
 app.use(express.json());
+
+// Routes Setup
 app.use('/api/auth', authRoutes);
+app.use('/api/households', configureHouseholdRoutes(io));
 
 // Base Routes
 app.get('/', (_, res) => 
