@@ -110,6 +110,33 @@ class Household {
       )
     })
   }
+
+  static async addMember(householdId, userId) {
+    return new Promise((resolve, reject) => {
+      // Primeiro verifica se o usuário já está em outro domicílio
+      db.get(
+        'SELECT household_id FROM users WHERE id = ?',
+        [userId],
+        (err, user) => {
+          if (err) return reject(handleDbError(err))
+          
+          if (user?.household_id) {
+            return reject({ 
+              code: 'VALIDATION_ERROR', 
+              message: 'Usuário já pertence a um domicílio' 
+            })
+          }
+
+          // Adiciona o usuário ao domicílio
+          db.run(
+            'UPDATE users SET household_id = ?, role = ? WHERE id = ?',
+            [householdId, 'member', userId],
+            err => err ? reject(handleDbError(err)) : resolve({ householdId, userId })
+          )
+        }
+      )
+    })
+  }
 }
 
 // Exports
