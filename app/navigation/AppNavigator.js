@@ -1,29 +1,61 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import DailyReflectionScreen from '../screens/DailyReflectionScreen';
-import ExercisesScreen from '../screens/ExercisesScreen';
+
+// Telas
+import HouseholdCreationScreen from '../screens/HouseholdCreationScreen';
+import HouseholdJoinScreen from '../screens/HouseholdJoinScreen';
+import CatListScreen from '../screens/CatListScreen';
+import CatProfileCreateScreen from '../screens/CatProfileCreateScreen';
+import ScheduleSetupScreen from '../screens/ScheduleSetupScreen';
+import FeedingLogEntryScreen from '../screens/FeedingLogEntryScreen';
 
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
   return (
     <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName="DailyReflection"
+      <Stack.Navigator
+        initialRouteName="HouseholdCreation"
         screenOptions={{
-          headerShown: false,
-          cardStyle: { backgroundColor: 'transparent' },
-          presentation: 'modal',
+          headerStyle: {
+            backgroundColor: '#0066cc',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
         }}
       >
         <Stack.Screen 
-          name="DailyReflection" 
-          component={DailyReflectionScreen} 
+          name="HouseholdCreation" 
+          component={HouseholdCreationScreen} 
+          options={{ title: 'Criar Domicílio' }} 
         />
         <Stack.Screen 
-          name="Exercises" 
-          component={ExercisesScreen} 
+          name="HouseholdJoin" 
+          component={HouseholdJoinScreen} 
+          options={{ title: 'Entrar em Domicílio' }} 
+        />
+        <Stack.Screen 
+          name="CatListScreen" 
+          component={CatListScreen} 
+          options={{ title: 'Meus Gatos' }} 
+        />
+        <Stack.Screen 
+          name="CatProfileCreate" 
+          component={CatProfileCreateScreen} 
+          options={{ title: 'Adicionar Gato' }} 
+        />
+        <Stack.Screen 
+          name="ScheduleSetup" 
+          component={ScheduleSetupScreen} 
+          options={{ title: 'Horários de Alimentação' }} 
+        />
+        <Stack.Screen 
+          name="FeedingLogEntry" 
+          component={FeedingLogEntryScreen} 
+          options={{ title: 'Registrar Alimentação' }} 
         />
       </Stack.Navigator>
     </NavigationContainer>
