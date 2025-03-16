@@ -1,0 +1,49 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+logs
+*.log
+
+# Diretório de build
+dist/
+build/
+
+# Dependências do React Native
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# macOS
+.DS_Store
+
+# IDEs e editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.bak
+
+# Arquivos temporários
+*.tmp
+*.temp
+.cache/ 
