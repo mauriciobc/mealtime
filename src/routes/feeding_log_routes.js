@@ -20,7 +20,9 @@ const configureRoutes = io => {
   router.use(authenticate)
 
   // Rotas de registros de alimentação
+  router.post('/', feedingLogController.create)
   router.get('/:logId', feedingLogController.getDetails)
+  router.get('/cat/:catId', feedingLogController.listByCat)
 
   return router
 }

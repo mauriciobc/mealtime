@@ -1,6 +1,7 @@
 // Local Imports
 const db = require('../config/database')
 const Cat = require('./cat')
+const moment = require('moment-timezone')
 
 // Hoisted Variables
 const VALID_FIELDS = ['type', 'interval_minutes', 'times', 'override_until']
@@ -71,159 +72,327 @@ const formatSchedule = schedule => {
 
 // Schedule Model
 class Schedule {
-  static async create(catId, householdId, fields) {
-    validateFields(fields)
-    
-    // Verificar se o gato existe e pertence ao domicílio
-    await Cat.findById(catId, householdId)
-    
-    const { type, interval_minutes, times, override_until } = fields
-    
+  /**
+   * Cria um novo agendamento para um gato
+   * @param {Object} data Dados do agendamento
+   * @param {number} data.cat_id ID do gato
+   * @param {string} data.type Tipo de agendamento ('fixed' ou 'interval')
+   * @param {number} data.interval_minutes Intervalo em minutos (para tipo 'interval')
+   * @param {string} data.times Horários fixos em formato JSON (para tipo 'fixed')
+   * @returns {Promise<Object>} Agendamento criado
+   */
+  static create(data) {
     return new Promise((resolve, reject) => {
-      db.run(
-        'INSERT INTO schedules (cat_id, type, interval_minutes, times, override_until) VALUES (?, ?, ?, ?, ?)',
-        [catId, type, interval_minutes, parseTimes(times), override_until],
-        function(err) {
-          if (err) {
-            reject(handleDbError(err))
-            return
-          }
-          
-          // Retorna o agendamento criado
-          db.get(
-            'SELECT * FROM schedules WHERE id = ?',
-            [this.lastID],
-            (err, schedule) => {
-              if (err) {
-                reject(handleDbError(err))
-                return
-              }
-              resolve(formatSchedule(schedule))
-            }
-          )
-        }
-      )
-    })
-  }
-  
-  static async findAllByCat(catId, householdId) {
-    // Verificar se o gato existe e pertence ao domicílio
-    await Cat.findById(catId, householdId)
-    
-    return new Promise((resolve, reject) => {
-      db.all(
-        `SELECT s.* FROM schedules s
-         INNER JOIN cats c ON c.id = s.cat_id
-         WHERE s.cat_id = ? AND c.household_id = ?
-         ORDER BY s.id`,
-        [catId, householdId],
-        (err, schedules) => {
-          if (err) {
-            reject(handleDbError(err))
-            return
-          }
-          
-          // Formatar todos os agendamentos
-          const formattedSchedules = schedules.map(formatSchedule)
-          resolve(formattedSchedules)
-        }
-      )
-    })
-  }
-  
-  static async findById(id, householdId) {
-    return new Promise((resolve, reject) => {
-      db.get(
-        `SELECT s.* FROM schedules s
-         INNER JOIN cats c ON c.id = s.cat_id
-         WHERE s.id = ? AND c.household_id = ?`,
-        [id, householdId],
-        (err, schedule) => {
-          if (err) {
-            reject(handleDbError(err))
-            return
-          }
-          
-          if (!schedule) {
-            reject({ code: 'NOT_FOUND', message: 'Agendamento não encontrado' })
-            return
-          }
-          
-          resolve(formatSchedule(schedule))
-        }
-      )
-    })
-  }
-  
-  static async update(id, householdId, fields) {
-    validateFields(fields)
-    
-    // Verificar se o agendamento existe
-    const existingSchedule = await this.findById(id, householdId)
-    
-    // Preparar os campos para atualização
-    const updateFields = {}
-    const params = []
-    const allowedFields = ['type', 'interval_minutes', 'times', 'override_until']
-    
-    allowedFields.forEach(field => {
-      if (field in fields) {
-        let value = fields[field]
-        
-        // Tratar campos especiais
-        if (field === 'times') {
-          value = parseTimes(value)
-        }
-        
-        updateFields[field] = value
-        params.push(value)
+      const { cat_id, type, interval_minutes, times } = data;
+      
+      // Validações
+      if (!cat_id) {
+        return reject(new Error('ID do gato é obrigatório'));
       }
-    })
-    
-    // Se não houver campos para atualizar, retornar o agendamento existente
-    if (Object.keys(updateFields).length === 0) {
-      return existingSchedule
-    }
-    
-    // Construir a query de atualização
-    const setClause = Object.keys(updateFields)
-      .map(field => `${field} = ?`)
-      .join(', ')
-    
-    // Adicionar id e householdId aos parâmetros
-    params.push(id)
-    
+      
+      if (!type || !['fixed', 'interval'].includes(type)) {
+        return reject(new Error('Tipo de agendamento deve ser "fixed" ou "interval"'));
+      }
+      
+      if (type === 'interval' && !interval_minutes) {
+        return reject(new Error('Intervalo em minutos é obrigatório para agendamentos do tipo "interval"'));
+      }
+      
+      if (type === 'fixed' && (!times || !Array.isArray(JSON.parse(times)))) {
+        return reject(new Error('Lista de horários é obrigatória para agendamentos do tipo "fixed"'));
+      }
+      
+      const sql = `
+        INSERT INTO schedules (cat_id, type, interval_minutes, times)
+        VALUES (?, ?, ?, ?)
+      `;
+      
+      const timesValue = type === 'fixed' ? times : null;
+      const intervalValue = type === 'interval' ? interval_minutes : null;
+      
+      db.run(sql, [cat_id, type, intervalValue, timesValue], function(err) {
+        if (err) {
+          console.error('Erro ao criar agendamento:', err);
+          return reject(err);
+        }
+        
+        Schedule.findById(this.lastID)
+          .then(resolve)
+          .catch(reject);
+      });
+    });
+  }
+
+  /**
+   * Encontra um agendamento pelo ID
+   * @param {number} id ID do agendamento
+   * @returns {Promise<Object>} Agendamento encontrado
+   */
+  static findById(id) {
     return new Promise((resolve, reject) => {
-      db.run(
-        `UPDATE schedules SET ${setClause} 
-         WHERE id = ?`,
-        params,
-        err => {
-          if (err) {
-            reject(handleDbError(err))
-            return
+      const sql = `
+        SELECT id, cat_id, type, interval_minutes, times, override_until, created_at
+        FROM schedules
+        WHERE id = ?
+      `;
+      
+      db.get(sql, [id], (err, row) => {
+        if (err) {
+          console.error('Erro ao buscar agendamento:', err);
+          return reject(err);
+        }
+        
+        if (!row) {
+          return resolve(null);
+        }
+        
+        try {
+          // Converter JSON de horários para array se existir
+          const times = row.times ? JSON.parse(row.times) : null;
+          
+          resolve({
+            id: row.id,
+            cat_id: row.cat_id,
+            type: row.type,
+            interval_minutes: row.interval_minutes,
+            times: times,
+            override_until: row.override_until,
+            created_at: row.created_at
+          });
+        } catch (err) {
+          console.error('Erro ao processar dados do agendamento:', err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  /**
+   * Encontra agendamentos para um gato específico
+   * @param {number} catId ID do gato
+   * @returns {Promise<Array>} Lista de agendamentos
+   */
+  static findByCat(catId) {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT id, cat_id, type, interval_minutes, times, override_until, created_at
+        FROM schedules
+        WHERE cat_id = ?
+      `;
+      
+      db.all(sql, [catId], (err, rows) => {
+        if (err) {
+          console.error('Erro ao listar agendamentos do gato:', err);
+          return reject(err);
+        }
+        
+        try {
+          const schedules = rows.map(row => ({
+            id: row.id,
+            cat_id: row.cat_id,
+            type: row.type,
+            interval_minutes: row.interval_minutes,
+            times: row.times ? JSON.parse(row.times) : null,
+            override_until: row.override_until,
+            created_at: row.created_at
+          }));
+          
+          resolve(schedules);
+        } catch (err) {
+          console.error('Erro ao processar dados dos agendamentos:', err);
+          reject(err);
+        }
+      });
+    });
+  }
+
+  /**
+   * Atualiza um agendamento existente
+   * @param {number} id ID do agendamento
+   * @param {Object} data Dados para atualização
+   * @returns {Promise<Object>} Agendamento atualizado
+   */
+  static update(id, data) {
+    return new Promise((resolve, reject) => {
+      const updates = [];
+      const params = [];
+      
+      if (data.type) {
+        if (!['fixed', 'interval'].includes(data.type)) {
+          return reject(new Error('Tipo de agendamento deve ser "fixed" ou "interval"'));
+        }
+        updates.push('type = ?');
+        params.push(data.type);
+      }
+      
+      if (data.interval_minutes !== undefined) {
+        updates.push('interval_minutes = ?');
+        params.push(data.interval_minutes);
+      }
+      
+      if (data.times !== undefined) {
+        // Validar se é um JSON válido para tipo 'fixed'
+        try {
+          if (data.type === 'fixed' && (!data.times || !Array.isArray(JSON.parse(data.times)))) {
+            return reject(new Error('Lista de horários é obrigatória para agendamentos do tipo "fixed"'));
+          }
+        } catch (err) {
+          return reject(new Error('Formato de horários inválido'));
+        }
+        
+        updates.push('times = ?');
+        params.push(data.times);
+      }
+      
+      if (data.override_until !== undefined) {
+        updates.push('override_until = ?');
+        params.push(data.override_until);
+      }
+      
+      if (updates.length === 0) {
+        return resolve(null);
+      }
+      
+      const sql = `
+        UPDATE schedules
+        SET ${updates.join(', ')}
+        WHERE id = ?
+      `;
+      
+      params.push(id);
+      
+      db.run(sql, params, function(err) {
+        if (err) {
+          console.error('Erro ao atualizar agendamento:', err);
+          return reject(err);
+        }
+        
+        if (this.changes === 0) {
+          return resolve(null);
+        }
+        
+        Schedule.findById(id)
+          .then(resolve)
+          .catch(reject);
+      });
+    });
+  }
+
+  /**
+   * Remove um agendamento
+   * @param {number} id ID do agendamento
+   * @returns {Promise<boolean>} True se removido com sucesso
+   */
+  static remove(id) {
+    return new Promise((resolve, reject) => {
+      const sql = 'DELETE FROM schedules WHERE id = ?';
+      
+      db.run(sql, [id], function(err) {
+        if (err) {
+          console.error('Erro ao remover agendamento:', err);
+          return reject(err);
+        }
+        
+        resolve(this.changes > 0);
+      });
+    });
+  }
+
+  /**
+   * Calcula o próximo horário de alimentação para um gato
+   * @param {number} catId ID do gato
+   * @param {string} timezone Fuso horário para cálculo
+   * @returns {Promise<Object>} Informações do próximo horário
+   */
+  static getNextFeeding(catId, timezone = 'UTC') {
+    return new Promise(async (resolve, reject) => {
+      try {
+        const schedules = await Schedule.findByCat(catId);
+        
+        if (!schedules || schedules.length === 0) {
+          return resolve(null);
+        }
+        
+        const now = moment().tz(timezone);
+        let nextFeeding = null;
+        let nextTime = null;
+        
+        for (const schedule of schedules) {
+          // Verificar se há um override ativo
+          if (schedule.override_until && moment(schedule.override_until).isAfter(now)) {
+            // Lógica de override do agendamento
+            continue;
           }
           
-          // Retornar o agendamento atualizado
-          this.findById(id, householdId)
-            .then(schedule => resolve(schedule))
-            .catch(error => reject(error))
+          if (schedule.type === 'interval' && schedule.interval_minutes) {
+            // Calcular próxima alimentação baseada em intervalo
+            const lastFeeding = await Schedule.getLastFeeding(catId);
+            
+            if (!lastFeeding) {
+              // Se não houver alimentação anterior, agendar para agora
+              nextTime = now;
+            } else {
+              const lastTime = moment(lastFeeding.created_at).tz(timezone);
+              nextTime = lastTime.add(schedule.interval_minutes, 'minutes');
+            }
+          } else if (schedule.type === 'fixed' && schedule.times) {
+            // Calcular próxima alimentação baseada em horários fixos
+            const times = schedule.times;
+            
+            for (const timeStr of times) {
+              const [hour, minute] = timeStr.split(':').map(Number);
+              let timeToday = moment().tz(timezone).set({ hour, minute, second: 0 });
+              
+              // Se o horário já passou hoje, considerar para amanhã
+              if (timeToday.isBefore(now)) {
+                timeToday = timeToday.add(1, 'day');
+              }
+              
+              if (!nextTime || timeToday.isBefore(nextTime)) {
+                nextTime = timeToday;
+                nextFeeding = {
+                  schedule_id: schedule.id,
+                  cat_id: schedule.cat_id,
+                  scheduled_for: nextTime.format(),
+                  type: 'fixed',
+                  time: timeStr
+                };
+              }
+            }
+          }
         }
-      )
-    })
+        
+        resolve(nextFeeding);
+      } catch (err) {
+        console.error('Erro ao calcular próxima alimentação:', err);
+        reject(err);
+      }
+    });
   }
-  
-  static async delete(id, householdId) {
-    // Verificar se o agendamento existe
-    await this.findById(id, householdId)
-    
+
+  /**
+   * Recupera a última alimentação registrada para um gato
+   * @param {number} catId ID do gato
+   * @returns {Promise<Object>} Último registro de alimentação
+   */
+  static getLastFeeding(catId) {
     return new Promise((resolve, reject) => {
-      db.run(
-        'DELETE FROM schedules WHERE id = ?',
-        [id],
-        err => err ? reject(handleDbError(err)) : resolve({ id, deleted: true })
-      )
-    })
+      const sql = `
+        SELECT * FROM feeding_logs
+        WHERE cat_id = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+      
+      db.get(sql, [catId], (err, row) => {
+        if (err) {
+          console.error('Erro ao buscar última alimentação:', err);
+          return reject(err);
+        }
+        
+        resolve(row || null);
+      });
+    });
   }
 }
 

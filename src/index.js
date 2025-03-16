@@ -11,6 +11,9 @@ const db = require('./config/database');
 const authRoutes = require('./routes/auth_routes');
 const configureHouseholdRoutes = require('./routes/household_routes');
 const configureCatRoutes = require('./routes/cat_routes');
+const configureScheduleRoutes = require('./routes/schedule_routes');
+const configureFeedingLogRoutes = require('./routes/feeding_log_routes');
+const configureCatGroupRoutes = require('./routes/cat_group_routes');
 
 // Hoisted Variables and References
 const PORT = process.env.PORT || 3001;
@@ -71,6 +74,9 @@ app.use((err, req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/households', configureHouseholdRoutes(io));
 app.use('/api/cats', configureCatRoutes(io));
+app.use('/api/schedules', configureScheduleRoutes(io));
+app.use('/api/feeding-logs', configureFeedingLogRoutes(io));
+app.use('/api/cat-groups', configureCatGroupRoutes(io));
 
 // Base Routes
 app.get('/', (_, res) => 

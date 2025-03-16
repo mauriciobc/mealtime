@@ -20,6 +20,10 @@ const configureRoutes = io => {
   router.use(authenticate)
 
   // Rotas de agendamentos
+  router.post('/', scheduleController.create)
+  router.get('/:scheduleId', scheduleController.getDetails)
+  router.get('/cat/:catId', scheduleController.listByCat)
+  router.get('/cat/:catId/next', scheduleController.getNextFeeding)
   router.put('/:scheduleId', scheduleController.update)
   router.delete('/:scheduleId', scheduleController.remove)
 
