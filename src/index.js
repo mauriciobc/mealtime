@@ -1,102 +1,130 @@
 require('dotenv').config();
+
+// Remote Imports
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const socketIo = require('socket.io');
+
+// Local Imports
 const db = require('./config/database');
 const authRoutes = require('./routes/auth_routes');
 
+// Hoisted Variables and References
+const PORT = process.env.PORT || 3001;
+const FRONTEND_URL = process.env.FRONTEND_URL || '*';
+const NODE_ENV = process.env.NODE_ENV || 'development';
+
+const errorTypes = {
+  VALIDATION: 'ValidationError',
+  UNAUTHORIZED: 'UnauthorizedError',
+  DATABASE: 'SQLITE_ERROR'
+};
+
+// App Setup
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    origin: FRONTEND_URL,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
   }
 });
 
-// Middleware
+// Middleware Setup
 app.use(cors());
 app.use(express.json());
-
-// Rotas
 app.use('/api/auth', authRoutes);
 
-// Rota básica
-app.get('/', (req, res) => {
+// Base Routes
+app.get('/', (_, res) => 
   res.json({ 
     message: 'MealTime API',
     version: '1.0.0',
-    status: 'online'
+    status: 'online',
+    environment: NODE_ENV
+  })
+);
+
+// Socket Event Handlers
+const handleSocketConnection = socket => {
+  const { id } = socket;
+  console.info(`Cliente conectado: ${id}`);
+
+  const joinHousehold = householdId => {
+    const roomId = `household:${householdId}`;
+    socket.join(roomId);
+    console.info(`Cliente ${id} entrou no domicílio ${householdId}`);
+  };
+
+  const leaveHousehold = householdId => {
+    const roomId = `household:${householdId}`;
+    socket.leave(roomId);
+    console.info(`Cliente ${id} saiu do domicílio ${householdId}`);
+  };
+
+  const handleDisconnect = () => console.info(`Cliente desconectado: ${id}`);
+
+  // Socket Event Bindings
+  socket.on('disconnect', handleDisconnect);
+  socket.on('join:household', joinHousehold);
+  socket.on('leave:household', leaveHousehold);
+};
+
+// Socket.IO Setup
+io.on('connection', handleSocketConnection);
+
+// Error Handlers
+const handleValidationError = (res, err) => 
+  res.status(400).json({ 
+    error: 'Erro de validação',
+    details: err.message 
   });
-});
 
-// Socket.IO eventos
-io.on('connection', (socket) => {
-  console.info(`Cliente conectado: ${socket.id}`);
-
-  socket.on('disconnect', () => {
-    console.info(`Cliente desconectado: ${socket.id}`);
+const handleUnauthorizedError = (res, err) => 
+  res.status(401).json({ 
+    error: 'Não autorizado',
+    details: err.message 
   });
 
-  // Evento para juntar-se a uma sala de domicílio
-  socket.on('join:household', (householdId) => {
-    socket.join(`household:${householdId}`);
-    console.info(`Cliente ${socket.id} entrou no domicílio ${householdId}`);
+const handleDatabaseError = res => 
+  res.status(500).json({ 
+    error: 'Erro no banco de dados',
+    details: 'Ocorreu um erro ao acessar o banco de dados' 
   });
 
-  // Evento para sair de uma sala de domicílio
-  socket.on('leave:household', (householdId) => {
-    socket.leave(`household:${householdId}`);
-    console.info(`Cliente ${socket.id} saiu do domicílio ${householdId}`);
-  });
-});
-
-// Middleware de tratamento de erros
-app.use((err, req, res, next) => {
-  console.error('Erro não tratado:', err);
-  
-  // Erros de validação
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({ 
-      error: 'Erro de validação',
-      details: err.message 
-    });
-  }
-
-  // Erros de autenticação
-  if (err.name === 'UnauthorizedError') {
-    return res.status(401).json({ 
-      error: 'Não autorizado',
-      details: err.message 
-    });
-  }
-
-  // Erros do banco de dados
-  if (err.code === 'SQLITE_ERROR') {
-    return res.status(500).json({ 
-      error: 'Erro no banco de dados',
-      details: 'Ocorreu um erro ao acessar o banco de dados' 
-    });
-  }
-
-  // Erro genérico
+const handleGenericError = (res, err) => 
   res.status(500).json({ 
     error: 'Erro interno do servidor',
-    details: process.env.NODE_ENV === 'development' ? err.message : 'Ocorreu um erro inesperado'
+    details: NODE_ENV === 'development' ? err.message : 'Ocorreu um erro inesperado'
   });
+
+// Error Middleware
+app.use((err, _, res, next) => {
+  console.error('Erro não tratado:', err);
+
+  switch(err.name || err.code) {
+    case errorTypes.VALIDATION:
+      return handleValidationError(res, err);
+    case errorTypes.UNAUTHORIZED:
+      return handleUnauthorizedError(res, err);
+    case errorTypes.DATABASE:
+      return handleDatabaseError(res);
+    default:
+      return handleGenericError(res, err);
+  }
 });
 
-// Middleware para rotas não encontradas
-app.use((req, res) => {
+// 404 Handler
+app.use((req, res) => 
   res.status(404).json({ 
     error: 'Rota não encontrada',
     path: req.path
-  });
-});
+  })
+);
 
-const PORT = process.env.PORT || 3000;
+// Server Startup
 server.listen(PORT, () => {
   console.info(`Servidor rodando na porta ${PORT}`);
-  console.info(`Ambiente: ${process.env.NODE_ENV || 'development'}`);
+  console.info(`Ambiente: ${NODE_ENV}`);
 }); 
