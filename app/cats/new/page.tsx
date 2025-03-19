@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ImageUpload } from "@/components/image-upload";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -115,9 +116,12 @@ export default function NewCatPage() {
             name="photoUrl"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>URL da Foto</FormLabel>
+                <FormLabel>Foto</FormLabel>
                 <FormControl>
-                  <Input placeholder="URL da foto do gato" {...field} id={field.name} />
+                  <ImageUpload
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
