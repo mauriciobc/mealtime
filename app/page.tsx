@@ -135,6 +135,9 @@ export default function Home() {
           secondaryActionOnClick={() => {
             // Mostrar tour de onboarding
             localStorage.removeItem("onboarding-completed");
+            // Limpar quaisquer flags que possam estar causando problemas de sobreposição
+            document.body.style.overflow = "auto";
+            document.body.classList.remove("overflow-hidden");
             window.location.reload();
           }}
           className="max-w-xl mx-auto my-12"

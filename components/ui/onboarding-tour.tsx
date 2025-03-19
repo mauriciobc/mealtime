@@ -71,7 +71,7 @@ const steps: OnboardingStep[] = [
 export function OnboardingTour() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
-  const [showTour, setShowTour] = useLocalStorage("onboarding-completed", true);
+  const [showTour, setShowTour] = useLocalStorage("onboarding-completed", false);
 
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
@@ -97,91 +97,102 @@ export function OnboardingTour() {
 
   const completeTour = () => {
     setShowTour(false);
+    localStorage.setItem("onboarding-completed", "false");
+    document.body.classList.remove("overflow-hidden");
   };
 
   useEffect(() => {
-    // Verificar se é a primeira visita
     const isFirstVisit = localStorage.getItem("first-visit") === null;
     
     if (isFirstVisit) {
       localStorage.setItem("first-visit", "false");
       setShowTour(true);
     }
+    
+    return () => {
+      document.body.classList.remove("overflow-hidden");
+    };
   }, [setShowTour]);
 
   if (!showTour) return null;
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 50 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-        onClick={(e) => {
-          // Fechar apenas se clicar no fundo
-          if (e.target === e.currentTarget) {
-            completeTour();
-          }
-        }}
-      >
+    <AnimatePresence mode="wait" onExitComplete={() => {
+      document.body.style.overflow = "auto";
+    }}>
+      {showTour && (
         <motion.div
-          className="relative w-full max-w-lg rounded-xl bg-card p-6 shadow-lg"
-          onClick={(e) => e.stopPropagation()}
-          initial={{ scale: 0.9 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              completeTour();
+            }
+          }}
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-2"
-            onClick={completeTour}
+          <motion.div
+            className="relative w-full max-w-lg rounded-xl bg-card p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
-            <X className="h-4 w-4" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-2 top-2"
+              onClick={completeTour}
+              aria-label="Fechar tour"
+            >
+              <X className="h-4 w-4" />
+            </Button>
 
-          <div className="mb-6">
-            <div className={cn("rounded-full p-4 inline-flex mb-4", steps[currentStep].color)}>
-              {steps[currentStep].icon}
+            <div className="mb-6">
+              <div className={cn("rounded-full p-4 inline-flex mb-4", steps[currentStep].color)}>
+                {steps[currentStep].icon}
+              </div>
+              <h2 className="text-xl font-semibold mb-2">{steps[currentStep].title}</h2>
+              <p className="text-muted-foreground">{steps[currentStep].description}</p>
             </div>
-            <h2 className="text-xl font-semibold mb-2">{steps[currentStep].title}</h2>
-            <p className="text-muted-foreground">{steps[currentStep].description}</p>
-          </div>
 
-          <div className="flex justify-between items-center">
-            <div className="flex space-x-1">
-              {steps.map((_, index) => (
-                <button
-                  key={index}
-                  className={cn(
-                    "h-2 w-2 rounded-full transition-all duration-300",
-                    index === currentStep ? "bg-primary w-4" : "bg-muted"
-                  )}
-                  onClick={() => goToStep(index)}
-                />
-              ))}
+            <div className="flex justify-between items-center">
+              <div className="flex space-x-1">
+                {steps.map((_, index) => (
+                  <button
+                    key={index}
+                    className={cn(
+                      "h-2 w-2 rounded-full transition-all duration-300",
+                      index === currentStep ? "bg-primary w-4" : "bg-muted"
+                    )}
+                    onClick={() => goToStep(index)}
+                  />
+                ))}
+              </div>
+              <div className="flex space-x-2">
+                {currentStep > 0 && (
+                  <Button variant="outline" onClick={prevStep}>
+                    Anterior
+                  </Button>
+                )}
+                {currentStep < steps.length - 1 ? (
+                  <Button onClick={nextStep}>Próximo</Button>
+                ) : (
+                  <Button onClick={() => {
+                    completeTour();
+                    setTimeout(() => {
+                      navigateToRoute(steps[currentStep].route);
+                    }, 300);
+                  }}>
+                    Começar
+                  </Button>
+                )}
+              </div>
             </div>
-            <div className="flex space-x-2">
-              {currentStep > 0 && (
-                <Button variant="outline" onClick={prevStep}>
-                  Anterior
-                </Button>
-              )}
-              {currentStep < steps.length - 1 ? (
-                <Button onClick={nextStep}>Próximo</Button>
-              ) : (
-                <Button onClick={() => {
-                  completeTour();
-                  navigateToRoute(steps[currentStep].route);
-                }}>
-                  Começar
-                </Button>
-              )}
-            </div>
-          </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 } 
