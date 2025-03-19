@@ -1,0 +1,103 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Household {
+  id         Int      @id @default(autoincrement())
+  name       String
+  inviteCode String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  users      User[]
+  cats       Cat[]
+}
+
+model User {
+  id          Int           @id @default(autoincrement())
+  name        String
+  email       String        @unique
+  password    String?       // Campo opcional para senha
+  role        String
+  timezone    String?       @default("UTC")
+  language    String?       @default("pt-BR")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  householdId Int?
+  household   Household?    @relation(fields: [householdId], references: [id])
+  feedingLogs FeedingLog[]
+  notifications Notification[]
+}
+
+model Cat {
+  id           Int           @id @default(autoincrement())
+  name         String
+  photoUrl     String?
+  birthdate    DateTime?
+  weight       Float?
+  restrictions String?
+  notes        String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  householdId  Int
+  household    Household     @relation(fields: [householdId], references: [id])
+  schedules    Schedule[]
+  feedingLogs  FeedingLog[]
+  groups       CatGroup[]    @relation("CatToGroup")
+}
+
+model CatGroup {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cats      Cat[]    @relation("CatToGroup")
+}
+
+model Schedule {
+  id            Int       @id @default(autoincrement())
+  catId         Int
+  cat           Cat       @relation(fields: [catId], references: [id])
+  type          String
+  interval      Int
+  times         String
+  overrideUntil DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model FeedingLog {
+  id          Int      @id @default(autoincrement())
+  catId       Int
+  cat         Cat      @relation(fields: [catId], references: [id])
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  timestamp   DateTime
+  portionSize Float?
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  title       String
+  message     String
+  type        String    // 'feeding', 'reminder', 'system', etc.
+  isRead      Boolean   @default(false)
+  relatedId   String?   // ID relacionado (catId, scheduleId, etc.)
+  relatedType String?   // Tipo relacionado ('cat', 'schedule', etc.)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

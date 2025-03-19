@@ -1,0 +1,163 @@
+// User & Household
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  households: string[]; // IDs of households
+  primaryHousehold: string; // ID of primary household
+  preferences: {
+    timezone: string;
+    language: string; // en-US, pt-BR, es-ES
+    notifications: NotificationSettings;
+  };
+  role: 'admin' | 'user';
+  imageUrl?: string;
+}
+
+export interface Household {
+  id: string;
+  name: string;
+  inviteCode: string;
+  members: {
+    userId: string;
+    role: 'Admin' | 'Member'; // Role-based access
+    joinedAt: Date;
+  }[];
+  cats: string[]; // IDs of cats
+  catGroups: CatGroup[];
+}
+
+export interface CatGroup {
+  id: string;
+  name: string;
+  catIds: string[];
+}
+
+// Cat Profiles
+export interface Cat {
+  id: string;
+  name: string;
+  avatar?: string;
+  birthdate?: Date;
+  weight?: number;
+  dietaryRestrictions?: string[];
+  medicalNotes?: string;
+  regularAmount: string;
+  foodUnit: string;
+  feedingSchedules: FeedingSchedule[];
+  householdId: string;
+  photoUrl?: string;
+}
+
+// Feeding Configuration
+export interface FeedingSchedule {
+  id: string;
+  type: 'interval' | 'fixedTime';
+  interval?: number; // Hours between feedings
+  times?: string[]; // Specific times (e.g., "08:00", "18:00")
+  isActive: boolean;
+  isOverride: boolean; // For temporary schedule changes
+  overrideEndDate?: Date;
+}
+
+// Feeding Logs
+export interface FeedingLog {
+  id: string;
+  catId: string;
+  userId: string;
+  timestamp: Date;
+  portionSize?: number | null;
+  notes?: string | null;
+  createdAt?: Date;
+  cat?: Cat;
+  user?: User;
+}
+
+// Notifications
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: "feeding" | "reminder" | "system";
+  icon?: string;
+  timestamp: Date;
+  createdAt: Date;
+  isRead: boolean;
+  data?: {
+    scheduleId?: number;
+    catId?: number;
+    userId?: number;
+    [key: string]: any;
+  };
+}
+
+export interface NotificationSettings {
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  feedingReminders: boolean;
+  missedFeedingAlerts: boolean;
+  householdUpdates: boolean;
+}
+
+// Store the current cat data structure for compatibility
+export interface LegacyCatProfile {
+  id: string;
+  name: string;
+  avatar: string;
+  regularAmount: string;
+  foodUnit: string;
+  feedingInterval: number;
+  lastFed: string;
+  feedingHistory: {
+    time: string;
+    amount: string;
+  }[];
+}
+
+export interface Schedule {
+  id: string;
+  catId: string;
+  userId: string;
+  time: string;
+  days: string[];
+  enabled: boolean;
+  status?: "pending" | "completed" | "missed";
+  createdAt?: Date;
+  cat?: CatType;
+  user?: User;
+}
+
+export interface StatisticsData {
+  totalFeedings: number;
+  averagePortionSize: number;
+  maxConsecutiveDays: number;
+  missedSchedules: number;
+  timeSeriesData: TimeSeriesDataPoint[];
+  catPortionData: CatPortion[];
+  timeDistributionData: TimeSeriesDataPoint[];
+}
+
+export interface TimeSeriesDataPoint {
+  name: string;
+  valor: number;
+}
+
+export interface CatPortion {
+  name: string;
+  value: number;
+}
+
+export interface CatType {
+  id: string;
+  name: string;
+  birthdate?: Date;
+  weight?: number;
+  breed?: string;
+  photoUrl?: string;
+  restrictions?: string;
+  householdId?: string;
+  createdAt?: Date;
+  feedingLogs?: FeedingLog[];
+  schedules?: Schedule[];
+}
