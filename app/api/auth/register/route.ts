@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { UserRepository } from "@/lib/repositories";
 import { z } from "zod";
-import { hash } from "bcryptjs";
 
 // Esquema de validação para o registro
 const registerSchema = z.object({
@@ -57,14 +56,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Hash da senha
-    const hashedPassword = await hash(userData.password, 12);
-    
     // Criar o usuário
     const newUser = await UserRepository.create({
       name: userData.name,
       email: userData.email,
-      password: hashedPassword,
+      password: userData.password,
       role: userData.role,
       householdId: userData.householdId,
       timezone: userData.timezone,

@@ -37,7 +37,22 @@ export const UserRepository = {
       return null;
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // Tenta a verificação padrão
+    let isPasswordValid = await bcrypt.compare(password, user.password);
+
+    // Se falhar, tenta verificar se a senha foi hasheada duas vezes (para compatibilidade com contas antigas)
+    if (!isPasswordValid) {
+      const tempHash = await bcrypt.hash(password, 10);
+      isPasswordValid = await bcrypt.compare(tempHash, user.password);
+      
+      // Se a senha for válida com o método antigo, atualize-a para o novo formato
+      if (isPasswordValid) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { password: await bcrypt.hash(password, 10) }
+        });
+      }
+    }
 
     if (!isPasswordValid) {
       return null;
