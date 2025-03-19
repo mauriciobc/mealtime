@@ -21,6 +21,7 @@ export async function GET(
     const id = parseInt(params.id);
     
     if (isNaN(id)) {
+      console.error('ID de domicílio inválido:', params.id);
       return NextResponse.json(
         { error: 'ID de domicílio inválido' },
         { status: 400 }
@@ -37,6 +38,7 @@ export async function GET(
     });
     
     if (!household) {
+      console.error('Domicílio não encontrado com ID:', id);
       return NextResponse.json(
         { error: 'Domicílio não encontrado' },
         { status: 404 }
@@ -44,9 +46,19 @@ export async function GET(
     }
     
     const userId = parseInt(session.user.id as string);
+    
+    if (isNaN(userId)) {
+      console.error('ID de usuário inválido:', session.user.id);
+      return NextResponse.json(
+        { error: 'ID de usuário inválido' },
+        { status: 400 }
+      );
+    }
+    
     const userBelongsToHousehold = household.users.some(user => user.id === userId);
     
     if (!userBelongsToHousehold) {
+      console.error(`Usuário ${userId} não pertence ao domicílio ${id}`);
       return NextResponse.json(
         { error: 'Você não tem permissão para acessar este domicílio' },
         { status: 403 }
@@ -55,28 +67,28 @@ export async function GET(
     
     // Formatar os dados para a resposta
     const formattedHousehold = {
-      id: household.id.toString(),
+      id: String(household.id),
       name: household.name,
       inviteCode: household.inviteCode,
       members: household.users.map(user => ({
-        id: user.id.toString(),
+        id: String(user.id),
         name: user.name,
         email: user.email,
         role: user.role,
         isCurrentUser: user.id === userId
       })),
       cats: household.cats.map(cat => ({
-        id: cat.id.toString(),
+        id: String(cat.id),
         name: cat.name,
         photoUrl: cat.photoUrl
       }))
     };
     
     return NextResponse.json(formattedHousehold);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao buscar domicílio:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar o domicílio' },
+      { error: 'Ocorreu um erro ao buscar o domicílio. Tente novamente mais tarde.' },
       { status: 500 }
     );
   }

@@ -91,12 +91,12 @@ const mapToHouseholdType = (household: Household): any => {
 export default function HouseholdDetailsPage() {
   const params = useParams();
   const id = params.id as string;
+  const router = useRouter();
+  const { data: session, status } = useSession();
   
-  const router = useRouter()
-  const { data: session, status } = useSession()
-  const { state, dispatch } = useGlobalState()
-  const [isLoading, setIsLoading] = useState(true)
-  const [household, setHousehold] = useState<Household | null>(null)
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [household, setHousehold] = useState<Household | null>(null);
   const [cats, setCats] = useState<CatType[]>([])
   const [activeTab, setActiveTab] = useState('members')
   
@@ -107,23 +107,70 @@ export default function HouseholdDetailsPage() {
   const [catToDelete, setCatToDelete] = useState<string | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
 
+  // Verificar se o usuário está autenticado
   useEffect(() => {
-    if (status === 'authenticated') {
-      loadHouseholdDetails()
-    } else if (status === 'unauthenticated') {
-      router.push('/login')
+    if (status === "unauthenticated") {
+      router.push("/login");
     }
-  }, [status, router, id])
+  }, [status, router]);
+
+  // Carregar dados da residência
+  useEffect(() => {
+    if (session && session.user) {
+      loadHouseholdDetails();
+    }
+  }, [session, id]);
 
   const loadHouseholdDetails = async () => {
     try {
       setIsLoading(true)
       
-      // Em produção, seria uma chamada real à API
-      // const response = await fetch(`/api/households/${id}`);
-      // const data = await response.json();
+      // Validar o ID
+      if (!id || isNaN(Number(id))) {
+        console.error("ID de residência inválido:", id)
+        toast.error("ID de residência inválido")
+        router.push("/households")
+        return
+      }
       
-      // Usar dados mockados ou do contexto global em ambiente de desenvolvimento
+      // Tentar primeiro fazer uma chamada à API real
+      try {
+        const response = await fetch(`/api/households/${id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Dados da residência carregados via API:", data);
+          
+          // Mapear os dados
+          const mappedHousehold = {
+            ...data,
+            members: (data.members || []).map((member: any) => ({
+              id: member.id,
+              role: member.role === 'Admin' ? 'admin' : 'member',
+              name: member.name || '',
+              email: member.email || '',
+              isCurrentUser: member.id === session?.user?.id?.toString()
+            }))
+          }
+          
+          setHousehold(mappedHousehold as unknown as Household);
+          
+          // Buscar gatos se existirem
+          if (data.cats) {
+            setCats(data.cats);
+          }
+          
+          return;
+        }
+      } catch (apiError) {
+        console.error("Erro ao carregar via API:", apiError);
+        // Continuar para o fallback com dados mockados
+      }
       
       // Verificar se temos dados de households no estado
       if (!state.households || state.households.length === 0) {
@@ -403,6 +450,34 @@ export default function HouseholdDetailsPage() {
     )
   }
   
+  if (loadError) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col min-h-screen bg-background">
+          <AppHeader title="Erro" showBackButton />
+          
+          <div className="flex-1 p-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Erro ao carregar detalhes da residência</CardTitle>
+                <CardDescription>
+                  {loadError}
+                </CardDescription>
+              </CardHeader>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link href="/households">Voltar para Domicílios</Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
+          
+          <BottomNav />
+        </div>
+      </PageTransition>
+    )
+  }
+
   if (!household) {
     return (
       <PageTransition>
@@ -412,9 +487,9 @@ export default function HouseholdDetailsPage() {
           <div className="flex-1 p-4">
             <Card>
               <CardHeader>
-                <CardTitle>Domicílio não encontrado</CardTitle>
+                <CardTitle>Residência não encontrada</CardTitle>
                 <CardDescription>
-                  Não foi possível encontrar o domicílio solicitado.
+                  Não foi possível encontrar a residência solicitada.
                 </CardDescription>
               </CardHeader>
               <CardFooter>

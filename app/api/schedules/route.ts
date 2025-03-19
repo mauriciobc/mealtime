@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
 // GET /api/schedules - Listar agendamentos (filtragem opcional por catId)
 export async function GET(request: NextRequest) {
   try {
+    // Verificar autenticação
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const catId = searchParams.get('catId');
 

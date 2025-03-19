@@ -119,6 +119,8 @@ export const checkForNewNotifications = async (): Promise<Notification[]> => {
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
     const apiUrl = apiBaseUrl ? `${apiBaseUrl}/api/schedules` : '/api/schedules';
     
+    console.log('Buscando agendamentos em:', apiUrl);
+    
     const response = await fetch(apiUrl, {
       method: 'GET',
       credentials: 'include',
@@ -129,14 +131,36 @@ export const checkForNewNotifications = async (): Promise<Notification[]> => {
       cache: 'no-store'
     });
     
+    // Verificar o status da resposta
+    console.log('Status da resposta:', response.status, response.statusText);
+    
+    // Se receber 401 (não autorizado) ou 403 (proibido), não considerar como erro
+    // mas retornar uma lista vazia, pois o usuário ainda não está autenticado
+    if (response.status === 401 || response.status === 403) {
+      console.log('Usuário não autenticado, ignorando busca de notificações');
+      return [];
+    }
+    
     if (!response.ok) {
       throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
     }
     
-    const schedules: Schedule[] = await response.json();
+    // Verificar o tipo de conteúdo da resposta
+    const contentType = response.headers.get('content-type');
+    console.log('Tipo de conteúdo da resposta:', contentType);
+    
+    // Verificar se o contentType contém application/json
+    if (!contentType || !contentType.includes('application/json')) {
+      console.warn('Resposta não é JSON:', contentType);
+      return [];
+    }
+    
+    // Obter o JSON diretamente
+    const schedules = await response.json();
     
     if (!Array.isArray(schedules)) {
-      throw new Error('Resposta da API não é um array de agendamentos');
+      console.warn('Resposta da API não é um array:', schedules);
+      return [];
     }
     
     return generateNotificationsFromSchedules(schedules);

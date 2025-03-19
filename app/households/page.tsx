@@ -33,27 +33,24 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 // Tipos para os dados
 interface HouseholdMember {
-  userId: string;
-  role: "Admin" | "Member";
-  joinedAt: Date;
+  id: string;
   name?: string;
   email?: string;
-  image?: string;
+  role: string; // "admin" ou "member"
 }
 
 interface Cat {
   id: string;
   name: string;
-  imageUrl?: string;
+  photoUrl?: string;
 }
 
 interface Household {
   id: string;
   name: string;
+  inviteCode?: string;
   members: HouseholdMember[];
   cats: Cat[];
-  createdAt?: Date;
-  updatedAt?: Date;
 }
 
 // Componente de estado vazio
@@ -122,64 +119,20 @@ export default function HouseholdsPage() {
     const fetchHouseholds = async () => {
       setIsLoading(true);
       try {
-        // Simulando uma chamada de API
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Fazendo chamada real à API
+        const response = await fetch('/api/households');
         
-        // Dados simulados
-        const mockHouseholds: Household[] = [
-          {
-            id: "1",
-            name: "Casa Principal",
-            members: [
-              { 
-                userId: session?.user?.email || "user-1", 
-                role: "Admin", 
-                joinedAt: new Date(),
-                name: session?.user?.name || "Usuário Atual",
-                email: session?.user?.email || "user@example.com"
-              },
-              { 
-                userId: "user-2", 
-                role: "Member", 
-                joinedAt: new Date(),
-                name: "João Silva",
-                email: "joao@example.com"
-              }
-            ],
-            cats: [
-              { id: "cat-1", name: "Mia" },
-              { id: "cat-2", name: "Felix" }
-            ]
-          },
-          {
-            id: "2",
-            name: "Apartamento",
-            members: [
-              { 
-                userId: session?.user?.email || "user-1", 
-                role: "Member", 
-                joinedAt: new Date(),
-                name: session?.user?.name || "Usuário Atual",
-                email: session?.user?.email || "user@example.com"
-              },
-              { 
-                userId: "user-3", 
-                role: "Admin", 
-                joinedAt: new Date(),
-                name: "Maria Costa",
-                email: "maria@example.com"
-              }
-            ],
-            cats: [
-              { id: "cat-3", name: "Luna" }
-            ]
-          }
-        ];
+        if (!response.ok) {
+          throw new Error('Erro ao carregar domicílios');
+        }
         
-        setHouseholds(mockHouseholds);
+        const data = await response.json();
+        setHouseholds(data);
       } catch (error) {
         console.error("Erro ao carregar domicílios:", error);
         toast.error("Não foi possível carregar seus domicílios. Tente novamente mais tarde.");
+        // Inicializa com array vazio em caso de erro
+        setHouseholds([]);
       } finally {
         setIsLoading(false);
       }
@@ -190,8 +143,17 @@ export default function HouseholdsPage() {
 
   const handleDeleteHousehold = async (id: string) => {
     try {
-      // Simulando uma requisição
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Fazendo requisição real para excluir a residência
+      const response = await fetch(`/api/households/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao excluir casa');
+      }
       
       // Atualiza o estado local
       setHouseholds(prev => prev.filter(h => h.id !== id));
@@ -209,9 +171,9 @@ export default function HouseholdsPage() {
 
   const isAdmin = (household: Household) => {
     const currentUser = household.members.find(
-      member => member.userId === session?.user?.email || member.email === session?.user?.email
+      member => member.id === session?.user?.id?.toString() || member.email === session?.user?.email
     );
-    return currentUser?.role === "Admin";
+    return currentUser?.role === "admin" || currentUser?.role === "Admin";
   }
 
   const containerVariants = {

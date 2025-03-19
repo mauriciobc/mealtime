@@ -4,14 +4,22 @@ import { useEffect, useState } from 'react';
 import { useAppContext } from '@/lib/context/AppContext';
 import { checkForNewNotifications } from '@/lib/services/notification-service';
 import { toast } from '@/components/ui/use-toast';
+import { useSession } from 'next-auth/react';
 import type { Notification } from '@/lib/types';
 
 export default function NotificationChecker() {
   const { state, dispatch } = useAppContext();
   const [lastCheck, setLastCheck] = useState(Date.now());
+  const { status } = useSession();
+  const isAuthenticated = status === 'authenticated';
   
   // Verificar por novas notificações periodicamente
   useEffect(() => {
+    // Se o usuário não estiver autenticado, não verificar notificações
+    if (!isAuthenticated) {
+      return;
+    }
+    
     // Intervalo de 5 minutos (em produção pode ser ajustado)
     const CHECK_INTERVAL = 5 * 60 * 1000;
     
@@ -28,6 +36,11 @@ export default function NotificationChecker() {
     
     async function checkNotifications() {
       try {
+        // Se o usuário não estiver mais autenticado, não prosseguir
+        if (status !== 'authenticated') {
+          return;
+        }
+        
         const now = Date.now();
         setLastCheck(now);
         
@@ -70,7 +83,7 @@ export default function NotificationChecker() {
         }
       }
     }
-  }, [dispatch, lastCheck]);
+  }, [dispatch, lastCheck, isAuthenticated, status]);
   
   // Componente não renderiza nada visualmente
   return null;

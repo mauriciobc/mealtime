@@ -32,6 +32,7 @@ export default function NewHouseholdPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   
   // Configurar o formulário com validação
   const form = useForm<FormValues>({
@@ -59,6 +60,7 @@ export default function NewHouseholdPage() {
     }
     
     setIsSubmitting(true);
+    setErrorMessage("");
     
     try {
       const response = await fetch('/api/households', {
@@ -69,20 +71,22 @@ export default function NewHouseholdPage() {
         body: JSON.stringify(values),
       });
       
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Erro ao criar domicílio');
-      }
+      const responseData = await response.json();
       
-      const household = await response.json();
+      if (!response.ok) {
+        setErrorMessage(responseData.error || 'Erro ao criar domicílio');
+        throw new Error(responseData.error || 'Erro ao criar domicílio');
+      }
       
       toast({
         title: 'Sucesso',
-        description: `Domicílio ${household.name} criado com sucesso!`,
+        description: `Domicílio ${responseData.name} criado com sucesso!`,
       });
       
       // Redirecionar para a página de detalhes do domicílio
-      router.push(`/households/${household.id}`);
+      setTimeout(() => {
+        router.push(`/households/${responseData.id}`);
+      }, 500); // Pequeno atraso para garantir que a toast seja vista
     } catch (error) {
       console.error('Erro ao criar domicílio:', error);
       toast({
@@ -111,6 +115,12 @@ export default function NewHouseholdPage() {
           Crie um novo domicílio para gerenciar seus gatos com sua família ou amigos.
         </p>
       </div>
+      
+      {errorMessage && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+          <p className="text-sm">{errorMessage}</p>
+        </div>
+      )}
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

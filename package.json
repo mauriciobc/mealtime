@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "prisma:seed": "npx prisma db seed",
-    "db:reset": "npx prisma migrate reset --force"
+    "db:reset": "npx prisma migrate reset --force",
+    "db:clean": "npx ts-node --transpile-only prisma/clean-db.ts"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.2.1",

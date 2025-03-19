@@ -83,7 +83,28 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    // Verificar se o userId é válido
     const userId = parseInt(session.user.id as string);
+    if (isNaN(userId)) {
+      console.error('ID de usuário inválido:', session.user.id);
+      return NextResponse.json(
+        { error: 'ID de usuário inválido' },
+        { status: 400 }
+      );
+    }
+    
+    // Verificar se o usuário existe
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+    
+    if (!userExists) {
+      console.error('Usuário não encontrado:', userId);
+      return NextResponse.json(
+        { error: 'Usuário não encontrado' },
+        { status: 404 }
+      );
+    }
     
     // Gerar código de convite
     const inviteCode = uuidv4().substring(0, 8).toUpperCase();
@@ -112,22 +133,44 @@ export async function POST(request: NextRequest) {
     
     // Formatar os dados para a resposta
     const formattedHousehold = {
-      id: household.id.toString(),
+      id: String(household.id),
       name: household.name,
       inviteCode: household.inviteCode,
       members: household.users.map(user => ({
-        id: user.id.toString(),
+        id: String(user.id),
         name: user.name,
         email: user.email,
-        role: user.role
-      }))
+        role: user.role,
+        isCurrentUser: user.id === userId
+      })),
+      cats: []
     };
     
     return NextResponse.json(formattedHousehold, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao criar domicílio:', error);
+    
+    // Verificar se é um erro do Prisma para tratamento específico
+    if (error.code) {
+      // Erro de conflito (por exemplo, inviteCode já existe)
+      if (error.code === 'P2002') {
+        return NextResponse.json(
+          { error: 'Não foi possível criar o domicílio. Tente novamente.' },
+          { status: 409 }
+        );
+      }
+      
+      // Erro de restrição de referência (usuário não encontrado)
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { error: 'Usuário não encontrado' },
+          { status: 404 }
+        );
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao criar o domicílio' },
+      { error: 'Ocorreu um erro ao criar o domicílio. Tente novamente mais tarde.' },
       { status: 500 }
     );
   }
