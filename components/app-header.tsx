@@ -42,7 +42,7 @@ export function AppHeader({
           </div>
           
           <div className="flex items-center gap-3">
-            {showNotifications && <NotificationBadge />}
+            {showNotifications && currentUser && <NotificationBadge />}
             <AuthStatus />
           </div>
         </div>
