@@ -93,6 +93,7 @@ export default function HouseholdDetailsPage() {
   const id = params.id as string;
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { state, dispatch } = useGlobalState();
   
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -409,8 +410,6 @@ export default function HouseholdDetailsPage() {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
-          <AppHeader title="Carregando..." showBackButton />
-          
           <div className="flex-1 p-4">
             <Skeleton className="h-10 w-48 mb-4" />
             <Skeleton className="h-6 w-full mb-2" />
@@ -454,8 +453,6 @@ export default function HouseholdDetailsPage() {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
-          <AppHeader title="Erro" showBackButton />
-          
           <div className="flex-1 p-4">
             <Card>
               <CardHeader>
@@ -482,8 +479,6 @@ export default function HouseholdDetailsPage() {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
-          <AppHeader title="Erro" showBackButton />
-          
           <div className="flex-1 p-4">
             <Card>
               <CardHeader>
@@ -509,8 +504,6 @@ export default function HouseholdDetailsPage() {
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title={household.name} showBackButton />
-        
         <div className="flex-1 p-4">
           <div className="mb-6">
             <h1 className="text-2xl font-bold">{household.name}</h1>
