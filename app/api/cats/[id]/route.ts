@@ -20,6 +20,7 @@ export async function GET(
             name: true
           }
         },
+        schedules: true,
         feedingLogs: {
           take: 5,
           orderBy: {
@@ -69,7 +70,8 @@ export async function PUT(
       restrictions,
       notes,
       householdId,
-      schedules
+      schedules,
+      feeding_interval
     } = await request.json();
 
     // Verificar se o gato existe
@@ -93,6 +95,17 @@ export async function PUT(
       );
     }
 
+    // Validar o intervalo de alimentação se fornecido
+    if (feeding_interval !== undefined) {
+      const interval = parseInt(String(feeding_interval));
+      if (isNaN(interval) || interval < 1 || interval > 24) {
+        return NextResponse.json(
+          { error: 'O intervalo de alimentação deve estar entre 1 e 24 horas' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Atualizar o gato com tratamento adequado dos campos
     const updatedCat = await prisma.cat.update({
       where: { id },
@@ -104,14 +117,17 @@ export async function PUT(
         restrictions: restrictions !== undefined ? restrictions : undefined,
         notes: notes !== undefined ? notes : undefined,
         householdId: householdId || undefined,
+        feeding_interval: feeding_interval !== undefined ? parseInt(String(feeding_interval)) : undefined,
         schedules: schedules ? {
-          deleteMany: {}, // Remover schedules existentes
+          deleteMany: {}, // Remove schedules existentes
           create: schedules.map((schedule: any) => ({
             type: schedule.type,
-            interval: schedule.interval || 8, // Valor padrão de 8 horas
-            times: schedule.times || '08:00', // Valor padrão de 8:00
+            interval: schedule.interval,
+            times: schedule.times,
             overrideUntil: schedule.overrideUntil ? new Date(schedule.overrideUntil) : null,
-            createdAt: new Date()
+            enabled: schedule.enabled !== undefined ? schedule.enabled : true,
+            status: schedule.status || "pending",
+            createdAt: schedule.createdAt || new Date()
           }))
         } : undefined
       },

@@ -189,7 +189,7 @@ export default function StatisticsPage() {
 
         // Filtrar logs pelo período e gato selecionado
         const filteredLogs = logsData
-          .map((log: any) => ({
+          .map((log: FeedingData) => ({
             ...log,
             timestamp: toDate(new Date(log.timestamp), { timeZone: timezone }),
           }))
@@ -205,7 +205,7 @@ export default function StatisticsPage() {
         // Gerar dados para o gráfico de linha (tempo x porção)
         const timeSeriesMap = new Map<string, number>()
         
-        filteredLogs.forEach(log => {
+        filteredLogs.forEach((log: FeedingData) => {
           const dateKey = format(new Date(log.timestamp), "dd/MM")
           const currentValue = timeSeriesMap.get(dateKey) || 0
           timeSeriesMap.set(dateKey, currentValue + (log.portionSize || 0))
@@ -221,7 +221,7 @@ export default function StatisticsPage() {
         // Gerar dados para o gráfico de pizza (porção por gato)
         const catPortionMap = new Map<string, number>()
         
-        filteredLogs.forEach(log => {
+        filteredLogs.forEach((log: FeedingData) => {
           const currentValue = catPortionMap.get(log.catName) || 0
           catPortionMap.set(log.catName, currentValue + (log.portionSize || 0))
         })
@@ -236,7 +236,7 @@ export default function StatisticsPage() {
         // Gerar dados para distribuição de horários
         const hourDistribution = new Map<string, number>()
         
-        filteredLogs.forEach(log => {
+        filteredLogs.forEach((log: FeedingData) => {
           const hourKey = format(new Date(log.timestamp), "HH:00")
           const currentCount = hourDistribution.get(hourKey) || 0
           hourDistribution.set(hourKey, currentCount + 1)
@@ -256,9 +256,9 @@ export default function StatisticsPage() {
         
         // Calcular estatísticas resumidas
         const totalFeedings = filteredLogs.length
-        const validPortions = filteredLogs.filter(log => log.portionSize !== null && log.portionSize > 0)
+        const validPortions = filteredLogs.filter((log: FeedingData) => log.portionSize !== null && log.portionSize > 0)
         const averagePortionSize = validPortions.length > 0 
-          ? validPortions.reduce((sum, log) => sum + (log.portionSize || 0), 0) / validPortions.length
+          ? validPortions.reduce((sum: number, log: FeedingData) => sum + (log.portionSize || 0), 0) / validPortions.length
           : 0
           
         // Em um sistema real, buscaríamos esses dados de uma API

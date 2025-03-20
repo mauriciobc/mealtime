@@ -47,7 +47,7 @@ export interface CatType {
   createdAt?: Date;
   feedingLogs?: FeedingLog[];
   schedules?: Schedule[];
-  feeding_interval?: number; // Intervalo padrão de alimentação em horas
+  feeding_interval: number; // Intervalo padrão de alimentação em horas
 }
 
 // Feeding Logs

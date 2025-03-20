@@ -1,5 +1,6 @@
 import { CatType, FeedingLog, Household, User } from '@/lib/types';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
+import { addHours, isBefore, differenceInHours } from 'date-fns';
 import { getUserTimezone } from '../utils/dateUtils';
 
 // Create a simple UUID function since we can't install the package
@@ -18,12 +19,14 @@ export async function getData<T>(key: string, mockData: T[]): Promise<T[]> {
   try {
     // Verificar se localStorage está disponível
     if (typeof window === 'undefined') {
-      throw new Error("localStorage não está disponível");
+      console.log(`localStorage não disponível, retornando dados mockados para ${key}`);
+      return mockData;
     }
 
     const stored = localStorage.getItem(key);
     if (!stored) {
       // Primeira execução - salvar dados mockados
+      console.log(`Nenhum dado encontrado para ${key}, inicializando com dados mockados`);
       localStorage.setItem(key, JSON.stringify(mockData));
       return mockData;
     }
@@ -33,24 +36,33 @@ export async function getData<T>(key: string, mockData: T[]): Promise<T[]> {
       
       // Validar se os dados são um array
       if (!Array.isArray(parsed)) {
-        throw new Error(`Dados inválidos para ${key}: não é um array`);
+        console.warn(`Dados inválidos para ${key}: não é um array, resetando para dados mockados`);
+        localStorage.setItem(key, JSON.stringify(mockData));
+        return mockData;
+      }
+
+      // Se não houver template para validar, retornar os dados parseados
+      if (!mockData || mockData.length === 0) {
+        return parsed as T[];
       }
 
       // Validar se os dados têm a estrutura esperada
       if (parsed.length > 0 && !isValidDataStructure(parsed[0], mockData[0])) {
-        throw new Error(`Estrutura de dados inválida para ${key}`);
+        console.warn(`Estrutura de dados inválida para ${key}, resetando para dados mockados`);
+        localStorage.setItem(key, JSON.stringify(mockData));
+        return mockData;
       }
 
       return parsed as T[];
     } catch (parseError) {
-      console.error(`Erro ao analisar dados do ${key}:`, parseError);
+      console.warn(`Erro ao analisar dados do ${key}, resetando para dados mockados:`, parseError);
       localStorage.removeItem(key);
       localStorage.setItem(key, JSON.stringify(mockData));
       return mockData;
     }
   } catch (error) {
-    console.error(`Erro ao obter ${key}:`, error);
-    throw new Error(`Falha ao obter ${key}: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    console.warn(`Erro ao obter ${key}, retornando dados mockados:`, error);
+    return mockData;
   }
 }
 
@@ -243,7 +255,8 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
 // FEEDING LOG SERVICES
 export async function getFeedingLogs(catId: string, userTimezone?: string): Promise<FeedingLog[]> {
   await delay(300);
-  const logs = await getData<FeedingLog>('feedingLogs', []);
+  const mockData: FeedingLog[] = []; // Dados mockados vazios como fallback
+  const logs = await getData<FeedingLog>('feedingLogs', mockData);
   const timezone = getUserTimezone(userTimezone);
   return logs
     .sort((a, b) => {
@@ -363,9 +376,14 @@ export async function updateHousehold(id: string, householdData: Partial<Househo
 export async function getNextFeedingTime(catId: string, userTimezone?: string): Promise<Date | null> {
   const timezone = getUserTimezone(userTimezone);
   const now = toDate(new Date(), { timeZone: timezone });
+  console.log('[Debug] Calculando próximo horário de alimentação:');
+  console.log('- Timezone:', timezone);
+  console.log('- Data atual:', formatInTimeZone(now, timezone, 'yyyy-MM-dd HH:mm:ss'));
   
   // Obter logs ordenados por timestamp
   const logs = await getFeedingLogs(catId, timezone);
+  console.log('- Total de logs encontrados:', logs.length);
+  
   const lastFeeding = logs
     .sort((a, b) => {
       const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
@@ -375,41 +393,63 @@ export async function getNextFeedingTime(catId: string, userTimezone?: string): 
 
   // Se não houver logs, retorna null
   if (!lastFeeding) {
+    console.log('- Nenhum log de alimentação encontrado');
     return null;
   }
+
+  console.log('- Última alimentação:', formatInTimeZone(new Date(lastFeeding.timestamp), timezone, 'yyyy-MM-dd HH:mm:ss'));
 
   // Obter gato e seu agendamento
   const cat = await getCatById(catId, timezone);
   if (!cat) {
+    console.log('- Gato não encontrado');
     return null;
   }
 
+  console.log('- Gato encontrado:', {
+    id: cat.id,
+    name: cat.name,
+    feeding_interval: cat.feeding_interval,
+    schedules: cat.schedules
+  });
+
   let nextFeeding: Date | null = null;
+  const lastFeedingTime = toDate(new Date(lastFeeding.timestamp), { timeZone: timezone });
 
   // Se houver um agendamento ativo
   const activeSchedule = cat.schedules?.find(s => s.enabled);
   if (activeSchedule && activeSchedule.interval) {
-    const lastFeedingTime = toDate(new Date(lastFeeding.timestamp), { timeZone: timezone });
-    const nextTime = toDate(new Date(lastFeedingTime.getTime() + activeSchedule.interval * 60 * 60 * 1000), { timeZone: timezone });
-
-    // Se o próximo horário já passou, calcular o próximo intervalo a partir de agora
-    if (nextTime < now) {
-      nextFeeding = toDate(new Date(now.getTime() + activeSchedule.interval * 60 * 60 * 1000), { timeZone: timezone });
-    } else {
-      nextFeeding = nextTime;
-    }
+    console.log('- Usando agendamento ativo:', {
+      type: activeSchedule.type,
+      interval: activeSchedule.interval
+    });
+    
+    // Calcular quantos intervalos se passaram desde a última alimentação
+    const hoursElapsed = differenceInHours(now, lastFeedingTime);
+    const intervalsElapsed = Math.floor(hoursElapsed / activeSchedule.interval);
+    console.log('- Horas decorridas:', hoursElapsed);
+    console.log('- Intervalos completos:', intervalsElapsed);
+    
+    // Calcular o próximo horário baseado no último intervalo completo
+    nextFeeding = addHours(lastFeedingTime, (intervalsElapsed + 1) * activeSchedule.interval);
+    console.log('- Próximo horário calculado:', formatInTimeZone(nextFeeding, timezone, 'yyyy-MM-dd HH:mm:ss'));
   }
   // Se não houver agendamento mas tiver intervalo padrão
   else if (cat.feeding_interval) {
-    const lastFeedingTime = toDate(new Date(lastFeeding.timestamp), { timeZone: timezone });
-    nextFeeding = toDate(new Date(lastFeedingTime.getTime() + cat.feeding_interval * 60 * 60 * 1000), { timeZone: timezone });
-
-    // Se o próximo horário já passou, calcular o próximo intervalo a partir de agora
-    if (nextFeeding < now) {
-      nextFeeding = toDate(new Date(now.getTime() + cat.feeding_interval * 60 * 60 * 1000), { timeZone: timezone });
-    }
+    console.log('- Usando intervalo padrão:', cat.feeding_interval);
+    
+    // Calcular quantos intervalos se passaram desde a última alimentação
+    const hoursElapsed = differenceInHours(now, lastFeedingTime);
+    const intervalsElapsed = Math.floor(hoursElapsed / cat.feeding_interval);
+    console.log('- Horas decorridas:', hoursElapsed);
+    console.log('- Intervalos completos:', intervalsElapsed);
+    
+    // Calcular o próximo horário baseado no último intervalo completo
+    nextFeeding = addHours(lastFeedingTime, (intervalsElapsed + 1) * cat.feeding_interval);
+    console.log('- Próximo horário calculado:', formatInTimeZone(nextFeeding, timezone, 'yyyy-MM-dd HH:mm:ss'));
   }
 
+  console.log('- Horário final calculado:', nextFeeding ? formatInTimeZone(nextFeeding, timezone, 'yyyy-MM-dd HH:mm:ss') : 'null');
   return nextFeeding;
 }
 

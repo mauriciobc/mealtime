@@ -103,7 +103,7 @@ export function formatDateTime(date: Date | string, userTimezone?: string): stri
 /**
  * Get a relative time (e.g., "3 hours ago", "in 5 minutes")
  */
-export function getRelativeTime(date: Date | string, userTimezone?: string): string {
+export function getRelativeTime(date: Date | string | null | undefined, userTimezone?: string): string {
   if (!date) return "";
   
   try {

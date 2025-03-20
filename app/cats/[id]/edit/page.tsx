@@ -76,13 +76,17 @@ export default function EditCatPage({ params }: PageProps) {
   useEffect(() => {
     const loadCat = async () => {
       try {
-        const cat = await getCatById(resolvedParams.id, state.cats)
+        const cat = await getCatById(resolvedParams.id)
         
         if (!cat) {
           toast.error("Gato não encontrado")
           router.push("/cats")
           return
         }
+        
+        console.log('Dados do gato carregados:', cat)
+        console.log('Agendamentos:', cat.schedules)
+        console.log('Intervalo de alimentação:', cat.feeding_interval)
         
         // Format date for input field (YYYY-MM-DD)
         let formattedBirthdate = ""
@@ -91,14 +95,42 @@ export default function EditCatPage({ params }: PageProps) {
           formattedBirthdate = format(date, "yyyy-MM-dd")
         }
         
+        // Garantir que os schedules existam e mantenham seus valores originais
+        const existingSchedules = cat.schedules || []
+        console.log('Agendamentos existentes:', existingSchedules)
+        
+        // Se não houver agendamentos, criar um com o intervalo do gato
+        let schedules = existingSchedules
+        if (existingSchedules.length === 0) {
+          schedules = [{
+            id: uuidv4(),
+            catId: parseInt(resolvedParams.id),
+            userId: "1",
+            type: 'interval',
+            interval: cat.feeding_interval,
+            days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+            enabled: true,
+            status: "pending",
+            createdAt: new Date()
+          }]
+          console.log('Criando agendamento inicial com intervalo:', cat.feeding_interval)
+        }
+        
         setFormData({
           name: cat.name,
           birthdate: formattedBirthdate,
           weight: cat.weight?.toString() || "",
           restrictions: cat.restrictions || "",
           photoUrl: cat.photoUrl || "/placeholder.svg?height=200&width=200",
-          schedules: cat.schedules || []
+          schedules: schedules.map(schedule => ({
+            ...schedule,
+            times: schedule.times || "",
+            enabled: schedule.enabled !== undefined ? schedule.enabled : true,
+            status: schedule.status || "pending"
+          }))
         })
+        
+        console.log('Form data atualizado:', formData)
         
         setIsLoading(false)
       } catch (error) {
@@ -109,7 +141,7 @@ export default function EditCatPage({ params }: PageProps) {
     }
     
     loadCat()
-  }, [resolvedParams.id, router, state.cats])
+  }, [resolvedParams.id, router])
   
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -161,45 +193,83 @@ export default function EditCatPage({ params }: PageProps) {
     setIsSubmitting(true)
     
     try {
-      const existingCat = await getCatById(resolvedParams.id, state.cats)
+      const existingCat = await getCatById(resolvedParams.id)
       
       if (!existingCat) {
         toast.error("Gato não encontrado")
         return
       }
       
+      console.log('Dados existentes do gato:', existingCat)
+      console.log('Dados do formulário:', formData)
+      
       // Formatar e validar os dados antes de atualizar
-      const updatedCat: CatType = {
-        ...existingCat,
+      const updatedData = {
         name: formData.name.trim(),
         photoUrl: formData.photoUrl,
         birthdate: formData.birthdate ? new Date(formData.birthdate) : undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
         restrictions: formData.restrictions?.trim() || undefined,
+        feeding_interval: formData.schedules[0]?.type === 'interval' ? formData.schedules[0].interval : 8,
         schedules: formData.schedules?.map(schedule => ({
           ...schedule,
           catId: parseInt(resolvedParams.id),
+          interval: schedule.type === 'interval' ? schedule.interval : undefined,
+          times: schedule.type === 'fixedTime' ? schedule.times : undefined,
           createdAt: schedule.createdAt || new Date()
-        })) || existingCat.schedules || []
+        })) || []
       }
       
+      console.log('Dados formatados para atualização:', updatedData)
+      
       // Atualizar o gato
-      const result = await updateCat(resolvedParams.id, updatedCat, state.cats)
+      const updatedCat = await updateCat(resolvedParams.id, updatedData, state.cats)
+      
+      console.log('Resultado da atualização:', updatedCat)
       
       // Atualizar estado global
       dispatch({
         type: "UPDATE_CAT",
-        payload: result
+        payload: updatedCat
       })
       
       toast.success(`${formData.name} foi atualizado com sucesso`)
       router.push(`/cats/${resolvedParams.id}`)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao atualizar gato:", error)
+      if (error.response) {
+        console.error("Detalhes do erro:", await error.response.text())
+      }
       toast.error("Algo deu errado. Por favor, tente novamente.")
     } finally {
       setIsSubmitting(false)
     }
+  }
+  
+  // Atualizar o manipulador de mudança do intervalo
+  const handleIntervalChange = (value: number) => {
+    setFormData(prev => {
+      const newSchedules = [...prev.schedules]
+      if (newSchedules.length > 0) {
+        newSchedules[0] = {
+          ...newSchedules[0],
+          interval: value
+        }
+      } else {
+        newSchedules.push({
+          id: uuidv4(),
+          catId: parseInt(resolvedParams.id),
+          userId: "1", // ID padrão do usuário
+          type: 'interval',
+          interval: value,
+          days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+          enabled: true,
+          status: "pending",
+          createdAt: new Date()
+        })
+      }
+      return { ...prev, schedules: newSchedules }
+    })
   }
   
   if (isLoading) {
@@ -367,32 +437,8 @@ export default function EditCatPage({ params }: PageProps) {
                             <Input 
                               type="number" 
                               name="interval"
-                              value={formData.schedules[0]?.interval || 8}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value)
-                                setFormData(prev => {
-                                  const newSchedules = [...prev.schedules]
-                                  if (newSchedules.length > 0) {
-                                    newSchedules[0] = {
-                                      ...newSchedules[0],
-                                      interval: value
-                                    }
-                                  } else {
-                                    newSchedules.push({
-                                      id: uuidv4(),
-                                      catId: parseInt(resolvedParams.id),
-                                      userId: "1",
-                                      type: 'interval',
-                                      interval: value,
-                                      days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-                                      enabled: true,
-                                      status: "pending",
-                                      createdAt: new Date()
-                                    })
-                                  }
-                                  return { ...prev, schedules: newSchedules }
-                                })
-                              }}
+                              value={formData.schedules[0]?.interval ?? 8}
+                              onChange={(e) => handleIntervalChange(parseInt(e.target.value))}
                               min="1" 
                               max="24"
                               className="w-16 h-7 inline-block mx-2" 

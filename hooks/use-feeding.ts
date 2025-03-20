@@ -75,11 +75,16 @@ export function useFeeding(catId: string) {
           setLogs(catLogs);
 
           // Calculate next feeding time
-          const next = getNextFeedingTime(catId, state.cats, state.feedingLogs);
-          setNextFeedingTime(next);
-          
-          // Update displayed time in a separate step to avoid loops
-          updateFeedingTimeDisplay(next);
+          const next = await getNextFeedingTime(catId);
+          if (next instanceof Date) {
+            setNextFeedingTime(next);
+            // Update displayed time in a separate step to avoid loops
+            updateFeedingTimeDisplay(next);
+          } else {
+            setNextFeedingTime(null);
+            setFormattedNextFeedingTime("");
+            setFormattedTimeDistance("");
+          }
         }
       } catch (error) {
         console.error("Erro ao buscar dados do gato:", error);
@@ -96,9 +101,11 @@ export function useFeeding(catId: string) {
   // Refresh feeding times every minute
   useEffect(() => {
     const interval = setInterval(() => {
-      if (nextFeedingTime) {
+      if (nextFeedingTime && !isNaN(nextFeedingTime.getTime())) {
         // Only update the time distance, not all state variables
         setFormattedTimeDistance(getRelativeTime(nextFeedingTime));
+      } else {
+        setFormattedTimeDistance("");
       }
     }, 60000);
 
