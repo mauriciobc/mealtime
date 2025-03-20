@@ -14,7 +14,7 @@ import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, LineCh
 import { useAppContext } from "@/lib/context/AppContext"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line, Pie, Cell, Legend } from "recharts"
+import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line, Pie, Cell, Legend } from "recharts"
 import { getFeedingStatistics } from "@/lib/services/statistics-service"
 import { DataTableSkeleton } from "@/components/skeletons/data-table-skeleton"
 import NoDataMessage from "@/components/no-data-message"
@@ -27,7 +27,7 @@ import { useGlobalState } from "@/lib/context/global-state"
 
 interface FeedingData {
   id: string
-  catId: string
+  catId: number
   catName: string
   timestamp: Date
   portionSize: number | null
@@ -60,28 +60,70 @@ interface StatisticsData {
   timeDistributionData: TimeSeriesDataPoint[]
 }
 
-// Componentes simulados para os gráficos
-const LineChartComponent = () => (
-  <div className="h-[300px] flex items-center justify-center bg-muted/30 rounded-lg">
-    <LineChart className="h-16 w-16 text-muted" />
+interface ChartProps {
+  timeSeriesData: TimeSeriesDataPoint[];
+  timeDistributionData: TimeSeriesDataPoint[];
+  catPortionData: CatPortion[];
+  formatTooltip: (value: number) => string;
+}
+
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
+
+const LineChartComponent = ({ timeSeriesData, formatTooltip }: ChartProps) => (
+  <div className="h-[300px] w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <RechartsBarChart data={timeSeriesData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip formatter={formatTooltip} />
+        <Line type="monotone" dataKey="valor" stroke="#8884d8" />
+      </RechartsBarChart>
+    </ResponsiveContainer>
   </div>
 )
 
-const BarChartComponent = () => (
-  <div className="h-[300px] flex items-center justify-center bg-muted/30 rounded-lg">
-    <BarChart3 className="h-16 w-16 text-muted" />
+const BarChartComponent = ({ timeDistributionData }: ChartProps) => (
+  <div className="h-[300px] w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <RechartsBarChart data={timeDistributionData}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="name" />
+        <YAxis />
+        <Tooltip />
+        <Bar dataKey="valor" fill="#8884d8" />
+      </RechartsBarChart>
+    </ResponsiveContainer>
   </div>
 )
 
-const PieChartComponent = () => (
-  <div className="h-[300px] flex items-center justify-center bg-muted/30 rounded-lg">
-    <PieChart className="h-16 w-16 text-muted" />
+const PieChartComponent = ({ catPortionData }: ChartProps) => (
+  <div className="h-[300px] w-full">
+    <ResponsiveContainer width="100%" height="100%">
+      <RechartsBarChart>
+        <Pie
+          data={catPortionData}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          outerRadius={80}
+          label
+        >
+          {catPortionData.map((entry, index) => (
+            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+          ))}
+        </Pie>
+        <Tooltip />
+        <Legend />
+      </RechartsBarChart>
+    </ResponsiveContainer>
   </div>
 )
 
 export default function StatisticsPage() {
   const router = useRouter()
-  const { state } = useGlobalState()
+  const { state, dispatch } = useGlobalState()
   const [selectedPeriod, setSelectedPeriod] = useState("7dias")
   const [selectedCat, setSelectedCat] = useState<string>("all")
   const [feedingData, setFeedingData] = useState<FeedingData[]>([])
@@ -96,9 +138,26 @@ export default function StatisticsPage() {
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesDataPoint[]>([])
   const [catPortionData, setCatPortionData] = useState<CatPortion[]>([])
   const [timeDistributionData, setTimeDistributionData] = useState<TimeSeriesDataPoint[]>([])
-  
-  // Cores para os gráficos
-  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042']
+
+  // Carregar dados de alimentação quando a página for montada
+  useEffect(() => {
+    const fetchFeedingLogs = async () => {
+      try {
+        const response = await fetch('/api/feedings')
+        const data = await response.json()
+        
+        dispatch({
+          type: "SET_FEEDING_LOGS",
+          payload: data
+        })
+      } catch (error) {
+        console.error("Erro ao carregar registros de alimentação:", error)
+        toast.error("Não foi possível carregar os registros de alimentação")
+      }
+    }
+
+    fetchFeedingLogs()
+  }, [dispatch])
   
   useEffect(() => {
     async function loadData() {
@@ -139,7 +198,7 @@ export default function StatisticsPage() {
           
           // Filtrar por gato, se necessário
           if (selectedCat !== "all") {
-            filteredData = filteredData.filter(log => log.catId === selectedCat)
+            filteredData = filteredData.filter(log => log.catId === parseInt(selectedCat))
           }
           
           setFeedingData(filteredData)
@@ -223,7 +282,7 @@ export default function StatisticsPage() {
     }
     
     loadData()
-  }, [selectedPeriod, selectedCat, state.feedingLogs, state.cats])
+  }, [selectedPeriod, selectedCat, state.feedingLogs, state.cats, dispatch])
   
   // Formatador para o tooltip do gráfico
   const formatTooltip = (value: number) => {
@@ -292,13 +351,12 @@ export default function StatisticsPage() {
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title="Estatísticas" />
-        
-        <div className="flex-1 p-4">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Estatísticas de Alimentação</h1>
-            <p className="text-muted-foreground">Acompanhe os padrões de alimentação dos seus gatos</p>
-          </div>
+        <div className="container mx-auto px-4 py-8">
+          <PageHeader
+            title="Estatísticas"
+            description="Análise dos padrões de alimentação dos seus gatos"
+            icon={<BarChart3 className="h-6 w-6" />}
+          />
           
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div className="flex flex-wrap gap-2">
@@ -326,7 +384,7 @@ export default function StatisticsPage() {
                 <SelectContent>
                   <SelectItem value="all">Todos os gatos</SelectItem>
                   {state.cats.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    <SelectItem key={cat.id} value={cat.id.toString()}>{cat.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -413,32 +471,12 @@ export default function StatisticsPage() {
                           <CardDescription>Quantidade total consumida por dia (em gramas)</CardDescription>
                         </CardHeader>
                         <CardContent className="p-1 h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={timeSeriesData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis 
-                                dataKey="name" 
-                                tick={{ fontSize: 12 }}
-                              />
-                              <YAxis 
-                                tick={{ fontSize: 12 }}
-                                tickFormatter={(value) => `${value}g`}
-                              />
-                              <Tooltip 
-                                formatter={formatTooltip}
-                                contentStyle={{ fontSize: '12px' }}
-                                labelStyle={{ fontWeight: 'bold' }}
-                              />
-                              <Line 
-                                type="monotone" 
-                                dataKey="valor" 
-                                stroke="#8884d8" 
-                                strokeWidth={2}
-                                name="Quantidade (g)"
-                                activeDot={{ r: 6 }}
-                              />
-                            </LineChart>
-                          </ResponsiveContainer>
+                          <LineChartComponent 
+                            timeSeriesData={timeSeriesData}
+                            timeDistributionData={timeDistributionData}
+                            catPortionData={catPortionData}
+                            formatTooltip={formatTooltip}
+                          />
                         </CardContent>
                       </Card>
                     </TabsContent>
@@ -450,28 +488,12 @@ export default function StatisticsPage() {
                           <CardDescription>Frequência de alimentações por hora do dia</CardDescription>
                         </CardHeader>
                         <CardContent className="p-1 h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={timeDistributionData}>
-                              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                              <XAxis 
-                                dataKey="name" 
-                                tick={{ fontSize: 12 }}
-                              />
-                              <YAxis 
-                                tick={{ fontSize: 12 }}
-                              />
-                              <Tooltip 
-                                formatter={(value) => [`${value} alimentações`, 'Frequência']}
-                                contentStyle={{ fontSize: '12px' }}
-                                labelStyle={{ fontWeight: 'bold' }}
-                              />
-                              <Bar 
-                                dataKey="valor" 
-                                fill="#82ca9d" 
-                                name="Quantidade"
-                              />
-                            </BarChart>
-                          </ResponsiveContainer>
+                          <BarChartComponent 
+                            timeSeriesData={timeSeriesData}
+                            timeDistributionData={timeDistributionData}
+                            catPortionData={catPortionData}
+                            formatTooltip={formatTooltip}
+                          />
                         </CardContent>
                       </Card>
                     </TabsContent>
@@ -483,29 +505,12 @@ export default function StatisticsPage() {
                           <CardDescription>Quantidade total consumida por cada gato</CardDescription>
                         </CardHeader>
                         <CardContent className="p-1 h-[300px]">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={catPortionData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                outerRadius={100}
-                                fill="#8884d8"
-                                dataKey="value"
-                              >
-                                {catPortionData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                ))}
-                              </Pie>
-                              <Tooltip 
-                                formatter={(value) => `${value}g`}
-                                contentStyle={{ fontSize: '12px' }}
-                              />
-                              <Legend />
-                            </PieChart>
-                          </ResponsiveContainer>
+                          <PieChartComponent 
+                            timeSeriesData={timeSeriesData}
+                            timeDistributionData={timeDistributionData}
+                            catPortionData={catPortionData}
+                            formatTooltip={formatTooltip}
+                          />
                         </CardContent>
                       </Card>
                     </TabsContent>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useState, useEffect, use } from "react"
+import { useRouter } from "next/navigation"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,12 +16,29 @@ import { motion } from "framer-motion"
 import AnimatedIcon from "@/components/animated-icon"
 import LoadingSpinner from "@/components/loading-spinner"
 
-export default function CatSettings() {
-  const params = useParams()
-  const id = params.id as string
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+interface Cat {
+  id: string;
+  name: string;
+  avatar: string;
+  regularAmount: string;
+  foodUnit: string;
+  feedingInterval: number;
+  lastFed: string;
+  feedingHistory: {
+    time: string;
+    amount: string;
+  }[];
+}
+
+export default function CatSettings({ params }: PageProps) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const { toast } = useToast()
-  const [cat, setCat] = useState(null)
+  const [cat, setCat] = useState<Cat | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -40,7 +57,7 @@ export default function CatSettings() {
       setLoading(true)
       await new Promise((resolve) => setTimeout(resolve, 800))
 
-      const foundCat = catProfiles.find((c) => c.id === id)
+      const foundCat = catProfiles.find((c) => c.id === resolvedParams.id)
       if (foundCat) {
         setCat(foundCat)
         setFormData({
@@ -57,18 +74,18 @@ export default function CatSettings() {
     }
 
     fetchData()
-  }, [id, router])
+  }, [resolvedParams.id, router])
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSwitchChange = (checked) => {
+  const handleSwitchChange = (checked: boolean) => {
     setFormData((prev) => ({ ...prev, notifications: checked }))
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
 
@@ -88,6 +105,8 @@ export default function CatSettings() {
   }
 
   const handleDelete = async () => {
+    if (!cat) return
+    
     setDeleting(true)
 
     // Simulate API call
@@ -156,7 +175,7 @@ export default function CatSettings() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {cat.name}'s Settings
+              {cat?.name || 'Cat'}'s Settings
             </motion.h1>
           </header>
 

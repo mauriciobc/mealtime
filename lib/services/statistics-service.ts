@@ -22,7 +22,8 @@ export async function getFeedingStatistics(
     // const response = await fetch(`/api/statistics?period=${period}&catId=${catId}`);
     // const data = await response.json();
     
-    // Dados mockados para desenvolvimento
+    // Por enquanto, retornamos dados vazios
+    // Os dados reais serão processados na página de estatísticas
     return {
       totalFeedings: 0,
       averagePortionSize: 0,

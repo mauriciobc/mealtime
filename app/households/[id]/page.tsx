@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
@@ -62,7 +62,7 @@ interface Member {
 }
 
 interface Cat {
-  id: string;
+  id: number;
   name: string;
   photoUrl: string | null;
 }
@@ -89,9 +89,12 @@ const mapToHouseholdType = (household: Household): any => {
   };
 };
 
-export default function HouseholdDetailsPage() {
-  const params = useParams();
-  const id = params.id as string;
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function HouseholdDetailsPage({ params }: PageProps) {
+  const resolvedParams = use(params)
   const router = useRouter();
   const { data: session, status } = useSession();
   const { state, dispatch } = useGlobalState();
@@ -106,7 +109,7 @@ export default function HouseholdDetailsPage() {
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
   const [memberToPromote, setMemberToPromote] = useState<string | null>(null)
   const [memberToDemote, setMemberToDemote] = useState<string | null>(null)
-  const [catToDelete, setCatToDelete] = useState<string | null>(null)
+  const [catToDelete, setCatToDelete] = useState<number | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
 
   // Verificar se o usuário está autenticado
@@ -121,15 +124,15 @@ export default function HouseholdDetailsPage() {
     if (session && session.user) {
       loadHouseholdDetails();
     }
-  }, [session, id]);
+  }, [session, resolvedParams.id]);
 
   const loadHouseholdDetails = async () => {
     try {
       setIsLoading(true)
       
       // Validar o ID
-      if (!id || isNaN(Number(id))) {
-        console.error("ID de residência inválido:", id)
+      if (!resolvedParams.id || isNaN(Number(resolvedParams.id))) {
+        console.error("ID de residência inválido:", resolvedParams.id)
         toast.error("ID de residência inválido")
         router.push("/households")
         return
@@ -137,7 +140,7 @@ export default function HouseholdDetailsPage() {
       
       // Tentar primeiro fazer uma chamada à API real
       try {
-        const response = await fetch(`/api/households/${id}`, {
+        const response = await fetch(`/api/households/${resolvedParams.id}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -164,7 +167,7 @@ export default function HouseholdDetailsPage() {
           
           // Buscar gatos do domicílio usando a API específica
           try {
-            const catData = await getCatsByHouseholdId(id);
+            const catData = await getCatsByHouseholdId(resolvedParams.id);
             if (catData && catData.length > 0) {
               console.log("Gatos carregados via API:", catData);
               setCats(catData);
@@ -194,13 +197,13 @@ export default function HouseholdDetailsPage() {
         return
       }
       
-      console.log("Buscando household com ID:", id)
+      console.log("Buscando household com ID:", resolvedParams.id)
       console.log("Households disponíveis:", state.households)
       
       // Tentativa mais robusta de encontrar o household
       const foundHousehold = state.households.find((h: any) => {
         if (!h || !h.id) return false
-        return String(h.id) === String(id)
+        return String(h.id) === String(resolvedParams.id)
       })
       
       if (foundHousehold) {
@@ -230,7 +233,7 @@ export default function HouseholdDetailsPage() {
         setCats(householdCats as any[])
       } else {
         // Se não encontrar o domicílio, voltar para a lista
-        console.error("Domicílio não encontrado. ID:", id)
+        console.error("Domicílio não encontrado. ID:", resolvedParams.id)
         toast.error("Domicílio não encontrado")
         router.push("/households")
       }
@@ -373,7 +376,7 @@ export default function HouseholdDetailsPage() {
     }
   }
 
-  const deleteCat = async (catId: string) => {
+  const deleteCat = async (catId: number) => {
     if (!household) return
     
     try {
@@ -386,7 +389,7 @@ export default function HouseholdDetailsPage() {
         // Atualização do estado global
         dispatch({
           type: "DELETE_CAT",
-          payload: { id: catId }
+          payload: catId
         })
         
         // Atualização do estado local

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
@@ -55,13 +55,14 @@ import { CatType, FeedingLog, Schedule } from "@/lib/types"
 import { FeedingHistory } from "./feeding-history"
 
 interface CatDetailsProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function CatDetails({ params }: CatDetailsProps) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
-  const numericId = parseInt(params.id);
+  const numericId = parseInt(resolvedParams.id);
   const { 
     cat, 
     logs, 
@@ -70,7 +71,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
     formattedTimeDistance, 
     isLoading, 
     handleMarkAsFed 
-  } = useFeeding(params.id)
+  } = useFeeding(resolvedParams.id)
   const [isClient, setIsClient] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { ArrowLeft, Calendar, Save, Trash2, Clock } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -47,12 +47,13 @@ function uuidv4(): string {
 }
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function EditCatPage({ params }: PageProps) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
   const [cat, setCat] = useState<CatType | null>(null)
@@ -75,7 +76,7 @@ export default function EditCatPage({ params }: PageProps) {
   useEffect(() => {
     const loadCat = async () => {
       try {
-        const cat = await getCatById(params.id, state.cats)
+        const cat = await getCatById(resolvedParams.id, state.cats)
         
         if (!cat) {
           toast.error("Gato não encontrado")
@@ -108,7 +109,7 @@ export default function EditCatPage({ params }: PageProps) {
     }
     
     loadCat()
-  }, [params.id, router, state.cats])
+  }, [resolvedParams.id, router, state.cats])
   
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -135,12 +136,11 @@ export default function EditCatPage({ params }: PageProps) {
     setIsDeleting(true)
     
     try {
-      await deleteCat(params.id, state.cats)
+      await deleteCat(resolvedParams.id, state.cats)
       
-      // Update local state
       dispatch({
         type: "DELETE_CAT",
-        payload: parseInt(params.id)
+        payload: parseInt(resolvedParams.id)
       })
       
       toast.success("Gato excluído com sucesso")
@@ -161,8 +161,7 @@ export default function EditCatPage({ params }: PageProps) {
     setIsSubmitting(true)
     
     try {
-      // Get existing cat to preserve fields we're not changing
-      const existingCat = await getCatById(params.id, state.cats)
+      const existingCat = await getCatById(resolvedParams.id, state.cats)
       
       if (!existingCat) {
         toast.error("Gato não encontrado")
@@ -182,7 +181,7 @@ export default function EditCatPage({ params }: PageProps) {
       }
       
       // Update the cat
-      const result = await updateCat(params.id, updatedCat, state.cats)
+      const result = await updateCat(resolvedParams.id, updatedCat, state.cats)
       
       // Update local state
       dispatch({
@@ -191,7 +190,7 @@ export default function EditCatPage({ params }: PageProps) {
       })
       
       toast.success(`${formData.name} foi atualizado com sucesso`)
-      router.push(`/cats/${params.id}`)
+      router.push(`/cats/${resolvedParams.id}`)
     } catch (error) {
       console.error("Erro ao atualizar gato:", error)
       toast.error("Algo deu errado. Por favor, tente novamente.")
@@ -210,14 +209,14 @@ export default function EditCatPage({ params }: PageProps) {
   
   return (
     <PageTransition>
-      <div className="bg-gray-50 min-h-screen pb-4">
+      <div className="bg-background min-h-screen pb-4">
         <div className="container max-w-md mx-auto p-4">
           {/* Status Bar Spacer */}
           <div className="h-6"></div>
           
           {/* Top Navigation */}
           <div className="flex items-center justify-between mb-4">
-            <Link href={`/cats/${params.id}`} className="flex items-center text-sm font-medium">
+            <Link href={`/cats/${resolvedParams.id}`} className="flex items-center text-sm font-medium">
               <ArrowLeft className="h-4 w-4 mr-1" />
               Cancelar
             </Link>
@@ -378,7 +377,7 @@ export default function EditCatPage({ params }: PageProps) {
                                   } else {
                                     newSchedules.push({
                                       id: uuidv4(),
-                                      catId: parseInt(params.id),
+                                      catId: parseInt(resolvedParams.id),
                                       userId: "1",
                                       type: 'interval',
                                       interval: value,
@@ -394,7 +393,7 @@ export default function EditCatPage({ params }: PageProps) {
                               min="1" 
                               max="24"
                               className="w-16 h-7 inline-block mx-2" 
-                              disabled={formData.schedules[0]?.type !== 'interval'}
+                              disabled={formData.schedules[0]?.type === 'fixedTime'}
                             />
                             horas
                           </Label>
@@ -420,7 +419,7 @@ export default function EditCatPage({ params }: PageProps) {
                                 } else {
                                   newSchedules.push({
                                     id: uuidv4(),
-                                    catId: parseInt(params.id),
+                                    catId: parseInt(resolvedParams.id),
                                     userId: "1",
                                     type: 'fixedTime',
                                     times: value,
@@ -433,8 +432,7 @@ export default function EditCatPage({ params }: PageProps) {
                                 return { ...prev, schedules: newSchedules }
                               })
                             }}
-                            placeholder="08:00" 
-                            disabled={formData.schedules[0]?.type !== 'fixedTime'}
+                            placeholder="08:00"
                           />
                           <p className="text-xs text-gray-500">Formato 24 horas (ex: 08:00)</p>
                         </div>

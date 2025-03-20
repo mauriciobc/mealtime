@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useState, useEffect, use } from "react"
+import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { AppHeader } from "@/components/app-header"
 import BottomNav from "@/components/bottom-nav"
@@ -21,10 +21,12 @@ interface Household {
   inviteCode: string;
 }
 
-export default function EditHouseholdPage() {
-  const params = useParams();
-  const id = params.id as string;
-  
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function EditHouseholdPage({ params }: PageProps) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const { data: session, status } = useSession()
   
@@ -45,12 +47,12 @@ export default function EditHouseholdPage() {
     if (session && session.user) {
       loadHouseholdDetails()
     }
-  }, [session])
+  }, [session, resolvedParams.id])
   
   const loadHouseholdDetails = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/households/${id}`, {
+      const response = await fetch(`/api/households/${resolvedParams.id}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -90,7 +92,7 @@ export default function EditHouseholdPage() {
     try {
       setIsSaving(true)
       
-      const response = await fetch(`/api/households/${id}`, {
+      const response = await fetch(`/api/households/${resolvedParams.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -106,7 +108,7 @@ export default function EditHouseholdPage() {
       }
       
       toast.success("Residência atualizada com sucesso")
-      router.push(`/households/${id}`)
+      router.push(`/households/${resolvedParams.id}`)
     } catch (error) {
       console.error("Erro ao atualizar residência:", error)
       toast.error("Erro ao atualizar residência")

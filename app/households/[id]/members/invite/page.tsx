@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { AppHeader } from "@/components/app-header";
 import BottomNav from "@/components/bottom-nav";
@@ -19,6 +19,14 @@ import { Separator } from "@/components/ui/separator";
 import { v4 as uuidv4 } from "uuid";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 // Esquema de validação
 const emailSchema = z.object({
@@ -27,9 +35,12 @@ const emailSchema = z.object({
 
 type EmailFormValues = z.infer<typeof emailSchema>;
 
-export default function HouseholdInvitePage() {
-  const params = useParams();
-  const householdId = params.id as string;
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function HouseholdInvitePage({ params }: PageProps) {
+  const resolvedParams = use(params)
   const router = useRouter();
   const { state, dispatch } = useAppContext();
   const { data: session, status } = useSession();
@@ -58,12 +69,12 @@ export default function HouseholdInvitePage() {
     } else if (status === 'unauthenticated') {
       router.push('/login');
     }
-  }, [status, router, householdId]);
+  }, [status, router, resolvedParams.id]);
   
   const loadHouseholdDetails = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/households/${householdId}`);
+      const response = await fetch(`/api/households/${resolvedParams.id}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -96,17 +107,15 @@ export default function HouseholdInvitePage() {
     if (!isLoading && household !== null) {
       if (!isAdmin) {
         toast.error("Apenas administradores podem convidar novos membros");
-        router.push(`/households/${householdId}`);
+        router.push(`/households/${resolvedParams.id}`);
       }
     }
-  }, [isLoading, household, isAdmin, householdId, router]);
+  }, [isLoading, household, isAdmin, resolvedParams.id, router]);
   
-  const handleSendInvite = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleSendInvite = async (data: EmailFormValues) => {
     // Validar e-mail
     try {
-      emailSchema.parse({ email });
+      emailSchema.parse({ email: data.email });
       setErrors({});
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -125,18 +134,18 @@ export default function HouseholdInvitePage() {
     
     try {
       // Em produção, seria uma chamada real à API
-      // await fetch(`/api/households/${householdId}/invite`, {
+      // await fetch(`/api/households/${resolvedParams.id}/invite`, {
       //   method: "POST",
       //   headers: {
       //     "Content-Type": "application/json",
       //   },
-      //   body: JSON.stringify({ email }),
+      //   body: JSON.stringify({ email: data.email }),
       // });
       
       // Simular sucesso
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      toast.success(`Convite enviado para ${email}`);
+      toast.success(`Convite enviado para ${data.email}`);
       setEmail("");
     } catch (error) {
       console.error("Erro ao enviar convite:", error);
@@ -147,7 +156,7 @@ export default function HouseholdInvitePage() {
   };
   
   const copyInviteLink = async () => {
-    const inviteUrl = `${window.location.origin}/join?code=${inviteCode}&household=${householdId}`;
+    const inviteUrl = `${window.location.origin}/join?code=${inviteCode}&household=${resolvedParams.id}`;
     
     try {
       await navigator.clipboard.writeText(inviteUrl);
@@ -163,7 +172,7 @@ export default function HouseholdInvitePage() {
   };
   
   const shareInvite = async () => {
-    const inviteUrl = `${window.location.origin}/join?code=${inviteCode}&household=${householdId}`;
+    const inviteUrl = `${window.location.origin}/join?code=${inviteCode}&household=${resolvedParams.id}`;
     const text = `Junte-se ao meu domicílio "${household?.name}" no aplicativo MealTime!`;
     
     try {
@@ -193,7 +202,7 @@ export default function HouseholdInvitePage() {
       setGeneratingLink(true);
       
       // Em produção:
-      // await fetch(`/api/households/${householdId}/invite`, {
+      // await fetch(`/api/households/${resolvedParams.id}/invite`, {
       //  method: 'POST',
       //  headers: {
       //    'Content-Type': 'application/json',
@@ -264,7 +273,7 @@ export default function HouseholdInvitePage() {
                               />
                             </FormControl>
                             {errors.email && (
-                              <FormMessage />
+                              <FormMessage>{errors.email}</FormMessage>
                             )}
                           </FormItem>
                         )}

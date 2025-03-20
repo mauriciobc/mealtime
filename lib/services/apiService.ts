@@ -101,10 +101,19 @@ export async function getCatsByHouseholdId(householdId: string | number): Promis
 }
 
 export async function getCatById(id: string, mockData: CatType[]): Promise<CatType | null> {
-  await delay(200);
-  const cats = await getData<CatType>('cats', mockData);
-  const numericId = parseInt(id);
-  return cats.find(cat => cat.id === numericId) || null;
+  try {
+    const response = await fetch(`/api/cats/${id}`);
+    if (!response.ok) {
+      if (response.status === 404) {
+        return null;
+      }
+      throw new Error(`Erro ao buscar gato: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Erro ao buscar gato por ID:", error);
+    return null;
+  }
 }
 
 export async function createCat(cat: Omit<CatType, 'id'>, mockData: CatType[]): Promise<CatType> {
