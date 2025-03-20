@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { cache } from 'react';
+
+// Função para obter o ID do parâmetro usando cache
+const getCatId = cache(async (params: { id: string }) => {
+  return params.id;
+});
 
 // GET /api/cats/[id] - Obter um gato pelo ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    // Aguardar o parâmetro id antes de usá-lo
-    const paramId = await params.id;
+    // Usar cache para obter o id
+    const paramId = await getCatId(context.params);
     const id = parseInt(paramId);
 
     if (isNaN(id)) {
@@ -56,11 +62,11 @@ export async function GET(
 // PUT /api/cats/[id] - Atualizar um gato
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    // Aguardar o parâmetro id antes de usá-lo
-    const paramId = await params.id;
+    // Usar cache para obter o id
+    const paramId = await getCatId(context.params);
     const id = parseInt(paramId);
     
     if (isNaN(id)) {
@@ -129,11 +135,11 @@ export async function PUT(
 // DELETE /api/cats/[id] - Excluir um gato
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
-    // Aguardar o parâmetro id antes de usá-lo
-    const paramId = await params.id;
+    // Usar cache para obter o id
+    const paramId = await getCatId(context.params);
     const id = parseInt(paramId);
     
     if (isNaN(id)) {
