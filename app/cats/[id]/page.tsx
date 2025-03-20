@@ -68,8 +68,8 @@ interface Schedule {
 
 // Main component
 export default function CatDetailPage({ params }: { params: { id: string } }) {
-  // No cliente, podemos acessar params diretamente sem React.use()
-  const { id } = params;
+  // No cliente, podemos acessar params diretamente
+  const id = params.id;
   
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
@@ -131,7 +131,7 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
 
   return (
     <PageTransition>
-      <div className="bg-gray-50 min-h-screen pb-4">
+      <div className="bg-background min-h-screen pb-4">
         <div className="container max-w-md mx-auto p-4">
           {/* Status Bar Spacer */}
           <div className="h-6"></div>
@@ -140,22 +140,22 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
           <div className="flex items-center justify-between mb-4">
             <Link href="/cats" className="flex items-center text-sm font-medium">
               <ArrowLeft className="h-4 w-4 mr-1" />
-              Back to cats
+              Voltar para gatos
             </Link>
             <div className="flex items-center gap-2">
-              <Button className="h-8 w-8 rounded-full p-0">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                 <Share2 className="h-4 w-4" />
                 <span className="sr-only">Share</span>
               </Button>
               <Link href={`/cats/${cat.id}/edit`}>
-                <Button className="h-8 w-8 rounded-full p-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                   <Edit className="h-4 w-4" />
                   <span className="sr-only">Edit</span>
                 </Button>
               </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="h-8 w-8 rounded-full p-0">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="sr-only">More options</span>
                   </Button>
@@ -164,7 +164,7 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
                   <DropdownMenuItem asChild>
                     <Link href={`/cats/${cat.id}/edit`} className="cursor-pointer">
                       <Edit className="h-4 w-4 mr-2" />
-                      Edit Cat
+                      Editar Gato
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -175,25 +175,25 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
                         onSelect={(e) => e.preventDefault()}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Cat
+                        Excluir Gato
                       </DropdownMenuItem>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will permanently delete {cat.name} and all their feeding records.
-                          This action cannot be undone.
+                          Isso excluirá permanentemente {cat.name} e todos os seus registros de alimentação.
+                          Esta ação não pode ser desfeita.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleDelete}
-                          className="bg-red-600 hover:bg-red-700"
+                          className="bg-destructive hover:bg-destructive/90"
                           disabled={isDeleting}
                         >
-                          {isDeleting ? "Deleting..." : "Delete"}
+                          {isDeleting ? "Excluindo..." : "Excluir"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -204,7 +204,7 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
           </div>
           
           {/* Profile Header */}
-          <div className="bg-white rounded-xl p-5 mb-4 shadow-sm">
+          <div className="bg-card text-card-foreground rounded-xl p-5 mb-4 shadow-sm">
             <div className="flex items-center">
               <Avatar className="h-20 w-20 mr-4">
                 <AvatarImage src={cat.photoUrl || ""} alt={cat.name} />
@@ -234,12 +234,12 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
             
             {/* Next Feeding Info */}
             {nextFeedingTime && (
-              <div className="mt-4 bg-blue-50 rounded-lg p-3 flex items-center justify-between">
+              <div className="mt-4 bg-primary/10 rounded-lg p-3 flex items-center justify-between">
                 <div className="flex items-center">
-                  <AlarmClock className="h-5 w-5 text-blue-600 mr-2" />
+                  <AlarmClock className="h-5 w-5 text-primary mr-2" />
                   <div>
-                    <p className="text-sm font-medium text-blue-900">Next feeding</p>
-                    <p className="text-xs text-blue-700">
+                    <p className="text-sm font-medium text-primary-foreground/90">Próxima alimentação</p>
+                    <p className="text-xs text-primary-foreground/70">
                       {isClient && nextFeedingTime ? (
                         <>
                           {formattedNextFeedingTime}
@@ -253,11 +253,11 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
                 <Button 
-                  className="bg-blue-600 hover:bg-blue-700 py-1 px-3 text-sm"
+                  className="py-1 px-3 text-sm"
                   onClick={() => handleMarkAsFed()}
                 >
                   <Utensils className="h-3 w-3 mr-1" />
-                  Feed now
+                  Alimentar agora
                 </Button>
               </div>
             )}
@@ -265,7 +265,7 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
           
           {/* Tabs Section */}
           <Tabs defaultValue="feeding">
-            <TabsList className="grid grid-cols-2 mb-4">
+            <TabsList className="grid grid-cols-2 mb-4 bg-muted/50">
               <TabsTrigger value="feeding">Alimentação</TabsTrigger>
               <TabsTrigger value="schedules">Programação</TabsTrigger>
             </TabsList>
@@ -288,19 +288,19 @@ export default function CatDetailPage({ params }: { params: { id: string } }) {
                 <CardContent>
                   {logs.length === 0 ? (
                     <div className="text-center py-8">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-                        <FileText className="h-6 w-6 text-gray-400" />
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-4">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
                       </div>
-                      <h3 className="font-medium mb-1">No feeding logs yet</h3>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Start logging feedings to see history here
+                      <h3 className="font-medium mb-1">Nenhum registro de alimentação</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Comece a registrar alimentações para ver o histórico aqui
                       </p>
                       <Button
                         onClick={() => handleMarkAsFed()}
                         className="gap-2"
                       >
                         <Utensils className="h-4 w-4" />
-                        Log feeding now
+                        Registrar alimentação agora
                       </Button>
                     </div>
                   ) : (
