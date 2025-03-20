@@ -1,4 +1,6 @@
 import { CatType, FeedingLog, Household, User } from '@/lib/types';
+import { formatInTimeZone, toDate } from 'date-fns-tz';
+import { getUserTimezone } from '../utils/dateUtils';
 
 // Create a simple UUID function since we can't install the package
 export function uuidv4(): string {
@@ -85,31 +87,36 @@ export async function getCats(mockData: CatType[]): Promise<CatType[]> {
   return getData<CatType>('cats', mockData);
 }
 
-export async function getCatsByHouseholdId(householdId: string | number): Promise<CatType[]> {
+export async function getCatsByHouseholdId(householdId: string, userTimezone?: string): Promise<CatType[]> {
   await delay(300);
   try {
-    const numericId = typeof householdId === 'string' ? parseInt(householdId) : householdId;
-    const response = await fetch(`/api/cats?householdId=${numericId}`);
+    const response = await fetch(`/api/households/${householdId}/cats`);
     if (!response.ok) {
       throw new Error(`Erro ao buscar gatos: ${response.status}`);
     }
-    return await response.json();
+    const cats = await response.json();
+    return cats.map((cat: CatType) => ({
+      ...cat,
+      createdAt: cat.createdAt || toDate(new Date(), { timeZone: getUserTimezone(userTimezone) })
+    }));
   } catch (error) {
     console.error("Erro ao buscar gatos por domicílio:", error);
     return [];
   }
 }
 
-export async function getCatById(id: string, mockData: CatType[]): Promise<CatType | null> {
+export async function getCatById(catId: string, userTimezone?: string): Promise<CatType | null> {
+  await delay(300);
   try {
-    const response = await fetch(`/api/cats/${id}`);
+    const response = await fetch(`/api/cats/${catId}`);
     if (!response.ok) {
-      if (response.status === 404) {
-        return null;
-      }
       throw new Error(`Erro ao buscar gato: ${response.status}`);
     }
-    return await response.json();
+    const cat = await response.json();
+    return {
+      ...cat,
+      createdAt: cat.createdAt || toDate(new Date(), { timeZone: getUserTimezone(userTimezone) })
+    };
   } catch (error) {
     console.error("Erro ao buscar gato por ID:", error);
     return null;
@@ -150,28 +157,48 @@ export async function createCat(cat: Omit<CatType, 'id'>, mockData: CatType[]): 
 }
 
 export async function updateCat(id: string, catData: Partial<CatType>, mockData: CatType[]): Promise<CatType> {
-  await delay(500);
-  const cats = await getData<CatType>('cats', mockData);
-  const numericId = parseInt(id);
-  const catIndex = cats.findIndex(cat => cat.id === numericId);
-  
-  if (catIndex === -1) {
-    throw new Error(`Cat with id ${id} not found`);
+  try {
+    // Primeiro, tentar atualizar via API
+    const response = await fetch(`/api/cats/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(catData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Erro ao atualizar gato: ${response.status}`);
+    }
+
+    const updatedCat = await response.json();
+
+    // Atualizar o localStorage
+    const cats = await getData<CatType>('cats', mockData);
+    const numericId = parseInt(id);
+    const catIndex = cats.findIndex(cat => cat.id === numericId);
+    
+    if (catIndex === -1) {
+      // Se não encontrar no localStorage, adicionar
+      cats.push(updatedCat);
+    } else {
+      // Se encontrar, atualizar
+      cats[catIndex] = {
+        ...cats[catIndex],
+        ...updatedCat,
+        id: numericId,
+        schedules: updatedCat.schedules || cats[catIndex].schedules || [],
+        feedingLogs: cats[catIndex].feedingLogs || [],
+        createdAt: cats[catIndex].createdAt || toDate(new Date(), { timeZone: getUserTimezone() })
+      };
+    }
+    
+    await setData<CatType>('cats', cats);
+    return updatedCat;
+  } catch (error) {
+    console.error('Erro ao atualizar gato:', error);
+    throw error;
   }
-  
-  const updatedCat = {
-    ...cats[catIndex],
-    ...catData
-  };
-  
-  const updatedCats = [
-    ...cats.slice(0, catIndex),
-    updatedCat,
-    ...cats.slice(catIndex + 1)
-  ];
-  
-  await setData<CatType>('cats', updatedCats);
-  return updatedCat;
 }
 
 export async function deleteCat(id: string, mockData: CatType[]): Promise<void> {
@@ -214,9 +241,20 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
 }
 
 // FEEDING LOG SERVICES
-export async function getFeedingLogs(mockData: FeedingLog[]): Promise<FeedingLog[]> {
+export async function getFeedingLogs(catId: string, userTimezone?: string): Promise<FeedingLog[]> {
   await delay(300);
-  return getData<FeedingLog>('feedingLogs', mockData);
+  const logs = await getData<FeedingLog>('feedingLogs', []);
+  const timezone = getUserTimezone(userTimezone);
+  return logs
+    .sort((a, b) => {
+      const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
+      const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
+      return dateB.getTime() - dateA.getTime();
+    })
+    .map(log => ({
+      ...log,
+      timestamp: log.timestamp || toDate(new Date(), { timeZone: timezone })
+    }));
 }
 
 export async function getFeedingLogsByCatId(catId: string, mockData: FeedingLog[]): Promise<FeedingLog[]> {
@@ -322,55 +360,56 @@ export async function updateHousehold(id: string, householdData: Partial<Househo
 }
 
 // UTILITY FUNCTIONS
-export function getNextFeedingTime(catId: string, cats: CatType[], feedingLogs: FeedingLog[]): Date | null {
-  const numericId = parseInt(catId);
-  const cat = cats.find(c => c.id === numericId);
+export async function getNextFeedingTime(catId: string, userTimezone?: string): Promise<Date | null> {
+  const timezone = getUserTimezone(userTimezone);
+  const now = toDate(new Date(), { timeZone: timezone });
   
-  if (!cat || !cat.schedules || cat.schedules.length === 0) {
+  // Obter logs ordenados por timestamp
+  const logs = await getFeedingLogs(catId, timezone);
+  const lastFeeding = logs
+    .sort((a, b) => {
+      const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
+      const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
+      return dateB.getTime() - dateA.getTime();
+    })[0];
+
+  // Se não houver logs, retorna null
+  if (!lastFeeding) {
     return null;
   }
-  
-  const now = new Date();
-  const lastFeeding = feedingLogs
-    .filter(log => log.catId === numericId)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-  
-  // Se não houver alimentação anterior, retorna o horário atual
-  if (!lastFeeding) {
-    return now;
+
+  // Obter gato e seu agendamento
+  const cat = await getCatById(catId, timezone);
+  if (!cat) {
+    return null;
   }
-  
-  // Encontra o próximo horário de alimentação baseado nos agendamentos
+
   let nextFeeding: Date | null = null;
-  
-  for (const schedule of cat.schedules) {
-    if (schedule.type === 'interval' && schedule.interval) {
-      // Para agendamentos baseados em intervalo
-      const lastFeedingTime = new Date(lastFeeding.timestamp);
-      const nextTime = new Date(lastFeedingTime.getTime() + schedule.interval * 60 * 60 * 1000);
-      
-      if (!nextFeeding || nextTime < nextFeeding) {
-        nextFeeding = nextTime;
-      }
-    } else if (schedule.type === 'fixedTime' && schedule.times) {
-      // Para agendamentos em horários fixos
-      const times = schedule.times;
-      const [hours, minutes] = times.split(':').map(Number);
-      
-      let nextTime = new Date(now);
-      nextTime.setHours(hours, minutes, 0, 0);
-      
-      // Se o horário já passou hoje, agenda para amanhã
-      if (nextTime <= now) {
-        nextTime.setDate(nextTime.getDate() + 1);
-      }
-      
-      if (!nextFeeding || nextTime < nextFeeding) {
-        nextFeeding = nextTime;
-      }
+
+  // Se houver um agendamento ativo
+  const activeSchedule = cat.schedules?.find(s => s.enabled);
+  if (activeSchedule && activeSchedule.interval) {
+    const lastFeedingTime = toDate(new Date(lastFeeding.timestamp), { timeZone: timezone });
+    const nextTime = toDate(new Date(lastFeedingTime.getTime() + activeSchedule.interval * 60 * 60 * 1000), { timeZone: timezone });
+
+    // Se o próximo horário já passou, calcular o próximo intervalo a partir de agora
+    if (nextTime < now) {
+      nextFeeding = toDate(new Date(now.getTime() + activeSchedule.interval * 60 * 60 * 1000), { timeZone: timezone });
+    } else {
+      nextFeeding = nextTime;
     }
   }
-  
-  return nextFeeding || now;
+  // Se não houver agendamento mas tiver intervalo padrão
+  else if (cat.feeding_interval) {
+    const lastFeedingTime = toDate(new Date(lastFeeding.timestamp), { timeZone: timezone });
+    nextFeeding = toDate(new Date(lastFeedingTime.getTime() + cat.feeding_interval * 60 * 60 * 1000), { timeZone: timezone });
+
+    // Se o próximo horário já passou, calcular o próximo intervalo a partir de agora
+    if (nextFeeding < now) {
+      nextFeeding = toDate(new Date(now.getTime() + cat.feeding_interval * 60 * 60 * 1000), { timeZone: timezone });
+    }
+  }
+
+  return nextFeeding;
 }
 

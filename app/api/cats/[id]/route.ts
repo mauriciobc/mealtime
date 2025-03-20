@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { cache } from 'react';
-
-// Função para obter o ID do parâmetro usando cache
-const getCatId = cache(async (params: { id: string }) => {
-  return params.id;
-});
+import { getNumericId } from '@/lib/utils/api-utils';
 
 // GET /api/cats/[id] - Obter um gato pelo ID
 export async function GET(
@@ -13,16 +8,8 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
-    // Usar cache para obter o id
-    const paramId = await getCatId(context.params);
-    const id = parseInt(paramId);
-
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID inválido' },
-        { status: 400 }
-      );
-    }
+    // Obter e validar o ID
+    const id = await getNumericId(context.params.id);
 
     const cat = await prisma.cat.findUnique({
       where: { id },
@@ -52,6 +39,12 @@ export async function GET(
     return NextResponse.json(cat);
   } catch (error) {
     console.error('Erro ao buscar gato:', error);
+    if (error instanceof Error && error.message === 'ID inválido') {
+      return NextResponse.json(
+        { error: 'ID inválido' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: 'Ocorreu um erro ao buscar os detalhes do gato' },
       { status: 500 }
@@ -65,17 +58,9 @@ export async function PUT(
   context: { params: { id: string } }
 ) {
   try {
-    // Usar cache para obter o id
-    const paramId = await getCatId(context.params);
-    const id = parseInt(paramId);
+    // Obter e validar o ID
+    const id = await getNumericId(context.params.id);
     
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID inválido' },
-        { status: 400 }
-      );
-    }
-
     const {
       name,
       photoUrl,
@@ -83,12 +68,22 @@ export async function PUT(
       weight,
       restrictions,
       notes,
-      householdId
+      householdId,
+      schedules
     } = await request.json();
 
     // Verificar se o gato existe
     const existingCat = await prisma.cat.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        schedules: true,
+        feedingLogs: {
+          take: 5,
+          orderBy: {
+            timestamp: 'desc'
+          }
+        }
+      }
     });
 
     if (!existingCat) {
@@ -98,7 +93,7 @@ export async function PUT(
       );
     }
 
-    // Atualizar o gato
+    // Atualizar o gato com tratamento adequado dos campos
     const updatedCat = await prisma.cat.update({
       where: { id },
       data: {
@@ -108,7 +103,26 @@ export async function PUT(
         weight: weight !== undefined ? parseFloat(String(weight)) : undefined,
         restrictions: restrictions !== undefined ? restrictions : undefined,
         notes: notes !== undefined ? notes : undefined,
-        householdId: householdId || undefined
+        householdId: householdId || undefined,
+        schedules: schedules ? {
+          deleteMany: {}, // Remover schedules existentes
+          create: schedules.map((schedule: any) => ({
+            type: schedule.type,
+            interval: schedule.interval || 8, // Valor padrão de 8 horas
+            times: schedule.times || '08:00', // Valor padrão de 8:00
+            overrideUntil: schedule.overrideUntil ? new Date(schedule.overrideUntil) : null,
+            createdAt: new Date()
+          }))
+        } : undefined
+      },
+      include: {
+        schedules: true,
+        feedingLogs: {
+          take: 5,
+          orderBy: {
+            timestamp: 'desc'
+          }
+        }
       }
     });
 
@@ -116,13 +130,18 @@ export async function PUT(
   } catch (error: any) {
     console.error('Erro ao atualizar gato:', error);
     
-    if (error.code) {
-      if (error.code === 'P2025') {
-        return NextResponse.json(
-          { error: 'Gato não encontrado' },
-          { status: 404 }
-        );
-      }
+    if (error.message === 'ID inválido') {
+      return NextResponse.json(
+        { error: 'ID inválido' },
+        { status: 400 }
+      );
+    }
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Gato não encontrado' },
+        { status: 404 }
+      );
     }
     
     return NextResponse.json(
@@ -138,16 +157,8 @@ export async function DELETE(
   context: { params: { id: string } }
 ) {
   try {
-    // Usar cache para obter o id
-    const paramId = await getCatId(context.params);
-    const id = parseInt(paramId);
-    
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID inválido' },
-        { status: 400 }
-      );
-    }
+    // Obter e validar o ID
+    const id = await getNumericId(context.params.id);
 
     // Verificar se o gato existe
     const existingCat = await prisma.cat.findUnique({
@@ -174,6 +185,12 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Erro ao excluir gato:', error);
+    if (error instanceof Error && error.message === 'ID inválido') {
+      return NextResponse.json(
+        { error: 'ID inválido' },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: 'Ocorreu um erro ao excluir o gato' },
       { status: 500 }

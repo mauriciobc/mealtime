@@ -1,16 +1,25 @@
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone, toDate } from "date-fns-tz";
 import { Schedule } from "../types";
+
+/**
+ * Get user's timezone or default to America/Sao_Paulo
+ */
+export function getUserTimezone(userTimezone?: string): string {
+  return userTimezone || "America/Sao_Paulo";
+}
 
 /**
  * Get a user-friendly age string from a birthdate
  */
-export function getAgeString(birthdate?: Date): string {
+export function getAgeString(birthdate?: Date, userTimezone?: string): string {
   if (!birthdate) return "Idade desconhecida";
   
   try {
-    const today = new Date();
-    const birth = new Date(birthdate);
+    const timezone = getUserTimezone(userTimezone);
+    const today = toDate(new Date(), { timeZone: timezone });
+    const birth = toDate(birthdate, { timeZone: timezone });
     
     // Validar datas
     if (isNaN(today.getTime()) || isNaN(birth.getTime())) {
@@ -74,16 +83,17 @@ export function getScheduleText(schedule?: Schedule): string {
 /**
  * Format a date for display
  */
-export function formatDateTime(date: Date | string): string {
+export function formatDateTime(date: Date | string, userTimezone?: string): string {
   if (!date) return "";
   
   try {
+    const timezone = getUserTimezone(userTimezone);
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     if (isNaN(dateObj.getTime())) {
       console.error('Data inválida fornecida para formatação');
       return "";
     }
-    return format(dateObj, "dd 'de' MMM 'às' HH:mm", { locale: ptBR });
+    return formatInTimeZone(dateObj, timezone, "dd 'de' MMM 'às' HH:mm", { locale: ptBR });
   } catch (error) {
     console.error('Erro ao formatar data:', error);
     return "";
@@ -93,11 +103,12 @@ export function formatDateTime(date: Date | string): string {
 /**
  * Get a relative time (e.g., "3 hours ago", "in 5 minutes")
  */
-export function getRelativeTime(date: Date | string): string {
+export function getRelativeTime(date: Date | string, userTimezone?: string): string {
   if (!date) return "";
   
   try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const timezone = getUserTimezone(userTimezone);
+    const dateObj = typeof date === 'string' ? toDate(new Date(date), { timeZone: timezone }) : date;
     if (isNaN(dateObj.getTime())) {
       console.error('Data inválida fornecida para tempo relativo');
       return "";
@@ -112,8 +123,9 @@ export function getRelativeTime(date: Date | string): string {
 /**
  * Parse a time string into a Date object
  */
-export function parseTimeString(timeString: string): Date {
+export function parseTimeString(timeString: string, userTimezone?: string): Date {
   try {
+    const timezone = getUserTimezone(userTimezone);
     const [hours, minutes] = timeString.split(':').map(Number);
     
     // Validar formato do horário
@@ -123,7 +135,7 @@ export function parseTimeString(timeString: string): Date {
       throw new Error(`Formato de horário inválido: ${timeString}`);
     }
     
-    const date = new Date();
+    const date = toDate(new Date(), { timeZone: timezone });
     date.setHours(hours, minutes, 0, 0);
     
     if (isNaN(date.getTime())) {
@@ -140,22 +152,23 @@ export function parseTimeString(timeString: string): Date {
 /**
  * Get the next scheduled feed time from a time-based schedule
  */
-export function getNextScheduledTime(schedule: Schedule): Date | null {
+export function getNextScheduledTime(schedule: Schedule, userTimezone?: string): Date | null {
   if (!schedule || !schedule.enabled) return null;
   
   try {
-    const now = new Date();
+    const timezone = getUserTimezone(userTimezone);
+    const now = toDate(new Date(), { timeZone: timezone });
     if (isNaN(now.getTime())) {
       console.error('Data atual inválida');
       return null;
     }
     
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = toDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()), { timeZone: timezone });
     
     if (schedule.type === 'interval' && typeof schedule.interval === 'number' && schedule.interval > 0) {
       // Para agendamentos baseados em intervalo
       const lastFeeding = schedule.status === 'completed' ? now : today;
-      const nextTime = new Date(lastFeeding.getTime() + schedule.interval * 60 * 60 * 1000);
+      const nextTime = toDate(new Date(lastFeeding.getTime() + schedule.interval * 60 * 60 * 1000), { timeZone: timezone });
       
       if (isNaN(nextTime.getTime())) {
         console.error('Data inválida calculada para próximo horário');
@@ -175,7 +188,7 @@ export function getNextScheduledTime(schedule: Schedule): Date | null {
           throw new Error(`Formato de horário inválido: ${schedule.times}`);
         }
         
-        const timeToday = new Date(today);
+        const timeToday = toDate(new Date(today), { timeZone: timezone });
         timeToday.setHours(hours, minutes);
         
         if (isNaN(timeToday.getTime())) {

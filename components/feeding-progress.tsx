@@ -3,9 +3,13 @@
 import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
+import { formatInTimeZone, toDate } from 'date-fns-tz';
+import { getUserTimezone } from '@/lib/utils/dateUtils';
+import { useSession } from "next-auth/react";
+import { Progress } from "@/components/ui/progress";
 
 interface FeedingProgressProps {
-  lastFed: string
+  lastFed: Date
   interval: number
   size?: number
   strokeWidth?: number
@@ -23,12 +27,14 @@ export default function FeedingProgress({
 }: FeedingProgressProps) {
   const { shouldAnimate } = useAnimation()
   const [progress, setProgress] = useState(0)
+  const { data: session } = useSession();
+  const timezone = getUserTimezone(session?.user?.timezone);
 
   // Memoize the calculation function to prevent unnecessary recreations
   const calculateProgress = useCallback(() => {
-    const lastFedTime = new Date(lastFed).getTime()
-    const nextFeedingTime = new Date(lastFedTime + interval * 60 * 60 * 1000).getTime()
-    const now = new Date().getTime()
+    const lastFedTime = toDate(lastFed, { timeZone: timezone }).getTime()
+    const nextFeedingTime = toDate(new Date(lastFedTime + interval * 60 * 60 * 1000), { timeZone: timezone }).getTime()
+    const now = toDate(new Date(), { timeZone: timezone }).getTime()
 
     // Calculate progress as percentage of time elapsed
     const totalDuration = nextFeedingTime - lastFedTime
@@ -37,7 +43,7 @@ export default function FeedingProgress({
     // Ensure progress is between 0 and 100
     const calculatedProgress = Math.min(100, Math.max(0, (elapsed / totalDuration) * 100))
     setProgress(calculatedProgress)
-  }, [lastFed, interval])
+  }, [lastFed, interval, timezone])
 
   useEffect(() => {
     // Initial calculation
@@ -56,55 +62,30 @@ export default function FeedingProgress({
 
   if (!shouldAnimate) {
     return (
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size}>
-          <circle
-            stroke={bgColor}
-            fill="transparent"
-            strokeWidth={strokeWidth}
-            r={radius}
-            cx={size / 2}
-            cy={size / 2}
-          />
-          <circle
-            stroke={color}
-            fill="transparent"
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            r={radius}
-            cx={size / 2}
-            cy={size / 2}
-            style={{ transform: "rotate(-90deg)", transformOrigin: "center" }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center text-xs font-medium" style={{ color }}>
-          {Math.round(progress)}%
+      <div className="relative w-full space-y-2">
+        <Progress value={progress} />
+        <div className="flex justify-between text-sm text-gray-500">
+          <span>
+            {formatInTimeZone(lastFed, timezone, "'Última:' HH:mm")}
+          </span>
+          <span>
+            {formatInTimeZone(new Date(nextFeedingTime), timezone, "'Próxima:' HH:mm")}
+          </span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size}>
-        <circle stroke={bgColor} fill="transparent" strokeWidth={strokeWidth} r={radius} cx={size / 2} cy={size / 2} />
-        <motion.circle
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset }}
-          transition={{ duration: 1, ease: "easeInOut" }}
-          stroke={color}
-          fill="transparent"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          r={radius}
-          cx={size / 2}
-          cy={size / 2}
-          style={{ transform: "rotate(-90deg)", transformOrigin: "center" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center text-xs font-medium" style={{ color }}>
-        {Math.round(progress)}%
+    <div className="relative w-full space-y-2">
+      <Progress value={progress} />
+      <div className="flex justify-between text-sm text-gray-500">
+        <span>
+          {formatInTimeZone(lastFed, timezone, "'Última:' HH:mm")}
+        </span>
+        <span>
+          {formatInTimeZone(new Date(nextFeedingTime), timezone, "'Próxima:' HH:mm")}
+        </span>
       </div>
     </div>
   )

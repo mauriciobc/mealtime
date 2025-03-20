@@ -24,6 +24,9 @@ import { PageHeader } from "@/components/page-header"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useGlobalState } from "@/lib/context/global-state"
+import { formatInTimeZone, toDate } from 'date-fns-tz';
+import { getUserTimezone } from '@/lib/utils/dateUtils';
+import { useSession } from "next-auth/react";
 
 interface FeedingData {
   id: string
@@ -124,6 +127,7 @@ const PieChartComponent = ({ catPortionData }: ChartProps) => (
 export default function StatisticsPage() {
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
+  const { data: session } = useSession()
   const [selectedPeriod, setSelectedPeriod] = useState("7dias")
   const [selectedCat, setSelectedCat] = useState<string>("all")
   const [feedingData, setFeedingData] = useState<FeedingData[]>([])
@@ -141,138 +145,132 @@ export default function StatisticsPage() {
 
   // Carregar dados de alimentação quando a página for montada
   useEffect(() => {
-    const fetchFeedingLogs = async () => {
-      try {
-        const response = await fetch('/api/feedings')
-        const data = await response.json()
-        
-        dispatch({
-          type: "SET_FEEDING_LOGS",
-          payload: data
-        })
-      } catch (error) {
-        console.error("Erro ao carregar registros de alimentação:", error)
-        toast.error("Não foi possível carregar os registros de alimentação")
-      }
-    }
+    const fetchData = async () => {
+      if (!session?.user?.householdId) return;
 
-    fetchFeedingLogs()
-  }, [dispatch])
-  
-  useEffect(() => {
-    async function loadData() {
+      setIsLoading(true);
       try {
-        setIsLoading(true)
-        
-        // Em produção, seria uma chamada à API real
-        const result = await getFeedingStatistics(selectedPeriod, selectedCat)
-        
-        // Aqui usamos dados mockados enquanto não temos a API
-        if (state.feedingLogs.length > 0) {
-          // Filtrar por período
-          const now = new Date()
-          let startDate = new Date()
-          
-          switch (selectedPeriod) {
-            case "7dias":
-              startDate = subDays(now, 7)
-              break
-            case "30dias":
-              startDate = subDays(now, 30)
-              break
-            case "3meses":
-              startDate = subMonths(now, 3)
-              break
-            default:
-              startDate = subDays(now, 7)
-          }
-          
-          // Mapear os feedingLogs para o formato que precisamos
-          let filteredData = state.feedingLogs.map(log => ({
-            id: log.id,
-            catId: log.catId,
-            catName: state.cats.find(cat => cat.id === log.catId)?.name || "Desconhecido",
-            timestamp: new Date(log.timestamp),
-            portionSize: log.portionSize || 0
-          })).filter(log => new Date(log.timestamp) >= startDate)
-          
-          // Filtrar por gato, se necessário
-          if (selectedCat !== "all") {
-            filteredData = filteredData.filter(log => log.catId === parseInt(selectedCat))
-          }
-          
-          setFeedingData(filteredData)
-          
-          // Gerar dados para o gráfico de linha (tempo x porção)
-          const timeSeriesMap = new Map<string, number>()
-          
-          filteredData.forEach(log => {
-            const dateKey = format(new Date(log.timestamp), "dd/MM")
-            const currentValue = timeSeriesMap.get(dateKey) || 0
-            timeSeriesMap.set(dateKey, currentValue + (log.portionSize || 0))
-          })
-          
-          const timeSeriesDataArray = Array.from(timeSeriesMap).map(([name, value]) => ({
-            name,
-            valor: value
-          }))
-          
-          setTimeSeriesData(timeSeriesDataArray)
-          
-          // Gerar dados para o gráfico de pizza (porção por gato)
-          const catPortionMap = new Map<string, number>()
-          
-          filteredData.forEach(log => {
-            const currentValue = catPortionMap.get(log.catName) || 0
-            catPortionMap.set(log.catName, currentValue + (log.portionSize || 0))
-          })
-          
-          const catPortionDataArray = Array.from(catPortionMap).map(([name, value]) => ({
-            name,
-            value
-          }))
-          
-          setCatPortionData(catPortionDataArray)
-          
-          // Gerar dados para distribuição de horários
-          const hourDistribution = new Map<string, number>()
-          
-          filteredData.forEach(log => {
-            const hourKey = format(new Date(log.timestamp), "HH:00")
-            const currentCount = hourDistribution.get(hourKey) || 0
-            hourDistribution.set(hourKey, currentCount + 1)
-          })
-          
-          const timeDistributionArray = Array.from(hourDistribution).map(([name, value]) => ({
-            name,
-            valor: value
-          })).sort((a, b) => {
-            // Ordenar por hora do dia
-            const hourA = parseInt(a.name.split(':')[0])
-            const hourB = parseInt(b.name.split(':')[0])
-            return hourA - hourB
-          })
-          
-          setTimeDistributionData(timeDistributionArray)
-          
-          // Calcular estatísticas resumidas
-          const totalFeedings = filteredData.length
-          const validPortions = filteredData.filter(log => log.portionSize !== null && log.portionSize > 0)
-          const averagePortionSize = validPortions.length > 0 
-            ? validPortions.reduce((sum, log) => sum + (log.portionSize || 0), 0) / validPortions.length
-            : 0
-            
-          // Em um sistema real, buscaríamos esses dados de uma API
-          const maxConsecutiveDays = 5 // Exemplo
-          const missedSchedules = 2 // Exemplo
-          
-          setStatsSummary({
-            totalFeedings,
-            averagePortionSize,
-            maxConsecutiveDays,
-            missedSchedules
-          })
+        const timezone = getUserTimezone(session?.user?.timezone);
+        const now = toDate(new Date(), { timeZone: timezone });
+        let startDate = toDate(new Date(), { timeZone: timezone });
+
+        // Calcular a data inicial baseada no período selecionado
+        switch (selectedPeriod) {
+          case '7d':
+            startDate.setDate(startDate.getDate() - 7);
+            break;
+          case '30d':
+            startDate.setDate(startDate.getDate() - 30);
+            break;
+          case '90d':
+            startDate.setDate(startDate.getDate() - 90);
+            break;
+          default:
+            startDate.setDate(startDate.getDate() - 7);
         }
+
+        // Buscar gatos
+        const catsResponse = await fetch(`/api/households/${session.user.householdId}/cats`);
+        if (!catsResponse.ok) {
+          throw new Error('Erro ao buscar gatos');
+        }
+        const catsData = await catsResponse.json();
+        dispatch({
+          type: "SET_CATS",
+          payload: catsData
+        })
+
+        // Buscar logs de alimentação
+        const logsResponse = await fetch(`/api/households/${session.user.householdId}/feeding-logs`);
+        if (!logsResponse.ok) {
+          throw new Error('Erro ao buscar logs de alimentação');
+        }
+        const logsData = await logsResponse.json();
+
+        // Filtrar logs pelo período e gato selecionado
+        const filteredLogs = logsData
+          .map((log: any) => ({
+            ...log,
+            timestamp: toDate(new Date(log.timestamp), { timeZone: timezone }),
+          }))
+          .filter((log: FeedingData) => {
+            const logDate = log.timestamp;
+            const isAfterStart = logDate >= startDate;
+            const isSelectedCat = selectedCat === 'all' || log.catId.toString() === selectedCat;
+            return isAfterStart && isSelectedCat;
+          });
+
+        setFeedingData(filteredLogs);
+        
+        // Gerar dados para o gráfico de linha (tempo x porção)
+        const timeSeriesMap = new Map<string, number>()
+        
+        filteredLogs.forEach(log => {
+          const dateKey = format(new Date(log.timestamp), "dd/MM")
+          const currentValue = timeSeriesMap.get(dateKey) || 0
+          timeSeriesMap.set(dateKey, currentValue + (log.portionSize || 0))
+        })
+        
+        const timeSeriesDataArray = Array.from(timeSeriesMap).map(([name, value]) => ({
+          name,
+          valor: value
+        }))
+        
+        setTimeSeriesData(timeSeriesDataArray)
+        
+        // Gerar dados para o gráfico de pizza (porção por gato)
+        const catPortionMap = new Map<string, number>()
+        
+        filteredLogs.forEach(log => {
+          const currentValue = catPortionMap.get(log.catName) || 0
+          catPortionMap.set(log.catName, currentValue + (log.portionSize || 0))
+        })
+        
+        const catPortionDataArray = Array.from(catPortionMap).map(([name, value]) => ({
+          name,
+          value
+        }))
+        
+        setCatPortionData(catPortionDataArray)
+        
+        // Gerar dados para distribuição de horários
+        const hourDistribution = new Map<string, number>()
+        
+        filteredLogs.forEach(log => {
+          const hourKey = format(new Date(log.timestamp), "HH:00")
+          const currentCount = hourDistribution.get(hourKey) || 0
+          hourDistribution.set(hourKey, currentCount + 1)
+        })
+        
+        const timeDistributionArray = Array.from(hourDistribution).map(([name, value]) => ({
+          name,
+          valor: value
+        })).sort((a, b) => {
+          // Ordenar por hora do dia
+          const hourA = parseInt(a.name.split(':')[0])
+          const hourB = parseInt(b.name.split(':')[0])
+          return hourA - hourB
+        })
+        
+        setTimeDistributionData(timeDistributionArray)
+        
+        // Calcular estatísticas resumidas
+        const totalFeedings = filteredLogs.length
+        const validPortions = filteredLogs.filter(log => log.portionSize !== null && log.portionSize > 0)
+        const averagePortionSize = validPortions.length > 0 
+          ? validPortions.reduce((sum, log) => sum + (log.portionSize || 0), 0) / validPortions.length
+          : 0
+          
+        // Em um sistema real, buscaríamos esses dados de uma API
+        const maxConsecutiveDays = 5 // Exemplo
+        const missedSchedules = 2 // Exemplo
+        
+        setStatsSummary({
+          totalFeedings,
+          averagePortionSize,
+          maxConsecutiveDays,
+          missedSchedules
+        })
       } catch (error) {
         console.error("Erro ao carregar estatísticas:", error)
         toast.error("Não foi possível carregar as estatísticas")
@@ -280,9 +278,9 @@ export default function StatisticsPage() {
         setIsLoading(false)
       }
     }
-    
-    loadData()
-  }, [selectedPeriod, selectedCat, state.feedingLogs, state.cats, dispatch])
+
+    fetchData()
+  }, [session?.user?.householdId, selectedPeriod, selectedCat, dispatch])
   
   // Formatador para o tooltip do gráfico
   const formatTooltip = (value: number) => {

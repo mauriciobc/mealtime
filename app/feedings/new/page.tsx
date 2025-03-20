@@ -564,7 +564,7 @@ export default function NewFeedingPage() {
       toast({
         title: t("feed_success"),
         description: t("feed_success_message"),
-        className: "bg-purple-50 border-purple-200"
+        className: "bg-accent border-accent"
       });
     } catch (error) {
       console.error("Erro ao alimentar:", error);
@@ -631,9 +631,9 @@ export default function NewFeedingPage() {
     <div className="px-4 py-6 pb-20 md:pb-6">
       <div className="space-y-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-bold text-gray-900">{t("feed_title")}</h1>
+          <h1 className="text-xl font-bold text-foreground">{t("feed_title")}</h1>
           <Button
-            className="bg-purple-600 hover:bg-purple-700 text-white"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
             disabled={selectedCats.length === 0 || isLoading}
             onClick={handleFeed}
           >
@@ -648,10 +648,10 @@ export default function NewFeedingPage() {
               <Card key={item} className="animate-pulse">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                    <div className="w-12 h-12 bg-muted rounded-full"></div>
                     <div className="space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-32"></div>
-                      <div className="h-3 bg-gray-200 rounded w-24"></div>
+                      <div className="h-4 bg-muted rounded w-32"></div>
+                      <div className="h-3 bg-muted rounded w-24"></div>
                     </div>
                   </div>
                 </CardContent>
@@ -659,12 +659,12 @@ export default function NewFeedingPage() {
             ))}
           </div>
         ) : cats.length === 0 ? (
-          <div className="text-center p-6 bg-purple-50 rounded-lg">
-            <CatIcon className="w-12 h-12 text-purple-400 mx-auto mb-3" />
-            <p className="text-gray-600 mb-2">{t("no_cats_message")}</p>
-            <p className="text-gray-500 text-sm mb-4">{t("add_cat_first")}</p>
+          <div className="text-center p-6 bg-accent rounded-lg">
+            <CatIcon className="w-12 h-12 text-accent-foreground mx-auto mb-3" />
+            <p className="text-muted-foreground mb-2">{t("no_cats_message")}</p>
+            <p className="text-muted-foreground text-sm mb-4">{t("add_cat_first")}</p>
             <Link href="/cats/new">
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
                 {t("add_cat")}
               </Button>
             </Link>
@@ -683,9 +683,9 @@ export default function NewFeedingPage() {
                   exit={{ opacity: 0, y: -20 }}
                 >
                   <Card
-                    className={`cursor-pointer transition-all duration-200 bg-white shadow-sm border hover:shadow ${
-                      isSelected ? "ring-2 ring-purple-500 border-purple-300" : ""
-                    } ${needsFeeding ? "border-orange-300 bg-orange-50/50" : ""}`}
+                    className={`cursor-pointer transition-all duration-200 bg-card shadow-sm border hover:shadow ${
+                      isSelected ? "ring-2 ring-primary border-primary/30" : ""
+                    } ${needsFeeding ? "border-destructive/30 bg-destructive/5" : ""}`}
                     onClick={() => toggleCatSelection(cat.id)}
                   >
                     <CardContent className="p-4">
@@ -695,19 +695,19 @@ export default function NewFeedingPage() {
                             <img 
                               src={cat.photoUrl} 
                               alt={cat.name}
-                              className="w-12 h-12 rounded-full object-cover border border-gray-200"
+                              className="w-12 h-12 rounded-full object-cover border border-border"
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center shadow-sm">
-                              <CatIcon className="w-6 h-6 text-purple-600" />
+                            <div className="w-12 h-12 rounded-full bg-accent flex items-center justify-center shadow-sm">
+                              <CatIcon className="w-6 h-6 text-accent-foreground" />
                             </div>
                           )}
                           <div>
-                            <h3 className="font-medium text-gray-900">{cat.name}</h3>
+                            <h3 className="font-medium text-card-foreground">{cat.name}</h3>
                             <div className="flex gap-2 mt-1 flex-wrap">
                               <Badge
                                 variant={needsFeeding ? "destructive" : "secondary"}
-                                className={`flex items-center gap-1 text-xs ${!needsFeeding ? "bg-purple-100 text-purple-800 hover:bg-purple-200" : ""}`}
+                                className={`flex items-center gap-1 text-xs ${!needsFeeding ? "bg-secondary text-secondary-foreground hover:bg-secondary/80" : ""}`}
                               >
                                 <Clock className="w-3 h-3" />
                                 {getLastFeedingText(cat)}
@@ -715,7 +715,7 @@ export default function NewFeedingPage() {
                               {getNextFeedingText(cat) && (
                                 <Badge 
                                   variant="outline" 
-                                  className="flex items-center gap-1 text-xs border-purple-200 text-purple-700"
+                                  className="flex items-center gap-1 text-xs border-border text-muted-foreground"
                                 >
                                   <Bell className="w-3 h-3" />
                                   {t("dashboard_next_feed")}: {getNextFeedingText(cat)}
@@ -737,7 +737,7 @@ export default function NewFeedingPage() {
                           >
                             <div className="flex gap-4 flex-col sm:flex-row">
                               <div className="flex-1">
-                                <label className="text-sm font-medium mb-1 block text-gray-700">
+                                <label className="text-sm font-medium mb-1 block text-muted-foreground">
                                   {t("feed_portion")}
                                 </label>
                                 <Input
@@ -747,11 +747,11 @@ export default function NewFeedingPage() {
                                     ...prev,
                                     [cat.id]: parseInt(e.target.value)
                                   }))}
-                                  className="bg-white border-gray-200 focus:ring-purple-500 focus:border-purple-500"
+                                  className="bg-background border-input focus:ring-ring focus:border-ring"
                                 />
                               </div>
                               <div className="flex-1">
-                                <label className="text-sm font-medium mb-1 block text-gray-700">
+                                <label className="text-sm font-medium mb-1 block text-muted-foreground">
                                   {t("feed_status")}
                                 </label>
                                 <Select
@@ -761,19 +761,19 @@ export default function NewFeedingPage() {
                                     [cat.id]: value
                                   }))}
                                 >
-                                  <SelectTrigger className="bg-white border-gray-200 focus:ring-purple-500">
+                                  <SelectTrigger className="bg-background border-input focus:ring-ring">
                                     <SelectValue placeholder={t("feed_status")} />
                                   </SelectTrigger>
-                                  <SelectContent className="border-gray-200">
-                                    <SelectItem value="completed" className="focus:bg-purple-50">{t("feed_completed")}</SelectItem>
-                                    <SelectItem value="partial" className="focus:bg-purple-50">{t("feed_partial")}</SelectItem>
-                                    <SelectItem value="refused" className="focus:bg-purple-50">{t("feed_refused")}</SelectItem>
+                                  <SelectContent className="border-border">
+                                    <SelectItem value="completed" className="focus:bg-accent">{t("feed_completed")}</SelectItem>
+                                    <SelectItem value="partial" className="focus:bg-accent">{t("feed_partial")}</SelectItem>
+                                    <SelectItem value="refused" className="focus:bg-accent">{t("feed_refused")}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
                             </div>
                             <div>
-                              <label className="text-sm font-medium mb-1 block text-gray-700">
+                              <label className="text-sm font-medium mb-1 block text-muted-foreground">
                                 {t("feed_notes")}
                               </label>
                               <Input
@@ -783,7 +783,7 @@ export default function NewFeedingPage() {
                                   ...prev,
                                   [cat.id]: e.target.value
                                 }))}
-                                className="bg-white border-gray-200 focus:ring-purple-500 focus:border-purple-500"
+                                className="bg-background border-input focus:ring-ring focus:border-ring"
                               />
                             </div>
                           </motion.div>

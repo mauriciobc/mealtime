@@ -168,22 +168,25 @@ export default function EditCatPage({ params }: PageProps) {
         return
       }
       
-      // Update cat with new values
+      // Formatar e validar os dados antes de atualizar
       const updatedCat: CatType = {
         ...existingCat,
-        name: formData.name,
+        name: formData.name.trim(),
         photoUrl: formData.photoUrl,
-        // Optional fields
         birthdate: formData.birthdate ? new Date(formData.birthdate) : undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
-        restrictions: formData.restrictions || undefined,
-        schedules: formData.schedules
+        restrictions: formData.restrictions?.trim() || undefined,
+        schedules: formData.schedules?.map(schedule => ({
+          ...schedule,
+          catId: parseInt(resolvedParams.id),
+          createdAt: schedule.createdAt || new Date()
+        })) || existingCat.schedules || []
       }
       
-      // Update the cat
+      // Atualizar o gato
       const result = await updateCat(resolvedParams.id, updatedCat, state.cats)
       
-      // Update local state
+      // Atualizar estado global
       dispatch({
         type: "UPDATE_CAT",
         payload: result

@@ -18,6 +18,16 @@ import { getSchedules, getCats } from "@/lib/data"
 import { ptBR } from "date-fns/locale"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { formatInTimeZone, toDate } from 'date-fns-tz'
+import { getUserTimezone } from '@/lib/utils/dateUtils'
+import { useSession } from "next-auth/react"
+import { logFeeding } from "@/lib/services/apiService"
+import { getCatsByHouseholdId } from "@/lib/data"
+import { Image } from "@/components/ui/image"
+import { CatIcon } from "@/components/icons/CatIcon"
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner"
+import { CatType } from '@/lib/types'
+import { toast as sonnerToast } from 'sonner'
 
 interface CatWithFeedingTime extends Cat {
   nextFeedingTime: Date;
@@ -31,6 +41,7 @@ interface UpcomingFeeding {
   catPhoto: string | null;
   nextFeeding: Date;
   isOverdue: boolean;
+  avatar?: string;
 }
 
 export default function UpcomingFeedings() {
@@ -42,7 +53,9 @@ export default function UpcomingFeedings() {
   const [isFeeding, setIsFeeding] = useState(false)
   const [upcomingFeedings, setUpcomingFeedings] = useState<UpcomingFeeding[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const session = useSession()
 
   // Memoize the calculation function to avoid recalculation on every render
   const getNextCatToFeed = useCallback((): CatWithFeedingTime | null => {
@@ -97,77 +110,46 @@ export default function UpcomingFeedings() {
   }, [nextCat]);
 
   useEffect(() => {
-    async function loadUpcomingFeedings() {
+    const fetchData = async () => {
+      if (!session?.user?.activeHousehold) return;
+      
+      setIsLoading(true);
       try {
-        setIsLoading(true)
+        const timezone = getUserTimezone(session?.user?.timezone);
+        const now = toDate(new Date(), { timeZone: timezone });
         
-        // Carregar agendamentos e gatos
-        const schedules = await getSchedules()
-        const cats = await getCats()
+        const response = await fetch(`/api/households/${session.user.activeHousehold}/cats`);
+        if (!response.ok) {
+          throw new Error('Erro ao buscar gatos');
+        }
+        const cats: CatType[] = await response.json();
+        const upcomingFeedings = [];
         
-        // Mapear gatos por ID para fácil acesso
-        const catsMap = new Map()
-        cats.forEach(cat => {
-          catsMap.set(cat.id, cat)
-        })
-        
-        // Calcular próximas alimentações
-        const now = new Date()
-        const upcoming: UpcomingFeeding[] = []
-        
-        schedules.forEach(schedule => {
-          const cat = catsMap.get(schedule.catId)
-          if (!cat) return
-          
-          let nextFeeding: Date
-          
-          if (schedule.type === 'interval') {
-            // Para agendamentos baseados em intervalo
-            const interval = schedule.interval
-            nextFeeding = addHours(now, interval)
-          } else if (schedule.type === 'fixedTime') {
-            // Para agendamentos baseados em horários fixos
-            const times = schedule.times.split(',')
-            // Implementação simplificada - em um app real, precisaríamos calcular o próximo horário
-            const nextTime = times[0] // Usando o primeiro horário como exemplo
-            const [hours, minutes] = nextTime.split(':').map(Number)
-            
-            nextFeeding = new Date()
-            nextFeeding.setHours(hours, minutes, 0, 0)
-            
-            // Se o horário já passou hoje, agendar para amanhã
-            if (isBefore(nextFeeding, now)) {
-              nextFeeding.setDate(nextFeeding.getDate() + 1)
-            }
-          } else {
-            // Fallback para um horário futuro
-            nextFeeding = addHours(now, 4)
+        for (const cat of cats) {
+          const nextFeeding = await getNextFeedingTime(cat.id.toString(), timezone);
+          if (nextFeeding) {
+            upcomingFeedings.push({
+              catId: cat.id,
+              catName: cat.name,
+              nextFeeding,
+              avatar: cat.avatar
+            });
           }
-          
-          upcoming.push({
-            id: `${schedule.id}-${cat.id}`,
-            catId: cat.id,
-            catName: cat.name,
-            catPhoto: cat.photoUrl,
-            nextFeeding,
-            isOverdue: isBefore(nextFeeding, now)
-          })
-        })
+        }
         
-        // Ordenar por horário mais próximo
-        upcoming.sort((a, b) => a.nextFeeding.getTime() - b.nextFeeding.getTime())
-        
-        // Limitar a 5 itens
-        setUpcomingFeedings(upcoming.slice(0, 5))
+        // Ordenar por próxima alimentação
+        const sortedFeedings = upcomingFeedings.sort((a, b) => a.nextFeeding.getTime() - b.nextFeeding.getTime());
+        setUpcomingFeedings(sortedFeedings);
       } catch (error) {
-        console.error("Erro ao carregar próximas alimentações:", error)
+        console.error('Erro ao buscar próximas alimentações:', error);
+        setError('Erro ao carregar próximas alimentações');
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
-    
-    loadUpcomingFeedings()
-  }, [])
+    };
+
+    fetchData();
+  }, [session?.user?.activeHousehold]);
 
   if (!nextCat) return null
 
@@ -312,8 +294,51 @@ export default function UpcomingFeedings() {
     }
   }
 
-  const handleFeedNow = (catId: number) => {
-    router.push(`/feedings/new?catId=${catId}`);
+  const handleFeedNow = async (catId: number) => {
+    if (!session?.user?.activeHousehold) return;
+    
+    try {
+      const timezone = getUserTimezone(session?.user?.timezone);
+      const now = toDate(new Date(), { timeZone: timezone });
+      
+      const response = await fetch('/api/feedings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          catId,
+          householdId: parseInt(session.user.activeHousehold),
+          userId: session.user.id,
+          timestamp: now,
+          notes: ''
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao registrar alimentação');
+      }
+
+      // Atualizar a lista de próximas alimentações
+      const updatedFeedings = await Promise.all(
+        upcomingFeedings.map(async (feeding) => {
+          if (feeding.catId === catId) {
+            const nextFeeding = await getNextFeedingTime(catId.toString(), timezone);
+            return {
+              ...feeding,
+              nextFeeding: nextFeeding || now
+            };
+          }
+          return feeding;
+        })
+      );
+
+      setUpcomingFeedings(updatedFeedings.sort((a, b) => a.nextFeeding.getTime() - b.nextFeeding.getTime()));
+      sonnerToast.success('Alimentação registrada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao registrar alimentação:', error);
+      sonnerToast.error('Erro ao registrar alimentação');
+    }
   };
 
   if (isLoading) {
@@ -350,6 +375,55 @@ export default function UpcomingFeedings() {
   }
 
   return (
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold">Próximas Alimentações</h2>
+      {error ? (
+        <div className="text-red-500">{error}</div>
+      ) : upcomingFeedings.length === 0 ? (
+        <div className="text-gray-500">Nenhuma alimentação programada</div>
+      ) : (
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {upcomingFeedings.map((feeding) => (
+            <div
+              key={feeding.catId}
+              className="bg-white rounded-lg shadow-md p-4 flex items-center justify-between"
+            >
+              <div className="flex items-center space-x-4">
+                {feeding.avatar ? (
+                  <Image
+                    src={feeding.avatar}
+                    alt={feeding.catName}
+                    width={48}
+                    height={48}
+                    className="rounded-full"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                    <CatIcon className="w-6 h-6 text-gray-400" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-medium">{feeding.catName}</h3>
+                  <p className="text-sm text-gray-500">
+                    {formatInTimeZone(
+                      feeding.nextFeeding,
+                      getUserTimezone(session?.user?.timezone),
+                      "'Às' HH:mm",
+                      { locale: ptBR }
+                    )}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleFeedNow(feeding.catId)}
+              >
+                Alimentar Agora
+              </Button>
+            </div>
+          ))}
+        </div>
     <motion.div 
       className="space-y-3"
       initial={{ opacity: 0 }}

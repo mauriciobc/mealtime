@@ -1,15 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format, addHours, isBefore } from "date-fns";
+import { format, addHours, isBefore, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone, toDate } from "date-fns-tz";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { getSchedules, getCats } from "@/lib/data";
+import { useGlobalState } from "@/lib/context/global-state";
+import { FeedingLog, CatType, Schedule } from "@/lib/types";
+import { useSession } from "next-auth/react";
+import { getFeedingLogs, getCatsByHouseholdId } from "@/lib/services/apiService";
+import { getSchedules } from "@/lib/data";
 
 interface UpcomingFeeding {
   id: string;
@@ -21,6 +26,8 @@ interface UpcomingFeeding {
 }
 
 export default function FeedingSchedule() {
+  const { state } = useGlobalState();
+  const { data: session } = useSession();
   const [upcomingFeedings, setUpcomingFeedings] = useState<UpcomingFeeding[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -30,54 +37,114 @@ export default function FeedingSchedule() {
       try {
         setIsLoading(true);
         
-        // Carregar agendamentos e gatos
-        const schedules = await getSchedules();
-        const cats = await getCats();
+        if (!session?.user || state.households.length === 0) {
+          return;
+        }
+        
+        const activeHousehold = state.households[0];
+        const userTimezone = session.user.timezone || "America/Sao_Paulo"; // Usando São Paulo como padrão
+        
+        // Carregar dados do banco
+        const [cats, schedules, feedingLogs] = await Promise.all([
+          getCatsByHouseholdId(activeHousehold.id),
+          getSchedules(undefined),
+          getFeedingLogs([])
+        ]);
         
         // Mapear gatos por ID para fácil acesso
-        const catsMap = new Map();
-        cats.forEach(cat => {
-          catsMap.set(cat.id, cat);
-        });
+        const catsMap = new Map<number, CatType>();
+        if (Array.isArray(cats)) {
+          cats.forEach((cat) => {
+            if (cat && cat.id) {
+              catsMap.set(cat.id, cat);
+            }
+          });
+        }
         
         // Calcular próximas alimentações
-        const now = new Date();
+        const now = toDate(new Date(), { timeZone: userTimezone });
         const upcoming: UpcomingFeeding[] = [];
         
-        schedules.forEach(schedule => {
+        schedules.forEach((schedule) => {
           const cat = catsMap.get(schedule.catId);
           if (!cat) return;
           
           let nextFeeding: Date;
           
-          if (schedule.type === 'interval') {
+          if (schedule.type === 'interval' && schedule.interval) {
             // Para agendamentos baseados em intervalo
             const interval = schedule.interval;
-            nextFeeding = addHours(now, interval);
-          } else if (schedule.type === 'fixedTime') {
+            const lastFeeding = feedingLogs
+              .filter((log: FeedingLog) => log.catId === cat.id)
+              .sort((a: FeedingLog, b: FeedingLog) => 
+                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+              )[0];
+            
+            if (lastFeeding) {
+              // Converter o timestamp para o fuso horário do usuário
+              const lastFeedingTime = toDate(parseISO(lastFeeding.timestamp.toString()), { timeZone: userTimezone });
+              nextFeeding = addHours(lastFeedingTime, interval);
+              
+              // Se o próximo horário calculado já passou, calcula o próximo intervalo a partir de agora
+              if (isBefore(nextFeeding, now)) {
+                const intervalsPassedSinceLastFeeding = Math.ceil(
+                  (now.getTime() - lastFeedingTime.getTime()) / (interval * 60 * 60 * 1000)
+                );
+                nextFeeding = addHours(lastFeedingTime, (intervalsPassedSinceLastFeeding + 1) * interval);
+              }
+            } else {
+              nextFeeding = addHours(now, interval);
+            }
+          } else if (schedule.type === 'fixedTime' && schedule.times) {
             // Para agendamentos baseados em horários fixos
             const times = schedule.times.split(',');
-            // Implementação simplificada - em um app real, precisaríamos calcular o próximo horário
-            const nextTime = times[0]; // Usando o primeiro horário como exemplo
-            const [hours, minutes] = nextTime.split(':').map(Number);
+            const nextTimes = times.map((time: string) => {
+              const [hours, minutes] = time.split(':').map(Number);
+              const scheduledTime = toDate(new Date(), { timeZone: userTimezone });
+              scheduledTime.setHours(hours, minutes, 0, 0);
+              
+              // Se o horário já passou hoje, agendar para amanhã
+              if (isBefore(scheduledTime, now)) {
+                scheduledTime.setDate(scheduledTime.getDate() + 1);
+              }
+              
+              return scheduledTime;
+            });
             
-            nextFeeding = new Date();
-            nextFeeding.setHours(hours, minutes, 0, 0);
-            
-            // Se o horário já passou hoje, agendar para amanhã
-            if (isBefore(nextFeeding, now)) {
-              nextFeeding.setDate(nextFeeding.getDate() + 1);
-            }
+            // Pegar o próximo horário mais próximo
+            nextFeeding = nextTimes.reduce((closest: Date | null, current: Date) => {
+              if (!closest) return current;
+              return isBefore(current, closest) ? current : closest;
+            }, null) || now;
           } else {
-            // Fallback para um horário futuro
-            nextFeeding = addHours(now, 4);
+            // Usar o intervalo de alimentação do gato ou um valor padrão
+            const interval = cat.feeding_interval || 8;
+            const lastFeeding = feedingLogs
+              .filter((log: FeedingLog) => log.catId === cat.id)
+              .sort((a: FeedingLog, b: FeedingLog) => 
+                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+              )[0];
+            
+            if (lastFeeding) {
+              const lastFeedingTime = toDate(parseISO(lastFeeding.timestamp.toString()), { timeZone: userTimezone });
+              nextFeeding = addHours(lastFeedingTime, interval);
+              
+              if (isBefore(nextFeeding, now)) {
+                const intervalsPassedSinceLastFeeding = Math.ceil(
+                  (now.getTime() - lastFeedingTime.getTime()) / (interval * 60 * 60 * 1000)
+                );
+                nextFeeding = addHours(lastFeedingTime, (intervalsPassedSinceLastFeeding + 1) * interval);
+              }
+            } else {
+              nextFeeding = addHours(now, interval);
+            }
           }
           
           upcoming.push({
             id: `${schedule.id}-${cat.id}`,
             catId: cat.id,
             catName: cat.name,
-            catPhoto: cat.photoUrl,
+            catPhoto: cat.photoUrl || null,
             nextFeeding,
             isOverdue: isBefore(nextFeeding, now)
           });
@@ -96,7 +163,7 @@ export default function FeedingSchedule() {
     }
     
     loadUpcomingFeedings();
-  }, []);
+  }, [session, state.households]);
   
   const handleFeedNow = (catId: number) => {
     router.push(`/feedings/new?catId=${catId}`);
@@ -164,7 +231,7 @@ export default function FeedingSchedule() {
                     <Clock className="h-3 w-3" />
                     {feeding.isOverdue 
                       ? "Atrasado" 
-                      : format(feeding.nextFeeding, "'Às' HH:mm", { locale: ptBR })}
+                      : formatInTimeZone(feeding.nextFeeding, session?.user?.timezone || "America/Sao_Paulo", "'Às' HH:mm", { locale: ptBR })}
                   </p>
                 </div>
                 <Button 

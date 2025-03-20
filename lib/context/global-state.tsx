@@ -73,10 +73,20 @@ function reducer(state: GlobalState, action: ActionType): GlobalState {
         feedingLogs: action.payload,
       };
     case "UPDATE_CAT":
+      const payloadId = typeof action.payload.id === 'string' ? parseInt(action.payload.id) : action.payload.id;
       return {
         ...state,
         cats: state.cats.map((cat) =>
-          cat.id === action.payload.id ? { ...cat, ...action.payload } : cat
+          cat.id === payloadId
+            ? {
+                ...cat,
+                ...action.payload,
+                id: cat.id,
+                schedules: Array.isArray(action.payload.schedules) ? action.payload.schedules : cat.schedules || [],
+                feedingLogs: Array.isArray(action.payload.feedingLogs) ? action.payload.feedingLogs : cat.feedingLogs || [],
+                createdAt: action.payload.createdAt || cat.createdAt || new Date()
+              }
+            : cat
         ),
       };
     case "DELETE_CAT":
