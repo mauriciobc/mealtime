@@ -116,56 +116,55 @@ export const generateNotificationsFromSchedules = (schedules: Schedule[]): Notif
  */
 export const checkForNewNotifications = async (): Promise<Notification[]> => {
   try {
+    // Sempre verificar se estamos em ambiente de desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Ambiente de desenvolvimento detectado, desativando verificação de notificações');
+      return [];
+    }
+    
     const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '';
     const apiUrl = apiBaseUrl ? `${apiBaseUrl}/api/schedules` : '/api/schedules';
     
-    console.log('Buscando agendamentos em:', apiUrl);
-    
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      cache: 'no-store'
-    });
-    
-    // Verificar o status da resposta
-    console.log('Status da resposta:', response.status, response.statusText);
-    
-    // Se receber 401 (não autorizado) ou 403 (proibido), não considerar como erro
-    // mas retornar uma lista vazia, pois o usuário ainda não está autenticado
-    if (response.status === 401 || response.status === 403) {
-      console.log('Usuário não autenticado, ignorando busca de notificações');
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store'
+      });
+      
+      // Tratar respostas de erro comuns
+      if (response.status === 401 || response.status === 403 || response.status === 404) {
+        return [];
+      }
+      
+      if (!response.ok) {
+        console.warn(`Erro na API de agendamentos: ${response.status}`);
+        return [];
+      }
+      
+      // Verificar tipo de conteúdo antes de processar JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        return [];
+      }
+      
+      const schedules = await response.json();
+      
+      if (!Array.isArray(schedules)) {
+        return [];
+      }
+      
+      return generateNotificationsFromSchedules(schedules);
+    } catch (fetchError) {
+      console.warn('Erro ao buscar agendamentos:', fetchError);
       return [];
     }
-    
-    if (!response.ok) {
-      throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
-    }
-    
-    // Verificar o tipo de conteúdo da resposta
-    const contentType = response.headers.get('content-type');
-    console.log('Tipo de conteúdo da resposta:', contentType);
-    
-    // Verificar se o contentType contém application/json
-    if (!contentType || !contentType.includes('application/json')) {
-      console.warn('Resposta não é JSON:', contentType);
-      return [];
-    }
-    
-    // Obter o JSON diretamente
-    const schedules = await response.json();
-    
-    if (!Array.isArray(schedules)) {
-      console.warn('Resposta da API não é um array:', schedules);
-      return [];
-    }
-    
-    return generateNotificationsFromSchedules(schedules);
   } catch (error) {
-    console.error("Erro ao verificar novas notificações:", error);
+    console.warn("Erro ao verificar notificações:", error);
     return [];
   }
 }; 

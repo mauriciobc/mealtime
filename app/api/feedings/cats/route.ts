@@ -7,23 +7,26 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const householdId = searchParams.get('householdId');
 
-    const where = householdId 
-      ? { householdId: parseInt(householdId) } 
-      : {};
+    if (!householdId) {
+      return NextResponse.json(
+        { error: 'householdId é obrigatório' },
+        { status: 400 }
+      );
+    }
 
-    // Consulta simplificada para obter apenas o necessário para o formulário de alimentação
+    // Consulta para obter gatos com informações necessárias para alimentação
+    // Usando o select: true para selecionar todas as colunas e evitar o erro de tipagem
     const cats = await prisma.cat.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        photoUrl: true
+      where: {
+        householdId: parseInt(householdId)
       },
       orderBy: {
         name: 'asc'
       }
     });
 
+    console.log(`Encontrados ${cats.length} gatos para a residência ${householdId}`);
+    
     return NextResponse.json(cats);
   } catch (error) {
     console.error('Erro ao buscar gatos para o formulário de alimentação:', error);

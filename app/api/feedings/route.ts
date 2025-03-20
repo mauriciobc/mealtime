@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// GET /api/feedings - Listar registros de alimentação (filtragem opcional por catId)
+// GET /api/feedings - Listar registros de alimentação (filtragem opcional por catId ou householdId)
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const catId = searchParams.get('catId');
+    const householdId = searchParams.get('householdId');
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
 
-    const where = catId 
-      ? { catId: parseInt(catId) } 
-      : {};
+    let where: any = {};
+    
+    if (catId) {
+      where.catId = parseInt(catId);
+    }
+    
+    if (householdId) {
+      where.cat = {
+        householdId: parseInt(householdId)
+      };
+    }
 
     const feedings = await prisma.feedingLog.findMany({
       where,
@@ -18,7 +28,9 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            photoUrl: true
+            photoUrl: true,
+            portion_size: true,
+            feeding_interval: true
           }
         },
         user: {
@@ -30,7 +42,8 @@ export async function GET(request: NextRequest) {
       },
       orderBy: {
         timestamp: 'desc'
-      }
+      },
+      take: limit
     });
 
     return NextResponse.json(feedings);
@@ -50,7 +63,8 @@ export async function POST(request: NextRequest) {
       catId,
       userId,
       portionSize,
-      notes
+      notes,
+      status
     } = await request.json();
 
     if (!catId || !userId) {
@@ -90,8 +104,9 @@ export async function POST(request: NextRequest) {
         catId,
         userId,
         timestamp: new Date(),
-        portionSize: portionSize ? parseFloat(portionSize) : null,
-        notes
+        portionSize: portionSize ? parseFloat(String(portionSize)) : null,
+        notes,
+        status
       }
     });
 
