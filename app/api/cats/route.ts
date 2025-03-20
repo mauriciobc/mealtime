@@ -75,18 +75,35 @@ export async function POST(request: NextRequest) {
     const cat = await prisma.cat.create({
       data: {
         name,
-        photoUrl,
+        photoUrl: photoUrl || null,
         birthdate: birthdate ? new Date(birthdate) : null,
-        weight: weight ? parseFloat(weight) : null,
-        restrictions,
-        notes,
+        weight: weight ? parseFloat(String(weight)) : null,
+        restrictions: restrictions || null,
+        notes: notes || null,
         householdId
       }
     });
 
     return NextResponse.json(cat, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao criar perfil de gato:', error);
+    
+    // Verificar se é um erro do Prisma
+    if (error.code) {
+      // Erros específicos do Prisma
+      if (error.code === 'P2002') {
+        return NextResponse.json(
+          { error: 'Já existe um gato com essas informações' },
+          { status: 400 }
+        );
+      } else if (error.code === 'P2003') {
+        return NextResponse.json(
+          { error: 'Referência inválida a outro registro' },
+          { status: 400 }
+        );
+      }
+    }
+    
     return NextResponse.json(
       { error: 'Ocorreu um erro ao criar o perfil do gato' },
       { status: 500 }

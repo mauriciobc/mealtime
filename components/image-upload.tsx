@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Upload, X, Camera, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface ImageUploadProps {
   value: string;
@@ -14,7 +15,7 @@ interface ImageUploadProps {
 
 export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(value || null);
+  const [preview, setPreview] = useState<string>(value || "");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Manipula o clique no botão de upload
@@ -45,7 +46,9 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
       });
       
       if (!response.ok) {
-        throw new Error("Falha ao enviar imagem");
+        const errorData = await response.json();
+        console.error("Erro de upload:", errorData);
+        throw new Error(errorData.error || "Falha ao enviar imagem");
       }
       
       const data = await response.json();
@@ -58,7 +61,9 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
     } catch (error) {
       console.error("Erro ao fazer upload:", error);
       // Em caso de erro, limpar o preview
-      setPreview(value || null);
+      setPreview(value || "");
+      // Exibir mensagem de erro para o usuário
+      toast.error("Erro ao enviar imagem. Por favor, tente novamente.");
     } finally {
       setIsUploading(false);
     }
@@ -66,7 +71,7 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
   
   // Remove a imagem atual
   const handleRemove = () => {
-    setPreview(null);
+    setPreview("");
     onChange("");
   };
   
