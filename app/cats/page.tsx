@@ -27,7 +27,7 @@ import { getAgeString, getScheduleText } from "@/lib/utils/dateUtils"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { AppHeader } from "@/components/app-header"
 import { useRouter } from "next/navigation"
-import { getCats } from "@/lib/data"
+import { getCats, getCatsByHouseholdId } from "@/lib/services/apiService"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,10 +36,12 @@ import { useGlobalState } from "@/lib/context/global-state"
 import { CatCard } from "@/components/cat-card"
 import { Loading } from "@/components/ui/loading"
 import { EmptyState } from "@/components/ui/empty-state"
+import { useSession } from "next-auth/react"
 
 export default function CatsPage() {
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
+  const { data: session } = useSession()
   const [isLoading, setIsLoading] = useState(true)
   const [apiCats, setApiCats] = useState<CatType[]>([])
 
@@ -47,16 +49,27 @@ export default function CatsPage() {
     async function loadCats() {
       try {
         setIsLoading(true)
-        const cats = await fetch('/api/cats').then(res => res.json())
-        setApiCats(cats)
         
-        // Atualizar o estado global com os gatos da API se necessário
-        if (cats.length > 0 && state.cats.length === 0) {
-          cats.forEach((cat: CatType) => {
-            dispatch({
-              type: "ADD_CAT",
-              payload: cat,
-            })
+        // Verificar se há um domicílio ativo
+        if (state.households.length > 0) {
+          const activeHousehold = state.households[0]; // Assumindo que o primeiro é o ativo
+          const cats = await getCatsByHouseholdId(activeHousehold.id)
+          setApiCats(cats)
+          
+          // Atualizar o estado global com os gatos da API
+          dispatch({
+            type: "SET_CATS",
+            payload: cats,
+          })
+        } else {
+          // Sem domicílio ativo, carregar todos os gatos
+          const cats = await fetch('/api/cats').then(res => res.json())
+          setApiCats(cats)
+          
+          // Atualizar o estado global
+          dispatch({
+            type: "SET_CATS",
+            payload: cats,
           })
         }
       } catch (error) {
@@ -67,7 +80,7 @@ export default function CatsPage() {
     }
 
     loadCats()
-  }, [dispatch, state.cats.length])
+  }, [dispatch, state.households])
 
   const handleDeleteCat = async (catId: string) => {
     try {
@@ -77,15 +90,15 @@ export default function CatsPage() {
         payload: { id: catId },
       })
       
-      // Remover da lista da API também (assumindo que existe um endpoint para isso)
-      // await fetch(`/api/cats/${catId}`, { method: 'DELETE' })
+      // Remover da API
+      await fetch(`/api/cats/${catId}`, { method: 'DELETE' })
     } catch (error) {
       console.error("Erro ao excluir gato:", error)
     }
   }
 
   // Decidir qual conjunto de dados usar (priorizar a API)
-  const catsToDisplay = apiCats.length > 0 ? apiCats : state.cats
+  const catsToDisplay = state.cats
 
   return (
     <PageTransition>

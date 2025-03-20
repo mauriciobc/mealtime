@@ -24,53 +24,41 @@ export interface Household {
     role: 'Admin' | 'Member'; // Role-based access
     joinedAt: Date;
   }[];
-  cats: string[]; // IDs of cats
+  cats: number[]; // IDs of cats
   catGroups: CatGroup[];
 }
 
 export interface CatGroup {
   id: string;
   name: string;
-  catIds: string[];
+  catIds: number[];
 }
 
 // Cat Profiles
-export interface Cat {
-  id: string;
+export interface CatType {
+  id: number;
   name: string;
-  avatar?: string;
   birthdate?: Date;
   weight?: number;
-  dietaryRestrictions?: string[];
-  medicalNotes?: string;
-  regularAmount: string;
-  foodUnit: string;
-  feedingSchedules: FeedingSchedule[];
-  householdId: string;
+  breed?: string;
   photoUrl?: string;
-}
-
-// Feeding Configuration
-export interface FeedingSchedule {
-  id: string;
-  type: 'interval' | 'fixedTime';
-  interval?: number; // Hours between feedings
-  times?: string[]; // Specific times (e.g., "08:00", "18:00")
-  isActive: boolean;
-  isOverride: boolean; // For temporary schedule changes
-  overrideEndDate?: Date;
+  restrictions?: string;
+  householdId?: number;
+  createdAt?: Date;
+  feedingLogs?: FeedingLog[];
+  schedules?: Schedule[];
 }
 
 // Feeding Logs
 export interface FeedingLog {
   id: string;
-  catId: string;
+  catId: number;
   userId: string;
   timestamp: Date;
   portionSize?: number | null;
   notes?: string | null;
   createdAt?: Date;
-  cat?: Cat;
+  cat?: CatType;
   user?: User;
 }
 
@@ -117,9 +105,11 @@ export interface LegacyCatProfile {
 
 export interface Schedule {
   id: string;
-  catId: string;
+  catId: number;
   userId: string;
-  time: string;
+  type: 'interval' | 'fixedTime';
+  interval?: number; // Hours between feedings
+  times?: string; // Specific times (e.g., "08:00")
   days: string[];
   enabled: boolean;
   status?: "pending" | "completed" | "missed";
@@ -148,16 +138,12 @@ export interface CatPortion {
   value: number;
 }
 
-export interface CatType {
-  id: string;
-  name: string;
-  birthdate?: Date;
-  weight?: number;
-  breed?: string;
-  photoUrl?: string;
-  restrictions?: string;
-  householdId?: string;
-  createdAt?: Date;
-  feedingLogs?: FeedingLog[];
-  schedules?: Schedule[];
+export interface FeedingFormProps {
+  catId: number;
+  onMarkAsFed: (amount?: string, notes?: string) => Promise<FeedingLog | undefined>;
+}
+
+export interface FeedingHistoryProps {
+  logs: FeedingLog[];
+  onMarkAsFed?: () => void;
 }

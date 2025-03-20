@@ -22,11 +22,11 @@ type AppAction =
   | { type: "SET_CATS"; payload: Cat[] }
   | { type: "ADD_CAT"; payload: Cat }
   | { type: "UPDATE_CAT"; payload: Cat }
-  | { type: "DELETE_CAT"; payload: string }
+  | { type: "DELETE_CAT"; payload: number }
   | { type: "SET_FEEDING_LOGS"; payload: FeedingLog[] }
   | { type: "ADD_FEEDING_LOG"; payload: FeedingLog }
   | { type: "UPDATE_FEEDING_LOG"; payload: FeedingLog }
-  | { type: "DELETE_FEEDING_LOG"; payload: string }
+  | { type: "DELETE_FEEDING_LOG"; payload: number }
   | { type: "SET_HOUSEHOLDS"; payload: Household[] }
   | { type: "UPDATE_HOUSEHOLD"; payload: Household }
   | { type: "SET_USERS"; payload: User[] }
@@ -167,7 +167,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         // Função auxiliar para carregar e validar dados
-        const loadAndValidateData = <T>(key: string, mockData: T[]): T[] => {
+        const loadAndValidateData = <T extends unknown>(key: string, mockData: T[]): T[] => {
           try {
             const stored = localStorage.getItem(key);
             if (!stored) return mockData;
@@ -294,8 +294,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 // Create hook for using the context
 export function useAppContext() {
   const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error("useAppContext must be used within an AppProvider");
+  if (!context) {
+    throw new Error('useAppContext must be used within an AppProvider');
   }
   return context;
 }

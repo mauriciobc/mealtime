@@ -1,5 +1,6 @@
 import { format, formatDistanceToNow } from "date-fns";
-import { FeedingSchedule } from "../types";
+import { ptBR } from "date-fns/locale";
+import { Schedule } from "../types";
 
 /**
  * Get a user-friendly age string from a birthdate
@@ -53,18 +54,21 @@ export function getAgeString(birthdate?: Date): string {
 /**
  * Get a user-friendly description of a feeding schedule
  */
-export function getScheduleText(schedule?: FeedingSchedule): string {
-  if (!schedule) return "No active schedule";
+export function getScheduleText(schedule?: Schedule): string {
+  if (!schedule) return "Sem agendamento ativo";
   
-  if (schedule.type === 'interval' && schedule.interval) {
-    return `Every ${schedule.interval} hour${schedule.interval !== 1 ? 's' : ''}`;
-  } else if (schedule.type === 'fixedTime' && schedule.times && schedule.times.length > 0) {
-    return schedule.times.length === 1 
-      ? `Daily at ${schedule.times[0]}`
-      : `${schedule.times.length} times daily`;
+  try {
+    if (schedule.type === 'interval' && typeof schedule.interval === 'number' && schedule.interval > 0) {
+      return `A cada ${schedule.interval} ${schedule.interval !== 1 ? 'horas' : 'hora'}`;
+    } else if (schedule.type === 'fixedTime' && typeof schedule.times === 'string' && schedule.times.trim()) {
+      return `Diariamente às ${schedule.times}`;
+    }
+    
+    return "Agendamento configurado";
+  } catch (error) {
+    console.error('Erro ao gerar texto do agendamento:', error);
+    return "Agendamento inválido";
   }
-  
-  return "Schedule set";
 }
 
 /**
@@ -73,8 +77,17 @@ export function getScheduleText(schedule?: FeedingSchedule): string {
 export function formatDateTime(date: Date | string): string {
   if (!date) return "";
   
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return format(dateObj, "MMM d, h:mm a");
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) {
+      console.error('Data inválida fornecida para formatação');
+      return "";
+    }
+    return format(dateObj, "dd 'de' MMM 'às' HH:mm", { locale: ptBR });
+  } catch (error) {
+    console.error('Erro ao formatar data:', error);
+    return "";
+  }
 }
 
 /**
@@ -83,25 +96,52 @@ export function formatDateTime(date: Date | string): string {
 export function getRelativeTime(date: Date | string): string {
   if (!date) return "";
   
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return formatDistanceToNow(dateObj, { addSuffix: true });
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) {
+      console.error('Data inválida fornecida para tempo relativo');
+      return "";
+    }
+    return formatDistanceToNow(dateObj, { addSuffix: true, locale: ptBR });
+  } catch (error) {
+    console.error('Erro ao calcular tempo relativo:', error);
+    return "";
+  }
 }
 
 /**
  * Parse a time string into a Date object
  */
 export function parseTimeString(timeString: string): Date {
-  const [hours, minutes] = timeString.split(':').map(Number);
-  const date = new Date();
-  date.setHours(hours, minutes, 0, 0);
-  return date;
+  try {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    
+    // Validar formato do horário
+    if (isNaN(hours) || isNaN(minutes) || 
+        hours < 0 || hours > 23 || 
+        minutes < 0 || minutes > 59) {
+      throw new Error(`Formato de horário inválido: ${timeString}`);
+    }
+    
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    
+    if (isNaN(date.getTime())) {
+      throw new Error(`Data inválida criada para: ${timeString}`);
+    }
+    
+    return date;
+  } catch (error) {
+    console.error(`Erro ao processar horário ${timeString}:`, error);
+    return new Date(); // Retorna hora atual em caso de erro
+  }
 }
 
 /**
  * Get the next scheduled feed time from a time-based schedule
  */
-export function getNextScheduledTime(times: string[]): Date | null {
-  if (!times || times.length === 0) return null;
+export function getNextScheduledTime(schedule: Schedule): Date | null {
+  if (!schedule || !schedule.enabled) return null;
   
   try {
     const now = new Date();
@@ -112,23 +152,34 @@ export function getNextScheduledTime(times: string[]): Date | null {
     
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Converter strings de horário para objetos Date
-    const scheduledTimes = times.map(timeStr => {
+    if (schedule.type === 'interval' && typeof schedule.interval === 'number' && schedule.interval > 0) {
+      // Para agendamentos baseados em intervalo
+      const lastFeeding = schedule.status === 'completed' ? now : today;
+      const nextTime = new Date(lastFeeding.getTime() + schedule.interval * 60 * 60 * 1000);
+      
+      if (isNaN(nextTime.getTime())) {
+        console.error('Data inválida calculada para próximo horário');
+        return null;
+      }
+      
+      return nextTime;
+    } else if (schedule.type === 'fixedTime' && typeof schedule.times === 'string' && schedule.times.trim()) {
+      // Para agendamentos em horários fixos
       try {
-        const [hours, minutes] = timeStr.split(':').map(Number);
+        const [hours, minutes] = schedule.times.split(':').map(Number);
         
         // Validar formato do horário
         if (isNaN(hours) || isNaN(minutes) || 
             hours < 0 || hours > 23 || 
             minutes < 0 || minutes > 59) {
-          throw new Error(`Formato de horário inválido: ${timeStr}`);
+          throw new Error(`Formato de horário inválido: ${schedule.times}`);
         }
         
         const timeToday = new Date(today);
         timeToday.setHours(hours, minutes);
         
         if (isNaN(timeToday.getTime())) {
-          throw new Error(`Data inválida criada para: ${timeStr}`);
+          throw new Error(`Data inválida criada para: ${schedule.times}`);
         }
         
         // Se este horário já passou hoje, agendar para amanhã
@@ -138,23 +189,12 @@ export function getNextScheduledTime(times: string[]): Date | null {
         
         return timeToday;
       } catch (error) {
-        console.error(`Erro ao processar horário ${timeStr}:`, error);
+        console.error(`Erro ao processar horário ${schedule.times}:`, error);
         return null;
       }
-    }).filter((date): date is Date => date !== null);
-    
-    if (scheduledTimes.length === 0) {
-      console.warn('Nenhum horário válido encontrado');
-      return null;
     }
     
-    const nextTime = new Date(Math.min(...scheduledTimes.map(t => t.getTime())));
-    if (isNaN(nextTime.getTime())) {
-      console.error('Data inválida calculada para próximo horário');
-      return null;
-    }
-    
-    return nextTime;
+    return null;
   } catch (error) {
     console.error('Erro ao calcular próximo horário programado:', error);
     return null;

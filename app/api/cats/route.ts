@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /api/cats - Listar todos os gatos (filtragem opcional por householdId)
 export async function GET(request: NextRequest) {
@@ -49,7 +50,8 @@ export async function POST(request: NextRequest) {
       weight,
       restrictions,
       notes,
-      householdId
+      householdId,
+      feeding_interval
     } = await request.json();
 
     if (!name || !householdId) {
@@ -71,17 +73,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar o perfil do gato
-    const cat = await prisma.cat.create({
-      data: {
-        name,
-        photoUrl: photoUrl || null,
-        birthdate: birthdate ? new Date(birthdate) : null,
-        weight: weight ? parseFloat(String(weight)) : null,
-        restrictions: restrictions || null,
-        notes: notes || null,
-        householdId
+    // Validar o intervalo de alimentação
+    let parsedInterval = 8; // Valor padrão
+    if (feeding_interval) {
+      const interval = parseInt(feeding_interval);
+      if (isNaN(interval) || interval < 1 || interval > 24) {
+        return NextResponse.json(
+          { error: 'O intervalo de alimentação deve estar entre 1 e 24 horas' },
+          { status: 400 }
+        );
       }
+      parsedInterval = interval;
+    }
+
+    // Criar o perfil do gato
+    const catData: any = {
+      name,
+      photoUrl: photoUrl || null,
+      birthdate: birthdate ? new Date(birthdate) : null,
+      weight: weight ? parseFloat(String(weight)) : null,
+      restrictions: restrictions || null,
+      notes: notes || null,
+      householdId,
+      feeding_interval: parsedInterval
+    };
+
+    const cat = await prisma.cat.create({
+      data: catData
     });
 
     return NextResponse.json(cat, { status: 201 });

@@ -457,12 +457,16 @@ export default function NewFeedingPage() {
         return;
       }
 
+      // Array para armazenar as promessas de alimentação
+      const promises: Promise<Response>[] = [];
+      const feedErrors: string[] = [];
+
       // Criar alimentações para cada gato selecionado
       for (const catId of selectedCats) {
         const cat = cats.find(c => c.id === catId);
         if (!cat) continue;
         
-        await fetch("/api/feedings", {
+        const promise = fetch("/api/feedings", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -475,15 +479,53 @@ export default function NewFeedingPage() {
             notes: notes[catId] || ""
           }),
         });
-
-        // Agendar notificação para a próxima alimentação
-        const now = new Date();
-        const interval = cat.feeding_interval || 8;
-        const nextFeeding = calculateNextFeedingTime(now, interval);
         
-        if (nextFeeding) {
-          scheduleNotification(cat, nextFeeding);
+        promises.push(promise);
+      }
+
+      // Aguardar todas as requisições de alimentação
+      const responses = await Promise.all(promises);
+      
+      // Verificar se alguma requisição falhou
+      let hasErrors = false;
+      for (let i = 0; i < responses.length; i++) {
+        const response = responses[i];
+        if (!response.ok) {
+          hasErrors = true;
+          const catId = selectedCats[i];
+          const cat = cats.find(c => c.id === catId);
+          const catName = cat ? cat.name : `Gato #${catId}`;
+          
+          try {
+            const errorData = await response.json();
+            feedErrors.push(`Erro ao salvar alimentação para ${catName}: ${errorData.error || response.statusText}`);
+          } catch {
+            feedErrors.push(`Erro ao salvar alimentação para ${catName}: ${response.statusText}`);
+          }
         }
+      }
+
+      // Se houve erros, exibir alerta
+      if (hasErrors) {
+        console.error("Erros ao salvar alimentações:", feedErrors);
+        toast({
+          title: t("feed_error"),
+          description: feedErrors.join(". "),
+          variant: "destructive"
+        });
+        
+        // Se algumas alimentações foram salvas com sucesso, atualizar os dados
+        if (feedErrors.length < selectedCats.length) {
+          // Recarregar os dados
+          const householdId = state.households[0].id;
+          const feedingResponse = await fetch(`/api/feedings?householdId=${householdId}&limit=50`);
+          if (feedingResponse.ok) {
+            const logsData = await feedingResponse.json();
+            setFeedingLogs(logsData);
+          }
+        }
+        
+        return;
       }
 
       // Resetar seleção e atualizar dados
@@ -493,10 +535,30 @@ export default function NewFeedingPage() {
       
       // Recarregar os dados
       const householdId = state.households[0].id;
-      const response = await fetch(`/api/feedings?householdId=${householdId}&limit=50`);
-      if (response.ok) {
-        const logsData = await response.json();
+      const feedingResponse = await fetch(`/api/feedings?householdId=${householdId}&limit=50`);
+      if (feedingResponse.ok) {
+        const logsData = await feedingResponse.json();
         setFeedingLogs(logsData);
+        
+        // Não atualizar o estado global diretamente devido a incompatibilidade de tipos
+        // O recarregamento dos logs já é suficiente para esta página
+      } else {
+        console.error("Erro ao recarregar alimentações:", feedingResponse.statusText);
+      }
+      
+      // Agendar notificações para próximas alimentações
+      for (const catId of selectedCats) {
+        const cat = cats.find(c => c.id === catId);
+        if (!cat) continue;
+        
+        // Agendar notificação para a próxima alimentação
+        const now = new Date();
+        const interval = cat.feeding_interval || 8;
+        const nextFeeding = calculateNextFeedingTime(now, interval);
+        
+        if (nextFeeding) {
+          scheduleNotification(cat, nextFeeding);
+        }
       }
       
       toast({

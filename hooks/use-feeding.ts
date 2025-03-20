@@ -5,10 +5,12 @@ import { useState, useEffect, useCallback } from "react";
 // import { useAppContext } from "@/lib/context/AppContext";
 // Importar o useGlobalState
 import { useGlobalState } from "@/lib/context/global-state";
-import { Cat, FeedingLog, CatType } from "@/lib/types";
+import { CatType, FeedingLog } from "@/lib/types";
 import { createFeedingLog, getNextFeedingTime } from "@/lib/services/apiService";
 import { getRelativeTime, formatDateTime } from "@/lib/utils/dateUtils";
 import { toast } from "sonner";
+import { format, formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 // Simple UUID function since we can't install the package
 function uuidv4(): string {
@@ -19,8 +21,8 @@ function uuidv4(): string {
 }
 
 export function useFeeding(catId: string) {
-  // Usar o contexto global em vez do AppContext
   const { state, dispatch } = useGlobalState();
+  const numericId = parseInt(catId);
   const [cat, setCat] = useState<CatType | null>(null);
   const [logs, setLogs] = useState<FeedingLog[]>([]);
   const [nextFeedingTime, setNextFeedingTime] = useState<Date | null>(null);
@@ -43,17 +45,18 @@ export function useFeeding(catId: string) {
       
       try {
         // Primeiro, tenta buscar do estado local
-        let foundCat = state.cats.find(c => c.id === catId) || null;
+        let foundCat = state.cats.find(c => c.id === numericId) || null;
         
         // Se não encontrou localmente, busca da API
-        if (!foundCat && catId) {
-          const response = await fetch(`/api/cats/${catId}`);
+        if (!foundCat && numericId) {
+          const response = await fetch(`/api/cats/${numericId}`);
           if (response.ok) {
-            foundCat = await response.json();
+            const apiCat = await response.json();
             // Adiciona ao estado global se não existir
-            if (foundCat && !state.cats.some(c => c.id === foundCat.id)) {
-              dispatch({ type: "ADD_CAT", payload: foundCat });
+            if (apiCat && !state.cats.some(c => c.id === apiCat.id)) {
+              dispatch({ type: "ADD_CAT", payload: apiCat });
             }
+            foundCat = apiCat;
           } else if (response.status === 404) {
             console.error("Gato não encontrado");
             setIsLoading(false);
@@ -66,7 +69,7 @@ export function useFeeding(catId: string) {
         // Get feeding logs
         if (foundCat) {
           const catLogs = state.feedingLogs
-            .filter(log => log.catId === catId)
+            .filter(log => log.catId === numericId)
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           
           setLogs(catLogs);
@@ -85,10 +88,10 @@ export function useFeeding(catId: string) {
       }
     };
     
-    if (catId) {
+    if (numericId) {
       fetchCatData();
     }
-  }, [catId, state.cats, state.feedingLogs, updateFeedingTimeDisplay, dispatch]);
+  }, [numericId, state.cats, state.feedingLogs, updateFeedingTimeDisplay, dispatch]);
 
   // Refresh feeding times every minute
   useEffect(() => {
@@ -106,49 +109,32 @@ export function useFeeding(catId: string) {
     if (!cat) return;
 
     try {
-      // Prepare feeding log
       const newLog: Omit<FeedingLog, "id"> = {
-        catId: cat.id,
-        userId: "1", // Usando um valor padrão para userId
+        catId: numericId,
+        userId: "1", // TODO: Usar ID do usuário atual
         timestamp: new Date(),
-        portionSize: amount ? parseFloat(amount) : undefined,
-        notes: notes || undefined,
+        portionSize: amount ? parseFloat(amount) : null,
+        notes: notes || null,
       };
 
-      // Optimistic update
-      const optimisticLog: FeedingLog = {
-        ...newLog,
-        id: `temp-${uuidv4()}`,
-      };
+      const result = await createFeedingLog(newLog, state.feedingLogs);
 
-      // Update local state
-      dispatch({ type: "ADD_FEEDING_LOG", payload: optimisticLog });
-
-      // Send to API
-      const savedLog = await createFeedingLog(newLog, state.feedingLogs);
-
-      // Replace optimistic log with saved one
-      dispatch({ 
-        type: "UPDATE_FEEDING_LOG", 
-        payload: savedLog 
+      // Atualizar estado global
+      dispatch({
+        type: "ADD_FEEDING_LOG",
+        payload: result,
       });
 
-      // Recalculate next feeding time
-      const next = getNextFeedingTime(catId, state.cats, [...state.feedingLogs, savedLog]);
-      setNextFeedingTime(next);
-
-      // Update display times using the memoized function
-      updateFeedingTimeDisplay(next);
-
-      toast.success(`${cat.name} foi alimentado com sucesso!`);
-
-      return savedLog;
+      return result;
     } catch (error) {
-      console.error("Error logging feeding:", error);
-      toast.error("Falha ao registrar alimentação. Tente novamente.");
-      return null;
+      console.error("Erro ao registrar alimentação:", error);
+      throw error;
     }
   };
+
+  useEffect(() => {
+    setIsLoading(false);
+  }, [cat, logs]);
 
   return {
     cat,

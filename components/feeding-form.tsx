@@ -25,11 +25,12 @@ const formSchema = z.object({
   notes: z.string().optional(),
 });
 
-type FeedingFormProps = {
-  catId: string;
-};
+interface FeedingFormProps {
+  catId: number;
+  onSuccess?: () => void;
+}
 
-export function FeedingForm({ catId }: FeedingFormProps) {
+export function FeedingForm({ catId, onSuccess }: FeedingFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { handleMarkAsFed } = useFeeding(catId);
@@ -52,6 +53,9 @@ export function FeedingForm({ catId }: FeedingFormProps) {
       form.reset();
       // Atualizar a interface
       router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error("Erro ao registrar alimentação:", error);
     } finally {

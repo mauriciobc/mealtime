@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ImageUpload } from "@/components/image-upload";
 
@@ -42,6 +42,14 @@ const formSchema = z.object({
   weight: z.string().optional(),
   restrictions: z.string().optional(),
   notes: z.string().optional(),
+  feeding_interval: z.string().min(1, {
+    message: "O intervalo de alimentação é obrigatório.",
+  }).refine((val) => {
+    const num = parseInt(val);
+    return num >= 1 && num <= 24;
+  }, {
+    message: "O intervalo deve estar entre 1 e 24 horas.",
+  }),
 });
 
 export default function NewCatPage() {
@@ -59,6 +67,7 @@ export default function NewCatPage() {
       photoUrl: "",
       restrictions: "",
       notes: "",
+      feeding_interval: "8",
     },
   });
 
@@ -307,6 +316,33 @@ export default function NewCatPage() {
                       id={field.name}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="feeding_interval"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Intervalo de Alimentação (horas)</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input 
+                        type="number" 
+                        min="1" 
+                        max="24"
+                        placeholder="Intervalo em horas"
+                        className="pl-10"
+                        {...field} 
+                      />
+                      <Clock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                    </div>
+                  </FormControl>
+                  <p className="text-xs text-gray-500">
+                    Defina o intervalo entre as alimentações. Você será notificado quando for hora da próxima alimentação.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

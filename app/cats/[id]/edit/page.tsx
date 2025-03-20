@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Calendar, Save, Trash2 } from "lucide-react"
+import { ArrowLeft, Calendar, Save, Trash2, Clock } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,11 +32,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useGlobalState } from "@/lib/context/global-state"
 import { getCatById, updateCat, deleteCat } from "@/lib/services/apiService"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { Cat } from "@/lib/types"
+import { CatType, Schedule } from "@/lib/types"
 
 // Simple UUID function since we can't install the package
 function uuidv4(): string {
@@ -46,15 +46,16 @@ function uuidv4(): string {
   });
 }
 
-export default function EditCatPage({
-  params
-}: {
-  params: { id: string }
-}) {
+interface PageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function EditCatPage({ params }: PageProps) {
   const router = useRouter()
-  const { state, dispatch } = useAppContext()
-  const { id } = params
-  
+  const { state, dispatch } = useGlobalState()
+  const [cat, setCat] = useState<CatType | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -65,30 +66,22 @@ export default function EditCatPage({
     name: "",
     birthdate: "",
     weight: "",
-    dietaryRestrictions: "",
-    medicalNotes: "",
-    regularAmount: "",
-    foodUnit: "cup",
-    feedingScheduleType: "interval",
-    feedingInterval: "12",
-    feedingTimes: "08:00,18:00", // Comma-separated times
-    avatar: "/placeholder.svg?height=200&width=200"
+    restrictions: "",
+    photoUrl: "/placeholder.svg?height=200&width=200",
+    schedules: [] as Schedule[]
   })
   
   // Fetch cat data
   useEffect(() => {
     const loadCat = async () => {
       try {
-        const cat = await getCatById(id, state.cats)
+        const cat = await getCatById(params.id, state.cats)
         
         if (!cat) {
-          toast.error("Cat not found")
+          toast.error("Gato não encontrado")
           router.push("/cats")
           return
         }
-        
-        // Find the active feeding schedule
-        const activeSchedule = cat.feedingSchedules.find(s => s.isActive) || cat.feedingSchedules[0]
         
         // Format date for input field (YYYY-MM-DD)
         let formattedBirthdate = ""
@@ -101,26 +94,21 @@ export default function EditCatPage({
           name: cat.name,
           birthdate: formattedBirthdate,
           weight: cat.weight?.toString() || "",
-          dietaryRestrictions: cat.dietaryRestrictions?.join(", ") || "",
-          medicalNotes: cat.medicalNotes || "",
-          regularAmount: cat.regularAmount?.toString() || "",
-          foodUnit: cat.foodUnit || "cup",
-          feedingScheduleType: activeSchedule?.type || "interval",
-          feedingInterval: activeSchedule?.interval?.toString() || "12",
-          feedingTimes: activeSchedule?.times?.join(", ") || "08:00,18:00",
-          avatar: cat.avatar || "/placeholder.svg?height=200&width=200"
+          restrictions: cat.restrictions || "",
+          photoUrl: cat.photoUrl || "/placeholder.svg?height=200&width=200",
+          schedules: cat.schedules || []
         })
         
         setIsLoading(false)
       } catch (error) {
-        console.error("Error loading cat:", error)
-        toast.error("Failed to load cat data")
+        console.error("Erro ao carregar gato:", error)
+        toast.error("Falha ao carregar dados do gato")
         router.push("/cats")
       }
     }
     
     loadCat()
-  }, [id, router, state.cats])
+  }, [params.id, router, state.cats])
   
   // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -130,7 +118,16 @@ export default function EditCatPage({
   
   // Handle radio button changes
   const handleRadioChange = (value: string) => {
-    setFormData(prev => ({ ...prev, feedingScheduleType: value }))
+    setFormData(prev => {
+      const newSchedules = [...prev.schedules]
+      if (newSchedules.length > 0) {
+        newSchedules[0] = {
+          ...newSchedules[0],
+          type: value as 'interval' | 'fixedTime'
+        }
+      }
+      return { ...prev, schedules: newSchedules }
+    })
   }
   
   // Handle delete
@@ -138,19 +135,19 @@ export default function EditCatPage({
     setIsDeleting(true)
     
     try {
-      await deleteCat(id, state.cats)
+      await deleteCat(params.id, state.cats)
       
       // Update local state
       dispatch({
-        type: "SET_CATS",
-        payload: state.cats.filter(cat => cat.id !== id)
+        type: "DELETE_CAT",
+        payload: parseInt(params.id)
       })
       
-      toast.success("Cat deleted successfully")
+      toast.success("Gato excluído com sucesso")
       router.push("/cats")
     } catch (error) {
-      console.error("Error deleting cat:", error)
-      toast.error("Failed to delete cat")
+      console.error("Erro ao excluir gato:", error)
+      toast.error("Falha ao excluir gato")
     } finally {
       setIsDeleting(false)
       setShowDeleteDialog(false)
@@ -164,52 +161,28 @@ export default function EditCatPage({
     setIsSubmitting(true)
     
     try {
-      // Format dietary restrictions
-      const dietaryRestrictionsArray = formData.dietaryRestrictions
-        ? formData.dietaryRestrictions.split(',').map(item => item.trim())
-        : []
-      
-      // Create feeding schedule
-      const feedingSchedule = {
-        id: uuidv4(),
-        type: formData.feedingScheduleType as 'interval' | 'fixedTime',
-        interval: formData.feedingScheduleType === 'interval' ? parseInt(formData.feedingInterval) : undefined,
-        times: formData.feedingScheduleType === 'fixedTime' ? formData.feedingTimes.split(',').map(time => time.trim()) : undefined,
-        isActive: true,
-        isOverride: false,
-      }
-      
       // Get existing cat to preserve fields we're not changing
-      const existingCat = await getCatById(id, state.cats) as Cat
+      const existingCat = await getCatById(params.id, state.cats)
       
       if (!existingCat) {
-        toast.error("Cat not found")
+        toast.error("Gato não encontrado")
         return
       }
       
-      // Update cat with new values, preserving existing feeding schedules
-      // but marking the new one as active and others as inactive
-      const existingSchedules = existingCat.feedingSchedules.map(schedule => ({
-        ...schedule,
-        isActive: false
-      }))
-      
-      const updatedCat = {
+      // Update cat with new values
+      const updatedCat: CatType = {
         ...existingCat,
         name: formData.name,
-        regularAmount: formData.regularAmount,
-        foodUnit: formData.foodUnit,
-        feedingSchedules: [feedingSchedule, ...existingSchedules],
-        avatar: formData.avatar,
+        photoUrl: formData.photoUrl,
         // Optional fields
         birthdate: formData.birthdate ? new Date(formData.birthdate) : undefined,
         weight: formData.weight ? parseFloat(formData.weight) : undefined,
-        dietaryRestrictions: dietaryRestrictionsArray.length > 0 ? dietaryRestrictionsArray : undefined,
-        medicalNotes: formData.medicalNotes || undefined,
+        restrictions: formData.restrictions || undefined,
+        schedules: formData.schedules
       }
       
       // Update the cat
-      const result = await updateCat(id, updatedCat, state.cats)
+      const result = await updateCat(params.id, updatedCat, state.cats)
       
       // Update local state
       dispatch({
@@ -217,11 +190,11 @@ export default function EditCatPage({
         payload: result
       })
       
-      toast.success(`${formData.name} has been updated`)
-      router.push(`/cats/${id}`)
+      toast.success(`${formData.name} foi atualizado com sucesso`)
+      router.push(`/cats/${params.id}`)
     } catch (error) {
-      console.error("Error updating cat:", error)
-      toast.error("Something went wrong. Please try again.")
+      console.error("Erro ao atualizar gato:", error)
+      toast.error("Algo deu errado. Por favor, tente novamente.")
     } finally {
       setIsSubmitting(false)
     }
@@ -230,7 +203,7 @@ export default function EditCatPage({
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Loading cat data...</p>
+        <p>Carregando dados do gato...</p>
       </div>
     )
   }
@@ -244,9 +217,9 @@ export default function EditCatPage({
           
           {/* Top Navigation */}
           <div className="flex items-center justify-between mb-4">
-            <Link href={`/cats/${id}`} className="flex items-center text-sm font-medium">
+            <Link href={`/cats/${params.id}`} className="flex items-center text-sm font-medium">
               <ArrowLeft className="h-4 w-4 mr-1" />
-              Cancel
+              Cancelar
             </Link>
             <div className="flex gap-2">
               <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -258,25 +231,25 @@ export default function EditCatPage({
                     disabled={isSubmitting || isDeleting}
                   >
                     <Trash2 className="h-4 w-4" />
-                    Delete
+                    Excluir
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete {formData.name} and all their feeding records.
-                      This action cannot be undone.
+                      Isso excluirá permanentemente {formData.name} e todos os seus registros de alimentação.
+                      Esta ação não pode ser desfeita.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={handleDelete}
                       className="bg-red-600 hover:bg-red-700"
                       disabled={isDeleting}
                     >
-                      {isDeleting ? "Deleting..." : "Delete"}
+                      {isDeleting ? "Excluindo..." : "Excluir"}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -290,11 +263,11 @@ export default function EditCatPage({
                 disabled={isSubmitting || isDeleting}
               >
                 {isSubmitting ? (
-                  <>Saving...</>
+                  <>Salvando...</>
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    Save
+                    Salvar
                   </>
                 )}
               </Button>
@@ -304,45 +277,45 @@ export default function EditCatPage({
           {/* Form */}
           <Card>
             <CardHeader>
-              <CardTitle>Edit {formData.name}</CardTitle>
+              <CardTitle>Editar {formData.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <form id="cat-form" onSubmit={handleSubmit} className="space-y-6">
                 {/* Profile Picture */}
                 <div className="flex flex-col items-center mb-6">
                   <Avatar className="h-24 w-24 mb-2">
-                    <AvatarImage src={formData.avatar} alt="Preview" />
+                    <AvatarImage src={formData.photoUrl} alt="Preview" />
                     <AvatarFallback>
-                      {formData.name ? formData.name.substring(0, 2) : "CA"}
+                      {formData.name ? formData.name.substring(0, 2) : "GA"}
                     </AvatarFallback>
                   </Avatar>
                   <Button type="button" variant="outline" size="sm">
-                    Upload Photo
+                    Enviar Foto
                   </Button>
                   <p className="text-xs text-gray-500 mt-1">
-                    Recommended: Square image, 300×300px or larger
+                    Recomendado: Imagem quadrada, 300×300px ou maior
                   </p>
                 </div>
                 
                 {/* Basic Information */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Basic Information</h3>
+                  <h3 className="text-sm font-medium">Informações Básicas</h3>
                   
                   <div className="grid gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="name">Cat Name <span className="text-red-500">*</span></Label>
+                      <Label htmlFor="name">Nome do Gato <span className="text-red-500">*</span></Label>
                       <Input 
                         id="name" 
                         name="name" 
                         value={formData.name}
                         onChange={handleChange}
-                        placeholder="Enter cat name" 
+                        placeholder="Digite o nome do gato" 
                         required
                       />
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="birthdate">Birthdate (approximate)</Label>
+                      <Label htmlFor="birthdate">Data de Nascimento (aproximada)</Label>
                       <div className="relative">
                         <Input 
                           id="birthdate" 
@@ -357,7 +330,7 @@ export default function EditCatPage({
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="weight">Weight (kg)</Label>
+                      <Label htmlFor="weight">Peso (kg)</Label>
                       <Input 
                         id="weight" 
                         name="weight" 
@@ -365,7 +338,7 @@ export default function EditCatPage({
                         step="0.01"
                         value={formData.weight}
                         onChange={handleChange}
-                        placeholder="Enter weight in kg" 
+                        placeholder="Digite o peso em kg" 
                       />
                     </div>
                   </div>
@@ -375,47 +348,12 @@ export default function EditCatPage({
                 
                 {/* Feeding Information */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Feeding Information</h3>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="regularAmount">Regular Amount <span className="text-red-500">*</span></Label>
-                      <Input 
-                        id="regularAmount" 
-                        name="regularAmount" 
-                        value={formData.regularAmount}
-                        onChange={handleChange}
-                        placeholder="e.g. 1/2" 
-                        required
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="foodUnit">Unit</Label>
-                      <Select 
-                        name="foodUnit"
-                        value={formData.foodUnit} 
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, foodUnit: value }))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select unit" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="cup">Cup</SelectItem>
-                          <SelectItem value="gram">Gram</SelectItem>
-                          <SelectItem value="ounce">Ounce</SelectItem>
-                          <SelectItem value="scoop">Scoop</SelectItem>
-                          <SelectItem value="packet">Packet</SelectItem>
-                          <SelectItem value="can">Can</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <h3 className="text-sm font-medium">Informações de Alimentação</h3>
                   
                   <div className="space-y-2">
-                    <Label>Feeding Schedule</Label>
+                    <Label>Agendamento de Alimentação</Label>
                     <RadioGroup 
-                      value={formData.feedingScheduleType} 
+                      value={formData.schedules[0]?.type || 'interval'} 
                       onValueChange={handleRadioChange}
                       className="flex flex-col space-y-2"
                     >
@@ -423,18 +361,42 @@ export default function EditCatPage({
                         <RadioGroupItem value="interval" id="interval" />
                         <div className="grid gap-1.5">
                           <Label htmlFor="interval" className="font-normal">
-                            Feed every
+                            Alimentar a cada
                             <Input 
                               type="number" 
-                              name="feedingInterval"
-                              value={formData.feedingInterval}
-                              onChange={handleChange}
+                              name="interval"
+                              value={formData.schedules[0]?.interval || 8}
+                              onChange={(e) => {
+                                const value = parseInt(e.target.value)
+                                setFormData(prev => {
+                                  const newSchedules = [...prev.schedules]
+                                  if (newSchedules.length > 0) {
+                                    newSchedules[0] = {
+                                      ...newSchedules[0],
+                                      interval: value
+                                    }
+                                  } else {
+                                    newSchedules.push({
+                                      id: uuidv4(),
+                                      catId: parseInt(params.id),
+                                      userId: "1",
+                                      type: 'interval',
+                                      interval: value,
+                                      days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+                                      enabled: true,
+                                      status: "pending",
+                                      createdAt: new Date()
+                                    })
+                                  }
+                                  return { ...prev, schedules: newSchedules }
+                                })
+                              }}
                               min="1" 
                               max="24"
                               className="w-16 h-7 inline-block mx-2" 
-                              disabled={formData.feedingScheduleType !== 'interval'}
+                              disabled={formData.schedules[0]?.type !== 'interval'}
                             />
-                            hours
+                            horas
                           </Label>
                         </div>
                       </div>
@@ -442,15 +404,39 @@ export default function EditCatPage({
                       <div className="flex items-start space-x-2">
                         <RadioGroupItem value="fixedTime" id="fixedTime" />
                         <div className="grid gap-1.5 w-full">
-                          <Label htmlFor="fixedTime" className="font-normal">Fixed feeding times</Label>
+                          <Label htmlFor="fixedTime" className="font-normal">Horários fixos</Label>
                           <Input 
-                            name="feedingTimes"
-                            value={formData.feedingTimes}
-                            onChange={handleChange}
-                            placeholder="08:00, 18:00" 
-                            disabled={formData.feedingScheduleType !== 'fixedTime'}
+                            name="times"
+                            value={formData.schedules[0]?.times || "08:00"}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              setFormData(prev => {
+                                const newSchedules = [...prev.schedules]
+                                if (newSchedules.length > 0) {
+                                  newSchedules[0] = {
+                                    ...newSchedules[0],
+                                    times: value
+                                  }
+                                } else {
+                                  newSchedules.push({
+                                    id: uuidv4(),
+                                    catId: parseInt(params.id),
+                                    userId: "1",
+                                    type: 'fixedTime',
+                                    times: value,
+                                    days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+                                    enabled: true,
+                                    status: "pending",
+                                    createdAt: new Date()
+                                  })
+                                }
+                                return { ...prev, schedules: newSchedules }
+                              })
+                            }}
+                            placeholder="08:00" 
+                            disabled={formData.schedules[0]?.type !== 'fixedTime'}
                           />
-                          <p className="text-xs text-gray-500">Comma-separated times (24-hour format)</p>
+                          <p className="text-xs text-gray-500">Formato 24 horas (ex: 08:00)</p>
                         </div>
                       </div>
                     </RadioGroup>
@@ -461,28 +447,16 @@ export default function EditCatPage({
                 
                 {/* Health Information */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Health Information</h3>
+                  <h3 className="text-sm font-medium">Informações de Saúde</h3>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="dietaryRestrictions">Dietary Restrictions</Label>
+                    <Label htmlFor="restrictions">Restrições Alimentares</Label>
                     <Input 
-                      id="dietaryRestrictions" 
-                      name="dietaryRestrictions" 
-                      value={formData.dietaryRestrictions}
+                      id="restrictions" 
+                      name="restrictions" 
+                      value={formData.restrictions}
                       onChange={handleChange}
-                      placeholder="e.g. Grain-free, Dairy-free (comma-separated)" 
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="medicalNotes">Medical Notes</Label>
-                    <Textarea 
-                      id="medicalNotes" 
-                      name="medicalNotes" 
-                      value={formData.medicalNotes}
-                      onChange={handleChange}
-                      placeholder="Any special medical conditions or notes..."
-                      rows={3}
+                      placeholder="ex: Sem grãos, Sem lactose" 
                     />
                   </div>
                 </div>

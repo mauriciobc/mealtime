@@ -12,6 +12,8 @@ import { Progress } from "@/components/ui/progress";
 import { FeedingLogItem } from "@/components/feeding-log-item";
 import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getCatsByHouseholdId } from "@/lib/services/apiService";
+import { useSession } from "next-auth/react";
 
 const calculateProgress = (total: number, current: number) => {
   if (total === 0) return 0;
@@ -19,17 +21,34 @@ const calculateProgress = (total: number, current: number) => {
 };
 
 export default function Home() {
-  const { state } = useGlobalState();
+  const { state, dispatch } = useGlobalState();
   const router = useRouter();
+  const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [todayFeedingCount, setTodayFeedingCount] = useState(0);
   const [scheduleCompletionRate, setScheduleCompletionRate] = useState(0);
 
   useEffect(() => {
-    // Simulando carregamento de dados
-    const timer = setTimeout(() => {
-      setIsLoading(false);
+    const loadData = async () => {
+      setIsLoading(true);
       
+      // Carregar gatos do domicílio ativo do usuário, se existir
+      if (session?.user && state.households.length > 0) {
+        const activeHousehold = state.households[0]; // Assumindo que o primeiro domicílio é o ativo
+        
+        try {
+          const cats = await getCatsByHouseholdId(activeHousehold.id);
+          if (cats && cats.length > 0) {
+            dispatch({
+              type: "SET_CATS",
+              payload: cats,
+            });
+          }
+        } catch (error) {
+          console.error("Erro ao carregar gatos:", error);
+        }
+      }
+
       // Calcular alimentações de hoje
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -47,10 +66,11 @@ export default function Home() {
       const completedSchedules = state.schedules.filter(s => s.status === "completed").length;
       
       setScheduleCompletionRate(calculateProgress(totalSchedules, completedSchedules));
-    }, 1000);
+      setIsLoading(false);
+    };
     
-    return () => clearTimeout(timer);
-  }, [state.feedingLogs, state.schedules]);
+    loadData();
+  }, [state.feedingLogs, state.schedules, state.households, session, dispatch]);
 
   const dashboardItems = [
     {

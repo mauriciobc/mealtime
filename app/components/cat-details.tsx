@@ -50,21 +50,18 @@ import { toast } from "sonner"
 import { notFound } from "next/navigation"
 import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { FeedingForm } from "@/components/feeding-form"
-import { CatType } from "@/lib/types"
+import { FeedingForm } from "./feeding-form"
+import { CatType, FeedingLog, Schedule } from "@/lib/types"
+import { FeedingHistory } from "./feeding-history"
 
-// Interface para agendamentos (schedules)
-interface Schedule {
-  id: string;
-  type: string;
-  times: string;
-  interval?: number;
-  overrideUntil?: Date;
+interface CatDetailsProps {
+  params: { id: string };
 }
 
-export default function CatDetails({ id }: { id: string }) {
+export default function CatDetails({ params }: CatDetailsProps) {
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
+  const numericId = parseInt(params.id);
   const { 
     cat, 
     logs, 
@@ -73,7 +70,7 @@ export default function CatDetails({ id }: { id: string }) {
     formattedTimeDistance, 
     isLoading, 
     handleMarkAsFed 
-  } = useFeeding(id)
+  } = useFeeding(params.id)
   const [isClient, setIsClient] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -99,12 +96,12 @@ export default function CatDetails({ id }: { id: string }) {
     setIsDeleting(true)
     
     try {
-      await deleteCat(id, state.cats)
+      await deleteCat(numericId.toString(), state.cats)
       
       // Atualizar o estado local
       dispatch({
         type: "DELETE_CAT",
-        payload: { id }
+        payload: numericId
       })
       
       toast.success(`${cat.name} foi excluído`)
@@ -117,9 +114,6 @@ export default function CatDetails({ id }: { id: string }) {
       setShowDeleteDialog(false)
     }
   }
-
-  // Cast para incluir schedules, já que o tipo CatType não tem essa propriedade
-  const catWithSchedules = cat as CatType & { schedules?: Schedule[] };
 
   return (
     <PageTransition>
@@ -244,153 +238,79 @@ export default function CatDetails({ id }: { id: string }) {
                     </p>
                   </div>
                 </div>
-                <Button 
-                  className="py-1 px-3 text-sm"
-                  onClick={() => handleMarkAsFed()}
-                >
-                  <Utensils className="h-3 w-3 mr-1" />
+                <Button variant="secondary" size="sm" onClick={() => handleMarkAsFed()}>
                   Alimentar agora
                 </Button>
               </div>
             )}
           </div>
           
-          {/* Tabs Section */}
-          <Tabs defaultValue="feeding">
-            <TabsList className="grid grid-cols-2 mb-4 bg-muted/50">
-              <TabsTrigger value="feeding">Alimentação</TabsTrigger>
-              <TabsTrigger value="schedules">Programação</TabsTrigger>
+          {/* Tabs */}
+          <Tabs defaultValue="info" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="info">Informações</TabsTrigger>
+              <TabsTrigger value="history">Histórico</TabsTrigger>
             </TabsList>
             
-            {/* Feeding Tab */}
-            <TabsContent value="feeding" className="space-y-4">
+            <TabsContent value="info" className="space-y-4">
+              {/* Informações Básicas */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Registrar Alimentação</CardTitle>
+                <CardHeader>
+                  <CardTitle>Informações Básicas</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <FeedingForm catId={cat.id} />
+                <CardContent className="space-y-4">
+                  {cat.birthdate && (
+                    <div className="flex items-start">
+                      <Calendar className="h-5 w-5 mr-2 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Data de Nascimento</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(cat.birthdate), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {cat.weight && (
+                    <div className="flex items-start">
+                      <Weight className="h-5 w-5 mr-2 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Peso</p>
+                        <p className="text-sm text-muted-foreground">{cat.weight} kg</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {cat.restrictions && (
+                    <div className="flex items-start">
+                      <FileText className="h-5 w-5 mr-2 mt-0.5" />
+                      <div>
+                        <p className="font-medium">Restrições Alimentares</p>
+                        <p className="text-sm text-muted-foreground">{cat.restrictions}</p>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
               
+              {/* Alimentação */}
               <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle>Histórico de Alimentação</CardTitle>
+                <CardHeader>
+                  <CardTitle>Alimentação</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {logs.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-muted mb-4">
-                        <FileText className="h-6 w-6 text-muted-foreground" />
-                      </div>
-                      <h3 className="font-medium mb-1">Nenhum registro de alimentação</h3>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Comece a registrar alimentações para ver o histórico aqui
-                      </p>
-                      <Button
-                        onClick={() => handleMarkAsFed()}
-                        className="gap-2"
-                      >
-                        <Utensils className="h-4 w-4" />
-                        Registrar alimentação agora
-                      </Button>
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-[300px]">
-                      <div className="space-y-4">
-                        {logs.map((log) => {
-                          const feederName = "Usuário do Sistema";
-                          
-                          return (
-                            <div key={log.id} className="flex items-start gap-3 pb-3 border-b">
-                              <Clock className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                              <div>
-                                <p className="text-sm font-medium">
-                                  {format(new Date(log.timestamp), "PPp", { locale: ptBR })}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  Alimentado por: {feederName}
-                                </p>
-                                {log.portionSize && (
-                                  <Badge variant="outline" className="mt-1">
-                                    {log.portionSize} porções
-                                  </Badge>
-                                )}
-                                {log.notes && (
-                                  <p className="text-xs mt-1">{log.notes}</p>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <ScrollBar />
-                    </ScrollArea>
-                  )}
+                  <FeedingForm catId={cat.id} onMarkAsFed={handleMarkAsFed} />
                 </CardContent>
               </Card>
             </TabsContent>
             
-            {/* Schedules Tab */}
-            <TabsContent value="schedules" className="space-y-4">
+            <TabsContent value="history">
               <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-center">
-                    <CardTitle>Agendamentos</CardTitle>
-                    <Button size="sm" asChild>
-                      <Link href={`/cats/${cat.id}/schedules/new`}>
-                        Adicionar
-                      </Link>
-                    </Button>
-                  </div>
+                <CardHeader>
+                  <CardTitle>Histórico de Alimentação</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {catWithSchedules.schedules && catWithSchedules.schedules.length > 0 ? (
-                    <div className="space-y-4">
-                      {catWithSchedules.schedules.map((schedule: Schedule) => (
-                        <Card key={schedule.id}>
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <h3 className="font-medium">
-                                  {schedule.type === "fixed" ? "Horário Fixo" : "Intervalo"}
-                                </h3>
-                                {schedule.type === "fixed" ? (
-                                  <p className="text-sm">
-                                    Horários: {schedule.times.split(",").join(", ")}
-                                  </p>
-                                ) : (
-                                  <p className="text-sm">
-                                    A cada {schedule.interval} horas
-                                  </p>
-                                )}
-                                {schedule.overrideUntil && (
-                                  <Badge variant="secondary" className="mt-2">
-                                    Temporário até {format(new Date(schedule.overrideUntil), "PP", { locale: ptBR })}
-                                  </Badge>
-                                )}
-                              </div>
-                              <Button variant="outline" size="sm" asChild>
-                                <Link href={`/cats/${cat.id}/schedules/${schedule.id}/edit`}>
-                                  <Edit className="h-3 w-3 mr-1" />
-                                  Editar
-                                </Link>
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <p className="mb-4">Nenhum agendamento configurado</p>
-                      <Button asChild>
-                        <Link href={`/cats/${cat.id}/schedules/new`}>
-                          Criar Agendamento
-                        </Link>
-                      </Button>
-                    </div>
-                  )}
+                  <FeedingHistory logs={logs} />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -398,5 +318,5 @@ export default function CatDetails({ id }: { id: string }) {
         </div>
       </div>
     </PageTransition>
-  )
+  );
 } 

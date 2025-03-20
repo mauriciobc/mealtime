@@ -7,9 +7,11 @@ import { CatType, FeedingLog, Schedule, Notification } from "@/lib/types";
 type ActionType =
   | { type: "ADD_CAT"; payload: CatType }
   | { type: "UPDATE_CAT"; payload: CatType }
-  | { type: "DELETE_CAT"; payload: { id: string } }
+  | { type: "DELETE_CAT"; payload: number }
+  | { type: "SET_CATS"; payload: CatType[] }
+  | { type: "SET_FEEDING_LOGS"; payload: FeedingLog[] }
   | { type: "ADD_FEEDING_LOG"; payload: FeedingLog }
-  | { type: "DELETE_FEEDING_LOG"; payload: { id: string } }
+  | { type: "DELETE_FEEDING_LOG"; payload: number }
   | { type: "UPDATE_FEEDING_LOG"; payload: FeedingLog }
   | { type: "ADD_SCHEDULE"; payload: Schedule }
   | { type: "UPDATE_SCHEDULE"; payload: Schedule }
@@ -60,6 +62,16 @@ function reducer(state: GlobalState, action: ActionType): GlobalState {
         ...state,
         cats: [...state.cats, action.payload],
       };
+    case "SET_CATS":
+      return {
+        ...state,
+        cats: action.payload,
+      };
+    case "SET_FEEDING_LOGS":
+      return {
+        ...state,
+        feedingLogs: action.payload,
+      };
     case "UPDATE_CAT":
       return {
         ...state,
@@ -70,7 +82,7 @@ function reducer(state: GlobalState, action: ActionType): GlobalState {
     case "DELETE_CAT":
       return {
         ...state,
-        cats: state.cats.filter((cat) => cat.id !== action.payload.id),
+        cats: state.cats.filter((cat) => cat.id !== action.payload),
       };
     case "ADD_FEEDING_LOG":
       return {
@@ -88,7 +100,7 @@ function reducer(state: GlobalState, action: ActionType): GlobalState {
       return {
         ...state,
         feedingLogs: state.feedingLogs.filter(
-          (log) => log.id !== action.payload.id
+          (log) => log.id !== action.payload
         ),
       };
     case "ADD_SCHEDULE":

@@ -43,7 +43,7 @@ model Cat {
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   householdId      Int
-  feeding_interval Int?         @default(8)
+  feeding_interval Int          @default(8)
   portion_size     Float?       @default(0)
   household        Household    @relation(fields: [householdId], references: [id])
   feedingLogs      FeedingLog[]

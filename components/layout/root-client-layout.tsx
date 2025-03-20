@@ -9,6 +9,7 @@ import { GlobalStateProvider } from "@/lib/context/global-state"
 import { AnimationProvider } from "@/components/animation-provider"
 import { OnboardingTour } from "@/components/ui/onboarding-tour"
 import { ClientLayout } from "@/components/layout/client-layout"
+import { DataProvider } from "@/components/data-provider"
 
 export function RootClientLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,12 +17,14 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
       <SessionProvider>
         <NotificationProvider>
           <AnimationProvider>
-            <ClientLayout>
-              {children}
-            </ClientLayout>
-            <Toaster position="top-center" />
-            <NotificationChecker />
-            <OnboardingTour />
+            <DataProvider>
+              <ClientLayout>
+                {children}
+              </ClientLayout>
+              <Toaster position="top-center" />
+              <NotificationChecker />
+              <OnboardingTour />
+            </DataProvider>
           </AnimationProvider>
         </NotificationProvider>
       </SessionProvider>

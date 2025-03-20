@@ -50,6 +50,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import React from "react"
+import { getCatsByHouseholdId } from "@/lib/services/apiService"
 
 interface Member {
   id: string;
@@ -161,9 +162,21 @@ export default function HouseholdDetailsPage() {
           
           setHousehold(mappedHousehold as unknown as Household);
           
-          // Buscar gatos se existirem
-          if (data.cats) {
-            setCats(data.cats);
+          // Buscar gatos do domicílio usando a API específica
+          try {
+            const catData = await getCatsByHouseholdId(id);
+            if (catData && catData.length > 0) {
+              console.log("Gatos carregados via API:", catData);
+              setCats(catData);
+              
+              // Atualizar o estado global com os gatos filtrados
+              dispatch({
+                type: "SET_CATS",
+                payload: catData,
+              });
+            }
+          } catch (catError) {
+            console.error("Erro ao carregar gatos do domicílio:", catError);
           }
           
           return;

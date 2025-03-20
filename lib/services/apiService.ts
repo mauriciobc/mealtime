@@ -1,4 +1,4 @@
-import { Cat, FeedingLog, Household, User, CatType } from '@/lib/types';
+import { CatType, FeedingLog, Household, User } from '@/lib/types';
 
 // Create a simple UUID function since we can't install the package
 export function uuidv4(): string {
@@ -79,33 +79,49 @@ export async function setData<T>(key: string, data: T[]): Promise<T[]> {
 }
 
 // CAT SERVICES
-export async function getCats(mockData: Cat[]): Promise<Cat[]> {
+export async function getCats(mockData: CatType[]): Promise<CatType[]> {
   // Simulate API latency
   await delay(300);
-  return getData<Cat>('cats', mockData);
+  return getData<CatType>('cats', mockData);
 }
 
-export async function getCatById(id: string, mockData: Cat[]): Promise<Cat | null> {
+export async function getCatsByHouseholdId(householdId: string | number): Promise<CatType[]> {
+  await delay(300);
+  try {
+    const numericId = typeof householdId === 'string' ? parseInt(householdId) : householdId;
+    const response = await fetch(`/api/cats?householdId=${numericId}`);
+    if (!response.ok) {
+      throw new Error(`Erro ao buscar gatos: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Erro ao buscar gatos por domicílio:", error);
+    return [];
+  }
+}
+
+export async function getCatById(id: string, mockData: CatType[]): Promise<CatType | null> {
   await delay(200);
-  const cats = await getData<Cat>('cats', mockData);
-  return cats.find(cat => cat.id === id) || null;
+  const cats = await getData<CatType>('cats', mockData);
+  const numericId = parseInt(id);
+  return cats.find(cat => cat.id === numericId) || null;
 }
 
-export async function createCat(cat: Omit<Cat, 'id'>, mockData: Cat[]): Promise<Cat> {
+export async function createCat(cat: Omit<CatType, 'id'>, mockData: CatType[]): Promise<CatType> {
   await delay(500);
-  const newCat: Cat = {
+  const newCat: CatType = {
     ...cat,
-    id: uuidv4()
+    id: Math.floor(Math.random() * 1000000) // Gerar um ID numérico aleatório
   };
   
-  const cats = await getData<Cat>('cats', mockData);
+  const cats = await getData<CatType>('cats', mockData);
   const updatedCats = [...cats, newCat];
-  await setData<Cat>('cats', updatedCats);
+  await setData<CatType>('cats', updatedCats);
   
   // Update household cats array if this cat belongs to a household
   if (cat.householdId) {
     const households = await getData<Household>('households', []);
-    const household = households.find(h => h.id === cat.householdId);
+    const household = households.find(h => h.id === cat.householdId?.toString());
     
     if (household) {
       const updatedHousehold = {
@@ -124,10 +140,11 @@ export async function createCat(cat: Omit<Cat, 'id'>, mockData: Cat[]): Promise<
   return newCat;
 }
 
-export async function updateCat(id: string, catData: Partial<Cat>, mockData: Cat[]): Promise<Cat> {
+export async function updateCat(id: string, catData: Partial<CatType>, mockData: CatType[]): Promise<CatType> {
   await delay(500);
-  const cats = await getData<Cat>('cats', mockData);
-  const catIndex = cats.findIndex(cat => cat.id === id);
+  const cats = await getData<CatType>('cats', mockData);
+  const numericId = parseInt(id);
+  const catIndex = cats.findIndex(cat => cat.id === numericId);
   
   if (catIndex === -1) {
     throw new Error(`Cat with id ${id} not found`);
@@ -144,32 +161,33 @@ export async function updateCat(id: string, catData: Partial<Cat>, mockData: Cat
     ...cats.slice(catIndex + 1)
   ];
   
-  await setData<Cat>('cats', updatedCats);
+  await setData<CatType>('cats', updatedCats);
   return updatedCat;
 }
 
 export async function deleteCat(id: string, mockData: CatType[]): Promise<void> {
   await delay(500);
   const cats = await getData<CatType>('cats', mockData);
-  const cat = cats.find(c => c.id === id);
+  const numericId = parseInt(id);
+  const cat = cats.find(c => c.id === numericId);
   
   if (!cat) {
     throw new Error(`Cat with id ${id} not found`);
   }
   
   // Remove cat from array
-  const updatedCats = cats.filter(cat => cat.id !== id);
+  const updatedCats = cats.filter(cat => cat.id !== numericId);
   await setData<CatType>('cats', updatedCats);
   
   // Remove from household if exists
   if (cat.householdId) {
     const households = await getData<Household>('households', []);
-    const household = households.find(h => h.id === cat.householdId);
+    const household = households.find(h => h.id === cat.householdId?.toString());
     
     if (household) {
       const updatedHousehold = {
         ...household,
-        cats: household.cats.filter(catId => catId !== id)
+        cats: household.cats.filter(catId => catId !== numericId)
       };
       
       const updatedHouseholds = households.map(h => 
@@ -182,7 +200,7 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
   
   // Delete associated feeding logs
   const feedingLogs = await getData<FeedingLog>('feedingLogs', []);
-  const updatedLogs = feedingLogs.filter(log => log.catId !== id);
+  const updatedLogs = feedingLogs.filter(log => log.catId !== numericId);
   await setData<FeedingLog>('feedingLogs', updatedLogs);
 }
 
@@ -195,7 +213,8 @@ export async function getFeedingLogs(mockData: FeedingLog[]): Promise<FeedingLog
 export async function getFeedingLogsByCatId(catId: string, mockData: FeedingLog[]): Promise<FeedingLog[]> {
   await delay(200);
   const logs = await getData<FeedingLog>('feedingLogs', mockData);
-  return logs.filter(log => log.catId === catId)
+  const numericId = parseInt(catId);
+  return logs.filter(log => log.catId === numericId)
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
@@ -295,26 +314,54 @@ export async function updateHousehold(id: string, householdData: Partial<Househo
 
 // UTILITY FUNCTIONS
 export function getNextFeedingTime(catId: string, cats: CatType[], feedingLogs: FeedingLog[]): Date | null {
-  // Encontrar o gato pelo ID
-  const cat = cats.find(c => c.id === catId);
-  if (!cat) return null;
+  const numericId = parseInt(catId);
+  const cat = cats.find(c => c.id === numericId);
   
-  // Encontrar logs de alimentação deste gato
-  const catLogs = feedingLogs.filter(log => log.catId === catId);
-  if (catLogs.length === 0) {
-    // Se não há histórico, calcular a partir de agora
-    return new Date(new Date().getTime() + 8 * 60 * 60 * 1000); // 8 horas por padrão
+  if (!cat || !cat.schedules || cat.schedules.length === 0) {
+    return null;
   }
   
-  // Encontrar a alimentação mais recente
-  const latestFeeding = catLogs.reduce((latest, current) => {
-    const latestTime = new Date(latest.timestamp).getTime();
-    const currentTime = new Date(current.timestamp).getTime();
-    return currentTime > latestTime ? current : latest;
-  }, catLogs[0]);
+  const now = new Date();
+  const lastFeeding = feedingLogs
+    .filter(log => log.catId === numericId)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   
-  // Para simplificar, vamos apenas adicionar um intervalo fixo à última alimentação
-  // Geralmente seria 8-12 horas para gatos adultos
-  return new Date(new Date(latestFeeding.timestamp).getTime() + 8 * 60 * 60 * 1000);
+  // Se não houver alimentação anterior, retorna o horário atual
+  if (!lastFeeding) {
+    return now;
+  }
+  
+  // Encontra o próximo horário de alimentação baseado nos agendamentos
+  let nextFeeding: Date | null = null;
+  
+  for (const schedule of cat.schedules) {
+    if (schedule.type === 'interval' && schedule.interval) {
+      // Para agendamentos baseados em intervalo
+      const lastFeedingTime = new Date(lastFeeding.timestamp);
+      const nextTime = new Date(lastFeedingTime.getTime() + schedule.interval * 60 * 60 * 1000);
+      
+      if (!nextFeeding || nextTime < nextFeeding) {
+        nextFeeding = nextTime;
+      }
+    } else if (schedule.type === 'fixedTime' && schedule.times) {
+      // Para agendamentos em horários fixos
+      const times = schedule.times;
+      const [hours, minutes] = times.split(':').map(Number);
+      
+      let nextTime = new Date(now);
+      nextTime.setHours(hours, minutes, 0, 0);
+      
+      // Se o horário já passou hoje, agenda para amanhã
+      if (nextTime <= now) {
+        nextTime.setDate(nextTime.getDate() + 1);
+      }
+      
+      if (!nextFeeding || nextTime < nextFeeding) {
+        nextFeeding = nextTime;
+      }
+    }
+  }
+  
+  return nextFeeding || now;
 }
 

@@ -47,19 +47,38 @@ export default function FeedingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   
   useEffect(() => {
-    // Simulate API fetch delay
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
+    const fetchFeedingLogs = async () => {
+      try {
+        const response = await fetch('/api/feedings')
+        const data = await response.json()
+        
+        dispatch({
+          type: "SET_FEEDING_LOGS",
+          payload: data
+        })
+      } catch (error) {
+        console.error("Erro ao carregar registros de alimentação:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timer)
-  }, [])
+    fetchFeedingLogs()
+  }, [dispatch])
   
-  const handleDeleteFeedingLog = (logId: string) => {
-    dispatch({
-      type: "DELETE_FEEDING_LOG",
-      payload: { id: logId },
-    })
+  const handleDeleteFeedingLog = async (logId: string) => {
+    try {
+      await fetch(`/api/feedings/${logId}`, {
+        method: 'DELETE'
+      })
+      
+      dispatch({
+        type: "DELETE_FEEDING_LOG",
+        payload: { id: logId },
+      })
+    } catch (error) {
+      console.error("Erro ao deletar registro de alimentação:", error)
+    }
   }
 
   const containerVariants = {
