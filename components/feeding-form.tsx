@@ -18,24 +18,26 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { useFeeding } from "@/hooks/use-feeding";
 
 const formSchema = z.object({
-  portionSize: z.string().optional(),
+  amount: z.string().optional(),
   notes: z.string().optional(),
 });
 
 type FeedingFormProps = {
-  catId: number;
+  catId: string;
 };
 
 export function FeedingForm({ catId }: FeedingFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { handleMarkAsFed } = useFeeding(catId);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      portionSize: "",
+      amount: "",
       notes: "",
     },
   });
@@ -44,27 +46,11 @@ export function FeedingForm({ catId }: FeedingFormProps) {
     try {
       setIsSubmitting(true);
       
-      // TODO: Obter ID do usuário atual da sessão
-      const userId = 1;
+      // Usar o hook useFeeding para registrar a alimentação
+      await handleMarkAsFed(values.amount, values.notes);
       
-      const response = await fetch("/api/feedings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          catId,
-          userId,
-          portionSize: values.portionSize ? parseFloat(values.portionSize) : undefined,
-          notes: values.notes,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Falha ao registrar alimentação");
-      }
-
       form.reset();
+      // Atualizar a interface
       router.refresh();
     } catch (error) {
       console.error("Erro ao registrar alimentação:", error);
@@ -82,7 +68,7 @@ export function FeedingForm({ catId }: FeedingFormProps) {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
-            name="portionSize"
+            name="amount"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Quantidade (porções)</FormLabel>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useContext } from "react"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
@@ -45,7 +45,7 @@ import {
 import PageTransition from "@/components/page-transition"
 import { motion } from "framer-motion"
 import { format, formatDistanceToNow } from "date-fns"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useGlobalState } from "@/lib/context/global-state"
 import { useFeeding } from "@/hooks/use-feeding"
 import { getAgeString } from "@/lib/utils/dateUtils"
 import { deleteCat } from "@/lib/services/apiService"
@@ -55,12 +55,24 @@ import { notFound } from "next/navigation"
 import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { FeedingForm } from "@/components/feeding-form"
+import { CatType } from "@/lib/types"
+
+// Interface para agendamentos (schedules)
+interface Schedule {
+  id: string;
+  type: string;
+  times: string;
+  interval?: number;
+  overrideUntil?: Date;
+}
 
 // Main component
-export default async function CatDetailPage({ params }: { params: { id: string } }) {
+export default function CatDetailPage({ params }: { params: { id: string } }) {
+  // No cliente, podemos acessar params diretamente sem React.use()
+  const { id } = params;
+  
   const router = useRouter()
-  const { id } = params
-  const { state, dispatch } = useAppContext()
+  const { state, dispatch } = useGlobalState()
   const { 
     cat, 
     logs, 
@@ -100,7 +112,7 @@ export default async function CatDetailPage({ params }: { params: { id: string }
       // Update local state
       dispatch({
         type: "DELETE_CAT",
-        payload: id
+        payload: { id }
       })
       
       toast.success(`${cat.name} has been deleted`)
@@ -113,6 +125,9 @@ export default async function CatDetailPage({ params }: { params: { id: string }
       setShowDeleteDialog(false)
     }
   }
+
+  // Cast para incluir schedules, já que o tipo CatType não tem essa propriedade
+  const catWithSchedules = cat as CatType & { schedules?: Schedule[] };
 
   return (
     <PageTransition>
@@ -192,7 +207,7 @@ export default async function CatDetailPage({ params }: { params: { id: string }
           <div className="bg-white rounded-xl p-5 mb-4 shadow-sm">
             <div className="flex items-center">
               <Avatar className="h-20 w-20 mr-4">
-                <AvatarImage src={cat.avatar} alt={cat.name} />
+                <AvatarImage src={cat.photoUrl || ""} alt={cat.name} />
                 <AvatarFallback>{cat.name.substring(0, 2)}</AvatarFallback>
               </Avatar>
               
@@ -292,7 +307,7 @@ export default async function CatDetailPage({ params }: { params: { id: string }
                     <ScrollArea className="h-[300px]">
                       <div className="space-y-4">
                         {logs.map((log) => {
-                          const feeder = state.users.find(u => u.id === log.userId);
+                          const feederName = "Usuário do Sistema";
                           
                           return (
                             <div key={log.id} className="flex items-start gap-3 pb-3 border-b">
@@ -302,7 +317,7 @@ export default async function CatDetailPage({ params }: { params: { id: string }
                                   {format(new Date(log.timestamp), "PPp", { locale: ptBR })}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  Alimentado por: {feeder?.name || "Usuário Desconhecido"}
+                                  Alimentado por: {feederName}
                                 </p>
                                 {log.portionSize && (
                                   <Badge variant="outline" className="mt-1">
@@ -338,9 +353,9 @@ export default async function CatDetailPage({ params }: { params: { id: string }
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {cat.schedules && cat.schedules.length > 0 ? (
+                  {catWithSchedules.schedules && catWithSchedules.schedules.length > 0 ? (
                     <div className="space-y-4">
-                      {cat.schedules.map((schedule) => (
+                      {catWithSchedules.schedules.map((schedule: Schedule) => (
                         <Card key={schedule.id}>
                           <CardContent className="p-4">
                             <div className="flex justify-between items-start">

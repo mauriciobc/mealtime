@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAppContext } from "@/lib/context/AppContext";
-import { Cat, FeedingLog } from "@/lib/types";
+// Comentar a importação do useAppContext
+// import { useAppContext } from "@/lib/context/AppContext";
+// Importar o useGlobalState
+import { useGlobalState } from "@/lib/context/global-state";
+import { Cat, FeedingLog, CatType } from "@/lib/types";
 import { createFeedingLog, getNextFeedingTime } from "@/lib/services/apiService";
 import { getRelativeTime, formatDateTime } from "@/lib/utils/dateUtils";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 // Simple UUID function since we can't install the package
 function uuidv4(): string {
@@ -16,8 +19,9 @@ function uuidv4(): string {
 }
 
 export function useFeeding(catId: string) {
-  const { state, dispatch } = useAppContext();
-  const [cat, setCat] = useState<Cat | null>(null);
+  // Usar o contexto global em vez do AppContext
+  const { state, dispatch } = useGlobalState();
+  const [cat, setCat] = useState<CatType | null>(null);
   const [logs, setLogs] = useState<FeedingLog[]>([]);
   const [nextFeedingTime, setNextFeedingTime] = useState<Date | null>(null);
   const [formattedNextFeedingTime, setFormattedNextFeedingTime] = useState<string>("");
@@ -34,30 +38,57 @@ export function useFeeding(catId: string) {
 
   // Load cat and feeding data
   useEffect(() => {
-    if (state.cats.length > 0 && catId) {
-      // Find cat
-      const foundCat = state.cats.find(c => c.id === catId) || null;
-      setCat(foundCat);
-
-      // Get feeding logs
-      if (foundCat) {
-        const catLogs = state.feedingLogs
-          .filter(log => log.catId === catId)
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        
-        setLogs(catLogs);
-
-        // Calculate next feeding time
-        const next = getNextFeedingTime(catId, state.cats, state.feedingLogs);
-        setNextFeedingTime(next);
-        
-        // Update displayed time in a separate step to avoid loops
-        updateFeedingTimeDisplay(next);
-      }
+    const fetchCatData = async () => {
+      setIsLoading(true);
       
-      setIsLoading(false);
+      try {
+        // Primeiro, tenta buscar do estado local
+        let foundCat = state.cats.find(c => c.id === catId) || null;
+        
+        // Se não encontrou localmente, busca da API
+        if (!foundCat && catId) {
+          const response = await fetch(`/api/cats/${catId}`);
+          if (response.ok) {
+            foundCat = await response.json();
+            // Adiciona ao estado global se não existir
+            if (foundCat && !state.cats.some(c => c.id === foundCat.id)) {
+              dispatch({ type: "ADD_CAT", payload: foundCat });
+            }
+          } else if (response.status === 404) {
+            console.error("Gato não encontrado");
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        setCat(foundCat);
+
+        // Get feeding logs
+        if (foundCat) {
+          const catLogs = state.feedingLogs
+            .filter(log => log.catId === catId)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          
+          setLogs(catLogs);
+
+          // Calculate next feeding time
+          const next = getNextFeedingTime(catId, state.cats, state.feedingLogs);
+          setNextFeedingTime(next);
+          
+          // Update displayed time in a separate step to avoid loops
+          updateFeedingTimeDisplay(next);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar dados do gato:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    if (catId) {
+      fetchCatData();
     }
-  }, [catId, state.cats, state.feedingLogs, updateFeedingTimeDisplay]);
+  }, [catId, state.cats, state.feedingLogs, updateFeedingTimeDisplay, dispatch]);
 
   // Refresh feeding times every minute
   useEffect(() => {
@@ -72,17 +103,16 @@ export function useFeeding(catId: string) {
   }, [nextFeedingTime]);
 
   const handleMarkAsFed = async (amount?: string, notes?: string) => {
-    if (!cat || !state.currentUser) return;
+    if (!cat) return;
 
     try {
       // Prepare feeding log
       const newLog: Omit<FeedingLog, "id"> = {
         catId: cat.id,
-        userId: state.currentUser.id,
+        userId: "1", // Usando um valor padrão para userId
         timestamp: new Date(),
-        amount: amount || cat.regularAmount,
+        portionSize: amount ? parseFloat(amount) : undefined,
         notes: notes || undefined,
-        isCompleted: true,
       };
 
       // Optimistic update
@@ -100,7 +130,7 @@ export function useFeeding(catId: string) {
       // Replace optimistic log with saved one
       dispatch({ 
         type: "UPDATE_FEEDING_LOG", 
-        payload: { ...savedLog, id: optimisticLog.id } 
+        payload: savedLog 
       });
 
       // Recalculate next feeding time
@@ -110,19 +140,12 @@ export function useFeeding(catId: string) {
       // Update display times using the memoized function
       updateFeedingTimeDisplay(next);
 
-      toast({
-        title: "Success!",
-        description: `${cat.name} has been fed ${amount || cat.regularAmount} ${cat.foodUnit}.`,
-      });
+      toast.success(`${cat.name} foi alimentado com sucesso!`);
 
       return savedLog;
     } catch (error) {
       console.error("Error logging feeding:", error);
-      toast({
-        title: "Error",
-        description: "Failed to log feeding. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Falha ao registrar alimentação. Tente novamente.");
       return null;
     }
   };
