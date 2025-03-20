@@ -8,6 +8,7 @@ import * as z from "zod";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { useGlobalState } from "@/lib/context/global-state";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,7 @@ export default function NewCatPage() {
   const { data: session, status } = useSession();
   const [isLoadingHousehold, setIsLoadingHousehold] = useState(true);
   const [household, setHousehold] = useState<{ id: number, name: string } | null>(null);
+  const { dispatch } = useGlobalState();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -131,6 +133,14 @@ export default function NewCatPage() {
         console.error("Erro do servidor:", errorData);
         throw new Error(errorData.error || "Falha ao adicionar gato");
       }
+
+      const newCat = await response.json();
+      
+      // Adicionar o gato ao estado global
+      dispatch({
+        type: "ADD_CAT",
+        payload: newCat,
+      });
 
       toast.success("Gato adicionado com sucesso!");
       router.push("/cats");
