@@ -133,8 +133,6 @@ export default function NewFeedingPage() {
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title="Registrar Alimentação" showBackButton />
-
         <div className="flex-1 p-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
