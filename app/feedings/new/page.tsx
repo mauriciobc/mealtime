@@ -27,9 +27,9 @@ import {
 } from "@/components/ui/select";
 import { AppHeader } from "@/components/app-header";
 import PageTransition from "@/components/page-transition";
-import { getCats } from "@/lib/data";
-import { useAppContext } from "@/lib/context/AppContext";
+import { useGlobalState } from "@/lib/context/global-state";
 import { toast } from "@/components/ui/use-toast";
+import { useSession } from "next-auth/react";
 
 // Definindo a interface para o gato
 interface CatType {
@@ -48,7 +48,8 @@ const formSchema = z.object({
 
 export default function NewFeedingPage() {
   const router = useRouter();
-  const { state } = useAppContext();
+  const { state } = useGlobalState();
+  const { data: session } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cats, setCats] = useState<CatType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,17 +59,52 @@ export default function NewFeedingPage() {
     async function loadCats() {
       try {
         setIsLoading(true);
-        const catsData = await getCats();
+        
+        // Verificar se temos residências do usuário
+        if (!state.households || state.households.length === 0) {
+          console.error("Nenhuma residência encontrada");
+          toast({
+            title: "Atenção",
+            description: "Não foi possível identificar sua residência",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        // Usar a primeira residência como padrão (ou implementar seleção de residência)
+        const householdId = state.households[0].id;
+        
+        // Usar a API específica para o formulário de alimentação com o parâmetro householdId
+        const response = await fetch(`/api/feedings/cats?householdId=${householdId}`);
+        if (!response.ok) {
+          throw new Error('Falha ao carregar gatos');
+        }
+        const catsData = await response.json();
+        
+        if (catsData.length === 0) {
+          toast({
+            title: "Atenção",
+            description: "Não encontramos gatos cadastrados na sua residência",
+            variant: "destructive",
+          });
+        }
+        
         setCats(catsData);
       } catch (error) {
         console.error("Erro ao carregar gatos:", error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível carregar a lista de gatos",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     }
 
     loadCats();
-  }, []);
+  }, [state.households]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -82,8 +118,8 @@ export default function NewFeedingPage() {
     try {
       setIsSubmitting(true);
 
-      // Obter o ID do usuário atual do contexto
-      const userId = state.currentUser?.id;
+      // Obter o ID do usuário da sessão
+      const userId = session?.user?.id;
 
       if (!userId) {
         toast({

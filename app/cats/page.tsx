@@ -41,22 +41,51 @@ export default function CatsPage() {
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
   const [isLoading, setIsLoading] = useState(true)
+  const [apiCats, setApiCats] = useState<CatType[]>([])
 
   useEffect(() => {
-    // Simulate API fetch delay
-    const timer = setTimeout(() => {
-      setIsLoading(false)
-    }, 1000)
+    async function loadCats() {
+      try {
+        setIsLoading(true)
+        const cats = await fetch('/api/cats').then(res => res.json())
+        setApiCats(cats)
+        
+        // Atualizar o estado global com os gatos da API se necessário
+        if (cats.length > 0 && state.cats.length === 0) {
+          cats.forEach((cat: CatType) => {
+            dispatch({
+              type: "ADD_CAT",
+              payload: cat,
+            })
+          })
+        }
+      } catch (error) {
+        console.error("Erro ao buscar gatos:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timer)
-  }, [])
+    loadCats()
+  }, [dispatch, state.cats.length])
 
-  const handleDeleteCat = (catId: string) => {
-    dispatch({
-      type: "DELETE_CAT",
-      payload: { id: catId },
-    })
+  const handleDeleteCat = async (catId: string) => {
+    try {
+      // Atualizar o estado global
+      dispatch({
+        type: "DELETE_CAT",
+        payload: { id: catId },
+      })
+      
+      // Remover da lista da API também (assumindo que existe um endpoint para isso)
+      // await fetch(`/api/cats/${catId}`, { method: 'DELETE' })
+    } catch (error) {
+      console.error("Erro ao excluir gato:", error)
+    }
   }
+
+  // Decidir qual conjunto de dados usar (priorizar a API)
+  const catsToDisplay = apiCats.length > 0 ? apiCats : state.cats
 
   return (
     <PageTransition>
@@ -71,7 +100,7 @@ export default function CatsPage() {
           
           {isLoading ? (
             <Loading />
-          ) : state.cats.length === 0 ? (
+          ) : catsToDisplay.length === 0 ? (
             <EmptyState
               icon={CatIcon}
               title="Nenhum gato cadastrado"
@@ -82,7 +111,7 @@ export default function CatsPage() {
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-              {state.cats.map((cat: CatType) => (
+              {catsToDisplay.map((cat: CatType) => (
                 <CatCard
                   key={cat.id}
                   cat={cat}
