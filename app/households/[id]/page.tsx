@@ -654,7 +654,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {cats.map(cat => (
-                    <Card key={cat.id} className="overflow-hidden">
+                    <Card key={typeof cat.id === 'number' ? cat.id : `cat-${Math.random()}`} className="overflow-hidden">
                       <CardHeader className="flex flex-row items-center justify-between p-4">
                         <CardTitle className="text-base">{cat.name}</CardTitle>
                         <Button
