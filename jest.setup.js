@@ -32,16 +32,14 @@ jest.mock('next/navigation', () => ({
 }))
 
 // Mock do next-auth
-jest.mock('next-auth/react', () => ({
-  useSession() {
-    return {
-      data: null,
-      status: 'unauthenticated',
-    };
-  },
-  signIn: jest.fn(),
-  signOut: jest.fn(),
-  SessionProvider: ({ children }) => children,
+jest.mock('next-auth/next', () => ({
+  getServerSession: jest.fn(),
+}))
+
+// Mock do prisma
+jest.mock('@/lib/prisma', () => ({
+  $queryRaw: jest.fn(),
+  $executeRaw: jest.fn(),
 }))
 
 // Limpar todos os mocks após cada teste

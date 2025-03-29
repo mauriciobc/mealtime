@@ -5,7 +5,9 @@ import {
   getUserNotifications, 
   markNotificationAsRead, 
   markAllNotificationsAsRead,
-  deleteNotification 
+  deleteNotification,
+  getUnreadNotificationsCount,
+  PaginatedResponse
 } from "@/lib/services/notificationService";
 import { Notification } from "@/lib/types/notification";
 import { useAppContext } from "./AppContext";
@@ -16,27 +18,36 @@ type NotificationState = {
   unreadCount: number;
   isLoading: boolean;
   error: string | null;
+  page: number;
+  totalPages: number;
+  hasMore: boolean;
 };
 
 type NotificationAction =
-  | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
+  | { type: "SET_NOTIFICATIONS"; payload: { notifications: Notification[]; totalPages: number; hasMore: boolean } }
   | { type: "ADD_NOTIFICATION"; payload: Notification }
   | { type: "MARK_NOTIFICATION_READ"; payload: { id: number } }
   | { type: "MARK_ALL_NOTIFICATIONS_READ" }
   | { type: "REMOVE_NOTIFICATION"; payload: { id: number } }
   | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SET_ERROR"; payload: string | null };
+  | { type: "SET_ERROR"; payload: string | null }
+  | { type: "SET_PAGE"; payload: number }
+  | { type: "SET_UNREAD_COUNT"; payload: number };
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
   isLoading: boolean;
   error: string | null;
+  page: number;
+  totalPages: number;
+  hasMore: boolean;
   markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   removeNotification: (id: number) => Promise<void>;
   addNotification: (notification: Notification) => void;
   refreshNotifications: () => Promise<void>;
+  loadMore: () => Promise<void>;
 }
 
 // Initial state
@@ -45,6 +56,9 @@ const initialState: NotificationState = {
   unreadCount: 0,
   isLoading: false,
   error: null,
+  page: 1,
+  totalPages: 1,
+  hasMore: false
 };
 
 // Create the context
@@ -56,8 +70,9 @@ function notificationReducer(state: NotificationState, action: NotificationActio
     case "SET_NOTIFICATIONS":
       return { 
         ...state, 
-        notifications: action.payload,
-        unreadCount: action.payload.filter(n => !n.isRead).length
+        notifications: action.payload.notifications,
+        totalPages: action.payload.totalPages,
+        hasMore: action.payload.hasMore
       };
     case "ADD_NOTIFICATION":
       const updatedNotifications = [action.payload, ...state.notifications];
@@ -100,6 +115,10 @@ function notificationReducer(state: NotificationState, action: NotificationActio
       return { ...state, isLoading: action.payload };
     case "SET_ERROR":
       return { ...state, error: action.payload };
+    case "SET_PAGE":
+      return { ...state, page: action.payload };
+    case "SET_UNREAD_COUNT":
+      return { ...state, unreadCount: action.payload };
     default:
       return state;
   }
@@ -109,29 +128,79 @@ function notificationReducer(state: NotificationState, action: NotificationActio
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(notificationReducer, initialState);
   const { state: appState } = useAppContext();
-  const [initialized, setInitialized] = useState(false);
+  const currentUser = appState.currentUser;
 
-  // Load notifications when current user changes
+  // Carregar notificações iniciais
   useEffect(() => {
-    if (appState.currentUser && !initialized) {
+    if (currentUser?.id) {
       loadNotifications();
-      setInitialized(true);
+      loadUnreadCount();
     }
-  }, [appState.currentUser, initialized]);
+  }, [currentUser?.id]);
 
-  // Function to load notifications
+  // Carregar notificações
   const loadNotifications = async () => {
-    if (!appState.currentUser) return;
-    
-    dispatch({ type: "SET_LOADING", payload: true });
+    if (!currentUser?.id) return;
     
     try {
-      const notifications = await getUserNotifications(appState.currentUser.id);
-      dispatch({ type: "SET_NOTIFICATIONS", payload: notifications });
-      dispatch({ type: "SET_ERROR", payload: null });
+      dispatch({ type: "SET_LOADING", payload: true });
+      const response = await fetch(`/api/notifications?page=${state.page}`);
+      const data: PaginatedResponse<Notification> = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Erro ao carregar notificações");
+      }
+
+      dispatch({ 
+        type: "SET_NOTIFICATIONS", 
+        payload: { 
+          notifications: data.data, 
+          totalPages: data.totalPages,
+          hasMore: data.hasMore 
+        } 
+      });
     } catch (error) {
-      console.error("Error loading notifications:", error);
-      dispatch({ type: "SET_ERROR", payload: "Failed to load notifications" });
+      dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Erro desconhecido" });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  };
+
+  // Carregar contagem de não lidas
+  const loadUnreadCount = async () => {
+    try {
+      const count = await getUnreadNotificationsCount(currentUser!.id);
+      dispatch({ type: "SET_UNREAD_COUNT", payload: count });
+    } catch (error) {
+      console.error("Erro ao carregar contagem de não lidas:", error);
+    }
+  };
+
+  // Carregar mais notificações
+  const loadMore = async () => {
+    if (state.isLoading || !state.hasMore) return;
+
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
+
+      const nextPage = state.page + 1;
+      const response = await getUserNotifications(currentUser!.id, nextPage);
+      
+      dispatch({ 
+        type: "SET_NOTIFICATIONS", 
+        payload: {
+          notifications: [...state.notifications, ...response.notifications],
+          totalPages: response.totalPages,
+          hasMore: response.hasMore
+        }
+      });
+      dispatch({ type: "SET_PAGE", payload: nextPage });
+    } catch (error) {
+      dispatch({ 
+        type: "SET_ERROR", 
+        payload: "Erro ao carregar mais notificações" 
+      });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
@@ -162,46 +231,38 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "ADD_NOTIFICATION", payload: notification });
   };
 
-  // Function to refresh notifications
-  const refreshNotifications = async () => {
-    try {
-      dispatch({ type: "SET_LOADING", payload: true });
-      if (appState.currentUser) {
-        const notifications = await getUserNotifications(appState.currentUser.id);
-        dispatch({ type: "SET_NOTIFICATIONS", payload: notifications });
-      }
-    } catch (error) {
-      console.error("Erro ao carregar notificações:", error);
-      dispatch({ type: "SET_ERROR", payload: "Falha ao carregar notificações" });
-    } finally {
-      dispatch({ type: "SET_LOADING", payload: false });
-    }
-  };
-
-  // Function to mark all notifications as read
   const markAllAsRead = async () => {
+    if (!currentUser?.id) return;
+    
     try {
-      if (appState.currentUser) {
-        await markAllNotificationsAsRead(appState.currentUser.id);
-        dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
+      const response = await fetch('/api/notifications/mark-all-read', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erro ao marcar todas as notificações como lidas');
       }
+
+      dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
+      loadUnreadCount();
     } catch (error) {
-      console.error("Erro ao marcar todas as notificações como lidas:", error);
+      dispatch({ 
+        type: "SET_ERROR", 
+        payload: error instanceof Error ? error.message : "Erro desconhecido" 
+      });
     }
   };
 
   return (
     <NotificationContext.Provider
       value={{
-        notifications: state.notifications,
-        unreadCount: state.unreadCount,
-        isLoading: state.isLoading,
-        error: state.error,
+        ...state,
         markAsRead,
         markAllAsRead,
         removeNotification,
         addNotification,
-        refreshNotifications
+        refreshNotifications: loadNotifications,
+        loadMore
       }}
     >
       {children}
@@ -222,10 +283,14 @@ export function useNotifications() {
     unreadCount: context.unreadCount,
     isLoading: context.isLoading,
     error: context.error,
+    page: context.page,
+    totalPages: context.totalPages,
+    hasMore: context.hasMore,
     markAsRead: context.markAsRead,
     markAllAsRead: context.markAllAsRead,
     removeNotification: context.removeNotification,
     addNotification: context.addNotification,
-    refreshNotifications: context.refreshNotifications
+    refreshNotifications: context.refreshNotifications,
+    loadMore: context.loadMore
   };
 }

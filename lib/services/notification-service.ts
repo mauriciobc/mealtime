@@ -1,4 +1,4 @@
-import { Notification } from "@/lib/types";
+import { Notification, NotificationType } from "@/lib/types/notification";
 import { v4 as uuidv4 } from "uuid";
 import { format, addHours, isBefore, isAfter, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,7 +35,7 @@ export const createFeedingNotification = (cat: Cat, scheduledTime: Date): Notifi
 
   let title = "";
   let message = "";
-  let type: "feeding" | "reminder" = "feeding";
+  let type: NotificationType = "feeding";
 
   if (isOverdue) {
     // Notificação de alimentação atrasada
@@ -50,13 +50,14 @@ export const createFeedingNotification = (cat: Cat, scheduledTime: Date): Notifi
   }
 
   return {
-    id: uuidv4(),
+    id: parseInt(uuidv4().replace(/\D/g, '')),
     title,
     message,
     type,
     timestamp: new Date(),
     createdAt: new Date(),
     isRead: false,
+    userId: 0, // Será definido pelo contexto do usuário
     data: {
       catId: cat.id,
       scheduledTime: scheduledTime.toISOString()

@@ -1,9 +1,46 @@
 import { Notification, CreateNotificationPayload } from "../types/notification";
 
-// Get all notifications for a user
-export async function getUserNotifications(userId: number): Promise<Notification[]> {
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+// Get all notifications for a user with pagination
+export async function getUserNotifications(
+  userId: number,
+  page: number = 1,
+  limit: number = 10
+): Promise<PaginatedResponse<Notification>> {
   try {
-    const response = await fetch('/api/notifications', {
+    const response = await fetch(
+      `/api/notifications?page=${page}&limit=${limit}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include'
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Falha ao buscar notificações');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Erro ao buscar notificações:', error);
+    throw error;
+  }
+}
+
+// Get unread notifications count with cache
+export async function getUnreadNotificationsCount(userId: number): Promise<number> {
+  try {
+    const response = await fetch('/api/notifications/unread-count', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -12,21 +49,15 @@ export async function getUserNotifications(userId: number): Promise<Notification
     });
 
     if (!response.ok) {
-      throw new Error('Falha ao buscar notificações');
+      throw new Error('Falha ao buscar contagem de notificações não lidas');
     }
 
-    const notifications = await response.json();
-    return notifications;
+    const { count } = await response.json();
+    return count;
   } catch (error) {
-    console.error('Erro ao buscar notificações:', error);
+    console.error('Erro ao buscar contagem de notificações não lidas:', error);
     throw error;
   }
-}
-
-// Get unread notifications count
-export async function getUnreadNotificationsCount(userId: number): Promise<number> {
-  const notifications = await getUserNotifications(userId);
-  return notifications.filter(notification => !notification.isRead).length;
 }
 
 // Create a new notification

@@ -1,9 +1,18 @@
 // Notification Types
+export type NotificationType = 
+  | 'feeding'    // Notificações de alimentação
+  | 'reminder'   // Lembretes de alimentação
+  | 'household'  // Notificações relacionadas a membros da casa
+  | 'system'     // Notificações do sistema
+  | 'info'       // Informações gerais
+  | 'warning'    // Avisos
+  | 'error';     // Erros
+
 export interface Notification {
   id: number;
   title: string;
   message: string;
-  type: 'feeding' | 'household' | 'system' | 'info' | 'warning' | 'error';
+  type: NotificationType;
   isRead: boolean;
   createdAt: Date;
   userId: number;
@@ -11,9 +20,15 @@ export interface Notification {
   householdId?: number;
   actionUrl?: string;
   icon?: string;
+  timestamp?: Date;
+  data?: {
+    scheduleId?: number;
+    catId?: number;
+    userId?: number;
+    scheduledTime?: string;
+    [key: string]: any;
+  };
 }
-
-export type NotificationType = 'feeding' | 'household' | 'system' | 'info' | 'warning' | 'error';
 
 export interface CreateNotificationPayload {
   title: string;
@@ -24,4 +39,11 @@ export interface CreateNotificationPayload {
   householdId?: number;
   actionUrl?: string;
   icon?: string;
+  data?: {
+    scheduleId?: number;
+    catId?: number;
+    userId?: number;
+    scheduledTime?: string;
+    [key: string]: any;
+  };
 }

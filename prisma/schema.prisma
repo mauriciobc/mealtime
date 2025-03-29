@@ -15,6 +15,7 @@ model Household {
   updatedAt  DateTime @updatedAt
   cats       Cat[]
   users      User[]
+  notifications Notification[]
 }
 
 model User {
@@ -29,6 +30,7 @@ model User {
   householdId Int?
   password    String?
   feedingLogs FeedingLog[]
+  notifications Notification[]
   household   Household?   @relation(fields: [householdId], references: [id])
 }
 
@@ -49,6 +51,7 @@ model Cat {
   feedingLogs      FeedingLog[]
   schedules        Schedule[]
   groups           CatGroup[]   @relation("CatToGroup")
+  notifications    Notification[]
 }
 
 model CatGroup {
@@ -82,4 +85,27 @@ model FeedingLog {
   status      String?  @default("completed")
   user        User     @relation(fields: [userId], references: [id])
   cat         Cat      @relation(fields: [catId], references: [id])
+}
+
+model Notification {
+  id          Int       @id @default(autoincrement())
+  title       String
+  message     String
+  type        String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  userId      Int
+  catId       Int?
+  householdId Int?
+  actionUrl   String?
+  icon        String?
+  timestamp   DateTime?
+  data        String?   // JSON string para dados adicionais
+  user        User      @relation(fields: [userId], references: [id])
+  cat         Cat?      @relation(fields: [catId], references: [id])
+  household   Household? @relation(fields: [householdId], references: [id])
+
+  @@index([userId])
+  @@index([catId])
+  @@index([householdId])
 }

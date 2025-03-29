@@ -64,22 +64,7 @@ export interface FeedingLog {
 }
 
 // Notifications
-export interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  type: "feeding" | "reminder" | "system";
-  icon?: string;
-  timestamp: Date;
-  createdAt: Date;
-  isRead: boolean;
-  data?: {
-    scheduleId?: number;
-    catId?: number;
-    userId?: number;
-    [key: string]: any;
-  };
-}
+export type { Notification, NotificationType, CreateNotificationPayload } from './types/notification';
 
 export interface NotificationSettings {
   pushEnabled: boolean;

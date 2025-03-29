@@ -17,23 +17,7 @@ import { useAppContext } from "@/lib/context/AppContext";
 import { toast } from "@/components/ui/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-// Interface para as notificações
-export interface Notification {
-  id: number;
-  title: string;
-  message: string;
-  type: "feeding" | "reminder" | "system";
-  icon?: string;
-  timestamp: string | Date;
-  isRead: boolean;
-  data?: {
-    scheduleId?: number;
-    catId?: number;
-    userId?: number;
-    [key: string]: any;
-  };
-}
+import { Notification, NotificationType } from "@/lib/types/notification";
 
 export function NotificationCenter() {
   const { state, dispatch } = useAppContext();

@@ -13,7 +13,12 @@
     "prisma:generate": "npx prisma generate",
     "prisma:clean": "if exist node_modules\\.prisma rmdir /s /q node_modules\\.prisma",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:notifications": "jest __tests__/api/notifications.test.ts",
+    "test:notifications:watch": "jest __tests__/api/notifications.test.ts --watch",
+    "test:notifications:coverage": "jest __tests__/api/notifications.test.ts --coverage",
+    "test:notifications:manual": "bash scripts/test-notifications.sh",
+    "test:notifications:postman": "echo 'Importe a coleção postman/notifications-collection.json no Postman'"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.2.1",
