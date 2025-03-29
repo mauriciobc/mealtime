@@ -1,78 +1,121 @@
-import { getData, setData, delay, uuidv4 } from "./apiService";
 import { Notification, CreateNotificationPayload } from "../types/notification";
 
 // Get all notifications for a user
-export async function getUserNotifications(userId: number, mockData: Notification[] = []): Promise<Notification[]> {
-  // TODO: Implementar chamada à API
-  return mockData.filter(notification => notification.userId === userId);
+export async function getUserNotifications(userId: number): Promise<Notification[]> {
+  try {
+    const response = await fetch('/api/notifications', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao buscar notificações');
+    }
+
+    const notifications = await response.json();
+    return notifications;
+  } catch (error) {
+    console.error('Erro ao buscar notificações:', error);
+    throw error;
+  }
 }
 
 // Get unread notifications count
-export async function getUnreadNotificationsCount(userId: number, mockData: Notification[] = []): Promise<number> {
-  const notifications = await getUserNotifications(userId, mockData);
+export async function getUnreadNotificationsCount(userId: number): Promise<number> {
+  const notifications = await getUserNotifications(userId);
   return notifications.filter(notification => !notification.isRead).length;
 }
 
 // Create a new notification
-export async function createNotification(payload: CreateNotificationPayload, mockData: Notification[] = []): Promise<Notification> {
-  await delay(300);
-  
-  const notification: Notification = {
-    id: uuidv4(),
-    title: payload.title,
-    message: payload.message,
-    type: payload.type,
-    isRead: false,
-    createdAt: new Date(),
-    userId: payload.userId,
-    catId: payload.catId,
-    householdId: payload.householdId,
-    actionUrl: payload.actionUrl,
-    icon: payload.icon || getIconForType(payload.type)
-  };
-  
-  const notifications = await getData<Notification>('notifications', mockData);
-  const updatedNotifications = [...notifications, notification];
-  await setData<Notification>('notifications', updatedNotifications);
-  
-  return notification;
+export async function createNotification(payload: CreateNotificationPayload): Promise<Notification> {
+  try {
+    const response = await fetch('/api/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao criar notificação');
+    }
+
+    const notification = await response.json();
+    return notification;
+  } catch (error) {
+    console.error('Erro ao criar notificação:', error);
+    throw error;
+  }
 }
 
 // Mark a notification as read
-export async function markNotificationAsRead(id: number, mockData: Notification[] = []): Promise<Notification> {
-  // TODO: Implementar chamada à API
-  const notification = mockData.find(n => n.id === id);
-  if (!notification) {
-    throw new Error('Notificação não encontrada');
+export async function markNotificationAsRead(id: number): Promise<Notification> {
+  try {
+    const response = await fetch(`/api/notifications/${id}/read`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao marcar notificação como lida');
+    }
+
+    const notification = await response.json();
+    return notification;
+  } catch (error) {
+    console.error('Erro ao marcar notificação como lida:', error);
+    throw error;
   }
-  return {
-    ...notification,
-    isRead: true
-  };
 }
 
 // Mark all notifications as read for a user
-export async function markAllNotificationsAsRead(userId: number, mockData: Notification[] = []): Promise<Notification[]> {
-  // TODO: Implementar chamada à API
-  return mockData.map(notification => {
-    if (notification.userId === userId) {
-      return {
-        ...notification,
-        isRead: true
-      };
+export async function markAllNotificationsAsRead(userId: number): Promise<void> {
+  try {
+    const response = await fetch('/api/notifications/read-all', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao marcar todas as notificações como lidas');
     }
-    return notification;
-  });
+
+    await response.json();
+  } catch (error) {
+    console.error('Erro ao marcar todas as notificações como lidas:', error);
+    throw error;
+  }
 }
 
 // Delete a notification
-export async function deleteNotification(id: number, mockData: Notification[] = []): Promise<void> {
-  // TODO: Implementar chamada à API
-  const index = mockData.findIndex(n => n.id === id);
-  if (index === -1) {
-    throw new Error('Notificação não encontrada');
+export async function deleteNotification(id: number): Promise<void> {
+  try {
+    const response = await fetch(`/api/notifications/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Falha ao deletar notificação');
+    }
+  } catch (error) {
+    console.error('Erro ao deletar notificação:', error);
+    throw error;
   }
-  mockData.splice(index, 1);
 }
 
 // Helper to get icon based on notification type
