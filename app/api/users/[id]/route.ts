@@ -50,6 +50,10 @@ export async function GET(
       role: user.role,
       timezone: user.timezone,
       language: user.language,
+      household: user.household ? {
+        id: user.household.id,
+        name: user.household.name
+      } : null
     };
     
     return NextResponse.json(response);

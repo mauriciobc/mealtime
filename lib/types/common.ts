@@ -12,6 +12,10 @@ export interface BaseUser {
   email: string;
   avatar?: string;
   householdId: number | null;
+  household?: {
+    id: number;
+    name: string;
+  } | null;
   preferences: {
     timezone: string;
     language: string;
