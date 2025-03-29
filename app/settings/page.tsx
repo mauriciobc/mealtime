@@ -280,6 +280,15 @@ const NotificationSection = ({
   </section>
 )
 
+// Layout comum
+const SettingsLayout = ({ children }: { children: React.ReactNode }) => (
+  <PageTransition>
+    <div className="flex flex-col min-h-screen bg-background">
+      {children}
+    </div>
+  </PageTransition>
+)
+
 export default function SettingsPage() {
   // Hooks
   const { state, dispatch } = useAppContext()
@@ -467,158 +476,148 @@ export default function SettingsPage() {
   // Renderização condicional
   if (status === "loading" || isLoading) {
     return (
-      <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <AppHeader title="Configurações" />
-          <div className="flex-1 p-4 pb-24">
-            <SettingsSkeleton />
-          </div>
+      <SettingsLayout>
+        <div className="flex-1 p-4 pb-24">
+          <SettingsSkeleton />
         </div>
-      </PageTransition>
+      </SettingsLayout>
     )
   }
 
   if (!state.currentUser && !state.isLoading) {
     return (
-      <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <AppHeader title="Configurações" />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <p className="text-muted-foreground">Você precisa estar logado para acessar as configurações</p>
-              <Button onClick={() => router.push('/login')}>
-                Fazer login
-              </Button>
-            </div>
+      <SettingsLayout>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <p className="text-muted-foreground">Você precisa estar logado para acessar as configurações</p>
+            <Button onClick={() => router.push('/login')}>
+              Fazer login
+            </Button>
           </div>
         </div>
-      </PageTransition>
+      </SettingsLayout>
     )
   }
 
   // Renderização principal
   return (
-    <PageTransition>
-      <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title="Configurações" />
+    <SettingsLayout>
+      <div className="flex-1 p-4 pb-24">
+        <ProfileSection 
+          user={state.currentUser} 
+          onEditProfile={() => setIsProfileDialogOpen(true)} 
+        />
         
-        <div className="flex-1 p-4 pb-24">
-          <ProfileSection 
-            user={state.currentUser} 
-            onEditProfile={() => setIsProfileDialogOpen(true)} 
-          />
-          
-          <AppearanceSection 
-            theme={theme || 'light'} 
-            onThemeChange={toggleTheme} 
-          />
-          
-          <RegionalPreferencesSection 
-            language={selectedLanguage}
-            timezone={selectedTimezone}
-            onLanguageChange={() => setIsLanguageDialogOpen(true)}
-            onTimezoneChange={() => setIsTimezoneDialogOpen(true)}
-          />
-          
-          <NotificationSection 
-            settings={notification}
-            onSettingChange={updateNotificationSetting}
-          />
-          
-          <Button 
-            variant="outline" 
-            className="w-full" 
-            onClick={handleLogout}
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Sair
-          </Button>
-        </div>
+        <AppearanceSection 
+          theme={theme || 'light'} 
+          onThemeChange={toggleTheme} 
+        />
         
-        {/* Diálogos */}
-        <Dialog open={isLanguageDialogOpen} onOpenChange={setIsLanguageDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Selecione o Idioma</DialogTitle>
-              <DialogDescription>
-                Escolha o idioma preferido para a interface
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              {LANGUAGE_OPTIONS.map((option) => (
-                <div
-                  key={option.value}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
-                  onClick={() => {
-                    setSelectedLanguage(option.value)
-                    saveLanguage()
-                  }}
-                >
-                  <span>{option.label}</span>
-                  {selectedLanguage === option.value && (
-                    <Check className="h-4 w-4 text-primary" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <RegionalPreferencesSection 
+          language={selectedLanguage}
+          timezone={selectedTimezone}
+          onLanguageChange={() => setIsLanguageDialogOpen(true)}
+          onTimezoneChange={() => setIsTimezoneDialogOpen(true)}
+        />
         
-        <Dialog open={isTimezoneDialogOpen} onOpenChange={setIsTimezoneDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Selecione o Fuso Horário</DialogTitle>
-              <DialogDescription>
-                Escolha o fuso horário da sua localização
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              {TIMEZONE_OPTIONS.map((option) => (
-                <div
-                  key={option.value}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
-                  onClick={() => {
-                    setSelectedTimezone(option.value)
-                    saveTimezone()
-                  }}
-                >
-                  <span>{option.label}</span>
-                  {selectedTimezone === option.value && (
-                    <Check className="h-4 w-4 text-primary" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </DialogContent>
-        </Dialog>
+        <NotificationSection 
+          settings={notification}
+          onSettingChange={updateNotificationSetting}
+        />
         
-        <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Perfil</DialogTitle>
-              <DialogDescription>
-                Atualize suas informações pessoais
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input
-                  id="name"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  placeholder="Seu nome"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={saveProfile}>Salvar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        <BottomNav />
+        <Button 
+          variant="outline" 
+          className="w-full" 
+          onClick={handleLogout}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Sair
+        </Button>
       </div>
-    </PageTransition>
+      
+      {/* Diálogos */}
+      <Dialog open={isLanguageDialogOpen} onOpenChange={setIsLanguageDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Selecione o Idioma</DialogTitle>
+            <DialogDescription>
+              Escolha o idioma preferido para a interface
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {LANGUAGE_OPTIONS.map((option) => (
+              <div
+                key={option.value}
+                className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
+                onClick={() => {
+                  setSelectedLanguage(option.value)
+                  saveLanguage()
+                }}
+              >
+                <span>{option.label}</span>
+                {selectedLanguage === option.value && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isTimezoneDialogOpen} onOpenChange={setIsTimezoneDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Selecione o Fuso Horário</DialogTitle>
+            <DialogDescription>
+              Escolha o fuso horário da sua localização
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {TIMEZONE_OPTIONS.map((option) => (
+              <div
+                key={option.value}
+                className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
+                onClick={() => {
+                  setSelectedTimezone(option.value)
+                  saveTimezone()
+                }}
+              >
+                <span>{option.label}</span>
+                {selectedTimezone === option.value && (
+                  <Check className="h-4 w-4 text-primary" />
+                )}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Perfil</DialogTitle>
+            <DialogDescription>
+              Atualize suas informações pessoais
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Seu nome"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={saveProfile}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <BottomNav />
+    </SettingsLayout>
   )
 } 

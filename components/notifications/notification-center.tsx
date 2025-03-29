@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, X, Clock, Calendar } from "lucide-react";
+import { Bell, Check, X, Clock, Calendar, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import {
   Popover,
   PopoverContent,
@@ -19,12 +20,12 @@ import { ptBR } from "date-fns/locale";
 
 // Interface para as notificações
 export interface Notification {
-  id: string;
+  id: number;
   title: string;
   message: string;
   type: "feeding" | "reminder" | "system";
   icon?: string;
-  timestamp: Date;
+  timestamp: string | Date;
   isRead: boolean;
   data?: {
     scheduleId?: number;
@@ -63,7 +64,7 @@ export function NotificationCenter() {
   };
 
   // Marcar uma notificação como lida
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (id: number) => {
     try {
       await fetch(`/api/notifications/${id}/read`, {
         method: "PATCH",
@@ -82,7 +83,7 @@ export function NotificationCenter() {
   };
 
   // Remover uma notificação
-  const removeNotification = async (id: string) => {
+  const removeNotification = async (id: number) => {
     try {
       await fetch(`/api/notifications/${id}`, {
         method: "DELETE",
@@ -207,6 +208,17 @@ export function NotificationCenter() {
             </ul>
           )}
         </ScrollArea>
+        <Separator />
+        <div className="p-2">
+          <Link 
+            href="/notifications" 
+            className="flex items-center justify-between w-full p-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
+            onClick={() => setIsOpen(false)}
+          >
+            Ver todas as notificações
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -1,19 +1,17 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
 import { ArrowLeft, CheckSquare, Loader2, Bell, Check, CheckCheck, Trash2, Clock, Calendar } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import PageTransition from "@/components/page-transition";
 import { useNotifications } from "@/lib/context/NotificationContext";
 import { NotificationItem } from "@/components/notifications/notification-item";
-import BottomNav from "@/components/bottom-nav";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
-import { AppHeader } from "@/components/app-header";
 import { motion } from "framer-motion";
 import { useAppContext } from "@/lib/context/AppContext";
 import { Notification } from "@/lib/types/notification";
@@ -104,65 +102,75 @@ NotificationCard.displayName = "NotificationCard";
 export default function NotificationsPage() {
   const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, refreshNotifications } = useNotifications();
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const mountedRef = useRef(true);
   const router = useRouter();
   const { dispatch } = useAppContext();
 
-  // Load notifications on mount
   useEffect(() => {
-    setIsMounted(true);
-    refreshNotifications();
-    return () => setIsMounted(false);
-  }, [refreshNotifications]);
+    if (mountedRef.current) {
+      refreshNotifications();
+    }
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Handlers memoizados
   const handleMarkAllAsRead = useCallback(async () => {
-    if (!isMounted) return;
+    if (!mountedRef.current) return;
     try {
       setIsMarkingAllRead(true);
       await markAllAsRead();
-      toast.success("Todas as notificações foram marcadas como lidas");
+      if (mountedRef.current) {
+        toast.success("Todas as notificações foram marcadas como lidas");
+      }
     } catch (error) {
-      toast.error("Não foi possível marcar todas as notificações como lidas");
+      if (mountedRef.current) {
+        toast.error("Não foi possível marcar todas as notificações como lidas");
+      }
     } finally {
-      if (isMounted) {
+      if (mountedRef.current) {
         setIsMarkingAllRead(false);
       }
     }
-  }, [isMounted, markAllAsRead]);
+  }, [markAllAsRead]);
 
   const handleMarkAsRead = useCallback(async (notification: Notification) => {
-    if (!isMounted) return;
+    if (!mountedRef.current) return;
     try {
       await markAsRead(notification.id);
-      if (dispatch) {
+      if (mountedRef.current && dispatch) {
         dispatch({
           type: "MARK_NOTIFICATION_READ",
           payload: { id: notification.id }
         });
+        toast.success("Notificação marcada como lida");
       }
-      toast.success("Notificação marcada como lida");
     } catch (error) {
-      console.error("Erro ao marcar notificação como lida:", error);
-      toast.error("Não foi possível marcar a notificação como lida");
+      if (mountedRef.current) {
+        console.error("Erro ao marcar notificação como lida:", error);
+        toast.error("Não foi possível marcar a notificação como lida");
+      }
     }
-  }, [isMounted, markAsRead, dispatch]);
+  }, [markAsRead, dispatch]);
 
   const handleRemoveNotification = useCallback(async (notification: Notification) => {
-    if (!isMounted) return;
+    if (!mountedRef.current) return;
     try {
-      if (dispatch) {
+      if (mountedRef.current && dispatch) {
         dispatch({
           type: "REMOVE_NOTIFICATION",
           payload: { id: notification.id }
         });
+        toast.success("Notificação removida");
       }
-      toast.success("Notificação removida");
     } catch (error) {
-      console.error("Erro ao remover notificação:", error);
-      toast.error("Não foi possível remover a notificação");
+      if (mountedRef.current) {
+        console.error("Erro ao remover notificação:", error);
+        toast.error("Não foi possível remover a notificação");
+      }
     }
-  }, [isMounted, dispatch]);
+  }, [dispatch]);
 
   // Animações memoizadas
   const containerVariants = useMemo(() => ({
@@ -204,63 +212,61 @@ export default function NotificationsPage() {
 
   return (
     <PageTransition>
-      <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title="Notificações" showBackButton />
-        
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Suas Notificações</h1>
-            
-            {notifications.filter(n => !n.isRead).length > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleMarkAllAsRead}
-                className="flex items-center gap-2"
-                disabled={isMarkingAllRead}
-              >
-                {isMarkingAllRead ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCheck size={16} />
-                )}
-                <span>Marcar todas como lidas</span>
-              </Button>
-            )}
-          </div>
+      <div className="container max-w-2xl mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-bold">Suas Notificações</h1>
           
-          {isLoading ? (
-            loadingSkeleton
-          ) : notifications.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-6">
-                Nenhuma notificação para exibir.
-              </p>
-              <Link href="/">
-                <Button>Voltar para o Início</Button>
-              </Link>
-            </div>
-          ) : (
-            <motion.div 
-              className="space-y-4"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
+          {notifications.filter(n => !n.isRead).length > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleMarkAllAsRead}
+              className="flex items-center gap-2"
+              disabled={isMarkingAllRead}
             >
-              {notifications.map((notification) => (
-                <motion.div key={notification.id} variants={itemVariants}>
-                  <NotificationCard
-                    notification={notification}
-                    onMarkAsRead={handleMarkAsRead}
-                    onRemove={handleRemoveNotification}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
+              {isMarkingAllRead ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCheck size={16} />
+              )}
+              <span>Marcar todas como lidas</span>
+            </Button>
           )}
         </div>
         
-        <BottomNav />
+        {isLoading ? (
+          loadingSkeleton
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground mb-6">
+              Nenhuma notificação para exibir.
+            </p>
+            <Link href="/">
+              <Button>Voltar para o Início</Button>
+            </Link>
+          </div>
+        ) : (
+          <motion.div 
+            className="space-y-4"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {notifications.map((notification) => (
+              <motion.div
+                key={notification.id}
+                variants={itemVariants}
+                layout
+              >
+                <NotificationCard
+                  notification={notification}
+                  onMarkAsRead={handleMarkAsRead}
+                  onRemove={handleRemoveNotification}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
       </div>
     </PageTransition>
   );
