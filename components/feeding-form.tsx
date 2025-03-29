@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import {
   Form,
   FormControl,
@@ -23,6 +24,7 @@ import { useFeeding } from "@/hooks/use-feeding";
 const formSchema = z.object({
   amount: z.string().optional(),
   notes: z.string().optional(),
+  timestamp: z.date().optional(),
 });
 
 interface FeedingFormProps {
@@ -40,6 +42,7 @@ export function FeedingForm({ catId, onSuccess }: FeedingFormProps) {
     defaultValues: {
       amount: "",
       notes: "",
+      timestamp: new Date(),
     },
   });
 
@@ -48,7 +51,7 @@ export function FeedingForm({ catId, onSuccess }: FeedingFormProps) {
       setIsSubmitting(true);
       
       // Usar o hook useFeeding para registrar a alimentação
-      await handleMarkAsFed(values.amount, values.notes);
+      await handleMarkAsFed(values.amount, values.notes, values.timestamp);
       
       form.reset();
       // Atualizar a interface
@@ -70,6 +73,23 @@ export function FeedingForm({ catId, onSuccess }: FeedingFormProps) {
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <FormField
+            control={form.control}
+            name="timestamp"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Data e Hora</FormLabel>
+                <FormControl>
+                  <DateTimePicker
+                    date={field.value}
+                    setDate={field.onChange}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name="amount"

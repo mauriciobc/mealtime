@@ -126,7 +126,7 @@ export interface CatPortion {
 
 export interface FeedingFormProps {
   catId: number;
-  onMarkAsFed: (amount?: string, notes?: string) => Promise<FeedingLog | undefined>;
+  onMarkAsFed: (amount?: string, notes?: string, timestamp?: Date) => Promise<FeedingLog | undefined>;
 }
 
 export interface FeedingHistoryProps {

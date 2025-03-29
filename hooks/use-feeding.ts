@@ -23,9 +23,8 @@ function uuidv4(): string {
   });
 }
 
-export function useFeeding(catId: string) {
+export function useFeeding(catId: number) {
   const { state, dispatch } = useGlobalState();
-  const numericId = parseInt(catId);
   const [cat, setCat] = useState<CatType | null>(null);
   const [logs, setLogs] = useState<FeedingLog[]>([]);
   const [nextFeedingTime, setNextFeedingTime] = useState<Date | null>(null);
@@ -50,11 +49,11 @@ export function useFeeding(catId: string) {
       
       try {
         // Primeiro, tenta buscar do estado local
-        let foundCat = state.cats.find(c => c.id === numericId) || null;
+        let foundCat = state.cats.find(c => c.id === catId) || null;
         
         // Se não encontrou localmente, busca da API
-        if (!foundCat && numericId) {
-          const response = await fetch(`/api/cats/${numericId}`);
+        if (!foundCat && catId) {
+          const response = await fetch(`/api/cats/${catId}`);
           if (response.ok) {
             const apiCat = await response.json();
             // Adiciona ao estado global se não existir
@@ -74,13 +73,13 @@ export function useFeeding(catId: string) {
         // Get feeding logs
         if (foundCat) {
           const catLogs = state.feedingLogs
-            .filter(log => log.catId === numericId)
+            .filter(log => log.catId === catId)
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           
           setLogs(catLogs);
 
           // Calculate next feeding time
-          const next = await getNextFeedingTime(catId);
+          const next = await getNextFeedingTime(catId.toString());
           if (next instanceof Date) {
             setNextFeedingTime(next);
             // Update displayed time in a separate step to avoid loops
@@ -98,10 +97,10 @@ export function useFeeding(catId: string) {
       }
     };
     
-    if (numericId) {
+    if (catId) {
       fetchCatData();
     }
-  }, [numericId, state.cats, state.feedingLogs, updateFeedingTimeDisplay, dispatch]);
+  }, [catId, state.cats, state.feedingLogs, updateFeedingTimeDisplay, dispatch]);
 
   // Refresh feeding times every minute
   useEffect(() => {
@@ -117,16 +116,16 @@ export function useFeeding(catId: string) {
     return () => clearInterval(interval);
   }, [nextFeedingTime]);
 
-  const handleMarkAsFed = async (amount?: string, notes?: string) => {
+  const handleMarkAsFed = async (amount?: string, notes?: string, timestamp?: Date) => {
     if (!cat) return;
 
     try {
-      // Criar timestamp em UTC
-      const now = new Date();
+      // Usar o timestamp fornecido ou criar um novo
+      const now = timestamp || new Date();
       now.setMilliseconds(0); // Remover milissegundos para consistência
       
       const newLog: Omit<FeedingLog, "id"> = {
-        catId: numericId,
+        catId: catId,
         userId: "1", // TODO: Usar ID do usuário atual
         timestamp: now, // Timestamp em UTC
         portionSize: amount ? parseFloat(amount) : null,

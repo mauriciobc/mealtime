@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ThemeSelector } from "@/components/theme-selector"
 
 // Ícones
 import { 
@@ -163,23 +164,15 @@ const ProfileSection = ({ user, onEditProfile }: { user: any, onEditProfile: () 
 };
 
 const AppearanceSection = ({ theme, onThemeChange }: { theme: string, onThemeChange: () => void }) => (
-  <section className="mb-6">
-    <h2 className="text-lg font-semibold mb-3">Aparência</h2>
-    <AnimatedCard className="p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Sun className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <h3 className="font-medium">Tema</h3>
-            <p className="text-xs text-muted-foreground">
-              {theme === 'light' ? 'Claro' : 'Escuro'}
-            </p>
-          </div>
-        </div>
-        <Switch checked={theme === 'dark'} onCheckedChange={onThemeChange} />
+  <AnimatedCard className="p-4">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-2">
+        <Sun className="h-5 w-5" />
+        <span className="font-medium">Aparência</span>
       </div>
-    </AnimatedCard>
-  </section>
+      <ThemeSelector />
+    </div>
+  </AnimatedCard>
 )
 
 const RegionalPreferencesSection = ({ 
