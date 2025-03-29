@@ -6,7 +6,7 @@ export type NotificationType =
   | 'system'     // Notificações do sistema
   | 'info'       // Informações gerais
   | 'warning'    // Avisos
-  | 'error';     // Erros
+  | 'error';
 
 export interface Notification {
   id: number;
@@ -22,7 +22,6 @@ export interface Notification {
   icon?: string;
   timestamp?: Date;
   data?: {
-    scheduleId?: number;
     catId?: number;
     userId?: number;
     scheduledTime?: string;

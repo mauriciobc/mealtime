@@ -4,11 +4,21 @@ import { addHours, isBefore, differenceInHours } from 'date-fns';
 import { getUserTimezone, calculateNextFeeding } from '../utils/dateUtils';
 import { toDate } from 'date-fns-tz';
 import { BaseUser, BaseCat, BaseFeedingLog, ID } from '../types/common';
+import { Notification } from '../types/notification';
+import { 
+  createFeedingNotification, 
+  generateFeedingNotifications,
+  isDuplicateFeeding,
+  isFeedingLate,
+  isFeedingMissed,
+  shouldSendReminder
+} from './feeding-notification-service';
 
 // Create a simple UUID function since we can't install the package
-export function uuidv4(): string {
+function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
   });
 }
@@ -170,10 +180,10 @@ export async function createCat(cat: Omit<CatType, 'id'>, mockData: CatType[]): 
   return newCat;
 }
 
-export async function updateCat(id: string, catData: Partial<CatType>, mockData: CatType[]): Promise<CatType> {
+export async function updateCat(catId: string, catData: Partial<CatType>, mockData: CatType[]): Promise<CatType> {
   try {
     // Primeiro, tentar atualizar via API
-    const response = await fetch(`/api/cats/${id}`, {
+    const response = await fetch(`/api/cats/${catId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -189,7 +199,7 @@ export async function updateCat(id: string, catData: Partial<CatType>, mockData:
 
     // Atualizar o localStorage
     const cats = await getData<CatType>('cats', mockData);
-    const numericId = parseInt(id);
+    const numericId = parseInt(catId);
     const catIndex = cats.findIndex(cat => cat.id === numericId);
     
     if (catIndex === -1) {
@@ -232,7 +242,7 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
   // Remove from household if exists
   if (cat.householdId) {
     const households = await getData<Household>('households', []);
-    const household = households.find(h => h.id === cat.householdId?.toString());
+    const household = households.find(h => h.id === cat.householdId);
     
     if (household) {
       const updatedHousehold = {
@@ -247,222 +257,8 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
       await setData<Household>('households', updatedHouseholds);
     }
   }
-  
-  // Delete associated feeding logs
-  const feedingLogs = await getData<FeedingLog>('feedingLogs', []);
-  const updatedLogs = feedingLogs.filter(log => log.catId !== numericId);
-  await setData<FeedingLog>('feedingLogs', updatedLogs);
 }
 
-// FEEDING LOG SERVICES
-export async function getFeedingLogs(catId: string, userTimezone?: string): Promise<FeedingLog[]> {
-  await delay(300);
-  console.log('\n[getFeedingLogs] Buscando logs:');
-  console.log('- CatId:', catId);
-  console.log('- Timezone recebido:', userTimezone);
-  
-  const mockData: FeedingLog[] = []; // Dados mockados vazios como fallback
-  const logs = await getData<FeedingLog>('feedingLogs', mockData);
-  console.log('- Total de logs encontrados (antes do filtro):', logs.length);
-  
-  const timezone = getUserTimezone(userTimezone);
-  console.log('- Timezone resolvido:', timezone);
-  
-  const filteredLogs = logs.filter(log => log.catId === parseInt(catId));
-  console.log('- Total de logs após filtro por catId:', filteredLogs.length);
-  
-  const sortedLogs = filteredLogs.sort((a, b) => {
-    const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
-    const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
-    return dateB.getTime() - dateA.getTime();
-  });
-
-  console.log('- Logs ordenados:', sortedLogs.map(log => ({
-    id: log.id,
-    catId: log.catId,
-    timestamp: formatDateTimeForDisplay(new Date(log.timestamp), timezone)
-  })));
-
-  return sortedLogs.map(log => ({
-    ...log,
-    timestamp: log.timestamp || toDate(new Date(), { timeZone: timezone })
-  }));
-}
-
-export async function getFeedingLogsByCatId(catId: string, mockData: FeedingLog[]): Promise<FeedingLog[]> {
-  await delay(200);
-  const logs = await getData<FeedingLog>('feedingLogs', mockData);
-  const numericId = parseInt(catId);
-  return logs.filter(log => log.catId === numericId)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-}
-
-export async function createFeedingLog(log: Omit<FeedingLog, 'id'>, mockData: FeedingLog[]): Promise<FeedingLog> {
-  await delay(500);
-  const newLog: FeedingLog = {
-    ...log,
-    id: Math.floor(Math.random() * 1000000), // Gerar um ID numérico aleatório
-    timestamp: log.timestamp || new Date()
-  };
-  
-  const logs = await getData<FeedingLog>('feedingLogs', mockData);
-  const updatedLogs = [...logs, newLog];
-  await setData<FeedingLog>('feedingLogs', updatedLogs);
-  
-  return newLog;
-}
-
-export async function updateFeedingLog(id: ID, logData: Partial<FeedingLog>, mockData: FeedingLog[]): Promise<FeedingLog> {
-  await delay(500);
-  const logs = await getData<FeedingLog>('feedingLogs', mockData);
-  const logIndex = logs.findIndex(log => log.id === id);
-  
-  if (logIndex === -1) {
-    throw new Error(`Feeding log with id ${id} not found`);
-  }
-  
-  const updatedLog = {
-    ...logs[logIndex],
-    ...logData
-  };
-  
-  const updatedLogs = [
-    ...logs.slice(0, logIndex),
-    updatedLog,
-    ...logs.slice(logIndex + 1)
-  ];
-  
-  await setData<FeedingLog>('feedingLogs', updatedLogs);
-  return updatedLog;
-}
-
-export async function deleteFeedingLog(id: ID, mockData: FeedingLog[]): Promise<void> {
-  await delay(500);
-  const logs = await getData<FeedingLog>('feedingLogs', mockData);
-  const updatedLogs = logs.filter(log => log.id !== id);
-  await setData<FeedingLog>('feedingLogs', updatedLogs);
-}
-
-// USER SERVICES
-export async function getUsers(mockData: User[]): Promise<User[]> {
-  await delay(300);
-  return getData<User>('users', mockData);
-}
-
-export async function getUserById(id: ID, mockData: BaseUser[]): Promise<BaseUser | null> {
-  await delay(200);
-  const users = await getData<BaseUser>('users', mockData);
-  return users.find(user => user.id === id) || null;
-}
-
-// HOUSEHOLD SERVICES
-export async function getHouseholds(mockData: Household[]): Promise<Household[]> {
-  await delay(300);
-  return getData<Household>('households', mockData);
-}
-
-export async function getHouseholdById(id: ID, mockData: Household[]): Promise<Household | null> {
-  await delay(200);
-  const households = await getData<Household>('households', mockData);
-  return households.find(household => household.id === id) || null;
-}
-
-export async function updateHousehold(id: ID, householdData: Partial<Household>, mockData: Household[]): Promise<Household> {
-  await delay(500);
-  const households = await getData<Household>('households', mockData);
-  const householdIndex = households.findIndex(household => household.id === id);
-  
-  if (householdIndex === -1) {
-    throw new Error(`Household with id ${id} not found`);
-  }
-  
-  const updatedHousehold = {
-    ...households[householdIndex],
-    ...householdData
-  };
-  
-  const updatedHouseholds = [
-    ...households.slice(0, householdIndex),
-    updatedHousehold,
-    ...households.slice(householdIndex + 1)
-  ];
-  
-  await setData<Household>('households', updatedHouseholds);
-  return updatedHousehold;
-}
-
-// UTILITY FUNCTIONS
-export async function getNextFeedingTime(catId: string, userTimezone?: string): Promise<Date | null> {
-  const timezone = getUserTimezone(userTimezone);
-  console.log('\n[getNextFeedingTime] Iniciando busca:');
-  console.log('- CatId:', catId);
-  console.log('- Timezone recebido:', userTimezone);
-  console.log('- Timezone resolvido:', timezone);
-  
-  const now = toDate(new Date(), { timeZone: timezone });
-  console.log('- Data atual:', formatDateTimeForDisplay(now, timezone));
-  
-  // Obter logs ordenados por timestamp
-  const logs = await getFeedingLogs(catId, timezone);
-  console.log('- Total de logs encontrados:', logs.length);
-  
-  const lastFeeding = logs
-    .sort((a, b) => {
-      const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
-      const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
-      return dateB.getTime() - dateA.getTime();
-    })[0];
-
-  // Se não houver logs, retorna null
-  if (!lastFeeding) {
-    console.log('- Nenhum log de alimentação encontrado');
-    return null;
-  }
-
-  console.log('- Última alimentação encontrada:', {
-    id: lastFeeding.id,
-    timestamp: formatDateTimeForDisplay(new Date(lastFeeding.timestamp), timezone)
-  });
-
-  // Obter gato e seu agendamento
-  const cat = await getCatById(catId, timezone);
-  if (!cat) {
-    console.log('- Gato não encontrado');
-    return null;
-  }
-
-  console.log('- Dados do gato:', {
-    id: cat.id,
-    name: cat.name,
-    feeding_interval: cat.feeding_interval,
-    schedules: cat.schedules?.map(s => ({
-      enabled: s.enabled,
-      type: s.type,
-      interval: s.interval
-    }))
-  });
-
-  // Se houver um agendamento ativo
-  const activeSchedule = cat.schedules?.find(s => s.enabled);
-  if (activeSchedule && activeSchedule.interval) {
-    console.log('- Usando agendamento ativo:', {
-      type: activeSchedule.type,
-      interval: activeSchedule.interval
-    });
-    
-    const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), activeSchedule.interval, timezone);
-    console.log('- Próxima alimentação calculada (agendamento):', formatDateTimeForDisplay(nextFeeding, timezone));
-    return nextFeeding;
-  }
-  // Se não houver agendamento mas tiver intervalo padrão
-  else if (cat.feeding_interval) {
-    console.log('- Usando intervalo padrão:', cat.feeding_interval);
-    const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), cat.feeding_interval, timezone);
-    console.log('- Próxima alimentação calculada (intervalo padrão):', formatDateTimeForDisplay(nextFeeding, timezone));
-    return nextFeeding;
-  }
-
-  console.log('- Nenhum intervalo ou agendamento encontrado');
-  return null;
-}
+// Re-exportar as funções relacionadas à alimentação do api-feeding-service
+export { registerFeeding, updateFeedingSchedule, getNextFeedingTime } from './api-feeding-service';
 

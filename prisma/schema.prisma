@@ -35,23 +35,27 @@ model User {
 }
 
 model Cat {
-  id               Int          @id @default(autoincrement())
-  name             String
-  photoUrl         String?
-  birthdate        DateTime?
-  weight           Float?
-  restrictions     String?
-  notes            String?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  householdId      Int
-  feeding_interval Int          @default(8)
-  portion_size     Float?       @default(0)
-  household        Household    @relation(fields: [householdId], references: [id])
-  feedingLogs      FeedingLog[]
-  schedules        Schedule[]
-  groups           CatGroup[]   @relation("CatToGroup")
-  notifications    Notification[]
+  id              Int         @id @default(autoincrement())
+  name            String
+  photoUrl        String?
+  birthdate       DateTime?
+  weight          Float?
+  restrictions    String?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  householdId     Int
+  feedingInterval Int         @default(8)
+  portion_size    Float?       @default(0)
+  userId          Int
+  user            User        @relation(fields: [userId], references: [id])
+  household       Household   @relation(fields: [householdId], references: [id])
+  feedingLogs     FeedingLog[]
+  schedules       Schedule[]
+  groups          CatGroup[]   @relation("CatToGroup")
+  notifications   Notification[]
+
+  @@index([userId])
 }
 
 model CatGroup {

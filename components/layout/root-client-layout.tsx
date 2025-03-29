@@ -11,7 +11,7 @@ import { AnimationProvider } from "@/components/animation-provider"
 import { ClientLayout } from "@/components/layout/client-layout"
 import { DataProvider } from "@/components/data-provider"
 
-const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").then(mod => mod.OnboardingTour), {
+const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").then(mod => ({ default: mod.OnboardingTour })), {
   ssr: false,
   loading: () => null
 })

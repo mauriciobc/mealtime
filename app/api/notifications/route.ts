@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
+import { Notification } from '@/lib/types/notification';
 
 // Cache de notificações por 30 segundos
 const getCachedNotifications = unstable_cache(
@@ -94,41 +95,46 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
+
+    const notifications: Notification[] = await request.json();
     
-    const {
-      title,
-      message,
-      type,
-      relatedId,
-      relatedType
-    } = await request.json();
+    // Validar se todas as notificações pertencem ao usuário
+    const userId = (session.user as any).id;
+    const validNotifications = notifications.every(n => n.userId === userId);
     
-    // Validar campos obrigatórios
-    if (!title || !message || !type) {
+    if (!validNotifications) {
       return NextResponse.json(
-        { error: 'Título, mensagem e tipo são obrigatórios' },
+        { error: 'Notificações inválidas' },
         { status: 400 }
       );
     }
-    
-    // Criar notificação no banco de dados
-    const notification = await prisma.notification.create({
-      data: {
-        userId: parseInt(session.user.id as string),
-        title,
-        message,
-        type,
-        relatedId,
-        relatedType,
-        isRead: false
-      }
-    });
-    
-    return NextResponse.json(notification, { status: 201 });
+
+    // Salvar notificações no banco de dados
+    const savedNotifications = await Promise.all(
+      notifications.map(notification =>
+        prisma.notification.create({
+          data: {
+            title: notification.title,
+            message: notification.message,
+            type: notification.type,
+            isRead: notification.isRead,
+            userId: notification.userId,
+            catId: notification.catId,
+            householdId: notification.householdId,
+            actionUrl: notification.actionUrl,
+            icon: notification.icon,
+            timestamp: notification.timestamp,
+            data: notification.data ? JSON.stringify(notification.data) : null
+          }
+        })
+      )
+    );
+
+    return NextResponse.json(savedNotifications);
   } catch (error) {
-    console.error('Erro ao criar notificação:', error);
+    console.error('Erro ao salvar notificações:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao criar a notificação' },
+      { error: 'Erro interno do servidor' },
       { status: 500 }
     );
   }

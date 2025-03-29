@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getNumericId } from '@/lib/utils/api-utils';
 
-// GET /api/cats/[id] - Obter um gato pelo ID
+// GET /api/cats/[catId] - Obter um gato pelo ID
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: { catId: string } }
 ) {
   try {
     const params = await context.params;
     // Obter e validar o ID
-    const id = await getNumericId(params.id);
+    const id = await getNumericId(params.catId);
 
     const cat = await prisma.cat.findUnique({
       where: { id },
@@ -54,15 +54,15 @@ export async function GET(
   }
 }
 
-// PUT /api/cats/[id] - Atualizar um gato
+// PUT /api/cats/[catId] - Atualizar um gato
 export async function PUT(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: { catId: string } }
 ) {
   try {
     const params = await context.params;
     // Obter e validar o ID
-    const id = await getNumericId(params.id);
+    const id = await getNumericId(params.catId);
     
     const {
       name,
@@ -167,14 +167,14 @@ export async function PUT(
   }
 }
 
-// DELETE /api/cats/[id] - Excluir um gato
+// DELETE /api/cats/[catId] - Excluir um gato
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: { catId: string } }
 ) {
   try {
     // Obter e validar o ID
-    const id = await getNumericId(context.params.id);
+    const id = await getNumericId(context.params.catId);
 
     // Verificar se o gato existe
     const existingCat = await prisma.cat.findUnique({
