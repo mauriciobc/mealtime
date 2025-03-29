@@ -195,9 +195,23 @@ export default function Home() {
     if (state.feedingLogs.length === 0) return null;
     
     // Ordenar por data mais recente
-    return state.feedingLogs.sort((a, b) => 
+    const lastLog = state.feedingLogs.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     )[0];
+
+    // Buscar o gato associado ao log
+    const cat = state.cats.find(cat => cat.id === lastLog.catId);
+    
+    return {
+      ...lastLog,
+      cat: cat ? {
+        id: cat.id,
+        name: cat.name,
+        photoUrl: cat.photoUrl,
+        householdId: cat.householdId,
+        feeding_interval: cat.feeding_interval
+      } : undefined
+    };
   };
 
   const lastFeedingLog = getLastFeedingLog();
@@ -270,81 +284,49 @@ export default function Home() {
         <motion.div variants={itemVariants}>
           <Card>
             <CardHeader>
-              <CardTitle>Progresso dos Agendamentos</CardTitle>
+              <CardTitle>Última Alimentação</CardTitle>
               <CardDescription>
-                Taxa de conclusão dos agendamentos de alimentação
+                Detalhes da última alimentação registrada
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Concluídos</span>
-                  <span className="text-sm text-muted-foreground">{scheduleCompletionRate}%</span>
-                </div>
-                <Progress value={scheduleCompletionRate} className="h-2" />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" asChild className="w-full">
-                <Link href="/schedules" className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span>Ver Agendamentos</span>
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Última Alimentação</h2>
-            <Button size="sm" variant="outline" asChild>
-              <Link href="/feedings/new" className="flex items-center gap-2">
-                <PlusCircle className="h-4 w-4" />
-                <span>Nova Alimentação</span>
-              </Link>
-            </Button>
-          </div>
-
-          {lastFeedingLog ? (
-            <FeedingLogItem
-              log={{
-                ...lastFeedingLog,
-                createdAt: lastFeedingLog.timestamp,
-                cat: lastFeedingLog.cat ? {
-                  ...lastFeedingLog.cat,
-                  householdId: lastFeedingLog.cat.householdId || 0,
-                  feeding_interval: lastFeedingLog.cat.feeding_interval || 0
-                } : undefined,
-                user: lastFeedingLog.user ? {
-                  id: lastFeedingLog.user.id,
-                  name: lastFeedingLog.user.name,
-                  email: lastFeedingLog.user.email,
-                  avatar: lastFeedingLog.user.avatar,
-                  householdId: lastFeedingLog.user.households?.[0] ? parseInt(lastFeedingLog.user.households[0]) : null,
-                  preferences: {
-                    timezone: "America/Sao_Paulo",
-                    language: "pt-BR",
-                    notifications: {
-                      pushEnabled: true,
-                      emailEnabled: true,
-                      feedingReminders: true,
-                      missedFeedingAlerts: true,
-                      householdUpdates: true
-                    }
-                  },
-                  role: lastFeedingLog.user.role || "user"
-                } : undefined
-              }}
-              onView={() => router.push(`/feedings/${lastFeedingLog.id}`)}
-              onEdit={() => router.push(`/feedings/${lastFeedingLog.id}/edit`)}
-              onDelete={() => {
-                // Função para excluir o registro
-              }}
-            />
-          ) : (
-            <Card>
-              <CardContent className="py-6">
+              {lastFeedingLog ? (
+                <FeedingLogItem
+                  log={{
+                    ...lastFeedingLog,
+                    createdAt: lastFeedingLog.timestamp,
+                    cat: lastFeedingLog.cat ? {
+                      ...lastFeedingLog.cat,
+                      householdId: lastFeedingLog.cat.householdId || 0,
+                      feeding_interval: lastFeedingLog.cat.feeding_interval || 0
+                    } : undefined,
+                    user: lastFeedingLog.user ? {
+                      id: lastFeedingLog.user.id,
+                      name: lastFeedingLog.user.name,
+                      email: lastFeedingLog.user.email,
+                      avatar: lastFeedingLog.user.avatar,
+                      householdId: lastFeedingLog.user.households?.[0] ? parseInt(lastFeedingLog.user.households[0]) : null,
+                      preferences: {
+                        timezone: "America/Sao_Paulo",
+                        language: "pt-BR",
+                        notifications: {
+                          pushEnabled: true,
+                          emailEnabled: true,
+                          feedingReminders: true,
+                          missedFeedingAlerts: true,
+                          householdUpdates: true
+                        }
+                      },
+                      role: lastFeedingLog.user.role || "user"
+                    } : undefined
+                  }}
+                  onView={() => router.push(`/feedings/${lastFeedingLog.id}`)}
+                  onEdit={() => router.push(`/feedings/${lastFeedingLog.id}/edit`)}
+                  onDelete={() => {
+                    // Função para excluir o registro
+                  }}
+                />
+              ) : (
                 <EmptyState
                   icon={Utensils}
                   title="Sem registros de alimentação"
@@ -354,9 +336,17 @@ export default function Home() {
                   variant="feeding"
                   className="py-6"
                 />
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+            <CardFooter>
+              <Button variant="outline" asChild className="w-full">
+                <Link href="/feedings/new" className="flex items-center gap-2">
+                  <PlusCircle className="h-4 w-4" />
+                  <span>Nova Alimentação</span>
+                </Link>
+              </Button>
+            </CardFooter>
+          </Card>
         </motion.div>
 
         <motion.div variants={itemVariants}>
