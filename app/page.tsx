@@ -24,119 +24,61 @@ const calculateProgress = (total: number, current: number) => {
 };
 
 export default function Home() {
-  const { state, dispatch } = useGlobalState();
+  const { state } = useGlobalState();
   const router = useRouter();
   const { data: session } = useSession();
-  const [isLoading, setIsLoading] = useState(true);
   const [todayFeedingCount, setTodayFeedingCount] = useState(0);
   const [scheduleCompletionRate, setScheduleCompletionRate] = useState(0);
   const [recentFeedingsData, setRecentFeedingsData] = useState([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      
-      // Carregar gatos do domicílio ativo do usuário, se existir
-      if (session?.user && state.households.length > 0) {
-        const activeHousehold = state.households[0]; // Assumindo que o primeiro domicílio é o ativo
-        
-        try {
-          const cats = await getCatsByHouseholdId(activeHousehold.id);
-          if (cats && cats.length > 0) {
-            dispatch({
-              type: "SET_CATS",
-              payload: cats,
-            });
-          }
+    if (!state.feedingLogs.length) return;
 
-          // Carregar logs de alimentação
-          const response = await fetch('/api/feedings');
-          console.log("Resposta da API de alimentações:", response.status);
-          
-          if (response.ok) {
-            const data = await response.json();
-            console.log("Dados recebidos da API:", data);
-            
-            dispatch({
-              type: "SET_FEEDING_LOGS",
-              payload: data
-            });
-
-            // Calcular alimentações de hoje
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            const todayLogs = data.filter(log => {
-              const logDate = new Date(log.timestamp);
-              logDate.setHours(0, 0, 0, 0);
-              return logDate.getTime() === today.getTime();
-            });
-            
-            console.log("Logs de hoje:", todayLogs);
-            setTodayFeedingCount(todayLogs.length);
-
-            // Preparar dados para o gráfico de alimentações recentes
-            const last7Days = Array.from({ length: 7 }, (_, i) => {
-              const date = new Date();
-              date.setDate(date.getDate() - i);
-              return date;
-            }).reverse();
-
-            console.log("Últimos 7 dias:", last7Days.map(d => format(d, 'dd/MM/yyyy')));
-
-            const recentData = last7Days.map(date => {
-              const dayLogs = data.filter(log => {
-                const logDate = new Date(log.timestamp);
-                logDate.setHours(0, 0, 0, 0);
-                const compareDate = new Date(date);
-                compareDate.setHours(0, 0, 0, 0);
-                
-                console.log(`Comparando datas:
-                  Log: ${format(logDate, 'dd/MM/yyyy HH:mm:ss')}
-                  Dia: ${format(compareDate, 'dd/MM/yyyy')}
-                  Match: ${logDate.getTime() === compareDate.getTime()}
-                `);
-                
-                return logDate.getTime() === compareDate.getTime();
-              });
-
-              console.log(`Logs do dia ${format(date, 'dd/MM/yyyy')}:`, dayLogs);
-
-              // Calcular a quantidade total de alimento para o dia
-              const totalFood = dayLogs.reduce((sum, log) => {
-                console.log(`Porção do log:`, log.portionSize);
-                return sum + (log.portionSize || 0);
-              }, 0);
-
-              const dataPoint = {
-                name: format(date, 'EEE', { locale: ptBR }),
-                valor: totalFood
-              };
-
-              console.log(`Ponto de dados para ${format(date, 'dd/MM/yyyy')}:`, dataPoint);
-              return dataPoint;
-            });
-
-            console.log("Dados finais do gráfico:", recentData);
-            setRecentFeedingsData(recentData);
-          } else {
-            console.error("Erro na resposta da API:", response.statusText);
-          }
-        } catch (error) {
-          console.error("Erro ao carregar dados:", error);
-        }
-      }
-      
-      // Calcular taxa de conclusão dos agendamentos
-      const totalSchedules = state.schedules.length;
-      const completedSchedules = state.schedules.filter(s => s.status === "completed").length;
-      
-      setScheduleCompletionRate(calculateProgress(totalSchedules, completedSchedules));
-      setIsLoading(false);
-    };
+    // Calcular alimentações de hoje
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
-    loadData();
-  }, [state.households, session, dispatch]);
+    const todayLogs = state.feedingLogs.filter(log => {
+      const logDate = new Date(log.timestamp);
+      logDate.setHours(0, 0, 0, 0);
+      return logDate.getTime() === today.getTime();
+    });
+    
+    setTodayFeedingCount(todayLogs.length);
+
+    // Preparar dados para o gráfico de alimentações recentes
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return date;
+    }).reverse();
+
+    const recentData = last7Days.map(date => {
+      const dayLogs = state.feedingLogs.filter(log => {
+        const logDate = new Date(log.timestamp);
+        logDate.setHours(0, 0, 0, 0);
+        const compareDate = new Date(date);
+        compareDate.setHours(0, 0, 0, 0);
+        return logDate.getTime() === compareDate.getTime();
+      });
+
+      const totalFood = dayLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0);
+
+      return {
+        name: format(date, 'EEE', { locale: ptBR }),
+        valor: totalFood
+      };
+    });
+
+    setRecentFeedingsData(recentData);
+  }, [state.feedingLogs]);
+
+  useEffect(() => {
+    // Calcular taxa de conclusão dos agendamentos
+    const totalSchedules = state.schedules.length;
+    const completedSchedules = state.schedules.filter(s => s.status === "completed").length;
+    setScheduleCompletionRate(calculateProgress(totalSchedules, completedSchedules));
+  }, [state.schedules]);
 
   const dashboardItems = [
     {
@@ -194,12 +136,10 @@ export default function Home() {
   const getLastFeedingLog = () => {
     if (state.feedingLogs.length === 0) return null;
     
-    // Ordenar por data mais recente
     const lastLog = state.feedingLogs.sort((a, b) => 
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     )[0];
 
-    // Buscar o gato associado ao log
     const cat = state.cats.find(cat => cat.id === lastLog.catId);
     
     return {
@@ -216,10 +156,6 @@ export default function Home() {
 
   const lastFeedingLog = getLastFeedingLog();
 
-  if (isLoading) {
-    return <Loading text="Carregando seu painel..." />;
-  }
-
   const isNewUser = state.cats.length === 0 && state.feedingLogs.length === 0;
 
   if (isNewUser) {
@@ -233,9 +169,7 @@ export default function Home() {
           actionHref="/cats/new"
           secondaryActionLabel="Ver Tutorial"
           secondaryActionOnClick={() => {
-            // Mostrar tour de onboarding
             localStorage.removeItem("onboarding-completed");
-            // Limpar quaisquer flags que possam estar causando problemas de sobreposição
             document.body.style.overflow = "auto";
             document.body.classList.remove("overflow-hidden");
             window.location.reload();

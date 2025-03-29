@@ -168,19 +168,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Load data from API on mount
   useEffect(() => {
-    console.log('AppProvider: Inicializando...', {
-      hasDispatch: !!dispatch,
-      hasSession: !!session?.user,
-      isLoading: state.isLoading
-    });
-    
     const loadData = async () => {
       try {
         dispatch({ type: "SET_LOADING", payload: true });
         
         // Carregar dados do usuário da API
         if (session?.user) {
-          console.log('AppProvider: Carregando dados do usuário...');
           const response = await fetch('/api/settings')
           if (!response.ok) {
             throw new Error('Falha ao carregar configurações')
@@ -207,10 +200,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             role: (userData.role as "admin" | "user") || "user"
           };
           dispatch({ type: "SET_CURRENT_USER", payload: currentUser });
-          console.log('AppProvider: Dados do usuário carregados com sucesso');
         } else {
           dispatch({ type: "SET_CURRENT_USER", payload: null });
-          console.log('AppProvider: Usuário não autenticado');
         }
         
         dispatch({ type: "SET_LOADING", payload: false });
@@ -224,7 +215,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loadData();
 
     return () => {
-      console.log('AppProvider: Limpando...');
       dispatch({ type: "SET_LOADING", payload: false });
       dispatch({ type: "SET_ERROR", payload: null });
     };

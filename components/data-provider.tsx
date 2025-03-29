@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react"
 import { useGlobalState } from "@/lib/context/global-state"
 import { getCatsByHouseholdId } from "@/lib/services/apiService"
 import { CatType } from "@/lib/types"
+import LoadingSpinner from "@/components/loading-spinner"
 
 interface DataProviderProps {
   children: React.ReactNode
@@ -14,52 +15,54 @@ export function DataProvider({ children }: DataProviderProps) {
   const { data: session } = useSession()
   const { state, dispatch } = useGlobalState()
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadInitialData = async () => {
       if (!session?.user) return
 
       try {
-        // Carregar domicílios do usuário (mockado ou da API)
-        const households = await fetch('/api/households').then(res => res.json())
-        .catch(err => {
-          console.error("Erro ao carregar domicílios:", err)
-          return []
-        })
+        setIsLoading(true)
+        setError(null)
 
-        if (households && households.length > 0) {
-          // Limpar o estado atual de households antes de adicionar novos
-          dispatch({
-            type: "SET_HOUSEHOLDS",
-            payload: []
+        // Carregar domicílios do usuário
+        const households = await fetch('/api/households').then(res => res.json())
+          .catch(err => {
+            console.error("Erro ao carregar domicílios:", err)
+            return []
           })
 
+        if (households && households.length > 0) {
           // Atualizar estado global com os domicílios
-          households.forEach((household: any) => {
-            dispatch({
-              type: "ADD_HOUSEHOLD",
-              payload: household,
-            })
+          dispatch({
+            type: "SET_HOUSEHOLDS",
+            payload: households
           })
 
           // Carregar gatos do domicílio principal
-          try {
-            const primaryHousehold = households[0] // Assumindo que o primeiro é o principal
-            const cats = await getCatsByHouseholdId(primaryHousehold.id)
-            
-            if (cats && cats.length > 0) {
-              // Atualizar estado global com os gatos
-              dispatch({
-                type: "SET_CATS",
-                payload: cats,
-              })
-            }
-          } catch (error) {
-            console.error("Erro ao carregar gatos do domicílio:", error)
+          const primaryHousehold = households[0]
+          const cats = await getCatsByHouseholdId(primaryHousehold.id)
+          
+          if (cats && cats.length > 0) {
+            dispatch({
+              type: "SET_CATS",
+              payload: cats,
+            })
+          }
+
+          // Carregar logs de alimentação
+          const feedingsResponse = await fetch('/api/feedings')
+          if (feedingsResponse.ok) {
+            const feedingsData = await feedingsResponse.json()
+            dispatch({
+              type: "SET_FEEDING_LOGS",
+              payload: feedingsData
+            })
           }
         }
       } catch (error) {
         console.error("Erro ao carregar dados iniciais:", error)
+        setError("Falha ao carregar dados. Por favor, recarregue a página.")
       } finally {
         setIsLoading(false)
       }
@@ -69,6 +72,30 @@ export function DataProvider({ children }: DataProviderProps) {
       loadInitialData()
     }
   }, [session, dispatch])
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size={32} />
+      </div>
+    )
+  }
 
   return <>{children}</>
 } 
