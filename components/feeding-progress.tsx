@@ -1,13 +1,14 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { motion } from "framer-motion"
-import { useAnimation } from "@/components/animation-provider"
+import { useEffect, useState, useCallback } from 'react';
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
+import { calculateNextFeeding, formatDateTimeForDisplay, getUserTimezone } from '@/lib/utils/dateUtils';
+import { useSession } from 'next-auth/react';
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { addHours, differenceInHours } from 'date-fns';
-import { getUserTimezone } from '@/lib/utils/dateUtils';
-import { useSession } from "next-auth/react";
-import { Progress } from "@/components/ui/progress";
+import { motion } from "framer-motion"
+import { useAnimation } from "@/components/animation-provider"
 
 interface FeedingProgressProps {
   lastFed: Date
@@ -33,7 +34,7 @@ export default function FeedingProgress({
 
   console.log('[Debug FeedingProgress] Status da sessão:', status);
   console.log('[Debug FeedingProgress] Dados iniciais:', {
-    lastFed: lastFed ? formatInTimeZone(lastFed, timezone, 'yyyy-MM-dd HH:mm:ss') : null,
+    lastFed: lastFed ? formatDateTimeForDisplay(lastFed, timezone) : null,
     interval,
     timezone,
     sessionStatus: status,
@@ -50,33 +51,33 @@ export default function FeedingProgress({
     }
 
     console.log('[Debug Progress] Iniciando cálculo de progresso:');
-    console.log('- Última alimentação:', formatInTimeZone(lastFed, timezone, 'yyyy-MM-dd HH:mm:ss'));
+    console.log('- Última alimentação:', formatDateTimeForDisplay(lastFed, timezone));
     console.log('- Intervalo:', interval, 'horas');
     console.log('- Timezone:', timezone);
     
     try {
       // Converter última alimentação para o timezone do usuário
       const lastFedInTz = toDate(lastFed, { timeZone: timezone });
-      console.log('- Última alimentação (TZ):', formatInTimeZone(lastFedInTz, timezone, 'yyyy-MM-dd HH:mm:ss'));
+      console.log('- Última alimentação (TZ):', formatDateTimeForDisplay(lastFedInTz, timezone));
       
       // Obter hora atual no timezone do usuário
       const now = toDate(new Date(), { timeZone: timezone });
-      console.log('- Hora atual:', formatInTimeZone(now, timezone, 'yyyy-MM-dd HH:mm:ss'));
+      console.log('- Hora atual:', formatDateTimeForDisplay(now, timezone));
       
+      // Calcular o próximo horário usando a função centralizada
+      const nextFeeding = calculateNextFeeding(lastFedInTz, interval, timezone);
+      console.log('- Próximo horário:', formatDateTimeForDisplay(nextFeeding, timezone));
+      setNextFeedingTime(nextFeeding);
+
       // Calcular quantos intervalos se passaram desde a última alimentação
       const hoursElapsed = differenceInHours(now, lastFedInTz);
       const intervalsElapsed = Math.floor(hoursElapsed / interval);
       console.log('- Horas decorridas:', hoursElapsed);
       console.log('- Intervalos completos:', intervalsElapsed);
       
-      // Calcular o próximo horário baseado no último intervalo completo
-      const nextFeeding = addHours(lastFedInTz, (intervalsElapsed + 1) * interval);
-      console.log('- Próximo horário:', formatInTimeZone(nextFeeding, timezone, 'yyyy-MM-dd HH:mm:ss'));
-      setNextFeedingTime(nextFeeding);
-
       // Calcular progresso como porcentagem do tempo decorrido no intervalo atual
       const currentIntervalStart = addHours(lastFedInTz, intervalsElapsed * interval);
-      console.log('- Início do intervalo atual:', formatInTimeZone(currentIntervalStart, timezone, 'yyyy-MM-dd HH:mm:ss'));
+      console.log('- Início do intervalo atual:', formatDateTimeForDisplay(currentIntervalStart, timezone));
       
       const totalDuration = interval * 60 * 60 * 1000; // intervalo em milissegundos
       const elapsed = now.getTime() - currentIntervalStart.getTime();
@@ -117,10 +118,10 @@ export default function FeedingProgress({
         <Progress value={progress} />
         <div className="flex justify-between text-sm text-gray-500">
           <span>
-            {formatInTimeZone(lastFed, timezone, "'Última:' HH:mm")}
+            {formatDateTimeForDisplay(lastFed, timezone)}
           </span>
           <span>
-            {nextFeedingTime && formatInTimeZone(nextFeedingTime, timezone, "'Próxima:' HH:mm")}
+            {nextFeedingTime && formatDateTimeForDisplay(nextFeedingTime, timezone)}
           </span>
         </div>
       </div>
@@ -132,10 +133,10 @@ export default function FeedingProgress({
       <Progress value={progress} />
       <div className="flex justify-between text-sm text-gray-500">
         <span>
-          {formatInTimeZone(lastFed, timezone, "'Última:' HH:mm")}
+          {formatDateTimeForDisplay(lastFed, timezone)}
         </span>
         <span>
-          {nextFeedingTime && formatInTimeZone(nextFeedingTime, timezone, "'Próxima:' HH:mm")}
+          {nextFeedingTime && formatDateTimeForDisplay(nextFeedingTime, timezone)}
         </span>
       </div>
     </div>

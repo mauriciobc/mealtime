@@ -1,42 +1,43 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from "react";
-import { Cat, FeedingLog, Household, User, Notification } from '../types';
-import { mockCats, mockFeedingLogs, mockHouseholds, mockUsers } from '../data';
-import { mockNotifications } from '../data/mockNotifications';
+import { Notification } from '../types/notification';
+import { useSession } from "next-auth/react";
+import { BaseCat, BaseFeedingLog, BaseUser, ID } from '@/lib/types/common';
+import { Household } from '@/lib/types';
 
 // Define state type
 interface AppState {
-  cats: Cat[];
-  feedingLogs: FeedingLog[];
+  cats: BaseCat[];
+  feedingLogs: BaseFeedingLog[];
   households: Household[];
-  users: User[];
+  users: BaseUser[];
   notifications: Notification[];
-  currentUser: User | null;
+  currentUser: BaseUser | null;
   isLoading: boolean;
   error: string | null;
 }
 
 // Define action types
 type AppAction =
-  | { type: "SET_CATS"; payload: Cat[] }
-  | { type: "ADD_CAT"; payload: Cat }
-  | { type: "UPDATE_CAT"; payload: Cat }
-  | { type: "DELETE_CAT"; payload: number }
-  | { type: "SET_FEEDING_LOGS"; payload: FeedingLog[] }
-  | { type: "ADD_FEEDING_LOG"; payload: FeedingLog }
-  | { type: "UPDATE_FEEDING_LOG"; payload: FeedingLog }
-  | { type: "DELETE_FEEDING_LOG"; payload: number }
+  | { type: "SET_CATS"; payload: BaseCat[] }
+  | { type: "ADD_CAT"; payload: BaseCat }
+  | { type: "UPDATE_CAT"; payload: BaseCat }
+  | { type: "DELETE_CAT"; payload: ID }
+  | { type: "SET_FEEDING_LOGS"; payload: BaseFeedingLog[] }
+  | { type: "ADD_FEEDING_LOG"; payload: BaseFeedingLog }
+  | { type: "UPDATE_FEEDING_LOG"; payload: BaseFeedingLog }
+  | { type: "DELETE_FEEDING_LOG"; payload: ID }
   | { type: "SET_HOUSEHOLDS"; payload: Household[] }
   | { type: "UPDATE_HOUSEHOLD"; payload: Household }
-  | { type: "SET_USERS"; payload: User[] }
-  | { type: "SET_CURRENT_USER"; payload: User | null }
+  | { type: "SET_USERS"; payload: BaseUser[] }
+  | { type: "SET_CURRENT_USER"; payload: BaseUser | null }
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
   | { type: "MARK_ALL_NOTIFICATIONS_READ" }
-  | { type: "MARK_NOTIFICATION_READ"; payload: { id: string } }
-  | { type: "REMOVE_NOTIFICATION"; payload: { id: string } }
+  | { type: "MARK_NOTIFICATION_READ"; payload: { id: ID } }
+  | { type: "REMOVE_NOTIFICATION"; payload: { id: ID } }
   | { type: "ADD_NOTIFICATION"; payload: Notification };
 
 // Initial state
@@ -47,7 +48,7 @@ const initialState: AppState = {
   users: [],
   notifications: [],
   currentUser: null,
-  isLoading: false,
+  isLoading: true,
   error: null,
 };
 
@@ -145,89 +146,76 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
 // Create context
 const AppContext = createContext<{
   state: AppState;
-  dispatch: React.Dispatch<AppAction> | null;
+  dispatch: React.Dispatch<AppAction>;
 }>({
   state: initialState,
-  dispatch: null
+  dispatch: () => null // Fornece uma função vazia como fallback
 });
+
+// Create hook to use context
+export function useAppContext() {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error("useAppContext must be used within an AppProvider");
+  }
+  return context;
+}
 
 // Create provider
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const { data: session } = useSession();
 
-  // Load data from localStorage on mount or use initial data
+  // Load data from API on mount
   useEffect(() => {
-    const loadData = () => {
+    console.log('AppProvider: Inicializando...', {
+      hasDispatch: !!dispatch,
+      hasSession: !!session?.user,
+      isLoading: state.isLoading
+    });
+    
+    const loadData = async () => {
       try {
         dispatch({ type: "SET_LOADING", payload: true });
         
-        // Verificar se localStorage está disponível
-        if (typeof window === 'undefined') {
-          throw new Error("localStorage não está disponível");
-        }
-
-        // Função auxiliar para carregar e validar dados
-        const loadAndValidateData = <T extends unknown>(key: string, mockData: T[]): T[] => {
-          try {
-            const stored = localStorage.getItem(key);
-            if (!stored) return mockData;
-            
-            const parsed = JSON.parse(stored);
-            if (!Array.isArray(parsed)) {
-              throw new Error(`Dados inválidos para ${key}`);
-            }
-            return parsed;
-          } catch (error) {
-            console.error(`Erro ao carregar ${key}:`, error);
-            localStorage.removeItem(key);
-            return mockData;
+        // Carregar dados do usuário da API
+        if (session?.user) {
+          console.log('AppProvider: Carregando dados do usuário...');
+          const response = await fetch('/api/settings')
+          if (!response.ok) {
+            throw new Error('Falha ao carregar configurações')
           }
-        };
-        
-        // Carregar dados com validação
-        const cats = loadAndValidateData("cats", mockCats);
-        const logs = loadAndValidateData("feedingLogs", mockFeedingLogs);
-        const households = loadAndValidateData("households", mockHouseholds);
-        const users = loadAndValidateData("users", mockUsers);
-        const notifications = loadAndValidateData("notifications", mockNotifications);
-        
-        // Validar dados mockados antes de usar
-        if (!Array.isArray(mockCats) || !Array.isArray(mockFeedingLogs) || 
-            !Array.isArray(mockHouseholds) || !Array.isArray(mockUsers) || 
-            !Array.isArray(mockNotifications)) {
-          throw new Error("Dados mockados inválidos");
-        }
-        
-        dispatch({ type: "SET_CATS", payload: cats });
-        dispatch({ type: "SET_FEEDING_LOGS", payload: logs });
-        dispatch({ type: "SET_HOUSEHOLDS", payload: households });
-        dispatch({ type: "SET_USERS", payload: users });
-        dispatch({ type: "SET_NOTIFICATIONS", payload: notifications });
-        
-        // Carregar usuário atual com validação
-        const storedCurrentUser = localStorage.getItem("currentUser");
-        if (storedCurrentUser) {
-          try {
-            const parsedUser = JSON.parse(storedCurrentUser);
-            if (typeof parsedUser === 'object' && parsedUser !== null) {
-              dispatch({ type: "SET_CURRENT_USER", payload: parsedUser });
-            } else {
-              throw new Error("Dados do usuário atual inválidos");
-            }
-          } catch (error) {
-            console.error("Erro ao carregar usuário atual:", error);
-            localStorage.removeItem("currentUser");
-            if (mockUsers.length > 0) {
-              dispatch({ type: "SET_CURRENT_USER", payload: mockUsers[0] });
-            }
-          }
-        } else if (mockUsers.length > 0) {
-          dispatch({ type: "SET_CURRENT_USER", payload: mockUsers[0] });
+          const userData = await response.json()
+          
+          const currentUser = {
+            id: Number(userData.id),
+            name: userData.name || "",
+            email: userData.email || "",
+            avatar: session.user.image || "",
+            householdId: userData.householdId || null,
+            preferences: {
+              timezone: userData.timezone || "UTC",
+              language: userData.language || "pt-BR",
+              notifications: {
+                pushEnabled: true,
+                emailEnabled: true,
+                feedingReminders: true,
+                missedFeedingAlerts: true,
+                householdUpdates: true,
+              },
+            },
+            role: (userData.role as "admin" | "user") || "user"
+          };
+          dispatch({ type: "SET_CURRENT_USER", payload: currentUser });
+          console.log('AppProvider: Dados do usuário carregados com sucesso');
+        } else {
+          dispatch({ type: "SET_CURRENT_USER", payload: null });
+          console.log('AppProvider: Usuário não autenticado');
         }
         
         dispatch({ type: "SET_LOADING", payload: false });
       } catch (error) {
-        console.error("Erro ao carregar dados:", error);
+        console.error("AppProvider: Erro ao carregar dados:", error);
         dispatch({ type: "SET_ERROR", payload: "Falha ao carregar dados. Por favor, recarregue a página." });
         dispatch({ type: "SET_LOADING", payload: false });
       }
@@ -235,12 +223,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     loadData();
 
-    // Cleanup function
     return () => {
+      console.log('AppProvider: Limpando...');
       dispatch({ type: "SET_LOADING", payload: false });
       dispatch({ type: "SET_ERROR", payload: null });
     };
-  }, []);
+  }, [session]);
 
   // Save to localStorage when state changes
   useEffect(() => {
@@ -273,29 +261,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("notifications", JSON.stringify(state.notifications));
       needsUpdate = true;
     }
-    if (state.currentUser) {
-      localStorage.setItem("currentUser", JSON.stringify(state.currentUser));
-      needsUpdate = true;
-    }
 
-    // For debugging
+    // Only update if we actually saved something
     if (needsUpdate) {
-      console.log("Data saved to localStorage");
+      dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.cats, state.feedingLogs, state.households, state.users, state.notifications, state.currentUser, state.isLoading]);
+  }, [state]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
       {children}
     </AppContext.Provider>
   );
-}
-
-// Create hook for using the context
-export function useAppContext() {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useAppContext must be used within an AppProvider');
-  }
-  return context;
 }

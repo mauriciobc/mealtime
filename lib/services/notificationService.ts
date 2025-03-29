@@ -2,16 +2,13 @@ import { getData, setData, delay, uuidv4 } from "./apiService";
 import { Notification, CreateNotificationPayload } from "../types/notification";
 
 // Get all notifications for a user
-export async function getUserNotifications(userId: string, mockData: Notification[] = []): Promise<Notification[]> {
-  await delay(300);
-  const notifications = await getData<Notification>('notifications', mockData);
-  return notifications
-    .filter(notification => notification.userId === userId)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+export async function getUserNotifications(userId: number, mockData: Notification[] = []): Promise<Notification[]> {
+  // TODO: Implementar chamada à API
+  return mockData.filter(notification => notification.userId === userId);
 }
 
 // Get unread notifications count
-export async function getUnreadNotificationsCount(userId: string, mockData: Notification[] = []): Promise<number> {
+export async function getUnreadNotificationsCount(userId: number, mockData: Notification[] = []): Promise<number> {
   const notifications = await getUserNotifications(userId, mockData);
   return notifications.filter(notification => !notification.isRead).length;
 }
@@ -42,51 +39,40 @@ export async function createNotification(payload: CreateNotificationPayload, moc
 }
 
 // Mark a notification as read
-export async function markNotificationAsRead(id: string, mockData: Notification[] = []): Promise<Notification> {
-  await delay(200);
-  
-  const notifications = await getData<Notification>('notifications', mockData);
-  const notification = notifications.find(n => n.id === id);
-  
+export async function markNotificationAsRead(id: number, mockData: Notification[] = []): Promise<Notification> {
+  // TODO: Implementar chamada à API
+  const notification = mockData.find(n => n.id === id);
   if (!notification) {
-    throw new Error(`Notification with id ${id} not found`);
+    throw new Error('Notificação não encontrada');
   }
-  
-  const updatedNotification = {
+  return {
     ...notification,
     isRead: true
   };
-  
-  const updatedNotifications = notifications.map(n => 
-    n.id === id ? updatedNotification : n
-  );
-  
-  await setData<Notification>('notifications', updatedNotifications);
-  return updatedNotification;
 }
 
 // Mark all notifications as read for a user
-export async function markAllNotificationsAsRead(userId: string, mockData: Notification[] = []): Promise<Notification[]> {
-  await delay(300);
-  
-  const notifications = await getData<Notification>('notifications', mockData);
-  
-  const updatedNotifications = notifications.map(n => 
-    n.userId === userId && !n.isRead ? { ...n, isRead: true } : n
-  );
-  
-  await setData<Notification>('notifications', updatedNotifications);
-  return updatedNotifications.filter(n => n.userId === userId);
+export async function markAllNotificationsAsRead(userId: number, mockData: Notification[] = []): Promise<Notification[]> {
+  // TODO: Implementar chamada à API
+  return mockData.map(notification => {
+    if (notification.userId === userId) {
+      return {
+        ...notification,
+        isRead: true
+      };
+    }
+    return notification;
+  });
 }
 
 // Delete a notification
-export async function deleteNotification(id: string, mockData: Notification[] = []): Promise<void> {
-  await delay(200);
-  
-  const notifications = await getData<Notification>('notifications', mockData);
-  const updatedNotifications = notifications.filter(n => n.id !== id);
-  
-  await setData<Notification>('notifications', updatedNotifications);
+export async function deleteNotification(id: number, mockData: Notification[] = []): Promise<void> {
+  // TODO: Implementar chamada à API
+  const index = mockData.findIndex(n => n.id === id);
+  if (index === -1) {
+    throw new Error('Notificação não encontrada');
+  }
+  mockData.splice(index, 1);
 }
 
 // Helper to get icon based on notification type

@@ -11,8 +11,16 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User } from "lucide-react";
 
-export function AuthStatus() {
-  const { data: session, status } = useSession();
+interface AuthStatusProps {
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    avatar?: string | null;
+  };
+}
+
+export function AuthStatus({ user }: AuthStatusProps) {
+  const { status } = useSession();
   
   if (status === "loading") {
     return <div className="animate-pulse h-8 w-8 rounded-full bg-muted"></div>;
@@ -31,16 +39,16 @@ export function AuthStatus() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={session?.user?.image || ""}  alt={session?.user?.name || "Avatar do usuário"} />
-            <AvatarFallback>{session?.user?.name?.substring(0, 2) || <User className="h-4 w-4" />}</AvatarFallback>
+            <AvatarImage src={user?.avatar || ""} alt={user?.name || "Avatar do usuário"} />
+            <AvatarFallback>{user?.name?.substring(0, 2) || <User className="h-4 w-4" />}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
-            {session?.user?.name && <p className="font-medium">{session.user.name}</p>}
-            {session?.user?.email && <p className="w-[200px] truncate text-sm text-muted-foreground">{session.user.email}</p>}
+            {user?.name && <p className="font-medium">{user.name}</p>}
+            {user?.email && <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>}
           </div>
         </div>
         <DropdownMenuItem asChild>

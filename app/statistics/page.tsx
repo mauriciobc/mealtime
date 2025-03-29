@@ -5,17 +5,15 @@ import { useRouter } from "next/navigation"
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { AppHeader } from "@/components/app-header"
-import BottomNav from "@/components/bottom-nav"
 import PageTransition from "@/components/page-transition"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, LineChart, PieChart, Filter, Calendar, PlusCircle } from "lucide-react"
+import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, PieChart, Filter, Calendar, PlusCircle } from "lucide-react"
 import { useAppContext } from "@/lib/context/AppContext"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Line, Pie, Cell, Legend } from "recharts"
-import { getFeedingStatistics } from "@/lib/services/statistics-service"
+import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, Cell, Legend } from "recharts"
 import { DataTableSkeleton } from "@/components/skeletons/data-table-skeleton"
 import NoDataMessage from "@/components/no-data-message"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -26,7 +24,7 @@ import Link from "next/link"
 import { useGlobalState } from "@/lib/context/global-state"
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { getUserTimezone } from '@/lib/utils/dateUtils';
-import { useSession } from "next-auth/react";
+import { useSession } from "next-auth/react"
 
 interface FeedingData {
   id: string
@@ -75,13 +73,13 @@ const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'
 const LineChartComponent = ({ timeSeriesData, formatTooltip }: ChartProps) => (
   <div className="h-[300px] w-full">
     <ResponsiveContainer width="100%" height="100%">
-      <RechartsBarChart data={timeSeriesData}>
+      <RechartsLineChart data={timeSeriesData}>
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="name" />
         <YAxis />
         <Tooltip formatter={formatTooltip} />
         <Line type="monotone" dataKey="valor" stroke="#8884d8" />
-      </RechartsBarChart>
+      </RechartsLineChart>
     </ResponsiveContainer>
   </div>
 )
@@ -100,29 +98,48 @@ const BarChartComponent = ({ timeDistributionData }: ChartProps) => (
   </div>
 )
 
-const PieChartComponent = ({ catPortionData }: ChartProps) => (
-  <div className="h-[300px] w-full">
-    <ResponsiveContainer width="100%" height="100%">
-      <RechartsBarChart>
-        <Pie
-          data={catPortionData}
-          dataKey="value"
-          nameKey="name"
-          cx="50%"
-          cy="50%"
-          outerRadius={80}
-          label
-        >
-          {catPortionData.map((entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip />
-        <Legend />
-      </RechartsBarChart>
-    </ResponsiveContainer>
-  </div>
-)
+const PieChartComponent = ({ catPortionData, formatTooltip }: ChartProps) => {
+  console.log("PieChartComponent - catPortionData:", catPortionData);
+  
+  if (!catPortionData || catPortionData.length === 0) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center">
+        <p className="text-muted-foreground">Sem dados para exibir</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-[300px] w-full">
+      <ResponsiveContainer width="100%" height={300}>
+        <RechartsPieChart>
+          <Pie
+            data={catPortionData}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={80}
+            fill="#8884d8"
+            label={(entry) => `${entry.name}: ${entry.value}g`}
+          >
+            {catPortionData.map((entry, index) => (
+              <Cell 
+                key={`cell-${index}`} 
+                fill={COLORS[index % COLORS.length]}
+              />
+            ))}
+          </Pie>
+          <Legend verticalAlign="bottom" height={36} />
+          <Tooltip 
+            formatter={(value) => `${value} g`}
+            labelStyle={{ color: '#666' }}
+          />
+        </RechartsPieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 export default function StatisticsPage() {
   const router = useRouter()
@@ -146,141 +163,51 @@ export default function StatisticsPage() {
   // Carregar dados de alimentação quando a página for montada
   useEffect(() => {
     const fetchData = async () => {
-      if (!session?.user?.householdId) return;
-
+      if (!session?.user?.householdId) {
+        console.log("Usuário não tem residência");
+        toast.error("Você precisa estar associado a uma residência para ver estatísticas");
+        router.push("/households");
+        return;
+      }
+      
       setIsLoading(true);
       try {
-        const timezone = getUserTimezone(session?.user?.timezone);
-        const now = toDate(new Date(), { timeZone: timezone });
-        let startDate = toDate(new Date(), { timeZone: timezone });
+        console.log("Buscando estatísticas...");
+        const response = await fetch(`/api/statistics?period=${selectedPeriod}&catId=${selectedCat}`, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
 
-        // Calcular a data inicial baseada no período selecionado
-        switch (selectedPeriod) {
-          case '7d':
-            startDate.setDate(startDate.getDate() - 7);
-            break;
-          case '30d':
-            startDate.setDate(startDate.getDate() - 30);
-            break;
-          case '90d':
-            startDate.setDate(startDate.getDate() - 90);
-            break;
-          default:
-            startDate.setDate(startDate.getDate() - 7);
+        if (!response.ok) {
+          throw new Error('Falha ao buscar estatísticas');
         }
 
-        // Buscar gatos
-        const catsResponse = await fetch(`/api/households/${session.user.householdId}/cats`);
-        if (!catsResponse.ok) {
-          throw new Error('Erro ao buscar gatos');
-        }
-        const catsData = await catsResponse.json();
-        dispatch({
-          type: "SET_CATS",
-          payload: catsData
-        })
-
-        // Buscar logs de alimentação
-        const logsResponse = await fetch(`/api/households/${session.user.householdId}/feeding-logs`);
-        if (!logsResponse.ok) {
-          throw new Error('Erro ao buscar logs de alimentação');
-        }
-        const logsData = await logsResponse.json();
-
-        // Filtrar logs pelo período e gato selecionado
-        const filteredLogs = logsData
-          .map((log: FeedingData) => ({
-            ...log,
-            timestamp: toDate(new Date(log.timestamp), { timeZone: timezone }),
-          }))
-          .filter((log: FeedingData) => {
-            const logDate = log.timestamp;
-            const isAfterStart = logDate >= startDate;
-            const isSelectedCat = selectedCat === 'all' || log.catId.toString() === selectedCat;
-            return isAfterStart && isSelectedCat;
-          });
-
-        setFeedingData(filteredLogs);
-        
-        // Gerar dados para o gráfico de linha (tempo x porção)
-        const timeSeriesMap = new Map<string, number>()
-        
-        filteredLogs.forEach((log: FeedingData) => {
-          const dateKey = format(new Date(log.timestamp), "dd/MM")
-          const currentValue = timeSeriesMap.get(dateKey) || 0
-          timeSeriesMap.set(dateKey, currentValue + (log.portionSize || 0))
-        })
-        
-        const timeSeriesDataArray = Array.from(timeSeriesMap).map(([name, value]) => ({
-          name,
-          valor: value
-        }))
-        
-        setTimeSeriesData(timeSeriesDataArray)
-        
-        // Gerar dados para o gráfico de pizza (porção por gato)
-        const catPortionMap = new Map<string, number>()
-        
-        filteredLogs.forEach((log: FeedingData) => {
-          const currentValue = catPortionMap.get(log.catName) || 0
-          catPortionMap.set(log.catName, currentValue + (log.portionSize || 0))
-        })
-        
-        const catPortionDataArray = Array.from(catPortionMap).map(([name, value]) => ({
-          name,
-          value
-        }))
-        
-        setCatPortionData(catPortionDataArray)
-        
-        // Gerar dados para distribuição de horários
-        const hourDistribution = new Map<string, number>()
-        
-        filteredLogs.forEach((log: FeedingData) => {
-          const hourKey = format(new Date(log.timestamp), "HH:00")
-          const currentCount = hourDistribution.get(hourKey) || 0
-          hourDistribution.set(hourKey, currentCount + 1)
-        })
-        
-        const timeDistributionArray = Array.from(hourDistribution).map(([name, value]) => ({
-          name,
-          valor: value
-        })).sort((a, b) => {
-          // Ordenar por hora do dia
-          const hourA = parseInt(a.name.split(':')[0])
-          const hourB = parseInt(b.name.split(':')[0])
-          return hourA - hourB
-        })
-        
-        setTimeDistributionData(timeDistributionArray)
-        
-        // Calcular estatísticas resumidas
-        const totalFeedings = filteredLogs.length
-        const validPortions = filteredLogs.filter((log: FeedingData) => log.portionSize !== null && log.portionSize > 0)
-        const averagePortionSize = validPortions.length > 0 
-          ? validPortions.reduce((sum: number, log: FeedingData) => sum + (log.portionSize || 0), 0) / validPortions.length
-          : 0
-          
-        // Em um sistema real, buscaríamos esses dados de uma API
-        const maxConsecutiveDays = 5 // Exemplo
-        const missedSchedules = 2 // Exemplo
+        const stats = await response.json();
+        console.log("Estatísticas recebidas:", stats);
+        console.log("Dados por gato:", stats.catPortionData);
         
         setStatsSummary({
-          totalFeedings,
-          averagePortionSize,
-          maxConsecutiveDays,
-          missedSchedules
-        })
+          totalFeedings: stats.totalFeedings,
+          averagePortionSize: stats.averagePortionSize,
+          maxConsecutiveDays: stats.maxConsecutiveDays,
+          missedSchedules: stats.missedSchedules,
+        });
+        
+        setTimeSeriesData(stats.timeSeriesData);
+        setCatPortionData(stats.catPortionData);
+        setTimeDistributionData(stats.timeDistributionData);
+        setFeedingData(stats.feedingLogs || []);
       } catch (error) {
-        console.error("Erro ao carregar estatísticas:", error)
-        toast.error("Não foi possível carregar as estatísticas")
-      } finally {
-        setIsLoading(false)
+        console.error("Erro ao carregar estatísticas:", error);
+        toast.error("Não foi possível carregar as estatísticas");
       }
-    }
+      setIsLoading(false);
+    };
 
-    fetchData()
-  }, [session?.user?.householdId, selectedPeriod, selectedCat, dispatch])
+    fetchData();
+  }, [session?.user?.householdId, selectedPeriod, selectedCat, router]);
   
   // Formatador para o tooltip do gráfico
   const formatTooltip = (value: number) => {
@@ -315,7 +242,7 @@ export default function StatisticsPage() {
   }
 
   // Verificar se há dados suficientes para exibir estatísticas
-  const hasFeedingData = state.feedingLogs.length > 0;
+  const hasFeedingData = feedingData.length > 0;
 
   if (!hasFeedingData) {
     return (
@@ -412,9 +339,9 @@ export default function StatisticsPage() {
                 variants={containerVariants}
                 initial="hidden"
                 animate="visible"
-                className="space-y-6"
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
               >
-                <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="py-4 px-5">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Total de Alimentações</CardTitle>
@@ -423,7 +350,9 @@ export default function StatisticsPage() {
                       <p className="text-2xl font-bold">{statsSummary.totalFeedings}</p>
                     </CardContent>
                   </Card>
-                  
+                </motion.div>
+                
+                <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="py-4 px-5">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Porção Média</CardTitle>
@@ -432,7 +361,9 @@ export default function StatisticsPage() {
                       <p className="text-2xl font-bold">{formatNumber(statsSummary.averagePortionSize)} g</p>
                     </CardContent>
                   </Card>
-                  
+                </motion.div>
+                
+                <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="py-4 px-5">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Máx. Dias Consecutivos</CardTitle>
@@ -441,7 +372,9 @@ export default function StatisticsPage() {
                       <p className="text-2xl font-bold">{statsSummary.maxConsecutiveDays}</p>
                     </CardContent>
                   </Card>
-                  
+                </motion.div>
+                
+                <motion.div variants={itemVariants}>
                   <Card>
                     <CardHeader className="py-4 px-5">
                       <CardTitle className="text-sm font-medium text-muted-foreground">Alimentações Perdidas</CardTitle>
@@ -451,75 +384,79 @@ export default function StatisticsPage() {
                     </CardContent>
                   </Card>
                 </motion.div>
-                
-                <motion.div variants={itemVariants}>
-                  <Tabs defaultValue="consumo" className="mb-8">
-                    <div className="flex justify-between items-center mb-4">
-                      <TabsList>
-                        <TabsTrigger value="consumo">Consumo</TabsTrigger>
-                        <TabsTrigger value="tempo">Horários</TabsTrigger>
-                        <TabsTrigger value="gatos">Por Gato</TabsTrigger>
-                      </TabsList>
-                    </div>
-                    
-                    <TabsContent value="consumo">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Consumo Diário de Alimento</CardTitle>
-                          <CardDescription>Quantidade total consumida por dia (em gramas)</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-1 h-[300px]">
-                          <LineChartComponent 
-                            timeSeriesData={timeSeriesData}
-                            timeDistributionData={timeDistributionData}
-                            catPortionData={catPortionData}
-                            formatTooltip={formatTooltip}
-                          />
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    
-                    <TabsContent value="tempo">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Distribuição de Horários</CardTitle>
-                          <CardDescription>Frequência de alimentações por hora do dia</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-1 h-[300px]">
-                          <BarChartComponent 
-                            timeSeriesData={timeSeriesData}
-                            timeDistributionData={timeDistributionData}
-                            catPortionData={catPortionData}
-                            formatTooltip={formatTooltip}
-                          />
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    
-                    <TabsContent value="gatos">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Consumo por Gato</CardTitle>
-                          <CardDescription>Quantidade total consumida por cada gato</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-1 h-[300px]">
+              </motion.div>
+              
+              <motion.div variants={itemVariants}>
+                <Tabs defaultValue="consumo" className="mb-8">
+                  <div className="flex justify-between items-center mb-4">
+                    <TabsList>
+                      <TabsTrigger value="consumo">Consumo</TabsTrigger>
+                      <TabsTrigger value="tempo">Horários</TabsTrigger>
+                      <TabsTrigger value="gatos">Por Gato</TabsTrigger>
+                    </TabsList>
+                  </div>
+                  
+                  <TabsContent value="consumo">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Consumo Diário de Alimento</CardTitle>
+                        <CardDescription>Quantidade total consumida por dia (em gramas)</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-1 h-[300px]">
+                        <LineChartComponent 
+                          timeSeriesData={timeSeriesData}
+                          timeDistributionData={timeDistributionData}
+                          catPortionData={catPortionData}
+                          formatTooltip={formatTooltip}
+                        />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="tempo">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Distribuição de Horários</CardTitle>
+                        <CardDescription>Frequência de alimentações por hora do dia</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-1 h-[300px]">
+                        <BarChartComponent 
+                          timeSeriesData={timeSeriesData}
+                          timeDistributionData={timeDistributionData}
+                          catPortionData={catPortionData}
+                          formatTooltip={formatTooltip}
+                        />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="gatos">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Consumo por Gato</CardTitle>
+                        <CardDescription>Quantidade total consumida por cada gato</CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-1 h-[300px]">
+                        {catPortionData && catPortionData.length > 0 ? (
                           <PieChartComponent 
                             timeSeriesData={timeSeriesData}
                             timeDistributionData={timeDistributionData}
                             catPortionData={catPortionData}
                             formatTooltip={formatTooltip}
                           />
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                  </Tabs>
-                </motion.div>
+                        ) : (
+                          <div className="h-full flex items-center justify-center">
+                            <p className="text-muted-foreground">Sem dados para exibir</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
               </motion.div>
             </>
           )}
         </div>
-        
-        <BottomNav />
       </div>
     </PageTransition>
   )

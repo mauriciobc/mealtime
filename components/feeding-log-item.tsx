@@ -24,10 +24,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FeedingLog } from "@/lib/types";
+import { BaseFeedingLog, BaseCat, BaseUser } from "@/lib/types/common";
 
 interface FeedingLogItemProps {
-  log: FeedingLog;
+  log: BaseFeedingLog & {
+    cat?: BaseCat;
+    user?: BaseUser;
+  };
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;

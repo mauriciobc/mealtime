@@ -1,6 +1,6 @@
 // User & Household
 export interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
   avatar?: string;
@@ -16,11 +16,11 @@ export interface User {
 }
 
 export interface Household {
-  id: string;
+  id: number;
   name: string;
   inviteCode: string;
   members: {
-    userId: string;
+    userId: number;
     role: 'Admin' | 'Member'; // Role-based access
     joinedAt: Date;
   }[];
@@ -29,7 +29,7 @@ export interface Household {
 }
 
 export interface CatGroup {
-  id: string;
+  id: number;
   name: string;
   catIds: number[];
 }
@@ -52,9 +52,9 @@ export interface CatType {
 
 // Feeding Logs
 export interface FeedingLog {
-  id: string;
+  id: number;
   catId: number;
-  userId: string;
+  userId: number;
   timestamp: Date;
   portionSize?: number | null;
   notes?: string | null;
@@ -65,7 +65,7 @@ export interface FeedingLog {
 
 // Notifications
 export interface Notification {
-  id: string;
+  id: number;
   title: string;
   message: string;
   type: "feeding" | "reminder" | "system";
@@ -91,7 +91,7 @@ export interface NotificationSettings {
 
 // Store the current cat data structure for compatibility
 export interface LegacyCatProfile {
-  id: string;
+  id: number;
   name: string;
   avatar: string;
   regularAmount: string;
@@ -105,9 +105,9 @@ export interface LegacyCatProfile {
 }
 
 export interface Schedule {
-  id: string;
+  id: number;
   catId: number;
-  userId: string;
+  userId: number;
   type: 'interval' | 'fixedTime';
   interval?: number; // Hours between feedings
   times?: string; // Specific times (e.g., "08:00")

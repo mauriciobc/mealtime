@@ -11,14 +11,15 @@ import { Check, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useGlobalState } from "@/lib/context/global-state";
-import { FeedingLog, CatType, Schedule } from "@/lib/types";
 import { useSession } from "next-auth/react";
 import { getFeedingLogs, getCatsByHouseholdId } from "@/lib/services/apiService";
 import { getSchedules } from "@/lib/data";
+import { getUserTimezone, calculateNextFeeding, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
+import { BaseCat, BaseFeedingLog, ID } from "@/lib/types/common";
 
 interface UpcomingFeeding {
   id: string;
-  catId: number;
+  catId: ID;
   catName: string;
   catPhoto: string | null;
   nextFeeding: Date;
@@ -28,6 +29,7 @@ interface UpcomingFeeding {
 export default function FeedingSchedule() {
   const { state } = useGlobalState();
   const { data: session } = useSession();
+  const timezone = getUserTimezone(session?.user?.timezone);
   const [upcomingFeedings, setUpcomingFeedings] = useState<UpcomingFeeding[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
@@ -42,28 +44,17 @@ export default function FeedingSchedule() {
         }
         
         const activeHousehold = state.households[0];
-        const userTimezone = session.user.timezone || "America/Sao_Paulo"; // Usando São Paulo como padrão
         
-        // Carregar dados do banco
-        const [cats, schedules, feedingLogs] = await Promise.all([
-          getCatsByHouseholdId(activeHousehold.id),
-          getSchedules(undefined),
-          getFeedingLogs([])
-        ]);
+        const cats = await getCatsByHouseholdId(activeHousehold.id);
+        const catsMap = new Map(cats.map(cat => [cat.id, cat]));
         
-        // Mapear gatos por ID para fácil acesso
-        const catsMap = new Map<number, CatType>();
-        if (Array.isArray(cats)) {
-          cats.forEach((cat) => {
-            if (cat && cat.id) {
-              catsMap.set(cat.id, cat);
-            }
-          });
-        }
+        const schedules = await getSchedules(activeHousehold.id);
+        const feedingLogs = await Promise.all(
+          cats.map(cat => getFeedingLogs(cat.id.toString(), timezone))
+        ).then(logs => logs.flat());
         
-        // Calcular próximas alimentações
-        const now = toDate(new Date(), { timeZone: userTimezone });
-        const upcoming: UpcomingFeeding[] = [];
+        const now = toDate(new Date(), { timeZone: timezone });
+        const upcomingFeedings: UpcomingFeeding[] = [];
         
         schedules.forEach((schedule) => {
           const cat = catsMap.get(schedule.catId);
@@ -75,23 +66,14 @@ export default function FeedingSchedule() {
             // Para agendamentos baseados em intervalo
             const interval = schedule.interval;
             const lastFeeding = feedingLogs
-              .filter((log: FeedingLog) => log.catId === cat.id)
-              .sort((a: FeedingLog, b: FeedingLog) => 
+              .filter((log: BaseFeedingLog) => log.catId === cat.id)
+              .sort((a: BaseFeedingLog, b: BaseFeedingLog) => 
                 new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
               )[0];
             
             if (lastFeeding) {
-              // Converter o timestamp para o fuso horário do usuário
-              const lastFeedingTime = toDate(parseISO(lastFeeding.timestamp.toString()), { timeZone: userTimezone });
-              nextFeeding = addHours(lastFeedingTime, interval);
-              
-              // Se o próximo horário calculado já passou, calcula o próximo intervalo a partir de agora
-              if (isBefore(nextFeeding, now)) {
-                const intervalsPassedSinceLastFeeding = Math.ceil(
-                  (now.getTime() - lastFeedingTime.getTime()) / (interval * 60 * 60 * 1000)
-                );
-                nextFeeding = addHours(lastFeedingTime, (intervalsPassedSinceLastFeeding + 1) * interval);
-              }
+              // Calcular próximo horário usando a função centralizada
+              nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), interval, timezone, 'schedule');
             } else {
               nextFeeding = addHours(now, interval);
             }
@@ -100,7 +82,7 @@ export default function FeedingSchedule() {
             const times = schedule.times.split(',');
             const nextTimes = times.map((time: string) => {
               const [hours, minutes] = time.split(':').map(Number);
-              const scheduledTime = toDate(new Date(), { timeZone: userTimezone });
+              const scheduledTime = toDate(new Date(), { timeZone: timezone });
               scheduledTime.setHours(hours, minutes, 0, 0);
               
               // Se o horário já passou hoje, agendar para amanhã
@@ -117,30 +99,23 @@ export default function FeedingSchedule() {
               return isBefore(current, closest) ? current : closest;
             }, null) || now;
           } else {
-            // Usar o intervalo de alimentação do gato ou um valor padrão
-            const interval = cat.feeding_interval || 8;
+            // Usar o intervalo de alimentação do gato
+            const interval = cat.feeding_interval;
             const lastFeeding = feedingLogs
-              .filter((log: FeedingLog) => log.catId === cat.id)
-              .sort((a: FeedingLog, b: FeedingLog) => 
+              .filter((log: BaseFeedingLog) => log.catId === cat.id)
+              .sort((a: BaseFeedingLog, b: BaseFeedingLog) => 
                 new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
               )[0];
             
             if (lastFeeding) {
-              const lastFeedingTime = toDate(parseISO(lastFeeding.timestamp.toString()), { timeZone: userTimezone });
-              nextFeeding = addHours(lastFeedingTime, interval);
-              
-              if (isBefore(nextFeeding, now)) {
-                const intervalsPassedSinceLastFeeding = Math.ceil(
-                  (now.getTime() - lastFeedingTime.getTime()) / (interval * 60 * 60 * 1000)
-                );
-                nextFeeding = addHours(lastFeedingTime, (intervalsPassedSinceLastFeeding + 1) * interval);
-              }
+              // Calcular próximo horário usando a função centralizada
+              nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), interval, timezone, 'cat');
             } else {
-              nextFeeding = addHours(now, interval);
+              nextFeeding = addHours(now, interval || 8);
             }
           }
           
-          upcoming.push({
+          upcomingFeedings.push({
             id: `${schedule.id}-${cat.id}`,
             catId: cat.id,
             catName: cat.name,
@@ -151,10 +126,10 @@ export default function FeedingSchedule() {
         });
         
         // Ordenar por horário mais próximo
-        upcoming.sort((a, b) => a.nextFeeding.getTime() - b.nextFeeding.getTime());
+        upcomingFeedings.sort((a, b) => a.nextFeeding.getTime() - b.nextFeeding.getTime());
         
         // Limitar a 5 itens
-        setUpcomingFeedings(upcoming.slice(0, 5));
+        setUpcomingFeedings(upcomingFeedings.slice(0, 5));
       } catch (error) {
         console.error("Erro ao carregar próximas alimentações:", error);
       } finally {
@@ -165,13 +140,13 @@ export default function FeedingSchedule() {
     loadUpcomingFeedings();
   }, [session, state.households]);
   
-  const handleFeedNow = (catId: number) => {
+  const handleFeedNow = (catId: ID) => {
     router.push(`/feedings/new?catId=${catId}`);
   };
   
   if (isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" data-testid="loading-skeleton">
         {[1, 2, 3].map(i => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-3">
@@ -231,7 +206,7 @@ export default function FeedingSchedule() {
                     <Clock className="h-3 w-3" />
                     {feeding.isOverdue 
                       ? "Atrasado" 
-                      : formatInTimeZone(feeding.nextFeeding, session?.user?.timezone || "America/Sao_Paulo", "'Às' HH:mm", { locale: ptBR })}
+                      : formatDateTimeForDisplay(feeding.nextFeeding, getUserTimezone(session?.user?.timezone))}
                   </p>
                 </div>
                 <Button 

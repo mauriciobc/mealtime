@@ -28,6 +28,12 @@ export function DataProvider({ children }: DataProviderProps) {
         })
 
         if (households && households.length > 0) {
+          // Limpar o estado atual de households antes de adicionar novos
+          dispatch({
+            type: "SET_HOUSEHOLDS",
+            payload: []
+          })
+
           // Atualizar estado global com os domicílios
           households.forEach((household: any) => {
             dispatch({

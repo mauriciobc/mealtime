@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { BaseCat } from '@/lib/types/common';
 
 // GET /api/households/[id]/cats/[catId] - Obter um gato específico
 export async function GET(
@@ -77,21 +78,15 @@ export async function GET(
     }
     
     // Formatar os dados para a resposta
-    const formattedCat = {
-      id: cat.id.toString(),
+    const formattedCat: BaseCat = {
+      id: cat.id,
       name: cat.name,
-      photoUrl: cat.photoUrl,
-      birthdate: cat.birthdate,
-      weight: cat.weight,
-      restrictions: cat.restrictions,
-      notes: cat.notes,
-      schedules: cat.schedules.map(schedule => ({
-        id: schedule.id.toString(),
-        type: schedule.type,
-        interval: schedule.interval,
-        times: schedule.times,
-        overrideUntil: schedule.overrideUntil
-      }))
+      photoUrl: cat.photoUrl || undefined,
+      birthdate: cat.birthdate || undefined,
+      weight: cat.weight || undefined,
+      restrictions: cat.restrictions || undefined,
+      householdId: cat.householdId,
+      feeding_interval: cat.feeding_interval || 8
     };
     
     return NextResponse.json(formattedCat);

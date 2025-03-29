@@ -8,8 +8,9 @@ export async function GET(
   context: { params: { id: string } }
 ) {
   try {
+    const params = await context.params;
     // Obter e validar o ID
-    const id = await getNumericId(context.params.id);
+    const id = await getNumericId(params.id);
 
     const cat = await prisma.cat.findUnique({
       where: { id },
@@ -59,8 +60,9 @@ export async function PUT(
   context: { params: { id: string } }
 ) {
   try {
+    const params = await context.params;
     // Obter e validar o ID
-    const id = await getNumericId(context.params.id);
+    const id = await getNumericId(params.id);
     
     const {
       name,
@@ -123,10 +125,8 @@ export async function PUT(
           create: schedules.map((schedule: any) => ({
             type: schedule.type,
             interval: schedule.interval,
-            times: schedule.times,
+            times: schedule.times || "[]", // Fornecer um valor padrão para times
             overrideUntil: schedule.overrideUntil ? new Date(schedule.overrideUntil) : null,
-            enabled: schedule.enabled !== undefined ? schedule.enabled : true,
-            status: schedule.status || "pending",
             createdAt: schedule.createdAt || new Date()
           }))
         } : undefined

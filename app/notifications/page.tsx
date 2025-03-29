@@ -17,44 +17,44 @@ import { Bell, Check, CheckCheck, Trash2, Clock, Calendar } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
 import { motion } from "framer-motion";
 import { useAppContext } from "@/lib/context/AppContext";
+import { Notification } from "@/lib/types/notification";
 
 export default function NotificationsPage() {
-  const { state, loadNotifications, markAsRead, markAllAsRead } = useNotifications();
-  const { notifications, unreadCount, isLoading } = state;
+  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, refreshNotifications } = useNotifications();
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const router = useRouter();
   const { dispatch } = useAppContext();
 
   // Load notifications on mount
   useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+    refreshNotifications();
+  }, [refreshNotifications]);
 
   // Handle mark all as read
   const handleMarkAllAsRead = async () => {
     try {
       setIsMarkingAllRead(true);
       await markAllAsRead();
-      toast.success("All notifications marked as read");
+      toast.success("Todas as notificações foram marcadas como lidas");
     } catch (error) {
-      toast.error("Failed to mark notifications as read");
+      toast.error("Não foi possível marcar todas as notificações como lidas");
     } finally {
       setIsMarkingAllRead(false);
     }
   };
 
   // Handle notification click
-  const handleNotificationClick = async (id: string) => {
-    await markAsRead(id);
+  const handleNotificationClick = async (notification: Notification) => {
+    await markAsRead(notification.id);
   };
 
   // Marcar uma notificação como lida
-  const markAsReadGlobal = async (id: string) => {
+  const markAsReadGlobal = async (notification: Notification) => {
     try {
       if (dispatch) {
         dispatch({
           type: "MARK_NOTIFICATION_READ",
-          payload: { id }
+          payload: { id: notification.id }
         });
       }
       
@@ -82,12 +82,12 @@ export default function NotificationsPage() {
   };
 
   // Remover uma notificação
-  const removeNotification = async (id: string) => {
+  const removeNotification = async (notification: Notification) => {
     try {
       if (dispatch) {
         dispatch({
           type: "REMOVE_NOTIFICATION",
-          payload: { id }
+          payload: { id: notification.id }
         });
       }
       
@@ -201,7 +201,7 @@ export default function NotificationsPage() {
                               </p>
                             </div>
                             <div className="text-right text-xs text-muted-foreground">
-                              {format(new Date(notification.createdAt || new Date()), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                              {format(new Date(notification.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                             </div>
                           </div>
                         </div>
@@ -211,7 +211,7 @@ export default function NotificationsPage() {
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => markAsReadGlobal(notification.id)}
+                            onClick={() => markAsReadGlobal(notification)}
                             className="text-xs h-8"
                           >
                             <Check size={14} className="mr-1" />
@@ -221,7 +221,7 @@ export default function NotificationsPage() {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          onClick={() => removeNotification(notification.id)}
+                          onClick={() => removeNotification(notification)}
                           className="text-xs text-destructive h-8"
                         >
                           <Trash2 size={14} className="mr-1" />

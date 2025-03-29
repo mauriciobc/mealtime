@@ -1,6 +1,6 @@
 // Sample data for the app
 // In a real app, this would come from a database
-import { Cat, FeedingLog, Household, User } from "./types";
+import { BaseCat, BaseFeedingLog, BaseUser, ID } from "./types/common";
 import prisma from "./prisma";
 
 // Legacy cat profiles for compatibility
@@ -51,8 +51,47 @@ export const catProfiles = [
   },
 ]
 
+// Enhanced mock cat data
+export const mockCats: BaseCat[] = [
+  {
+    id: 1,
+    name: "Whiskers",
+    photoUrl: "/placeholder.svg?height=200&width=200",
+    birthdate: new Date("2023-03-15"),
+    weight: 4.5,
+    breed: "Mixed",
+    restrictions: "Grain-free, sensitive stomach",
+    householdId: 1,
+    createdAt: new Date("2023-03-15"),
+    feeding_interval: 12
+  },
+  {
+    id: 2,
+    name: "Mittens",
+    photoUrl: "/placeholder.svg?height=200&width=200",
+    birthdate: new Date("2022-06-10"),
+    weight: 5.2,
+    breed: "Mixed",
+    householdId: 1,
+    createdAt: new Date("2022-06-10"),
+    feeding_interval: 24
+  },
+  {
+    id: 3,
+    name: "Shadow",
+    photoUrl: "/placeholder.svg?height=200&width=200",
+    birthdate: new Date("2021-12-25"),
+    weight: 6.0,
+    breed: "Mixed",
+    restrictions: "Low calorie diet",
+    householdId: 1,
+    createdAt: new Date("2021-12-25"),
+    feeding_interval: 8
+  }
+];
+
 // Mock users
-export const mockUsers: User[] = [
+export const mockUsers: BaseUser[] = [
   {
     id: "user1",
     name: "John Doe",
@@ -71,6 +110,7 @@ export const mockUsers: User[] = [
         householdUpdates: true,
       },
     },
+    role: "admin"
   },
   {
     id: "user2",
@@ -90,11 +130,12 @@ export const mockUsers: User[] = [
         householdUpdates: false,
       },
     },
-  },
-]
+    role: "user"
+  }
+];
 
 // Mock households
-export const mockHouseholds: Household[] = [
+export const mockHouseholds: ID[] = [
   {
     id: "household1",
     name: "Doe Family",
@@ -103,139 +144,59 @@ export const mockHouseholds: Household[] = [
       { userId: "user1", role: "Admin", joinedAt: new Date("2025-01-01") },
       { userId: "user2", role: "Member", joinedAt: new Date("2025-01-05") },
     ],
-    cats: ["cat1", "cat2", "cat3"],
+    cats: [1, 2, 3],
     catGroups: [
       {
         id: "group1",
         name: "All Cats",
-        catIds: ["cat1", "cat2", "cat3"],
+        catIds: [1, 2, 3],
       },
       {
         id: "group2",
         name: "Morning Feeding",
-        catIds: ["cat1", "cat3"],
+        catIds: [1, 3],
       },
     ],
-  },
-]
-
-// Enhanced mock cat data
-export const mockCats: Cat[] = [
-  {
-    id: "cat1",
-    name: "Whiskers",
-    avatar: "/placeholder.svg?height=200&width=200",
-    birthdate: new Date("2023-03-15"),
-    weight: 4.5,
-    dietaryRestrictions: ["Grain-free"],
-    medicalNotes: "Sensitive stomach, needs special diet",
-    regularAmount: "1/2",
-    foodUnit: "cup",
-    feedingSchedules: [
-      {
-        id: "schedule1",
-        type: "interval",
-        interval: 12,
-        isActive: true,
-        isOverride: false,
-      },
-    ],
-    householdId: "household1",
-  },
-  {
-    id: "cat2",
-    name: "Mittens",
-    avatar: "/placeholder.svg?height=200&width=200",
-    birthdate: new Date("2022-06-10"),
-    weight: 5.2,
-    regularAmount: "1",
-    foodUnit: "can",
-    feedingSchedules: [
-      {
-        id: "schedule2",
-        type: "fixedTime",
-        times: ["18:00"],
-        isActive: true,
-        isOverride: false,
-      },
-    ],
-    householdId: "household1",
-  },
-  {
-    id: "cat3",
-    name: "Shadow",
-    avatar: "/placeholder.svg?height=200&width=200",
-    birthdate: new Date("2021-12-25"),
-    weight: 6.0,
-    dietaryRestrictions: ["Low calorie"],
-    medicalNotes: "On diet for weight management",
-    regularAmount: "1/3",
-    foodUnit: "cup",
-    feedingSchedules: [
-      {
-        id: "schedule3",
-        type: "interval",
-        interval: 8,
-        isActive: true,
-        isOverride: false,
-      },
-    ],
-    householdId: "household1",
-  },
-]
+  }
+];
 
 // Mock feeding logs
-export const mockFeedingLogs: FeedingLog[] = [
+export const mockFeedingLogs: BaseFeedingLog[] = [
   {
-    id: "log1",
-    catId: "cat1",
-    userId: "user1",
+    id: 1,
+    catId: 1,
+    userId: 1,
     timestamp: new Date("2025-03-14T07:30:00.000Z"),
-    amount: "1/2",
-    isCompleted: true,
+    portionSize: 0.5,
+    notes: "Regular morning feeding",
+    createdAt: new Date("2025-03-14T07:30:00.000Z")
   },
   {
     id: "log2",
-    catId: "cat1",
+    catId: 1,
     userId: "user2",
     timestamp: new Date("2025-03-13T19:30:00.000Z"),
-    amount: "1/2",
-    isCompleted: true,
+    portionSize: 0.5,
+    createdAt: new Date("2025-03-13T19:30:00.000Z")
   },
   {
     id: "log3",
-    catId: "cat1",
+    catId: 2,
     userId: "user1",
-    timestamp: new Date("2025-03-13T07:30:00.000Z"),
-    amount: "1/2",
-    isCompleted: true,
+    timestamp: new Date("2025-03-13T18:00:00.000Z"),
+    portionSize: 1,
+    notes: "Ate slowly today",
+    createdAt: new Date("2025-03-13T18:00:00.000Z")
   },
   {
     id: "log4",
-    catId: "cat2",
-    userId: "user1",
-    timestamp: new Date("2025-03-13T18:00:00.000Z"),
-    amount: "1",
-    notes: "Ate slowly today",
-    isCompleted: true,
-  },
-  {
-    id: "log5",
-    catId: "cat3",
+    catId: 3,
     userId: "user2",
     timestamp: new Date("2025-03-14T06:00:00.000Z"),
-    amount: "1/3",
-    isCompleted: true,
-  },
-  {
-    id: "log6",
-    catId: "cat3",
-    userId: "user1",
-    timestamp: new Date("2025-03-13T22:00:00.000Z"),
-    amount: "1/3",
-    isCompleted: true,
-  },
-]
+    portionSize: 0.33,
+    createdAt: new Date("2025-03-14T06:00:00.000Z")
+  }
+];
 
 export const notifications = [
   {
@@ -378,27 +339,11 @@ export async function getFeedingLogs(catId?: number, limit = 20) {
 // Buscar agendamentos
 export async function getSchedules(catId?: number) {
   try {
-    const where = catId 
-      ? { catId } 
-      : {};
-    
-    const schedules = await prisma.schedule.findMany({
-      where,
-      include: {
-        cat: {
-          select: {
-            id: true,
-            name: true,
-            photoUrl: true
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    });
-    
-    return schedules;
+    const response = await fetch(`/api/schedules${catId ? `?catId=${catId}` : ''}`);
+    if (!response.ok) {
+      throw new Error('Falha ao buscar agendamentos');
+    }
+    return await response.json();
   } catch (error) {
     console.error("Erro ao buscar agendamentos:", error);
     return [];

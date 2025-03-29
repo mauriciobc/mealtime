@@ -31,6 +31,9 @@ export const UserRepository = {
   verifyCredentials: async (email: string, password: string) => {
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        household: true,
+      },
     });
 
     if (!user || !user.password) {
@@ -49,7 +52,9 @@ export const UserRepository = {
       if (isPasswordValid) {
         await prisma.user.update({
           where: { id: user.id },
-          data: { password: await bcrypt.hash(password, 10) }
+          data: {
+            password: await bcrypt.hash(password, 10),
+          },
         });
       }
     }
@@ -58,7 +63,16 @@ export const UserRepository = {
       return null;
     }
 
-    return user;
+    // Retorna o usuário com o householdId
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      householdId: user.householdId,
+      timezone: user.timezone,
+      language: user.language,
+    };
   },
 
   // Buscar usuários de um domicílio

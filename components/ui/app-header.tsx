@@ -75,6 +75,11 @@ export function AppHeader() {
   const { data: session, status } = useSession();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -93,114 +98,75 @@ export function AppHeader() {
     signOut({ callbackUrl: "/" });
   };
 
+  // Não renderizar o tema até que o componente esteja montado
+  if (!mounted) {
+    return null;
+  }
+
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-40 w-full transition-all duration-200",
-        isScrolled
-          ? "backdrop-blur-md bg-background/80 border-b shadow-sm"
-          : "bg-background"
-      )}
-    >
-      <div className="container flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <Sheet>
-            <SheetTrigger asChild className="lg:hidden">
-              <Button variant="ghost" size="icon">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left">
-              <SheetHeader className="mb-4">
-                <SheetTitle>Menu</SheetTitle>
-              </SheetHeader>
-              <NavLinks onClick={closeMobileMenu} />
-            </SheetContent>
-          </Sheet>
+    <header className={cn(
+      "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+      isScrolled && "shadow-sm"
+    )}>
+      <div className="container flex h-14 items-center">
+        <div className="flex flex-1 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="font-bold">MealTime</span>
+            </Link>
+          </div>
 
-          <Link href="/" className="flex items-center space-x-2">
-            <motion.div
-              className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold"
-              whileHover={{ rotate: 10 }}
-            >
-              M
-            </motion.div>
-            <span className="font-bold text-lg hidden sm:inline-block">MealTime</span>
-          </Link>
-        </div>
-
-        <nav className="hidden lg:flex items-center space-x-1">
-          <NavLinks className="flex-row space-y-0 space-x-1" />
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <NotificationBadge />
-
-          {status === "loading" ? (
-            <div className="animate-pulse h-8 w-8 rounded-full bg-muted"></div>
-          ) : status === "unauthenticated" ? (
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/login">Entrar</Link>
-            </Button>
-          ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage 
-                      src={session?.user?.image || "/placeholder-user.jpg"} 
-                      alt={session?.user?.name || "Usuário"} 
-                    />
-                    <AvatarFallback>
-                      {session?.user?.name 
-                        ? session.user.name.substring(0, 2).toUpperCase()
-                        : "US"}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="font-medium">{session?.user?.name}</p>
-                    <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Perfil</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Configurações</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
-                  {theme === "dark" ? (
-                    <>
-                      <Sun className="mr-2 h-4 w-4" />
-                      <span>Tema Claro</span>
-                    </>
-                  ) : (
-                    <>
-                      <Moon className="mr-2 h-4 w-4" />
-                      <span>Tema Escuro</span>
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer text-destructive" onClick={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Sair</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <div className="flex items-center gap-2">
+            {status === "authenticated" && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="font-medium">{session?.user?.name}</p>
+                      <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Perfil</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Configurações</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+                    {theme === "dark" ? (
+                      <>
+                        <Sun className="mr-2 h-4 w-4" />
+                        <span>Tema Claro</span>
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="mr-2 h-4 w-4" />
+                        <span>Tema Escuro</span>
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer text-destructive" onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sair</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
       </div>
     </header>

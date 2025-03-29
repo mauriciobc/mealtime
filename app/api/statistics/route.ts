@@ -1,103 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
-import { getServerSession } from "next-auth/next";
+import { getFeedingStatistics } from "@/lib/services/api/statistics-service";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { startOfDay, endOfDay, subDays, subMonths } from "date-fns";
 
 // GET /api/statistics - Obter estatísticas de alimentação
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
+    console.log("Sessão do usuário:", session);
     
-    if (!session || !session.user) {
+    if (!session?.user?.householdId) {
+      console.log("Usuário não tem householdId");
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 401 }
       );
     }
     
-    // Obter parâmetros da consulta
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7dias";
     const catId = searchParams.get("catId") || "todos";
-    
-    // Definir intervalo de datas com base no período
-    const now = new Date();
-    let startDate = new Date();
-    
-    switch (period) {
-      case "7dias":
-        startDate = subDays(now, 7);
-        break;
-      case "30dias":
-        startDate = subDays(now, 30);
-        break;
-      case "3meses":
-        startDate = subMonths(now, 3);
-        break;
-      default:
-        startDate = subDays(now, 7);
-    }
-    
-    // Construir a query base
-    const baseQuery: any = {
-      where: {
-        timestamp: {
-          gte: startDate,
-          lte: now,
-        },
-      },
-      include: {
-        cat: true,
-        user: true,
-      },
-    };
-    
-    // Filtrar por gato, se especificado
-    if (catId !== "todos") {
-      baseQuery.where.catId = parseInt(catId);
-    }
-    
-    // Buscar registros de alimentação
-    const feedingLogs = await prisma.feedingLog.findMany(baseQuery);
-    
-    // Calcular estatísticas
-    const totalFeedings = feedingLogs.length;
-    
-    // Calcular porção média
-    const validPortions = feedingLogs.filter((log) => log.portionSize !== null && log.portionSize > 0);
-    const averagePortionSize = validPortions.length > 0
-      ? validPortions.reduce((sum, log) => sum + (log.portionSize || 0), 0) / validPortions.length
-      : 0;
-    
-    // Em um sistema completo, calcularíamos também:
-    // - Número máximo de dias consecutivos com alimentação
-    // - Número de alimentações perdidas
-    const maxConsecutiveDays = 0; // Seria calculado com base no histórico
-    const missedSchedules = 0; // Seria calculado comparando com agendamentos
-    
-    // Obter os gatos únicos
-    const catIds = [...new Set(feedingLogs.map((log) => log.catId))];
-    const cats = await prisma.cat.findMany({
-      where: {
-        id: {
-          in: catIds,
-        },
-      },
-    });
-    
-    return NextResponse.json({
-      totalFeedings,
-      averagePortionSize,
-      maxConsecutiveDays,
-      missedSchedules,
-      feedingLogs,
-      cats,
-    });
+
+    console.log("Parâmetros recebidos:", { period, catId, householdId: session.user.householdId });
+
+    const stats = await getFeedingStatistics(
+      period,
+      catId,
+      session.user.householdId
+    );
+
+    console.log("Estatísticas calculadas:", stats);
+
+    return NextResponse.json(stats);
   } catch (error) {
     console.error("Erro ao buscar estatísticas:", error);
     return NextResponse.json(
-      { error: "Ocorreu um erro ao buscar as estatísticas de alimentação" },
+      { error: "Erro ao buscar estatísticas" },
       { status: 500 }
     );
   }

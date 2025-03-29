@@ -3,6 +3,17 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+  return NextResponse.json({}, { headers: corsHeaders });
+}
+
 // GET /api/households/[id] - Obter um domicílio específico
 export async function GET(
   request: NextRequest,
@@ -10,86 +21,65 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
+    console.log('Session:', session);
     
-    if (!session || !session.user) {
+    if (!session?.user) {
+      console.log('Usuário não autenticado');
       return NextResponse.json(
         { error: 'Não autorizado' },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: corsHeaders
+        }
       );
     }
-    
-    const id = parseInt(params.id);
-    
-    if (isNaN(id)) {
-      console.error('ID de domicílio inválido:', params.id);
-      return NextResponse.json(
-        { error: 'ID de domicílio inválido' },
-        { status: 400 }
-      );
-    }
-    
-    // Verificar se o usuário pertence ao domicílio
+
+    const { id } = params;
+    console.log('Buscando household:', id);
+
+    // Validar se a household existe
     const household = await prisma.household.findUnique({
-      where: { id },
+      where: { id: parseInt(id) },
       include: {
-        users: true,
+        members: true,
         cats: true
       }
     });
-    
+
     if (!household) {
-      console.error('Domicílio não encontrado com ID:', id);
+      console.log('Household não encontrada:', id);
       return NextResponse.json(
-        { error: 'Domicílio não encontrado' },
-        { status: 404 }
+        { error: 'Household não encontrada' },
+        { 
+          status: 404,
+          headers: corsHeaders
+        }
       );
     }
-    
-    const userId = parseInt(session.user.id as string);
-    
-    if (isNaN(userId)) {
-      console.error('ID de usuário inválido:', session.user.id);
+
+    // Verificar se o usuário tem acesso à household
+    if (session.user.householdId !== parseInt(id)) {
+      console.log('Usuário não tem acesso à household:', id);
       return NextResponse.json(
-        { error: 'ID de usuário inválido' },
-        { status: 400 }
+        { error: 'Acesso negado' },
+        { 
+          status: 403,
+          headers: corsHeaders
+        }
       );
     }
-    
-    const userBelongsToHousehold = household.users.some(user => user.id === userId);
-    
-    if (!userBelongsToHousehold) {
-      console.error(`Usuário ${userId} não pertence ao domicílio ${id}`);
-      return NextResponse.json(
-        { error: 'Você não tem permissão para acessar este domicílio' },
-        { status: 403 }
-      );
-    }
-    
-    // Formatar os dados para a resposta
-    const formattedHousehold = {
-      id: String(household.id),
-      name: household.name,
-      inviteCode: household.inviteCode,
-      members: household.users.map(user => ({
-        id: String(user.id),
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        isCurrentUser: user.id === userId
-      })),
-      cats: household.cats.map(cat => ({
-        id: String(cat.id),
-        name: cat.name,
-        photoUrl: cat.photoUrl
-      }))
-    };
-    
-    return NextResponse.json(formattedHousehold);
-  } catch (error: any) {
-    console.error('Erro ao buscar domicílio:', error);
+
+    return NextResponse.json(household, {
+      headers: corsHeaders
+    });
+  } catch (error) {
+    console.error('Erro ao buscar household:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar o domicílio. Tente novamente mais tarde.' },
-      { status: 500 }
+      { error: 'Erro ao buscar household' },
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }
@@ -102,94 +92,65 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Não autorizado' },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: corsHeaders
+        }
       );
     }
-    
-    const id = parseInt(params.id);
-    
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID de domicílio inválido' },
-        { status: 400 }
-      );
-    }
-    
+
+    const { id } = params;
     const body = await request.json();
-    
-    // Verificar se o usuário é administrador do domicílio
+
+    // Validar se a household existe
     const household = await prisma.household.findUnique({
-      where: { id },
-      include: {
-        users: true
-      }
+      where: { id: parseInt(id) }
     });
-    
+
     if (!household) {
       return NextResponse.json(
-        { error: 'Domicílio não encontrado' },
-        { status: 404 }
+        { error: 'Household não encontrada' },
+        { 
+          status: 404,
+          headers: corsHeaders
+        }
       );
     }
-    
-    const userId = parseInt(session.user.id as string);
-    const userInHousehold = household.users.find(user => user.id === userId);
-    
-    if (!userInHousehold) {
+
+    // Verificar se o usuário tem acesso à household
+    if (session.user.householdId !== parseInt(id)) {
       return NextResponse.json(
-        { error: 'Você não pertence a este domicílio' },
-        { status: 403 }
+        { error: 'Acesso negado' },
+        { 
+          status: 403,
+          headers: corsHeaders
+        }
       );
     }
-    
-    if (userInHousehold.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Apenas administradores podem atualizar o domicílio' },
-        { status: 403 }
-      );
-    }
-    
-    // Validar dados
-    if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
-      return NextResponse.json(
-        { error: 'Nome do domicílio inválido' },
-        { status: 400 }
-      );
-    }
-    
-    // Atualizar o domicílio
+
+    // Atualizar a household
     const updatedHousehold = await prisma.household.update({
-      where: { id },
+      where: { id: parseInt(id) },
       data: {
-        name: body.name !== undefined ? body.name : undefined
-      },
-      include: {
-        users: true
+        name: body.name,
+        inviteCode: body.inviteCode
       }
     });
-    
-    // Formatar os dados para a resposta
-    const formattedHousehold = {
-      id: updatedHousehold.id.toString(),
-      name: updatedHousehold.name,
-      inviteCode: updatedHousehold.inviteCode,
-      members: updatedHousehold.users.map(user => ({
-        id: user.id.toString(),
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }))
-    };
-    
-    return NextResponse.json(formattedHousehold);
+
+    return NextResponse.json(updatedHousehold, {
+      headers: corsHeaders
+    });
   } catch (error) {
-    console.error('Erro ao atualizar domicílio:', error);
+    console.error('Erro ao atualizar household:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao atualizar o domicílio' },
-      { status: 500 }
+      { error: 'Erro ao atualizar household' },
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 }
@@ -202,65 +163,60 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json(
         { error: 'Não autorizado' },
-        { status: 401 }
+        { 
+          status: 401,
+          headers: corsHeaders
+        }
       );
     }
-    
-    const id = parseInt(params.id);
-    
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID de domicílio inválido' },
-        { status: 400 }
-      );
-    }
-    
-    // Verificar se o usuário é administrador do domicílio
+
+    const { id } = params;
+
+    // Validar se a household existe
     const household = await prisma.household.findUnique({
-      where: { id },
-      include: {
-        users: true
-      }
+      where: { id: parseInt(id) }
     });
-    
+
     if (!household) {
       return NextResponse.json(
-        { error: 'Domicílio não encontrado' },
-        { status: 404 }
+        { error: 'Household não encontrada' },
+        { 
+          status: 404,
+          headers: corsHeaders
+        }
       );
     }
-    
-    const userId = parseInt(session.user.id as string);
-    const userInHousehold = household.users.find(user => user.id === userId);
-    
-    if (!userInHousehold) {
+
+    // Verificar se o usuário tem acesso à household
+    if (session.user.householdId !== parseInt(id)) {
       return NextResponse.json(
-        { error: 'Você não pertence a este domicílio' },
-        { status: 403 }
+        { error: 'Acesso negado' },
+        { 
+          status: 403,
+          headers: corsHeaders
+        }
       );
     }
-    
-    if (userInHousehold.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Apenas administradores podem excluir o domicílio' },
-        { status: 403 }
-      );
-    }
-    
-    // Remover o domicílio (isso também removerá as relações com usuários e gatos)
+
+    // Excluir a household
     await prisma.household.delete({
-      where: { id }
+      where: { id: parseInt(id) }
     });
-    
-    return NextResponse.json({ success: true });
+
+    return NextResponse.json({ message: 'Household excluída com sucesso' }, {
+      headers: corsHeaders
+    });
   } catch (error) {
-    console.error('Erro ao excluir domicílio:', error);
+    console.error('Erro ao excluir household:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao excluir o domicílio' },
-      { status: 500 }
+      { error: 'Erro ao excluir household' },
+      { 
+        status: 500,
+        headers: corsHeaders
+      }
     );
   }
 } 

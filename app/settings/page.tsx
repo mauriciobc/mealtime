@@ -3,6 +3,30 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAppContext } from "@/lib/context/AppContext"
+import { useTheme } from "next-themes"
+import { useSession } from "next-auth/react"
+import { toast } from "sonner"
+
+// Componentes
+import { AppHeader } from "@/components/app-header"
+import PageTransition from "@/components/page-transition"
+import BottomNav from "@/components/bottom-nav"
+import { AnimatedCard } from "@/components/ui/animated-card"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+// Ícones
 import { 
   Bell,
   Globe, 
@@ -15,125 +39,404 @@ import {
   User,
   Mail
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
-import { AppHeader } from "@/components/app-header"
-import PageTransition from "@/components/page-transition"
-import BottomNav from "@/components/bottom-nav"
-import { AnimatedCard } from "@/components/ui/animated-card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { toast } from "sonner"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { 
-  Select, 
-  SelectContent, 
-  SelectGroup, 
-  SelectItem, 
-  SelectLabel, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"
-import { useTheme } from "next-themes"
 
-const languageOptions = [
+// Tipos
+type NotificationSettings = {
+  pushEnabled: boolean
+  emailEnabled: boolean
+  feedingReminders: boolean
+  missedFeedingAlerts: boolean
+  householdUpdates: boolean
+}
+
+// Constantes
+const LANGUAGE_OPTIONS = [
   { value: "pt-BR", label: "Português do Brasil" },
   { value: "en-US", label: "English (US)" },
   { value: "es-ES", label: "Español" }
 ]
 
-const timezoneOptions = [
+const TIMEZONE_OPTIONS = [
   { value: "America/Sao_Paulo", label: "Brasília (GMT-3)" },
   { value: "America/New_York", label: "New York (GMT-4)" },
   { value: "America/Los_Angeles", label: "Los Angeles (GMT-7)" },
   { value: "Europe/London", label: "London (GMT+1)" },
   { value: "Europe/Madrid", label: "Madrid (GMT+2)" },
-  { value: "Asia/Tokyo", label: "Tokyo (GMT+9)" }
+  { value: "Asia/Tokyo", label: "Tokyo (GMT+9)" },
+  { value: "UTC", label: "UTC (GMT+0)" }
 ]
 
+// Componentes de Skeleton
+const SettingsSkeleton = () => (
+  <div className="space-y-6">
+    {/* Skeleton do Perfil */}
+    <div className="space-y-3">
+      <div className="h-6 w-24 bg-muted rounded animate-pulse" />
+      <div className="p-4 rounded-lg border bg-card">
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-muted animate-pulse" />
+          <div className="space-y-2 flex-1">
+            <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+            <div className="h-3 w-48 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Skeleton das Seções */}
+    {[1, 2, 3].map((section) => (
+      <div key={section} className="space-y-3">
+        <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+        <div className="space-y-2">
+          {[1, 2].map((item) => (
+            <div key={item} className="p-4 rounded-lg border bg-card">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 bg-muted rounded animate-pulse" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                    <div className="h-3 w-48 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+                <div className="h-6 w-6 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+)
+
+// Componentes de Seção
+const ProfileSection = ({ user, onEditProfile }: { user: any, onEditProfile: () => void }) => {
+  const { data: session } = useSession();
+  
+  // Usar dados do session como fallback
+  const userData = {
+    name: user?.name || session?.user?.name || "Usuário",
+    email: user?.email || session?.user?.email || "email@exemplo.com",
+    avatar: user?.avatar || session?.user?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || session?.user?.name || 'U'}`,
+    role: user?.role || "user"
+  };
+
+  return (
+    <section className="mb-6">
+      <h2 className="text-lg font-semibold mb-3">Sua Conta</h2>
+      <AnimatedCard className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-12 w-12 border-2 border-primary/10">
+              <AvatarImage 
+                src={userData.avatar} 
+                alt={userData.name}
+              />
+              <AvatarFallback>
+                {userData.name
+                  ? userData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+                  : "U"
+                }
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-medium">{userData.name}</h3>
+              <p className="text-xs text-muted-foreground">{userData.email}</p>
+              {userData.role && (
+                <p className="text-xs text-primary mt-0.5">
+                  {userData.role === "admin" ? "Administrador" : "Usuário"}
+                </p>
+              )}
+            </div>
+          </div>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onEditProfile}
+            className="hover:bg-primary/10"
+          >
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Button>
+        </div>
+      </AnimatedCard>
+    </section>
+  );
+};
+
+const AppearanceSection = ({ theme, onThemeChange }: { theme: string, onThemeChange: () => void }) => (
+  <section className="mb-6">
+    <h2 className="text-lg font-semibold mb-3">Aparência</h2>
+    <AnimatedCard className="p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Sun className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium">Tema</h3>
+            <p className="text-xs text-muted-foreground">
+              {theme === 'light' ? 'Claro' : 'Escuro'}
+            </p>
+          </div>
+        </div>
+        <Switch checked={theme === 'dark'} onCheckedChange={onThemeChange} />
+      </div>
+    </AnimatedCard>
+  </section>
+)
+
+const RegionalPreferencesSection = ({ 
+  language, 
+  timezone, 
+  onLanguageChange, 
+  onTimezoneChange 
+}: { 
+  language: string, 
+  timezone: string, 
+  onLanguageChange: () => void, 
+  onTimezoneChange: () => void 
+}) => (
+  <section className="mb-6">
+    <h2 className="text-lg font-semibold mb-3">Preferências Regionais</h2>
+    <div className="space-y-3">
+      <AnimatedCard className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Globe className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h3 className="font-medium">Idioma</h3>
+              <p className="text-xs text-muted-foreground">
+                {LANGUAGE_OPTIONS.find(l => l.value === language)?.label || "Português do Brasil"}
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onLanguageChange}>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Button>
+        </div>
+      </AnimatedCard>
+      
+      <AnimatedCard className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <h3 className="font-medium">Fuso Horário</h3>
+              <p className="text-xs text-muted-foreground">
+                {TIMEZONE_OPTIONS.find(t => t.value === timezone)?.label || "UTC"}
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onTimezoneChange}>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </Button>
+        </div>
+      </AnimatedCard>
+    </div>
+  </section>
+)
+
+const NotificationSection = ({ 
+  settings, 
+  onSettingChange 
+}: { 
+  settings: NotificationSettings, 
+  onSettingChange: (key: keyof NotificationSettings, value: boolean) => void 
+}) => (
+  <section className="mb-6">
+    <h2 className="text-lg font-semibold mb-3">Notificações</h2>
+    <div className="space-y-3">
+      {Object.entries(settings).map(([key, value]) => (
+        <AnimatedCard key={key} className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {key.includes('email') ? (
+                <Mail className="h-5 w-5 text-muted-foreground" />
+              ) : (
+                <Bell className="h-5 w-5 text-muted-foreground" />
+              )}
+              <div>
+                <h3 className="font-medium">
+                  {key === 'pushEnabled' && 'Notificações Push'}
+                  {key === 'emailEnabled' && 'Notificações por Email'}
+                  {key === 'feedingReminders' && 'Lembretes de Alimentação'}
+                  {key === 'missedFeedingAlerts' && 'Alertas de Alimentação Perdida'}
+                  {key === 'householdUpdates' && 'Atualizações da Residência'}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {key === 'pushEnabled' && 'Receber notificações no navegador'}
+                  {key === 'emailEnabled' && 'Receber notificações por email'}
+                  {key === 'feedingReminders' && 'Receber lembretes para alimentar os gatos'}
+                  {key === 'missedFeedingAlerts' && 'Receber alertas quando uma alimentação for perdida'}
+                  {key === 'householdUpdates' && 'Receber notificações sobre mudanças na residência'}
+                </p>
+              </div>
+            </div>
+            <Switch 
+              checked={value} 
+              onCheckedChange={(checked) => onSettingChange(key as keyof NotificationSettings, checked)} 
+            />
+          </div>
+        </AnimatedCard>
+      ))}
+    </div>
+  </section>
+)
+
 export default function SettingsPage() {
+  // Hooks
   const { state, dispatch } = useAppContext()
   const { setTheme, theme } = useTheme()
   const router = useRouter()
+  const { data: session, status } = useSession()
   
-  // Estados dos diálogos
+  // Estados
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
   const [isLanguageDialogOpen, setIsLanguageDialogOpen] = useState(false)
   const [isTimezoneDialogOpen, setIsTimezoneDialogOpen] = useState(false)
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false)
-  
-  // Estados das configurações
-  const [selectedLanguage, setSelectedLanguage] = useState<string>(state.currentUser?.preferences.language || "pt-BR")
-  const [selectedTimezone, setSelectedTimezone] = useState<string>(state.currentUser?.preferences.timezone || "America/Sao_Paulo")
-  const [notification, setNotification] = useState({
-    pushEnabled: state.currentUser?.preferences.notifications.pushEnabled || false,
-    emailEnabled: state.currentUser?.preferences.notifications.emailEnabled || false,
-    feedingReminders: state.currentUser?.preferences.notifications.feedingReminders || true,
-    missedFeedingAlerts: state.currentUser?.preferences.notifications.missedFeedingAlerts || true,
-    householdUpdates: state.currentUser?.preferences.notifications.householdUpdates || true
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("pt-BR")
+  const [selectedTimezone, setSelectedTimezone] = useState<string>("UTC")
+  const [notification, setNotification] = useState<NotificationSettings>({
+    pushEnabled: false,
+    emailEnabled: false,
+    feedingReminders: true,
+    missedFeedingAlerts: true,
+    householdUpdates: true
   })
-  const [profileName, setProfileName] = useState(state.currentUser?.name || "")
-  
-  // Função de salvamento de idioma
+  const [profileName, setProfileName] = useState("")
+
+  // Carregamento inicial
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+      return
+    }
+
+    if (status === "loading" || !session?.user || hasAttemptedLoad) {
+      return
+    }
+
+    const loadSettings = async () => {
+      try {
+        setHasAttemptedLoad(true)
+        setIsLoading(true)
+        
+        const response = await fetch('/api/settings')
+        if (!response.ok) {
+          throw new Error(`Falha ao carregar configurações: ${response.status}`)
+        }
+
+        const data = await response.json()
+        if (!data || !data.id) {
+          throw new Error('Dados de configuração inválidos')
+        }
+
+        const formattedUser = {
+          id: Number(data.id),
+          name: data.name || session.user.name || "",
+          email: data.email || session.user.email || "",
+          avatar: session.user.image || "",
+          householdId: data.householdId || null,
+          preferences: {
+            timezone: data.timezone || "UTC",
+            language: data.language || "pt-BR",
+            notifications: {
+              pushEnabled: true,
+              emailEnabled: true,
+              feedingReminders: true,
+              missedFeedingAlerts: true,
+              householdUpdates: true,
+            },
+          },
+          role: (data.role as "admin" | "user") || "user"
+        }
+
+        dispatch({ type: "SET_CURRENT_USER", payload: formattedUser })
+        dispatch({ type: "SET_LOADING", payload: false })
+        
+        setSelectedLanguage(formattedUser.preferences.language)
+        setSelectedTimezone(formattedUser.preferences.timezone)
+        setNotification(formattedUser.preferences.notifications)
+        setProfileName(formattedUser.name)
+      } catch (error) {
+        console.error('Erro ao carregar configurações:', error)
+        toast.error(error instanceof Error ? error.message : 'Erro ao carregar configurações')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadSettings()
+  }, [session, status, dispatch, router, hasAttemptedLoad])
+
+  // Funções de atualização
+  const updateSettings = async (updates: any) => {
+    if (!state.currentUser) return
+
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        if (data.errors) {
+          data.errors.forEach((error: { field: string; message: string }) => {
+            toast.error(error.message)
+          })
+          return
+        }
+        throw new Error(data.error || 'Falha ao atualizar configurações')
+      }
+
+      dispatch({ type: "SET_CURRENT_USER", payload: data })
+      toast.success("Configurações atualizadas")
+    } catch (error) {
+      toast.error("Erro ao atualizar configurações")
+      console.error('Erro ao salvar configurações:', error)
+    }
+  }
+
   const saveLanguage = () => {
-    if (state.currentUser) {
-      const updatedUser = {
-        ...state.currentUser,
-        preferences: {
-          ...state.currentUser.preferences,
-          language: selectedLanguage
-        }
-      }
-      
-      dispatch({ type: "SET_CURRENT_USER", payload: updatedUser })
-      toast.success("Idioma atualizado")
-      setIsLanguageDialogOpen(false)
-    }
+    updateSettings({
+      name: state.currentUser.name,
+      timezone: state.currentUser.preferences.timezone,
+      language: selectedLanguage
+    })
+    setIsLanguageDialogOpen(false)
   }
-  
-  // Função de salvamento de fuso horário
+
   const saveTimezone = () => {
-    if (state.currentUser) {
-      const updatedUser = {
-        ...state.currentUser,
-        preferences: {
-          ...state.currentUser.preferences,
-          timezone: selectedTimezone
-        }
-      }
-      
-      dispatch({ type: "SET_CURRENT_USER", payload: updatedUser })
-      toast.success("Fuso horário atualizado")
-      setIsTimezoneDialogOpen(false)
-    }
+    updateSettings({
+      name: state.currentUser.name,
+      timezone: selectedTimezone,
+      language: state.currentUser.preferences.language
+    })
+    setIsTimezoneDialogOpen(false)
   }
-  
-  // Função de salvamento de perfil
+
   const saveProfile = () => {
-    if (state.currentUser && profileName.trim()) {
-      const updatedUser = {
-        ...state.currentUser,
-        name: profileName.trim()
-      }
-      
-      dispatch({ type: "SET_CURRENT_USER", payload: updatedUser })
-      toast.success("Perfil atualizado")
-      setIsProfileDialogOpen(false)
-    } else {
+    if (!profileName.trim()) {
       toast.error("Nome não pode estar vazio")
+      return
     }
+
+    if (!state.currentUser) {
+      toast.error("Erro ao salvar perfil: usuário não encontrado")
+      return
+    }
+
+    updateSettings({
+      name: profileName.trim(),
+      timezone: state.currentUser.preferences.timezone,
+      language: state.currentUser.preferences.language
+    })
+    setIsProfileDialogOpen(false)
   }
-  
-  // Função de atualização de notificações
-  const updateNotificationSetting = (key: keyof typeof notification, value: boolean) => {
+
+  const updateNotificationSetting = (key: keyof NotificationSettings, value: boolean) => {
     setNotification(prev => ({ ...prev, [key]: value }))
     
     if (state.currentUser) {
@@ -151,309 +454,154 @@ export default function SettingsPage() {
       dispatch({ type: "SET_CURRENT_USER", payload: updatedUser })
     }
   }
-  
-  // Função de alternância de tema
+
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light')
   }
-  
-  // Função de deslogar (simulada)
+
   const handleLogout = () => {
     toast.success("Você foi desconectado")
-    // Em uma aplicação real, redirecionaria para tela de login
     router.push('/')
   }
-  
+
+  // Renderização condicional
+  if (status === "loading" || isLoading) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col min-h-screen bg-background">
+          <AppHeader title="Configurações" />
+          <div className="flex-1 p-4 pb-24">
+            <SettingsSkeleton />
+          </div>
+        </div>
+      </PageTransition>
+    )
+  }
+
+  if (!state.currentUser && !state.isLoading) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col min-h-screen bg-background">
+          <AppHeader title="Configurações" />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <p className="text-muted-foreground">Você precisa estar logado para acessar as configurações</p>
+              <Button onClick={() => router.push('/login')}>
+                Fazer login
+              </Button>
+            </div>
+          </div>
+        </div>
+      </PageTransition>
+    )
+  }
+
+  // Renderização principal
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
         <AppHeader title="Configurações" />
         
         <div className="flex-1 p-4 pb-24">
-          {/* Seção de Perfil */}
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Sua Conta</h2>
-            
-            <AnimatedCard className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={state.currentUser?.avatar || "/placeholder.svg"} />
-                    <AvatarFallback>{state.currentUser?.name?.substring(0, 2) || "U"}</AvatarFallback>
-                  </Avatar>
-                  
-                  <div>
-                    <h3 className="font-medium">{state.currentUser?.name || "Usuário"}</h3>
-                    <p className="text-xs text-muted-foreground">{state.currentUser?.email || "email@exemplo.com"}</p>
-                  </div>
-                </div>
-                
-                <Button variant="ghost" size="icon" onClick={() => setIsProfileDialogOpen(true)}>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </Button>
-              </div>
-            </AnimatedCard>
-          </section>
+          <ProfileSection 
+            user={state.currentUser} 
+            onEditProfile={() => setIsProfileDialogOpen(true)} 
+          />
           
-          {/* Seção de Aparência */}
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Aparência</h2>
-            
-            <AnimatedCard className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  {theme === 'dark' ? (
-                    <Moon className="h-5 w-5 text-muted-foreground" />
-                  ) : (
-                    <Sun className="h-5 w-5 text-muted-foreground" />
-                  )}
-                  <div>
-                    <h3 className="font-medium">Tema</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {theme === 'dark' ? 'Escuro' : 'Claro'}
-                    </p>
-                  </div>
-                </div>
-                
-                <Switch 
-                  checked={theme === 'dark'}
-                  onCheckedChange={toggleTheme}
-                />
-              </div>
-            </AnimatedCard>
-          </section>
+          <AppearanceSection 
+            theme={theme || 'light'} 
+            onThemeChange={toggleTheme} 
+          />
           
-          {/* Seção de Preferências */}
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Preferências Regionais</h2>
-            
-            <div className="space-y-3">
-              <AnimatedCard className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Globe className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <h3 className="font-medium">Idioma</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {languageOptions.find(l => l.value === selectedLanguage)?.label || "Português do Brasil"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <Button variant="ghost" size="icon" onClick={() => setIsLanguageDialogOpen(true)}>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </Button>
-                </div>
-              </AnimatedCard>
-              
-              <AnimatedCard className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <h3 className="font-medium">Fuso Horário</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {timezoneOptions.find(t => t.value === selectedTimezone)?.label || "Brasília (GMT-3)"}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <Button variant="ghost" size="icon" onClick={() => setIsTimezoneDialogOpen(true)}>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                  </Button>
-                </div>
-              </AnimatedCard>
-            </div>
-          </section>
+          <RegionalPreferencesSection 
+            language={selectedLanguage}
+            timezone={selectedTimezone}
+            onLanguageChange={() => setIsLanguageDialogOpen(true)}
+            onTimezoneChange={() => setIsTimezoneDialogOpen(true)}
+          />
           
-          {/* Seção de Notificações */}
-          <section className="mb-6">
-            <h2 className="text-lg font-semibold mb-3">Notificações</h2>
-            
-            <div className="space-y-3">
-              <AnimatedCard className="p-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Bell className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <h3 className="font-medium">Notificações Push</h3>
-                        <p className="text-xs text-muted-foreground">
-                          Receber alertas no dispositivo
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <Switch 
-                      checked={notification.pushEnabled}
-                      onCheckedChange={(value) => updateNotificationSetting("pushEnabled", value)}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Mail className="h-5 w-5 text-muted-foreground" />
-                      <div>
-                        <h3 className="font-medium">Notificações por Email</h3>
-                        <p className="text-xs text-muted-foreground">
-                          Receber alertas por email
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <Switch 
-                      checked={notification.emailEnabled}
-                      onCheckedChange={(value) => updateNotificationSetting("emailEnabled", value)}
-                    />
-                  </div>
-                </div>
-              </AnimatedCard>
-              
-              <AnimatedCard className="p-4">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">Lembretes de Alimentação</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Receber lembretes sobre horários
-                      </p>
-                    </div>
-                    
-                    <Switch 
-                      checked={notification.feedingReminders}
-                      onCheckedChange={(value) => updateNotificationSetting("feedingReminders", value)}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">Alertas de Alimentação Perdida</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Avisos quando alimentações são esquecidas
-                      </p>
-                    </div>
-                    
-                    <Switch 
-                      checked={notification.missedFeedingAlerts}
-                      onCheckedChange={(value) => updateNotificationSetting("missedFeedingAlerts", value)}
-                    />
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">Atualizações de Domicílio</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Notificações sobre mudanças no domicílio
-                      </p>
-                    </div>
-                    
-                    <Switch 
-                      checked={notification.householdUpdates}
-                      onCheckedChange={(value) => updateNotificationSetting("householdUpdates", value)}
-                    />
-                  </div>
-                </div>
-              </AnimatedCard>
-            </div>
-          </section>
+          <NotificationSection 
+            settings={notification}
+            onSettingChange={updateNotificationSetting}
+          />
           
-          {/* Botão de Logout */}
           <Button 
-            variant="destructive" 
+            variant="outline" 
             className="w-full" 
             onClick={handleLogout}
           >
-            <LogOut className="h-4 w-4 mr-2" />
+            <LogOut className="mr-2 h-4 w-4" />
             Sair
           </Button>
         </div>
         
-        {/* Diálogo de Idioma */}
+        {/* Diálogos */}
         <Dialog open={isLanguageDialogOpen} onOpenChange={setIsLanguageDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Escolher Idioma</DialogTitle>
+              <DialogTitle>Selecione o Idioma</DialogTitle>
               <DialogDescription>
-                Selecione o idioma em que deseja visualizar o aplicativo.
+                Escolha o idioma preferido para a interface
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="py-4">
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um idioma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Idiomas Disponíveis</SelectLabel>
-                    {languageOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+            <div className="grid gap-4 py-4">
+              {LANGUAGE_OPTIONS.map((option) => (
+                <div
+                  key={option.value}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
+                  onClick={() => {
+                    setSelectedLanguage(option.value)
+                    saveLanguage()
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {selectedLanguage === option.value && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+              ))}
             </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsLanguageDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={saveLanguage}>Salvar</Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
         
-        {/* Diálogo de Fuso Horário */}
         <Dialog open={isTimezoneDialogOpen} onOpenChange={setIsTimezoneDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Escolher Fuso Horário</DialogTitle>
+              <DialogTitle>Selecione o Fuso Horário</DialogTitle>
               <DialogDescription>
-                Selecione o fuso horário para definir horários corretos de alimentação.
+                Escolha o fuso horário da sua localização
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="py-4">
-              <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um fuso horário" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Fusos Horários Populares</SelectLabel>
-                    {timezoneOptions.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+            <div className="grid gap-4 py-4">
+              {TIMEZONE_OPTIONS.map((option) => (
+                <div
+                  key={option.value}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
+                  onClick={() => {
+                    setSelectedTimezone(option.value)
+                    saveTimezone()
+                  }}
+                >
+                  <span>{option.label}</span>
+                  {selectedTimezone === option.value && (
+                    <Check className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+              ))}
             </div>
-            
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsTimezoneDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={saveTimezone}>Salvar</Button>
-            </DialogFooter>
           </DialogContent>
         </Dialog>
         
-        {/* Diálogo de Perfil */}
         <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Perfil</DialogTitle>
               <DialogDescription>
-                Atualize suas informações de perfil.
+                Atualize suas informações pessoais
               </DialogDescription>
             </DialogHeader>
-            
-            <div className="py-4 space-y-4">
-              <div className="space-y-2">
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
                 <Label htmlFor="name">Nome</Label>
                 <Input
                   id="name"
@@ -463,11 +611,7 @@ export default function SettingsPage() {
                 />
               </div>
             </div>
-            
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsProfileDialogOpen(false)}>
-                Cancelar
-              </Button>
               <Button onClick={saveProfile}>Salvar</Button>
             </DialogFooter>
           </DialogContent>

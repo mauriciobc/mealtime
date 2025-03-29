@@ -11,7 +11,7 @@ export async function PATCH(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
@@ -20,6 +20,7 @@ export async function PATCH(
     
     const householdId = parseInt(params.id);
     const memberUserId = parseInt(params.userId);
+    const currentUserId = parseInt(session.user.id);
     
     if (isNaN(householdId) || isNaN(memberUserId)) {
       return NextResponse.json(
@@ -53,7 +54,6 @@ export async function PATCH(
       );
     }
     
-    const currentUserId = parseInt(session.user.id as string);
     const currentUser = household.users.find(user => user.id === currentUserId);
     
     if (!currentUser) {
@@ -101,14 +101,12 @@ export async function PATCH(
     });
     
     // Formatar os dados para a resposta
-    const member = {
-      id: updatedUser.id.toString(),
+    return NextResponse.json({
+      id: updatedUser.id,
       name: updatedUser.name,
       email: updatedUser.email,
       role: updatedUser.role
-    };
-    
-    return NextResponse.json(member);
+    });
   } catch (error) {
     console.error('Erro ao atualizar papel do membro:', error);
     return NextResponse.json(
@@ -126,7 +124,7 @@ export async function DELETE(
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
@@ -135,6 +133,7 @@ export async function DELETE(
     
     const householdId = parseInt(params.id);
     const memberUserId = parseInt(params.userId);
+    const currentUserId = parseInt(session.user.id);
     
     if (isNaN(householdId) || isNaN(memberUserId)) {
       return NextResponse.json(

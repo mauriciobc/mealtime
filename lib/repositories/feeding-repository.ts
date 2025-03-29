@@ -8,7 +8,7 @@ export const FeedingRepository = {
         cat: true,
         user: true,
       },
-      orderBy: { timestamp: 'desc' },
+      orderBy: { timestamp: 'desc' as const },
     });
   },
 
@@ -19,28 +19,50 @@ export const FeedingRepository = {
       include: {
         user: true,
       },
-      orderBy: { timestamp: 'desc' },
+      orderBy: { timestamp: 'desc' as const },
       skip: offset,
       take: limit,
     });
   },
 
   // Buscar registros de alimentação de um domicílio
-  getByHousehold: async (householdId: number, limit = 20, offset = 0) => {
-    return prisma.feedingLog.findMany({
+  getByHousehold: async (householdId: number, limit?: number, offset?: number) => {
+    console.log("Buscando logs de alimentação para household:", householdId);
+    
+    const query = {
       where: {
         cat: {
           householdId,
         },
       },
       include: {
-        cat: true,
+        cat: {
+          select: {
+            id: true,
+            name: true,
+            householdId: true
+          }
+        },
         user: true,
       },
-      orderBy: { timestamp: 'desc' },
-      skip: offset,
-      take: limit,
-    });
+      orderBy: { timestamp: 'desc' as const },
+    };
+
+    // Se limit e offset forem fornecidos, adiciona paginação
+    if (typeof limit === 'number' && typeof offset === 'number') {
+      const result = await prisma.feedingLog.findMany({
+        ...query,
+        skip: offset,
+        take: limit,
+      });
+      console.log(`Encontrados ${result.length} logs com paginação`);
+      return result;
+    }
+
+    // Caso contrário, retorna todos os registros
+    const result = await prisma.feedingLog.findMany(query);
+    console.log(`Encontrados ${result.length} logs sem paginação`);
+    return result;
   },
 
   // Buscar registros de alimentação de um usuário
@@ -50,7 +72,7 @@ export const FeedingRepository = {
       include: {
         cat: true,
       },
-      orderBy: { timestamp: 'desc' },
+      orderBy: { timestamp: 'desc' as const },
       skip: offset,
       take: limit,
     });

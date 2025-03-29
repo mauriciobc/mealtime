@@ -2,12 +2,26 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone, toDate } from "date-fns-tz";
 import { Schedule } from "../types";
+import { differenceInHours, addHours, isBefore } from "date-fns";
 
 /**
  * Get user's timezone or default to America/Sao_Paulo
  */
 export function getUserTimezone(userTimezone?: string): string {
-  return userTimezone || "America/Sao_Paulo";
+  // Se o timezone for UTC ou não for fornecido, usar America/Sao_Paulo
+  if (!userTimezone || userTimezone === 'UTC') {
+    console.warn('[getUserTimezone] Timezone UTC ou não fornecido, usando America/Sao_Paulo como fallback');
+    return "America/Sao_Paulo";
+  }
+
+  // Validar se o timezone é válido
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: userTimezone });
+    return userTimezone;
+  } catch (error) {
+    console.warn(`[getUserTimezone] Timezone ${userTimezone} inválido, usando America/Sao_Paulo como fallback`);
+    return "America/Sao_Paulo";
+  }
 }
 
 /**
@@ -211,5 +225,88 @@ export function getNextScheduledTime(schedule: Schedule, userTimezone?: string):
   } catch (error) {
     console.error('Erro ao calcular próximo horário programado:', error);
     return null;
+  }
+}
+
+/**
+ * Calcula o próximo horário de alimentação baseado no último horário e intervalo
+ */
+export function calculateNextFeeding(lastFeedingTime: Date, interval: number, userTimezone: string, source: 'schedule' | 'cat' = 'cat'): Date {
+  // Validar intervalo
+  if (!interval || interval <= 0) {
+    console.error(`[calculateNextFeeding] Intervalo inválido (${interval}) fornecido por ${source}`);
+    interval = 8; // Usar valor padrão em caso de erro
+  }
+
+  // Garantir que estamos usando o timezone correto
+  const timezone = getUserTimezone(userTimezone);
+  
+  // Converter última alimentação para UTC
+  const lastFeedingUTC = toDate(lastFeedingTime, { timeZone: timezone });
+  const nowUTC = new Date();
+  nowUTC.setMilliseconds(0);
+  
+  console.log('\n[calculateNextFeeding] Iniciando cálculo:');
+  console.log('- Última alimentação (UTC):', lastFeedingUTC.toISOString());
+  console.log('- Intervalo:', interval, 'horas (fonte:', source, ')');
+  console.log('- Horário atual (UTC):', nowUTC.toISOString());
+  console.log('- Timezone do usuário:', timezone);
+
+  // Calcular próxima alimentação em UTC
+  let nextFeedingUTC = new Date(lastFeedingUTC);
+  nextFeedingUTC.setHours(nextFeedingUTC.getHours() + interval);
+  console.log('- Próxima alimentação inicial (UTC):', nextFeedingUTC.toISOString());
+
+  // Se o horário calculado já passou, continuar adicionando intervalos até encontrar um horário futuro
+  while (nextFeedingUTC < nowUTC) {
+    console.log('- Horário calculado já passou, adicionando mais um intervalo');
+    nextFeedingUTC.setHours(nextFeedingUTC.getHours() + interval);
+    console.log('- Nova tentativa (UTC):', nextFeedingUTC.toISOString());
+  }
+
+  console.log('- Horário final calculado (UTC):', nextFeedingUTC.toISOString());
+  
+  // Converter para o timezone do usuário
+  try {
+    const nextFeedingLocal = toDate(nextFeedingUTC, { timeZone: timezone });
+    console.log('- Horário convertido para local:', nextFeedingLocal.toISOString());
+    
+    // Formatar no timezone local
+    const formattedLocal = formatInTimeZone(nextFeedingLocal, timezone, 'yyyy-MM-dd HH:mm:ss');
+    console.log('- Horário final em local time:', formattedLocal);
+    
+    // Verificar se a conversão foi bem sucedida
+    const offset = nextFeedingLocal.getTime() - nextFeedingUTC.getTime();
+    console.log('- Offset em milissegundos:', offset);
+    console.log('- Offset em horas:', offset / (1000 * 60 * 60));
+
+    return nextFeedingLocal;
+  } catch (error) {
+    console.error('Erro ao converter timezone:', error);
+    return nextFeedingUTC; // Retornar UTC em caso de erro
+  }
+}
+
+/**
+ * Format a date for display in user's timezone
+ */
+export function formatDateTimeForDisplay(date: Date | string, userTimezone: string): string {
+  try {
+    // Garante que a data está em UTC
+    const utcDate = typeof date === 'string' ? new Date(date) : date;
+    
+    if (isNaN(utcDate.getTime())) {
+      console.error('Data inválida fornecida para formatação');
+      return "Horário não disponível";
+    }
+
+    // Converte para o timezone do usuário
+    const localDate = toDate(utcDate, { timeZone: userTimezone });
+    
+    // Formata a data no timezone local
+    return formatInTimeZone(localDate, userTimezone, "dd 'de' MMM 'às' HH:mm", { locale: ptBR });
+  } catch (error) {
+    console.error('Erro ao formatar data:', error);
+    return "Horário não disponível";
   }
 }

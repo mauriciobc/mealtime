@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { Cat } from "@/lib/types";
+import { BaseCat } from "@/lib/types/common";
 import { z } from "zod";
 
 const catSchema = z.object({
@@ -12,6 +12,7 @@ const catSchema = z.object({
   weight: z.number().positive().optional(),
   restrictions: z.string().optional(),
   notes: z.string().optional(),
+  feeding_interval: z.number().min(1).max(24).optional(),
 });
 
 // GET /api/households/[id]/cats - Listar gatos de um domicílio
@@ -29,7 +30,8 @@ export async function GET(
       );
     }
     
-    const householdId = parseInt(params.id);
+    const routeParams = await params;
+    const householdId = parseInt(routeParams.id);
     
     if (isNaN(householdId)) {
       return NextResponse.json(
@@ -89,7 +91,8 @@ export async function POST(
       );
     }
     
-    const householdId = parseInt(params.id);
+    const routeParams = await params;
+    const householdId = parseInt(routeParams.id);
     
     if (isNaN(householdId)) {
       return NextResponse.json(
@@ -138,23 +141,21 @@ export async function POST(
         weight: data.weight,
         restrictions: data.restrictions,
         notes: data.notes,
-        householdId: householdId
+        householdId: householdId,
+        feeding_interval: data.feeding_interval || 8 // Valor padrão
       }
     });
 
     // Converter para o formato da interface Cat
-    const formattedCat: Cat = {
-      id: cat.id.toString(),
+    const formattedCat: BaseCat = {
+      id: cat.id,
       name: cat.name,
       photoUrl: cat.photoUrl || undefined,
       birthdate: cat.birthdate || undefined,
       weight: cat.weight || undefined,
-      dietaryRestrictions: cat.restrictions ? [cat.restrictions] : undefined,
-      medicalNotes: cat.notes || undefined,
-      regularAmount: "0", // Valor padrão
-      foodUnit: "g", // Unidade padrão
-      feedingSchedules: [],
-      householdId: cat.householdId.toString()
+      restrictions: cat.restrictions || undefined,
+      householdId: cat.householdId,
+      feeding_interval: cat.feeding_interval || 8 // Valor padrão
     };
 
     return NextResponse.json(formattedCat, { status: 201 });

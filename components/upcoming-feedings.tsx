@@ -6,7 +6,6 @@ import { Check, Clock } from "lucide-react"
 import FeedingProgress from "@/components/feeding-progress"
 import { motion } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
-import { CatType, FeedingLog } from "@/lib/types"
 import { format, isBefore } from "date-fns"
 import { useAppContext } from "@/lib/context/AppContext"
 import { getNextFeedingTime } from "@/lib/services/apiService"
@@ -18,10 +17,12 @@ import { formatInTimeZone, toDate } from 'date-fns-tz'
 import { getUserTimezone } from '@/lib/utils/dateUtils'
 import { useSession } from "next-auth/react"
 import { toast as sonnerToast } from 'sonner'
+import { formatDateTimeForDisplay } from '@/lib/utils/dateUtils'
+import { BaseCat, BaseUser, ID } from "@/lib/types/common"
 
 interface UpcomingFeeding {
   id: string;
-  catId: number;
+  catId: ID;
   catName: string;
   catPhoto: string | null;
   nextFeeding: Date;
@@ -31,14 +32,15 @@ interface UpcomingFeeding {
   interval: number;
 }
 
-interface SessionUser {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
+// Usar o tipo BaseUser do NextAuth
+type SessionUser = BaseUser & {
   activeHousehold?: string;
   timezone?: string;
   language?: string;
+}
+
+function formatFeedingTime(date: Date, timezone: string): string {
+  return formatDateTimeForDisplay(date, timezone);
 }
 
 export default function UpcomingFeedings() {
@@ -66,7 +68,7 @@ export default function UpcomingFeedings() {
         if (!response.ok) {
           throw new Error('Erro ao buscar gatos');
         }
-        const cats: CatType[] = await response.json();
+        const cats: BaseCat[] = await response.json();
         const upcomingFeedings: UpcomingFeeding[] = [];
         
         for (const cat of cats) {
@@ -109,13 +111,14 @@ export default function UpcomingFeedings() {
     fetchData();
   }, [session?.user]);
 
-  const handleFeedNow = async (catId: number) => {
+  const handleFeedNow = async (catId: ID) => {
     const user = session?.user as SessionUser | undefined;
     if (!user?.activeHousehold) return;
     
     try {
-      const timezone = getUserTimezone(user.timezone);
-      const now = toDate(new Date(), { timeZone: timezone });
+      // Criar timestamp em UTC
+      const now = new Date();
+      now.setMilliseconds(0);
       
       const response = await fetch('/api/feedings', {
         method: 'POST',
@@ -139,7 +142,7 @@ export default function UpcomingFeedings() {
       const updatedFeedings = await Promise.all(
         upcomingFeedings.map(async (feeding) => {
           if (feeding.catId === catId) {
-            const nextFeedingPromise = getNextFeedingTime(catId.toString(), timezone);
+            const nextFeedingPromise = getNextFeedingTime(catId.toString(), user.timezone);
             const nextFeeding = await nextFeedingPromise;
             return {
               ...feeding,
@@ -204,52 +207,55 @@ export default function UpcomingFeedings() {
           animate={{ opacity: 1 }}
           transition={{ staggerChildren: 0.1 }}
         >
-          {upcomingFeedings.map((feeding, index) => (
-            <motion.div
-              key={feeding.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card className={feeding.isOverdue ? "border-red-200" : ""}>
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-3">
-                    <Avatar>
-                      <AvatarImage src={feeding.catPhoto || ""} alt={feeding.catName} />
-                      <AvatarFallback>
-                        {feeding.catName.substring(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <h3 className="font-medium">{feeding.catName}</h3>
-                      <p className="text-xs flex items-center gap-1 text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {feeding.isOverdue 
-                          ? "Atrasado" 
-                          : format(feeding.nextFeeding, "'Às' HH:mm", { locale: ptBR })}
-                      </p>
-                      <div className="mt-2">
-                        <FeedingProgress
-                          lastFed={feeding.lastFed}
-                          interval={feeding.interval || 4}
-                          size={40}
-                          strokeWidth={4}
-                        />
+          {upcomingFeedings.map((feeding, index) => {
+            const user = session?.user as SessionUser | undefined;
+            return (
+              <motion.div
+                key={feeding.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className={feeding.isOverdue ? "border-red-200" : ""}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage src={feeding.catPhoto || ""} alt={feeding.catName} />
+                        <AvatarFallback>
+                          {feeding.catName.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <h3 className="font-medium">{feeding.catName}</h3>
+                        <p className="text-xs flex items-center gap-1 text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {feeding.isOverdue 
+                            ? "Atrasado" 
+                            : formatFeedingTime(feeding.nextFeeding, user?.timezone || "America/Sao_Paulo")}
+                        </p>
+                        <div className="mt-2">
+                          <FeedingProgress
+                            lastFed={feeding.lastFed}
+                            interval={feeding.interval || 8}
+                            size={40}
+                            strokeWidth={4}
+                          />
+                        </div>
                       </div>
+                      <Button 
+                        size="sm" 
+                        variant={feeding.isOverdue ? "destructive" : "outline"}
+                        onClick={() => handleFeedNow(feeding.catId)}
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        Alimentar
+                      </Button>
                     </div>
-                    <Button 
-                      size="sm" 
-                      variant={feeding.isOverdue ? "destructive" : "outline"}
-                      onClick={() => handleFeedNow(feeding.catId)}
-                    >
-                      <Check className="h-4 w-4 mr-1" />
-                      Alimentar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            );
+          })}
         </motion.div>
       )}
     </div>

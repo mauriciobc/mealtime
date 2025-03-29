@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { BaseFeedingLog } from '@/lib/types/common';
 
 // GET /api/feedings - Listar registros de alimentação (filtragem opcional por catId ou householdId)
 export async function GET(request: NextRequest) {
@@ -46,7 +47,19 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    return NextResponse.json(feedings);
+    // Converter para o formato BaseFeedingLog
+    const formattedFeedings: BaseFeedingLog[] = feedings.map(feeding => ({
+      id: feeding.id,
+      catId: feeding.catId,
+      userId: feeding.userId,
+      timestamp: feeding.timestamp,
+      portionSize: feeding.portionSize || undefined,
+      notes: feeding.notes || undefined,
+      createdAt: feeding.createdAt,
+      status: feeding.status || undefined
+    }));
+
+    return NextResponse.json(formattedFeedings);
   } catch (error) {
     console.error('Erro ao buscar registros de alimentação:', error);
     return NextResponse.json(
@@ -64,7 +77,8 @@ export async function POST(request: NextRequest) {
       userId,
       portionSize,
       notes,
-      status
+      status,
+      timestamp
     } = await request.json();
 
     if (!catId || !userId) {
@@ -98,12 +112,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Garantir que o timestamp seja UTC
+    const utcTimestamp = timestamp ? new Date(timestamp) : new Date();
+    utcTimestamp.setMilliseconds(0); // Remover milissegundos para consistência
+
     // Criar o registro de alimentação
     const feedingLog = await prisma.feedingLog.create({
       data: {
         catId,
         userId,
-        timestamp: new Date(),
+        timestamp: utcTimestamp,
         portionSize: portionSize ? parseFloat(String(portionSize)) : null,
         notes,
         status

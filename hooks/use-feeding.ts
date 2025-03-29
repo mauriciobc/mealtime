@@ -7,10 +7,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useGlobalState } from "@/lib/context/global-state";
 import { CatType, FeedingLog } from "@/lib/types";
 import { createFeedingLog, getNextFeedingTime } from "@/lib/services/apiService";
-import { getRelativeTime, formatDateTime } from "@/lib/utils/dateUtils";
+import { getRelativeTime, formatDateTimeForDisplay, getUserTimezone } from "@/lib/utils/dateUtils";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toDate, formatInTimeZone } from "date-fns-tz";
+import { useSession } from "next-auth/react";
+import { calculateNextFeeding } from "@/lib/utils/dateUtils";
 
 // Simple UUID function since we can't install the package
 function uuidv4(): string {
@@ -33,7 +36,9 @@ export function useFeeding(catId: string) {
   // Memoize the function to update feeding time display
   const updateFeedingTimeDisplay = useCallback((next: Date | null) => {
     if (next) {
-      setFormattedNextFeedingTime(formatDateTime(next));
+      const timezone = getUserTimezone();
+      // Converter de UTC para local apenas na exibição
+      setFormattedNextFeedingTime(formatDateTimeForDisplay(next, timezone));
       setFormattedTimeDistance(getRelativeTime(next));
     }
   }, []);
@@ -116,10 +121,14 @@ export function useFeeding(catId: string) {
     if (!cat) return;
 
     try {
+      // Criar timestamp em UTC
+      const now = new Date();
+      now.setMilliseconds(0); // Remover milissegundos para consistência
+      
       const newLog: Omit<FeedingLog, "id"> = {
         catId: numericId,
         userId: "1", // TODO: Usar ID do usuário atual
-        timestamp: new Date(),
+        timestamp: now, // Timestamp em UTC
         portionSize: amount ? parseFloat(amount) : null,
         notes: notes || null,
       };

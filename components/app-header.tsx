@@ -6,6 +6,7 @@ import { AuthStatus } from "@/components/auth/auth-status";
 import { useAppContext } from "@/lib/context/AppContext";
 import { ChevronLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 interface AppHeaderProps {
   title?: string;
@@ -19,11 +20,18 @@ export function AppHeader({
   showBackButton = false 
 }: AppHeaderProps) {
   const { state } = useAppContext();
-  const { currentUser } = state;
+  const { data: session } = useSession();
   const router = useRouter();
   
+  // Usar dados do state.currentUser como fonte primária e session como fallback
+  const userData = {
+    name: state.currentUser?.name || session?.user?.name,
+    email: state.currentUser?.email || session?.user?.email,
+    avatar: state.currentUser?.avatar || session?.user?.image,
+  };
+  
   return (
-    <div className="w-full bg-white border-b">
+    <div className="w-full bg-background border-b">
       <div className="container max-w-md mx-auto p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -42,8 +50,8 @@ export function AppHeader({
           </div>
           
           <div className="flex items-center gap-3">
-            {showNotifications && currentUser && <NotificationBadge />}
-            <AuthStatus />
+            {showNotifications && state.currentUser && <NotificationBadge />}
+            <AuthStatus user={userData} />
           </div>
         </div>
       </div>

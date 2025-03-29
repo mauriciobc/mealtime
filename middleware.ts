@@ -48,7 +48,8 @@ export const config = {
     "/history/:path*",
     "/statistics/:path*",
     "/admin/:path*",
-    // Ignorar recursos estáticos
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
-}; 
+    "/api/households/:path*",
+    "/api/cats/:path*",
+    "/api/feeding-logs/:path*"
+  ]
+} 

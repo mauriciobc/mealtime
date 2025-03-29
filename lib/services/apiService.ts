@@ -1,7 +1,9 @@
 import { CatType, FeedingLog, Household, User } from '@/lib/types';
-import { formatInTimeZone, toDate } from 'date-fns-tz';
+import { formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { addHours, isBefore, differenceInHours } from 'date-fns';
-import { getUserTimezone } from '../utils/dateUtils';
+import { getUserTimezone, calculateNextFeeding } from '../utils/dateUtils';
+import { toDate } from 'date-fns-tz';
+import { BaseUser, BaseCat, BaseFeedingLog, ID } from '../types/common';
 
 // Create a simple UUID function since we can't install the package
 export function uuidv4(): string {
@@ -149,7 +151,7 @@ export async function createCat(cat: Omit<CatType, 'id'>, mockData: CatType[]): 
   // Update household cats array if this cat belongs to a household
   if (cat.householdId) {
     const households = await getData<Household>('households', []);
-    const household = households.find(h => h.id === cat.householdId?.toString());
+    const household = households.find(h => h.id === cat.householdId);
     
     if (household) {
       const updatedHousehold = {
@@ -255,19 +257,36 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
 // FEEDING LOG SERVICES
 export async function getFeedingLogs(catId: string, userTimezone?: string): Promise<FeedingLog[]> {
   await delay(300);
+  console.log('\n[getFeedingLogs] Buscando logs:');
+  console.log('- CatId:', catId);
+  console.log('- Timezone recebido:', userTimezone);
+  
   const mockData: FeedingLog[] = []; // Dados mockados vazios como fallback
   const logs = await getData<FeedingLog>('feedingLogs', mockData);
+  console.log('- Total de logs encontrados (antes do filtro):', logs.length);
+  
   const timezone = getUserTimezone(userTimezone);
-  return logs
-    .sort((a, b) => {
-      const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
-      const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
-      return dateB.getTime() - dateA.getTime();
-    })
-    .map(log => ({
-      ...log,
-      timestamp: log.timestamp || toDate(new Date(), { timeZone: timezone })
-    }));
+  console.log('- Timezone resolvido:', timezone);
+  
+  const filteredLogs = logs.filter(log => log.catId === parseInt(catId));
+  console.log('- Total de logs após filtro por catId:', filteredLogs.length);
+  
+  const sortedLogs = filteredLogs.sort((a, b) => {
+    const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
+    const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  console.log('- Logs ordenados:', sortedLogs.map(log => ({
+    id: log.id,
+    catId: log.catId,
+    timestamp: formatDateTimeForDisplay(new Date(log.timestamp), timezone)
+  })));
+
+  return sortedLogs.map(log => ({
+    ...log,
+    timestamp: log.timestamp || toDate(new Date(), { timeZone: timezone })
+  }));
 }
 
 export async function getFeedingLogsByCatId(catId: string, mockData: FeedingLog[]): Promise<FeedingLog[]> {
@@ -282,7 +301,7 @@ export async function createFeedingLog(log: Omit<FeedingLog, 'id'>, mockData: Fe
   await delay(500);
   const newLog: FeedingLog = {
     ...log,
-    id: uuidv4(),
+    id: Math.floor(Math.random() * 1000000), // Gerar um ID numérico aleatório
     timestamp: log.timestamp || new Date()
   };
   
@@ -293,7 +312,7 @@ export async function createFeedingLog(log: Omit<FeedingLog, 'id'>, mockData: Fe
   return newLog;
 }
 
-export async function updateFeedingLog(id: string, logData: Partial<FeedingLog>, mockData: FeedingLog[]): Promise<FeedingLog> {
+export async function updateFeedingLog(id: ID, logData: Partial<FeedingLog>, mockData: FeedingLog[]): Promise<FeedingLog> {
   await delay(500);
   const logs = await getData<FeedingLog>('feedingLogs', mockData);
   const logIndex = logs.findIndex(log => log.id === id);
@@ -317,7 +336,7 @@ export async function updateFeedingLog(id: string, logData: Partial<FeedingLog>,
   return updatedLog;
 }
 
-export async function deleteFeedingLog(id: string, mockData: FeedingLog[]): Promise<void> {
+export async function deleteFeedingLog(id: ID, mockData: FeedingLog[]): Promise<void> {
   await delay(500);
   const logs = await getData<FeedingLog>('feedingLogs', mockData);
   const updatedLogs = logs.filter(log => log.id !== id);
@@ -330,9 +349,9 @@ export async function getUsers(mockData: User[]): Promise<User[]> {
   return getData<User>('users', mockData);
 }
 
-export async function getUserById(id: string, mockData: User[]): Promise<User | null> {
+export async function getUserById(id: ID, mockData: BaseUser[]): Promise<BaseUser | null> {
   await delay(200);
-  const users = await getData<User>('users', mockData);
+  const users = await getData<BaseUser>('users', mockData);
   return users.find(user => user.id === id) || null;
 }
 
@@ -342,13 +361,13 @@ export async function getHouseholds(mockData: Household[]): Promise<Household[]>
   return getData<Household>('households', mockData);
 }
 
-export async function getHouseholdById(id: string, mockData: Household[]): Promise<Household | null> {
+export async function getHouseholdById(id: ID, mockData: Household[]): Promise<Household | null> {
   await delay(200);
   const households = await getData<Household>('households', mockData);
   return households.find(household => household.id === id) || null;
 }
 
-export async function updateHousehold(id: string, householdData: Partial<Household>, mockData: Household[]): Promise<Household> {
+export async function updateHousehold(id: ID, householdData: Partial<Household>, mockData: Household[]): Promise<Household> {
   await delay(500);
   const households = await getData<Household>('households', mockData);
   const householdIndex = households.findIndex(household => household.id === id);
@@ -375,10 +394,13 @@ export async function updateHousehold(id: string, householdData: Partial<Househo
 // UTILITY FUNCTIONS
 export async function getNextFeedingTime(catId: string, userTimezone?: string): Promise<Date | null> {
   const timezone = getUserTimezone(userTimezone);
+  console.log('\n[getNextFeedingTime] Iniciando busca:');
+  console.log('- CatId:', catId);
+  console.log('- Timezone recebido:', userTimezone);
+  console.log('- Timezone resolvido:', timezone);
+  
   const now = toDate(new Date(), { timeZone: timezone });
-  console.log('[Debug] Calculando próximo horário de alimentação:');
-  console.log('- Timezone:', timezone);
-  console.log('- Data atual:', formatInTimeZone(now, timezone, 'yyyy-MM-dd HH:mm:ss'));
+  console.log('- Data atual:', formatDateTimeForDisplay(now, timezone));
   
   // Obter logs ordenados por timestamp
   const logs = await getFeedingLogs(catId, timezone);
@@ -397,7 +419,10 @@ export async function getNextFeedingTime(catId: string, userTimezone?: string): 
     return null;
   }
 
-  console.log('- Última alimentação:', formatInTimeZone(new Date(lastFeeding.timestamp), timezone, 'yyyy-MM-dd HH:mm:ss'));
+  console.log('- Última alimentação encontrada:', {
+    id: lastFeeding.id,
+    timestamp: formatDateTimeForDisplay(new Date(lastFeeding.timestamp), timezone)
+  });
 
   // Obter gato e seu agendamento
   const cat = await getCatById(catId, timezone);
@@ -406,15 +431,16 @@ export async function getNextFeedingTime(catId: string, userTimezone?: string): 
     return null;
   }
 
-  console.log('- Gato encontrado:', {
+  console.log('- Dados do gato:', {
     id: cat.id,
     name: cat.name,
     feeding_interval: cat.feeding_interval,
-    schedules: cat.schedules
+    schedules: cat.schedules?.map(s => ({
+      enabled: s.enabled,
+      type: s.type,
+      interval: s.interval
+    }))
   });
-
-  let nextFeeding: Date | null = null;
-  const lastFeedingTime = toDate(new Date(lastFeeding.timestamp), { timeZone: timezone });
 
   // Se houver um agendamento ativo
   const activeSchedule = cat.schedules?.find(s => s.enabled);
@@ -424,32 +450,19 @@ export async function getNextFeedingTime(catId: string, userTimezone?: string): 
       interval: activeSchedule.interval
     });
     
-    // Calcular quantos intervalos se passaram desde a última alimentação
-    const hoursElapsed = differenceInHours(now, lastFeedingTime);
-    const intervalsElapsed = Math.floor(hoursElapsed / activeSchedule.interval);
-    console.log('- Horas decorridas:', hoursElapsed);
-    console.log('- Intervalos completos:', intervalsElapsed);
-    
-    // Calcular o próximo horário baseado no último intervalo completo
-    nextFeeding = addHours(lastFeedingTime, (intervalsElapsed + 1) * activeSchedule.interval);
-    console.log('- Próximo horário calculado:', formatInTimeZone(nextFeeding, timezone, 'yyyy-MM-dd HH:mm:ss'));
+    const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), activeSchedule.interval, timezone);
+    console.log('- Próxima alimentação calculada (agendamento):', formatDateTimeForDisplay(nextFeeding, timezone));
+    return nextFeeding;
   }
   // Se não houver agendamento mas tiver intervalo padrão
   else if (cat.feeding_interval) {
     console.log('- Usando intervalo padrão:', cat.feeding_interval);
-    
-    // Calcular quantos intervalos se passaram desde a última alimentação
-    const hoursElapsed = differenceInHours(now, lastFeedingTime);
-    const intervalsElapsed = Math.floor(hoursElapsed / cat.feeding_interval);
-    console.log('- Horas decorridas:', hoursElapsed);
-    console.log('- Intervalos completos:', intervalsElapsed);
-    
-    // Calcular o próximo horário baseado no último intervalo completo
-    nextFeeding = addHours(lastFeedingTime, (intervalsElapsed + 1) * cat.feeding_interval);
-    console.log('- Próximo horário calculado:', formatInTimeZone(nextFeeding, timezone, 'yyyy-MM-dd HH:mm:ss'));
+    const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), cat.feeding_interval, timezone);
+    console.log('- Próxima alimentação calculada (intervalo padrão):', formatDateTimeForDisplay(nextFeeding, timezone));
+    return nextFeeding;
   }
 
-  console.log('- Horário final calculado:', nextFeeding ? formatInTimeZone(nextFeeding, timezone, 'yyyy-MM-dd HH:mm:ss') : 'null');
-  return nextFeeding;
+  console.log('- Nenhum intervalo ou agendamento encontrado');
+  return null;
 }
 

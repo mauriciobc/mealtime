@@ -21,20 +21,23 @@ type NotificationState = {
 type NotificationAction =
   | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
   | { type: "ADD_NOTIFICATION"; payload: Notification }
-  | { type: "MARK_AS_READ"; payload: string }
-  | { type: "MARK_ALL_AS_READ" }
-  | { type: "DELETE_NOTIFICATION"; payload: string }
+  | { type: "MARK_NOTIFICATION_READ"; payload: { id: number } }
+  | { type: "MARK_ALL_NOTIFICATIONS_READ" }
+  | { type: "REMOVE_NOTIFICATION"; payload: { id: number } }
   | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null };
 
-type NotificationContextType = {
-  state: NotificationState;
-  dispatch: React.Dispatch<NotificationAction>;
-  loadNotifications: () => Promise<void>;
-  markAsRead: (id: string) => Promise<void>;
+interface NotificationContextType {
+  notifications: Notification[];
+  unreadCount: number;
+  isLoading: boolean;
+  error: string | null;
+  markAsRead: (id: number) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  removeNotification: (id: string) => Promise<void>;
-};
+  removeNotification: (id: number) => Promise<void>;
+  addNotification: (notification: Notification) => void;
+  refreshNotifications: () => Promise<void>;
+}
 
 // Initial state
 const initialState: NotificationState = {
@@ -63,9 +66,9 @@ function notificationReducer(state: NotificationState, action: NotificationActio
         notifications: updatedNotifications,
         unreadCount: updatedNotifications.filter(n => !n.isRead).length
       };
-    case "MARK_AS_READ":
+    case "MARK_NOTIFICATION_READ":
       const markedNotifications = state.notifications.map(notification =>
-        notification.id === action.payload
+        notification.id === action.payload.id
           ? { ...notification, isRead: true }
           : notification
       );
@@ -74,7 +77,7 @@ function notificationReducer(state: NotificationState, action: NotificationActio
         notifications: markedNotifications,
         unreadCount: markedNotifications.filter(n => !n.isRead).length
       };
-    case "MARK_ALL_AS_READ":
+    case "MARK_ALL_NOTIFICATIONS_READ":
       const allReadNotifications = state.notifications.map(notification => ({
         ...notification,
         isRead: true
@@ -84,9 +87,9 @@ function notificationReducer(state: NotificationState, action: NotificationActio
         notifications: allReadNotifications,
         unreadCount: 0
       };
-    case "DELETE_NOTIFICATION":
+    case "REMOVE_NOTIFICATION":
       const filteredNotifications = state.notifications.filter(
-        notification => notification.id !== action.payload
+        notification => notification.id !== action.payload.id
       );
       return { 
         ...state, 
@@ -135,49 +138,70 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   };
 
   // Function to mark a notification as read
-  const markAsRead = async (id: string) => {
+  const markAsRead = async (id: number) => {
     try {
       await markNotificationAsRead(id);
-      dispatch({ type: "MARK_AS_READ", payload: id });
+      dispatch({ type: "MARK_NOTIFICATION_READ", payload: { id } });
     } catch (error) {
-      console.error("Error marking notification as read:", error);
-      dispatch({ type: "SET_ERROR", payload: "Failed to mark notification as read" });
+      console.error("Erro ao marcar notificação como lida:", error);
+    }
+  };
+
+  // Function to delete a notification
+  const removeNotification = async (id: number) => {
+    try {
+      await deleteNotification(id);
+      dispatch({ type: "REMOVE_NOTIFICATION", payload: { id } });
+    } catch (error) {
+      console.error("Erro ao remover notificação:", error);
+    }
+  };
+
+  // Function to add a notification
+  const addNotification = (notification: Notification) => {
+    dispatch({ type: "ADD_NOTIFICATION", payload: notification });
+  };
+
+  // Function to refresh notifications
+  const refreshNotifications = async () => {
+    try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      if (appState.currentUser) {
+        const notifications = await getUserNotifications(appState.currentUser.id);
+        dispatch({ type: "SET_NOTIFICATIONS", payload: notifications });
+      }
+    } catch (error) {
+      console.error("Erro ao carregar notificações:", error);
+      dispatch({ type: "SET_ERROR", payload: "Falha ao carregar notificações" });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
     }
   };
 
   // Function to mark all notifications as read
   const markAllAsRead = async () => {
-    if (!appState.currentUser) return;
-    
     try {
-      await markAllNotificationsAsRead(appState.currentUser.id);
-      dispatch({ type: "MARK_ALL_AS_READ" });
+      if (appState.currentUser) {
+        await markAllNotificationsAsRead(appState.currentUser.id);
+        dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
+      }
     } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-      dispatch({ type: "SET_ERROR", payload: "Failed to mark all notifications as read" });
-    }
-  };
-
-  // Function to delete a notification
-  const removeNotification = async (id: string) => {
-    try {
-      await deleteNotification(id);
-      dispatch({ type: "DELETE_NOTIFICATION", payload: id });
-    } catch (error) {
-      console.error("Error deleting notification:", error);
-      dispatch({ type: "SET_ERROR", payload: "Failed to delete notification" });
+      console.error("Erro ao marcar todas as notificações como lidas:", error);
     }
   };
 
   return (
     <NotificationContext.Provider
       value={{
-        state,
-        dispatch,
-        loadNotifications,
+        notifications: state.notifications,
+        unreadCount: state.unreadCount,
+        isLoading: state.isLoading,
+        error: state.error,
         markAsRead,
         markAllAsRead,
-        removeNotification
+        removeNotification,
+        addNotification,
+        refreshNotifications
       }}
     >
       {children}
@@ -193,5 +217,15 @@ export function useNotifications() {
     throw new Error("useNotifications must be used within a NotificationProvider");
   }
   
-  return context;
+  return {
+    notifications: context.notifications,
+    unreadCount: context.unreadCount,
+    isLoading: context.isLoading,
+    error: context.error,
+    markAsRead: context.markAsRead,
+    markAllAsRead: context.markAllAsRead,
+    removeNotification: context.removeNotification,
+    addNotification: context.addNotification,
+    refreshNotifications: context.refreshNotifications
+  };
 }

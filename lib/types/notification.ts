@@ -1,14 +1,14 @@
 // Notification Types
 export interface Notification {
-  id: string;
+  id: number;
   title: string;
   message: string;
   type: 'feeding' | 'household' | 'system' | 'info' | 'warning' | 'error';
   isRead: boolean;
   createdAt: Date;
-  userId: string;
-  catId?: string;
-  householdId?: string;
+  userId: number;
+  catId?: number;
+  householdId?: number;
   actionUrl?: string;
   icon?: string;
 }
@@ -19,9 +19,9 @@ export interface CreateNotificationPayload {
   title: string;
   message: string;
   type: NotificationType;
-  userId: string;
-  catId?: string;
-  householdId?: string;
+  userId: number;
+  catId?: number;
+  householdId?: number;
   actionUrl?: string;
   icon?: string;
 }

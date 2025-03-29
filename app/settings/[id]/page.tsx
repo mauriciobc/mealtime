@@ -15,14 +15,13 @@ import PageTransition from "@/components/page-transition"
 import { motion } from "framer-motion"
 import AnimatedIcon from "@/components/animated-icon"
 import LoadingSpinner from "@/components/loading-spinner"
+import { BaseCat, ID } from "@/lib/types/common"
 
 interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-interface Cat {
-  id: string;
-  name: string;
+interface Cat extends BaseCat {
   avatar: string;
   regularAmount: string;
   foodUnit: string;
@@ -126,7 +125,7 @@ export default function CatSettings({ params }: PageProps) {
   if (loading) {
     return (
       <PageTransition>
-        <div className="bg-gray-50 min-h-screen pb-16">
+        <div className="bg-background min-h-screen pb-16">
           <div className="container max-w-md mx-auto p-4">
             {/* Status Bar Spacer */}
             <div className="h-6"></div>
@@ -138,13 +137,13 @@ export default function CatSettings({ params }: PageProps) {
                   <span className="sr-only">Back</span>
                 </AnimatedButton>
               </Link>
-              <h1 className="text-xl font-bold">Cat Settings</h1>
+              <h1 className="text-xl font-bold text-foreground">Cat Settings</h1>
             </header>
 
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <LoadingSpinner size={40} color="#000" />
-                <p className="mt-4 text-gray-500">Loading settings...</p>
+                <LoadingSpinner size={40} color="hsl(var(--foreground))" />
+                <p className="mt-4 text-muted-foreground">Loading settings...</p>
               </div>
             </div>
           </div>
@@ -157,7 +156,7 @@ export default function CatSettings({ params }: PageProps) {
 
   return (
     <PageTransition>
-      <div className="bg-gray-50 min-h-screen pb-16">
+      <div className="bg-background min-h-screen pb-16">
         <div className="container max-w-md mx-auto p-4">
           {/* Status Bar Spacer */}
           <div className="h-6"></div>
@@ -170,7 +169,7 @@ export default function CatSettings({ params }: PageProps) {
               </AnimatedButton>
             </Link>
             <motion.h1
-              className="text-xl font-bold"
+              className="text-xl font-bold text-foreground"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
@@ -187,13 +186,13 @@ export default function CatSettings({ params }: PageProps) {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <motion.div
-              className="bg-white rounded-3xl shadow-sm p-5 space-y-5"
+              className="bg-card rounded-3xl shadow-sm p-5 space-y-5"
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4, delay: 0.3 }}
             >
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-gray-700">
+                <Label htmlFor="name" className="text-foreground">
                   Cat Name
                 </Label>
                 <Input
@@ -202,13 +201,13 @@ export default function CatSettings({ params }: PageProps) {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  className="rounded-xl border-gray-200 bg-white py-3 px-4 focus:border-gray-300 focus:ring-0 transition-all duration-300 focus:shadow-md"
+                  className="rounded-xl border-input bg-background py-3 px-4 focus:border-ring focus:ring-0 transition-all duration-300 focus:shadow-md"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="regularAmount" className="text-gray-700">
+                  <Label htmlFor="regularAmount" className="text-foreground">
                     Regular Amount
                   </Label>
                   <select
@@ -216,7 +215,7 @@ export default function CatSettings({ params }: PageProps) {
                     name="regularAmount"
                     value={formData.regularAmount}
                     onChange={handleChange}
-                    className="w-full rounded-xl border-gray-200 bg-white py-3 px-4 focus:border-gray-300 focus:ring-0 transition-all duration-300 focus:shadow-md"
+                    className="w-full rounded-xl border-input bg-background py-3 px-4 focus:border-ring focus:ring-0 transition-all duration-300 focus:shadow-md"
                   >
                     <option value="1/4">1/4</option>
                     <option value="1/3">1/3</option>
@@ -230,7 +229,7 @@ export default function CatSettings({ params }: PageProps) {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="foodUnit" className="text-gray-700">
+                  <Label htmlFor="foodUnit" className="text-foreground">
                     Unit
                   </Label>
                   <select
@@ -238,7 +237,7 @@ export default function CatSettings({ params }: PageProps) {
                     name="foodUnit"
                     value={formData.foodUnit}
                     onChange={handleChange}
-                    className="w-full rounded-xl border-gray-200 bg-white py-3 px-4 focus:border-gray-300 focus:ring-0 transition-all duration-300 focus:shadow-md"
+                    className="w-full rounded-xl border-input bg-background py-3 px-4 focus:border-ring focus:ring-0 transition-all duration-300 focus:shadow-md"
                   >
                     <option value="cup">Cup</option>
                     <option value="oz">Ounce</option>
@@ -251,7 +250,7 @@ export default function CatSettings({ params }: PageProps) {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="feedingInterval" className="text-gray-700">
+                <Label htmlFor="feedingInterval" className="text-foreground">
                   Feeding Interval (hours)
                 </Label>
                 <select
@@ -259,7 +258,7 @@ export default function CatSettings({ params }: PageProps) {
                   name="feedingInterval"
                   value={formData.feedingInterval}
                   onChange={handleChange}
-                  className="w-full rounded-xl border-gray-200 bg-white py-3 px-4 focus:border-gray-300 focus:ring-0 transition-all duration-300 focus:shadow-md"
+                  className="w-full rounded-xl border-input bg-background py-3 px-4 focus:border-ring focus:ring-0 transition-all duration-300 focus:shadow-md"
                 >
                   <option value="6">Every 6 hours</option>
                   <option value="8">Every 8 hours</option>
@@ -270,11 +269,11 @@ export default function CatSettings({ params }: PageProps) {
 
               <div className="flex items-center justify-between py-2 group">
                 <div className="space-y-0.5">
-                  <Label htmlFor="notifications" className="text-gray-700 flex items-center">
+                  <Label htmlFor="notifications" className="text-foreground flex items-center">
                     <AnimatedIcon icon={Bell} size={16} className="mr-2" animate="wiggle" />
                     Feeding Notifications
                   </Label>
-                  <div className="text-sm text-gray-500">Receive reminders when it's time to feed</div>
+                  <div className="text-sm text-muted-foreground">Receive reminders when it's time to feed</div>
                 </div>
                 <Switch id="notifications" checked={formData.notifications} onCheckedChange={handleSwitchChange} />
               </div>
@@ -287,12 +286,12 @@ export default function CatSettings({ params }: PageProps) {
             >
               <AnimatedButton
                 type="submit"
-                className="w-full rounded-xl py-3 bg-black hover:bg-gray-800 text-white"
+                className="w-full rounded-xl py-3 bg-primary hover:bg-primary/90 text-primary-foreground"
                 disabled={saving}
               >
                 {saving ? (
                   <div className="flex items-center justify-center">
-                    <LoadingSpinner size={20} color="#fff" />
+                    <LoadingSpinner size={20} color="hsl(var(--primary-foreground))" />
                     <span className="ml-2">Saving...</span>
                   </div>
                 ) : (
@@ -309,13 +308,13 @@ export default function CatSettings({ params }: PageProps) {
               <AnimatedButton
                 type="button"
                 variant="outline"
-                className="w-full rounded-xl py-3 border-red-300 text-red-600 hover:bg-red-50"
+                className="w-full rounded-xl py-3 border-destructive text-destructive hover:bg-destructive/10"
                 onClick={handleDelete}
                 disabled={deleting}
               >
                 {deleting ? (
                   <div className="flex items-center justify-center">
-                    <LoadingSpinner size={20} color="#e11d48" />
+                    <LoadingSpinner size={20} color="hsl(var(--destructive))" />
                     <span className="ml-2">Removing...</span>
                   </div>
                 ) : (

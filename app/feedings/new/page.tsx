@@ -6,6 +6,9 @@ import { useSession } from "next-auth/react";
 import { format, addHours, isToday, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
+import { formatInTimeZone } from 'date-fns-tz';
+import { getUserTimezone, calculateNextFeeding, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
+import { BaseFeedingLog, ID } from "@/lib/types/common";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,15 +30,8 @@ interface CatType {
   feeding_interval?: number;
 }
 
-interface FeedingLogType {
-  id: number;
-  catId: number;
-  userId: number;
-  timestamp: Date;
-  portionSize: number | null;
-  notes: string | null;
+interface FeedingLogType extends BaseFeedingLog {
   status?: string;
-  createdAt: Date;
 }
 
 interface HouseholdType {
@@ -230,28 +226,9 @@ export default function NewFeedingPage() {
   }, [activeNotifications]);
 
   // Funções utilitárias para formatação de tempo
-  const formatInTimezone = (utcDateTime: Date | string | null | undefined, timezone: string | null | undefined, formatStr = 'dd/MM/yyyy HH:mm') => {
-    if (!utcDateTime) return '';
-    
-    try {
-      const date = typeof utcDateTime === 'string' ? new Date(utcDateTime) : utcDateTime;
-      
-      const options: Intl.DateTimeFormatOptions = {
-        timeZone: timezone || 'UTC',
-        year: formatStr.includes('y') ? 'numeric' : undefined,
-        month: formatStr.includes('M') ? 'numeric' : undefined,
-        day: formatStr.includes('d') ? 'numeric' : undefined,
-        hour: formatStr.includes('H') ? 'numeric' : undefined,
-        minute: formatStr.includes('m') ? 'numeric' : undefined,
-        second: formatStr.includes('s') ? 'numeric' : undefined,
-        hour12: formatStr.includes('a'),
-      };
-      
-      return new Intl.DateTimeFormat('pt-BR', options).format(date);
-    } catch (error) {
-      console.error('Erro ao formatar data:', error);
-      return format(new Date(utcDateTime), formatStr, { locale: ptBR });
-    }
+  const formatInTimezone = (utcDateTime: Date | string | null | undefined, timezone: string | null | undefined) => {
+    if (!utcDateTime || !timezone) return '';
+    return formatDateTimeForDisplay(utcDateTime, getUserTimezone(timezone));
   };
 
   const isTodayInTimezone = (utcDateTime: Date | string | null | undefined, timezone: string | null | undefined) => {
@@ -311,7 +288,7 @@ export default function NewFeedingPage() {
     
     try {
       if (isTodayInTimezone(nextFeedingUTC, timezone)) {
-        return `${t("time_today_at")} ${formatInTimezone(nextFeedingUTC, timezone, 'HH:mm')}`;
+        return `${t("time_today_at")} ${formatInTimezone(nextFeedingUTC, timezone)}`;
       }
       
       return formatInTimezone(nextFeedingUTC, timezone);
@@ -335,22 +312,23 @@ export default function NewFeedingPage() {
 
     // Usar intervalo de alimentação do gato ou padrão de 8 horas
     const interval = cat.feeding_interval || 8;
-    const nextFeedingTime = calculateNextFeedingTime(lastFeeding.timestamp, interval);
-    
     const userData = session?.user as any;
-    return formatNextFeedingTime(nextFeedingTime, userData?.timezone);
+    const timezone = getUserTimezone(userData?.timezone);
+    const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), interval, timezone);
+    
+    return formatDateTimeForDisplay(nextFeeding, timezone);
   };
 
   const catNeedsFeeding = (cat: CatType) => {
     const lastFeeding = feedingLogs.find(log => log.catId === cat.id);
     if (!lastFeeding) return true;
     
-    const lastFeedingDate = new Date(lastFeeding.timestamp);
-    // Usar intervalo de alimentação do gato ou padrão de 8 horas
     const interval = cat.feeding_interval || 8;
-    const nextFeedingDate = calculateNextFeedingTime(lastFeedingDate, interval);
+    const userData = session?.user as any;
+    const timezone = getUserTimezone(userData?.timezone);
+    const nextFeedingTime = calculateNextFeeding(new Date(lastFeeding.timestamp), interval, timezone);
     
-    return nextFeedingDate && new Date() >= nextFeedingDate;
+    return nextFeedingTime && new Date() >= nextFeedingTime;
   };
 
   const toggleCatSelection = (catId: number) => {
@@ -379,7 +357,7 @@ export default function NewFeedingPage() {
         try {
           const userData = session?.user as any;
           const title = `${t("feed_title")}: ${cat.name}!`;
-          const body = `${t("time_today_at")} ${formatInTimezone(nextFeedingTime, userData?.timezone, 'HH:mm')}`;
+          const body = `${t("time_today_at")} ${formatInTimezone(nextFeedingTime, userData?.timezone)}`;
 
           // Notificar o usuário
           toast({
@@ -554,7 +532,7 @@ export default function NewFeedingPage() {
         // Agendar notificação para a próxima alimentação
         const now = new Date();
         const interval = cat.feeding_interval || 8;
-        const nextFeeding = calculateNextFeedingTime(now, interval);
+        const nextFeeding = calculateNextFeeding(now, interval, getUserTimezone(session?.user?.timezone));
         
         if (nextFeeding) {
           scheduleNotification(cat, nextFeeding);

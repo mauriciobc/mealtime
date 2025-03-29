@@ -5,26 +5,26 @@ import { CatType, FeedingLog, Schedule, Notification } from "@/lib/types";
 
 // Tipos de ação
 type ActionType =
+  | { type: "SET_CATS"; payload: CatType[] }
   | { type: "ADD_CAT"; payload: CatType }
   | { type: "UPDATE_CAT"; payload: CatType }
   | { type: "DELETE_CAT"; payload: number }
-  | { type: "SET_CATS"; payload: CatType[] }
   | { type: "SET_FEEDING_LOGS"; payload: FeedingLog[] }
   | { type: "ADD_FEEDING_LOG"; payload: FeedingLog }
-  | { type: "DELETE_FEEDING_LOG"; payload: number }
+  | { type: "DELETE_FEEDING_LOG"; payload: string }
   | { type: "UPDATE_FEEDING_LOG"; payload: FeedingLog }
   | { type: "ADD_SCHEDULE"; payload: Schedule }
   | { type: "UPDATE_SCHEDULE"; payload: Schedule }
-  | { type: "DELETE_SCHEDULE"; payload: { id: string } }
+  | { type: "DELETE_SCHEDULE"; payload: string }
   | { type: "ADD_NOTIFICATION"; payload: Notification }
-  | { type: "MARK_NOTIFICATION_READ"; payload: { id: string } }
-  | { type: "DELETE_NOTIFICATION"; payload: { id: string } }
+  | { type: "REMOVE_NOTIFICATION"; payload: string }
   | { type: "ADD_HOUSEHOLD"; payload: any }
+  | { type: "SET_HOUSEHOLDS"; payload: any[] }
   | { type: "UPDATE_HOUSEHOLD"; payload: any }
-  | { type: "DELETE_HOUSEHOLD"; payload: { id: string } }
-  | { type: "ADD_HOUSEHOLD_MEMBER"; payload: any }
-  | { type: "REMOVE_HOUSEHOLD_MEMBER"; payload: any }
-  | { type: "UPDATE_HOUSEHOLD_MEMBER"; payload: any };
+  | { type: "DELETE_HOUSEHOLD"; payload: string }
+  | { type: "ADD_HOUSEHOLD_MEMBER"; payload: { householdId: string; member: any } }
+  | { type: "REMOVE_HOUSEHOLD_MEMBER"; payload: { householdId: string; memberId: string } }
+  | { type: "UPDATE_HOUSEHOLD_MEMBER"; payload: { householdId: string; member: any } };
 
 // Estado global
 interface GlobalState {
@@ -57,36 +57,21 @@ const GlobalContext = createContext<GlobalContextType | undefined>(undefined);
 // Reducer
 function reducer(state: GlobalState, action: ActionType): GlobalState {
   switch (action.type) {
-    case "ADD_CAT":
-      return {
-        ...state,
-        cats: [...state.cats, action.payload],
-      };
     case "SET_CATS":
       return {
         ...state,
         cats: action.payload,
       };
-    case "SET_FEEDING_LOGS":
+    case "ADD_CAT":
       return {
         ...state,
-        feedingLogs: action.payload,
+        cats: [...state.cats, action.payload],
       };
     case "UPDATE_CAT":
-      const payloadId = typeof action.payload.id === 'string' ? parseInt(action.payload.id) : action.payload.id;
       return {
         ...state,
         cats: state.cats.map((cat) =>
-          cat.id === payloadId
-            ? {
-                ...cat,
-                ...action.payload,
-                id: cat.id,
-                schedules: Array.isArray(action.payload.schedules) ? action.payload.schedules : cat.schedules || [],
-                feedingLogs: Array.isArray(action.payload.feedingLogs) ? action.payload.feedingLogs : cat.feedingLogs || [],
-                createdAt: action.payload.createdAt || cat.createdAt || new Date()
-              }
-            : cat
+          cat.id === action.payload.id ? action.payload : cat
         ),
       };
     case "DELETE_CAT":
@@ -94,23 +79,26 @@ function reducer(state: GlobalState, action: ActionType): GlobalState {
         ...state,
         cats: state.cats.filter((cat) => cat.id !== action.payload),
       };
+    case "SET_FEEDING_LOGS":
+      return {
+        ...state,
+        feedingLogs: action.payload,
+      };
     case "ADD_FEEDING_LOG":
       return {
         ...state,
         feedingLogs: [...state.feedingLogs, action.payload],
       };
+    case "DELETE_FEEDING_LOG":
+      return {
+        ...state,
+        feedingLogs: state.feedingLogs.filter((log) => log.id !== action.payload),
+      };
     case "UPDATE_FEEDING_LOG":
       return {
         ...state,
         feedingLogs: state.feedingLogs.map((log) =>
-          log.id === action.payload.id ? { ...log, ...action.payload } : log
-        ),
-      };
-    case "DELETE_FEEDING_LOG":
-      return {
-        ...state,
-        feedingLogs: state.feedingLogs.filter(
-          (log) => log.id !== action.payload
+          log.id === action.payload.id ? action.payload : log
         ),
       };
     case "ADD_SCHEDULE":
@@ -122,59 +110,45 @@ function reducer(state: GlobalState, action: ActionType): GlobalState {
       return {
         ...state,
         schedules: state.schedules.map((schedule) =>
-          schedule.id === action.payload.id
-            ? { ...schedule, ...action.payload }
-            : schedule
+          schedule.id === action.payload.id ? action.payload : schedule
         ),
       };
     case "DELETE_SCHEDULE":
       return {
         ...state,
-        schedules: state.schedules.filter(
-          (schedule) => schedule.id !== action.payload.id
-        ),
+        schedules: state.schedules.filter((schedule) => schedule.id !== action.payload),
       };
     case "ADD_NOTIFICATION":
       return {
         ...state,
-        notifications: [action.payload, ...state.notifications],
+        notifications: [...state.notifications, action.payload],
       };
-    case "MARK_NOTIFICATION_READ":
+    case "REMOVE_NOTIFICATION":
       return {
         ...state,
-        notifications: state.notifications.map((notification) =>
-          notification.id === action.payload.id
-            ? { ...notification, read: true }
-            : notification
-        ),
-      };
-    case "DELETE_NOTIFICATION":
-      return {
-        ...state,
-        notifications: state.notifications.filter(
-          (notification) => notification.id !== action.payload.id
-        ),
+        notifications: state.notifications.filter((notification) => notification.id !== action.payload),
       };
     case "ADD_HOUSEHOLD":
       return {
         ...state,
         households: [...state.households, action.payload],
       };
+    case "SET_HOUSEHOLDS":
+      return {
+        ...state,
+        households: action.payload,
+      };
     case "UPDATE_HOUSEHOLD":
       return {
         ...state,
         households: state.households.map((household) =>
-          household.id === action.payload.id
-            ? { ...household, ...action.payload }
-            : household
+          household.id === action.payload.id ? action.payload : household
         ),
       };
     case "DELETE_HOUSEHOLD":
       return {
         ...state,
-        households: state.households.filter(
-          (household) => household.id !== action.payload.id
-        ),
+        households: state.households.filter((household) => household.id !== action.payload),
       };
     case "ADD_HOUSEHOLD_MEMBER":
       return {

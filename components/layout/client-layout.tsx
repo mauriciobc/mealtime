@@ -3,7 +3,7 @@
 import React from "react"
 import { usePathname } from "next/navigation"
 import { AppHeader } from "@/components/ui/app-header"
-import { BottomNav } from "@/components/ui/bottom-nav"
+import BottomNav from "@/components/bottom-nav"
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

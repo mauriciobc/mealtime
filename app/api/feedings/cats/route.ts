@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { BaseCat } from '@/lib/types/common';
 
 // GET /api/feedings/cats - Listar gatos para o formulário de alimentação
 export async function GET(request: NextRequest) {
@@ -15,7 +16,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Consulta para obter gatos com informações necessárias para alimentação
-    // Usando o select: true para selecionar todas as colunas e evitar o erro de tipagem
     const cats = await prisma.cat.findMany({
       where: {
         householdId: parseInt(householdId)
@@ -25,9 +25,21 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log(`Encontrados ${cats.length} gatos para a residência ${householdId}`);
+    // Converter para o formato BaseCat
+    const formattedCats: BaseCat[] = cats.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      photoUrl: cat.photoUrl || undefined,
+      birthdate: cat.birthdate || undefined,
+      weight: cat.weight || undefined,
+      restrictions: cat.restrictions || undefined,
+      householdId: cat.householdId,
+      feeding_interval: cat.feeding_interval || 8
+    }));
+
+    console.log(`Encontrados ${formattedCats.length} gatos para a residência ${householdId}`);
     
-    return NextResponse.json(cats);
+    return NextResponse.json(formattedCats);
   } catch (error) {
     console.error('Erro ao buscar gatos para o formulário de alimentação:', error);
     return NextResponse.json(
