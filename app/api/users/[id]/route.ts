@@ -20,7 +20,9 @@ export async function GET(
       );
     }
     
-    const userId = parseInt(params.id, 10) as ID;
+    // Aguardar a resolução dos parâmetros
+    const { id } = await Promise.resolve(params);
+    const userId = parseInt(id, 10) as ID;
     
     // Verificar se o usuário está tentando acessar seus próprios dados
     if (session.user.id !== userId) {

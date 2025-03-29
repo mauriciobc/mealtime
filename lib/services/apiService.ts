@@ -262,3 +262,17 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
 // Re-exportar as funções relacionadas à alimentação do api-feeding-service
 export { registerFeeding, updateFeedingSchedule, getNextFeedingTime } from './api-feeding-service';
 
+export async function createFeedingLog(log: Omit<FeedingLog, 'id'>, mockData: FeedingLog[]): Promise<FeedingLog> {
+  await delay(500);
+  const newLog: FeedingLog = {
+    ...log,
+    id: Math.floor(Math.random() * 1000000)
+  };
+  
+  const logs = await getData<FeedingLog>('feedingLogs', mockData);
+  const updatedLogs = [...logs, newLog];
+  await setData<FeedingLog>('feedingLogs', updatedLogs);
+  
+  return newLog;
+}
+
