@@ -14,6 +14,9 @@ import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCatsByHouseholdId } from "@/lib/services/apiService";
 import { useSession } from "next-auth/react";
+import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const calculateProgress = (total: number, current: number) => {
   if (total === 0) return 0;
@@ -27,6 +30,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [todayFeedingCount, setTodayFeedingCount] = useState(0);
   const [scheduleCompletionRate, setScheduleCompletionRate] = useState(0);
+  const [recentFeedingsData, setRecentFeedingsData] = useState([]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -44,22 +48,84 @@ export default function Home() {
               payload: cats,
             });
           }
+
+          // Carregar logs de alimentação
+          const response = await fetch('/api/feedings');
+          console.log("Resposta da API de alimentações:", response.status);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Dados recebidos da API:", data);
+            
+            dispatch({
+              type: "SET_FEEDING_LOGS",
+              payload: data
+            });
+
+            // Calcular alimentações de hoje
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const todayLogs = data.filter(log => {
+              const logDate = new Date(log.timestamp);
+              logDate.setHours(0, 0, 0, 0);
+              return logDate.getTime() === today.getTime();
+            });
+            
+            console.log("Logs de hoje:", todayLogs);
+            setTodayFeedingCount(todayLogs.length);
+
+            // Preparar dados para o gráfico de alimentações recentes
+            const last7Days = Array.from({ length: 7 }, (_, i) => {
+              const date = new Date();
+              date.setDate(date.getDate() - i);
+              return date;
+            }).reverse();
+
+            console.log("Últimos 7 dias:", last7Days.map(d => format(d, 'dd/MM/yyyy')));
+
+            const recentData = last7Days.map(date => {
+              const dayLogs = data.filter(log => {
+                const logDate = new Date(log.timestamp);
+                logDate.setHours(0, 0, 0, 0);
+                const compareDate = new Date(date);
+                compareDate.setHours(0, 0, 0, 0);
+                
+                console.log(`Comparando datas:
+                  Log: ${format(logDate, 'dd/MM/yyyy HH:mm:ss')}
+                  Dia: ${format(compareDate, 'dd/MM/yyyy')}
+                  Match: ${logDate.getTime() === compareDate.getTime()}
+                `);
+                
+                return logDate.getTime() === compareDate.getTime();
+              });
+
+              console.log(`Logs do dia ${format(date, 'dd/MM/yyyy')}:`, dayLogs);
+
+              // Calcular a quantidade total de alimento para o dia
+              const totalFood = dayLogs.reduce((sum, log) => {
+                console.log(`Porção do log:`, log.portionSize);
+                return sum + (log.portionSize || 0);
+              }, 0);
+
+              const dataPoint = {
+                name: format(date, 'EEE', { locale: ptBR }),
+                valor: totalFood
+              };
+
+              console.log(`Ponto de dados para ${format(date, 'dd/MM/yyyy')}:`, dataPoint);
+              return dataPoint;
+            });
+
+            console.log("Dados finais do gráfico:", recentData);
+            setRecentFeedingsData(recentData);
+          } else {
+            console.error("Erro na resposta da API:", response.statusText);
+          }
         } catch (error) {
-          console.error("Erro ao carregar gatos:", error);
+          console.error("Erro ao carregar dados:", error);
         }
       }
-
-      // Calcular alimentações de hoje
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const todayLogs = state.feedingLogs.filter(log => {
-        const logDate = new Date(log.timestamp);
-        logDate.setHours(0, 0, 0, 0);
-        return logDate.getTime() === today.getTime();
-      });
-      
-      setTodayFeedingCount(todayLogs.length);
       
       // Calcular taxa de conclusão dos agendamentos
       const totalSchedules = state.schedules.length;
@@ -70,7 +136,7 @@ export default function Home() {
     };
     
     loadData();
-  }, [state.feedingLogs, state.schedules, state.households, session, dispatch]);
+  }, [state.households, session, dispatch]);
 
   const dashboardItems = [
     {
@@ -242,7 +308,34 @@ export default function Home() {
 
           {lastFeedingLog ? (
             <FeedingLogItem
-              log={lastFeedingLog}
+              log={{
+                ...lastFeedingLog,
+                createdAt: lastFeedingLog.timestamp,
+                cat: lastFeedingLog.cat ? {
+                  ...lastFeedingLog.cat,
+                  householdId: lastFeedingLog.cat.householdId || 0,
+                  feeding_interval: lastFeedingLog.cat.feeding_interval || 0
+                } : undefined,
+                user: lastFeedingLog.user ? {
+                  id: lastFeedingLog.user.id,
+                  name: lastFeedingLog.user.name,
+                  email: lastFeedingLog.user.email,
+                  avatar: lastFeedingLog.user.avatar,
+                  householdId: lastFeedingLog.user.households?.[0] ? parseInt(lastFeedingLog.user.households[0]) : null,
+                  preferences: {
+                    timezone: "America/Sao_Paulo",
+                    language: "pt-BR",
+                    notifications: {
+                      pushEnabled: true,
+                      emailEnabled: true,
+                      feedingReminders: true,
+                      missedFeedingAlerts: true,
+                      householdUpdates: true
+                    }
+                  },
+                  role: lastFeedingLog.user.role || "user"
+                } : undefined
+              }}
               onView={() => router.push(`/feedings/${lastFeedingLog.id}`)}
               onEdit={() => router.push(`/feedings/${lastFeedingLog.id}/edit`)}
               onDelete={() => {
@@ -275,8 +368,39 @@ export default function Home() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-2">
-              <div className="flex items-center justify-center h-48 bg-muted/30 rounded-md">
-                <BarChart3 className="h-16 w-16 text-muted" />
+              <div className="h-48 w-full">
+                {recentFeedingsData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsBarChart data={recentFeedingsData}>
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12 }}
+                      />
+                      <YAxis 
+                        hide={true}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          boxShadow: 'none'
+                        }}
+                        formatter={(value) => [`${value}g de alimento`, '']}
+                      />
+                      <Bar 
+                        dataKey="valor" 
+                        fill="#8884d8"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-muted-foreground">Sem dados para exibir</p>
+                  </div>
+                )}
               </div>
             </CardContent>
             <CardFooter>
