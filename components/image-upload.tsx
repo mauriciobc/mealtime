@@ -6,16 +6,18 @@ import { Plus, Upload, X, Camera, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { formatErrorMessage, getFallbackImageUrl, isFallbackImage } from "@/lib/image-errors";
 
 interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
   className?: string;
+  type?: 'user' | 'cat' | 'thumbnail';
 }
 
-export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, className, type = 'user' }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [preview, setPreview] = useState<string>(value || "");
+  const [preview, setPreview] = useState<string>(value || getFallbackImageUrl(type));
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Manipula o clique no botão de upload
@@ -38,6 +40,7 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
       // Preparar o FormData para upload
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("type", type);
       
       // Fazer upload para o servidor
       const response = await fetch("/api/upload", {
@@ -47,7 +50,6 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
       
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Erro de upload:", errorData);
         throw new Error(errorData.error || "Falha ao enviar imagem");
       }
       
@@ -60,10 +62,10 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
       e.target.value = "";
     } catch (error) {
       console.error("Erro ao fazer upload:", error);
-      // Em caso de erro, limpar o preview
-      setPreview(value || "");
-      // Exibir mensagem de erro para o usuário
-      toast.error("Erro ao enviar imagem. Por favor, tente novamente.");
+      // Em caso de erro, usar imagem de fallback
+      setPreview(getFallbackImageUrl(type));
+      // Exibir mensagem de erro formatada para o usuário
+      toast.error(formatErrorMessage(error as Error));
     } finally {
       setIsUploading(false);
     }
@@ -71,8 +73,9 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
   
   // Remove a imagem atual
   const handleRemove = () => {
-    setPreview("");
-    onChange("");
+    const fallbackUrl = getFallbackImageUrl(type);
+    setPreview(fallbackUrl);
+    onChange(fallbackUrl);
   };
   
   return (
@@ -92,18 +95,23 @@ export function ImageUpload({ value, onChange, className }: ImageUploadProps) {
             src={preview}
             alt="Preview"
             fill
-            className="object-cover"
+            className={cn(
+              "object-cover",
+              isFallbackImage(preview) && "opacity-50"
+            )}
           />
-          <Button
-            type="button"
-            variant="destructive"
-            size="icon"
-            className="absolute top-1 right-1 h-7 w-7"
-            onClick={handleRemove}
-            disabled={isUploading}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {!isFallbackImage(preview) && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              className="absolute top-1 right-1 h-7 w-7"
+              onClick={handleRemove}
+              disabled={isUploading}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       ) : (
         <div className="w-32 h-32 rounded-md border border-dashed flex flex-col items-center justify-center gap-1 bg-muted/30">

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { imageCache } from '@/lib/image-cache';
 
 // Rotas públicas que não requerem autenticação
 const publicRoutes = ["/login", "/signup", "/api/auth"];
@@ -33,6 +34,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  // Verificar se é uma requisição para uma imagem de perfil
+  if (pathname.startsWith('/profiles/')) {
+    try {
+      // Tentar obter a imagem do cache
+      const imageData = await imageCache.get(pathname);
+      
+      if (imageData) {
+        // Se encontrada no cache, servir diretamente
+        return new NextResponse(imageData, {
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao servir imagem do cache:', error);
+    }
+  }
+
   return NextResponse.next();
 }
 
@@ -50,6 +71,7 @@ export const config = {
     "/admin/:path*",
     "/api/households/:path*",
     "/api/cats/:path*",
-    "/api/feeding-logs/:path*"
+    "/api/feeding-logs/:path*",
+    '/profiles/:path*'
   ]
 } 

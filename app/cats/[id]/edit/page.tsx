@@ -37,6 +37,7 @@ import { getCatById, updateCat, deleteCat } from "@/lib/services/apiService"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { CatType, Schedule } from "@/lib/types"
+import { ImageUpload } from "@/components/image-upload"
 
 // Simple UUID function since we can't install the package
 function uuidv4(): string {
@@ -355,15 +356,11 @@ export default function EditCatPage({ params }: PageProps) {
               <form id="cat-form" onSubmit={handleSubmit} className="space-y-6">
                 {/* Profile Picture */}
                 <div className="flex flex-col items-center mb-6">
-                  <Avatar className="h-24 w-24 mb-2">
-                    <AvatarImage src={formData.photoUrl} alt="Preview" />
-                    <AvatarFallback>
-                      {formData.name ? formData.name.substring(0, 2) : "GA"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <Button type="button" variant="outline" size="sm">
-                    Enviar Foto
-                  </Button>
+                  <ImageUpload
+                    value={formData.photoUrl}
+                    onChange={(url) => handleChange({ target: { name: 'photoUrl', value: url } })}
+                    type="cat"
+                  />
                   <p className="text-xs text-gray-500 mt-1">
                     Recomendado: Imagem quadrada, 300×300px ou maior
                   </p>

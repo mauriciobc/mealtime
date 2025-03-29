@@ -17,6 +17,7 @@ import { useSession } from "next-auth/react";
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { FeedingDrawer } from "@/components/feeding-drawer";
 
 const calculateProgress = (total: number, current: number) => {
   if (total === 0) return 0;
@@ -30,6 +31,7 @@ export default function Home() {
   const [todayFeedingCount, setTodayFeedingCount] = useState(0);
   const [scheduleCompletionRate, setScheduleCompletionRate] = useState(0);
   const [recentFeedingsData, setRecentFeedingsData] = useState([]);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!state.feedingLogs.length) return;
@@ -225,63 +227,59 @@ export default function Home() {
             </CardHeader>
             <CardContent>
               {lastFeedingLog ? (
-                <FeedingLogItem
-                  log={{
-                    ...lastFeedingLog,
-                    createdAt: lastFeedingLog.timestamp,
-                    cat: lastFeedingLog.cat ? {
-                      ...lastFeedingLog.cat,
-                      householdId: lastFeedingLog.cat.householdId || 0,
-                      feeding_interval: lastFeedingLog.cat.feeding_interval || 0
-                    } : undefined,
-                    user: lastFeedingLog.user ? {
-                      id: lastFeedingLog.user.id,
-                      name: lastFeedingLog.user.name,
-                      email: lastFeedingLog.user.email,
-                      avatar: lastFeedingLog.user.avatar,
-                      householdId: lastFeedingLog.user.households?.[0] ? parseInt(lastFeedingLog.user.households[0]) : null,
-                      preferences: {
-                        timezone: "America/Sao_Paulo",
-                        language: "pt-BR",
-                        notifications: {
-                          pushEnabled: true,
-                          emailEnabled: true,
-                          feedingReminders: true,
-                          missedFeedingAlerts: true,
-                          householdUpdates: true
-                        }
-                      },
-                      role: lastFeedingLog.user.role || "user"
-                    } : undefined
-                  }}
-                  onView={() => router.push(`/feedings/${lastFeedingLog.id}`)}
-                  onEdit={() => router.push(`/feedings/${lastFeedingLog.id}/edit`)}
-                  onDelete={() => {
-                    // Função para excluir o registro
-                  }}
-                />
+                <div onClick={() => setIsDrawerOpen(true)} className="cursor-pointer">
+                  <FeedingLogItem
+                    log={{
+                      ...lastFeedingLog,
+                      createdAt: lastFeedingLog.timestamp,
+                      cat: lastFeedingLog.cat ? {
+                        ...lastFeedingLog.cat,
+                        householdId: lastFeedingLog.cat.householdId || 0,
+                        feeding_interval: lastFeedingLog.cat.feeding_interval || 0
+                      } : undefined,
+                      user: lastFeedingLog.user ? {
+                        id: lastFeedingLog.user.id,
+                        name: lastFeedingLog.user.name,
+                        email: lastFeedingLog.user.email,
+                        avatar: lastFeedingLog.user.avatar,
+                        householdId: lastFeedingLog.user.households?.[0] ? parseInt(lastFeedingLog.user.households[0]) : null,
+                        preferences: {
+                          timezone: "America/Sao_Paulo",
+                          language: "pt-BR",
+                          notifications: {
+                            pushEnabled: true,
+                            emailEnabled: true,
+                            feedingReminders: true,
+                            missedFeedingAlerts: true,
+                            householdUpdates: true
+                          }
+                        },
+                        role: lastFeedingLog.user.role || "user"
+                      } : undefined
+                    }}
+                    onView={() => {}}
+                    onEdit={() => {}}
+                    onDelete={() => {}}
+                  />
+                </div>
               ) : (
                 <EmptyState
                   icon={Utensils}
-                  title="Sem registros de alimentação"
-                  description="Você ainda não registrou nenhuma alimentação."
+                  title="Nenhuma alimentação registrada"
+                  description="Registre a primeira alimentação do seu gato para começar a acompanhar."
                   actionLabel="Registrar Alimentação"
                   actionHref="/feedings/new"
-                  variant="feeding"
-                  className="py-6"
                 />
               )}
             </CardContent>
-            <CardFooter>
-              <Button variant="outline" asChild className="w-full">
-                <Link href="/feedings/new" className="flex items-center gap-2">
-                  <PlusCircle className="h-4 w-4" />
-                  <span>Nova Alimentação</span>
-                </Link>
-              </Button>
-            </CardFooter>
           </Card>
         </motion.div>
+
+        <FeedingDrawer
+          isOpen={isDrawerOpen}
+          onOpenChange={setIsDrawerOpen}
+          feedingLog={lastFeedingLog}
+        />
 
         <motion.div variants={itemVariants}>
           <Card>
