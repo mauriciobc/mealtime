@@ -80,4 +80,67 @@
   - [ ] Adicionar diagramas de fluxo
   - [ ] Criar guia de contribuição específico para o sistema de imagens
   - [ ] Documentar procedimentos de backup e recuperação
-  - [ ] Adicionar exemplos de casos de uso específicos 
+  - [ ] Adicionar exemplos de casos de uso específicos
+
+## PWA (Progressive Web App)
+- [ ] Configurar manifest.json
+  - [ ] Criar arquivo em `/public/manifest.json`
+  - [ ] Definir metadados básicos
+    - [ ] Nome e nome curto do app
+    - [ ] Descrição
+    - [ ] Cores de tema e fundo
+    - [ ] URL inicial
+  - [ ] Configurar ícones
+    - [ ] Gerar ícones em múltiplos tamanhos (192x192, 512x512)
+    - [ ] Adicionar ícones no manifest
+    - [ ] Configurar máscaras de ícone para iOS
+  - [ ] Adicionar link no `app/layout.tsx`
+    ```tsx
+    <link rel="manifest" href="/manifest.json" />
+    ```
+
+- [ ] Implementar Service Worker
+  - [ ] Criar arquivo em `/public/sw.js`
+  - [ ] Configurar cache de assets
+    - [ ] Definir estratégia de cache (Cache First para assets estáticos)
+    - [ ] Listar recursos para cache
+    - [ ] Implementar atualização de cache
+  - [ ] Adicionar registro no `app/layout.tsx`
+    ```tsx
+    useEffect(() => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then(registration => console.log('SW registered:', registration))
+          .catch(error => console.log('SW registration failed:', error));
+      }
+    }, []);
+    ```
+
+- [ ] Otimizar para PWA
+  - [ ] Configurar meta tags no `app/layout.tsx`
+    ```tsx
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MealTime" />
+    ```
+  - [ ] Implementar fallback offline
+    - [ ] Criar página offline em `/app/offline/page.tsx`
+    - [ ] Configurar service worker para servir página offline
+  - [ ] Otimizar performance
+    - [ ] Implementar lazy loading de componentes
+    - [ ] Configurar cache de rotas
+    - [ ] Otimizar carregamento de imagens
+
+- [ ] Testar e Validar
+  - [ ] Verificar Lighthouse score
+  - [ ] Testar instalação em diferentes dispositivos
+  - [ ] Validar funcionamento offline
+  - [ ] Testar atualizações de cache
+  - [ ] Verificar compatibilidade cross-browser
+
+- [ ] Documentação
+  - [ ] Criar guia de desenvolvimento PWA
+  - [ ] Documentar processo de atualização
+  - [ ] Adicionar instruções de debug
+  - [ ] Criar checklist de validação 
