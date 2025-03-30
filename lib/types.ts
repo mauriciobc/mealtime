@@ -59,6 +59,7 @@ export interface FeedingLog {
   portionSize?: number | null;
   notes?: string | null;
   createdAt?: Date;
+  status?: "completed" | "in-progress" | "pending";
   cat?: CatType;
   user?: User;
 }

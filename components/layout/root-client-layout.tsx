@@ -11,6 +11,8 @@ import { AnimationProvider } from "@/components/animation-provider"
 import { ClientLayout } from "@/components/layout/client-layout"
 import { DataProvider } from "@/components/data-provider"
 import { AppProvider } from "@/lib/context/AppContext"
+import { LoadingProvider } from "@/lib/context/LoadingContext"
+import { UserDataLoader } from "@/components/data/user-data-loader"
 
 const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").then(mod => ({ default: mod.OnboardingTour })), {
   ssr: false,
@@ -20,22 +22,25 @@ const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").t
 export function RootClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <AppProvider>
-        <GlobalStateProvider>
-          <NotificationProvider>
-            <AnimationProvider>
-              <DataProvider>
-                <ClientLayout>
-                  {children}
-                </ClientLayout>
-                <Toaster position="top-center" />
-                <NotificationChecker />
-                <OnboardingTour />
-              </DataProvider>
-            </AnimationProvider>
-          </NotificationProvider>
-        </GlobalStateProvider>
-      </AppProvider>
+      <LoadingProvider>
+        <AppProvider>
+          <UserDataLoader />
+          <GlobalStateProvider>
+            <NotificationProvider>
+              <AnimationProvider>
+                <DataProvider>
+                  <ClientLayout>
+                    {children}
+                  </ClientLayout>
+                  <Toaster position="top-center" />
+                  <NotificationChecker />
+                  <OnboardingTour />
+                </DataProvider>
+              </AnimationProvider>
+            </NotificationProvider>
+          </GlobalStateProvider>
+        </AppProvider>
+      </LoadingProvider>
     </SessionProvider>
   )
 } 

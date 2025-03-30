@@ -11,6 +11,7 @@ import {
 } from "@/lib/services/notificationService";
 import { Notification } from "@/lib/types/notification";
 import { useAppContext } from "./AppContext";
+import { useLoading } from "@/lib/context/LoadingContext";
 
 // Types
 type NotificationState = {
@@ -48,6 +49,13 @@ interface NotificationContextType {
   addNotification: (notification: Notification) => void;
   refreshNotifications: () => Promise<void>;
   loadMore: () => Promise<void>;
+}
+
+interface PaginatedResponse<T> {
+  data: T[];
+  totalPages: number;
+  hasMore: boolean;
+  message?: string;
 }
 
 // Initial state
@@ -128,6 +136,7 @@ function notificationReducer(state: NotificationState, action: NotificationActio
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(notificationReducer, initialState);
   const { state: appState } = useAppContext();
+  const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const currentUser = appState.currentUser;
 
   // Carregar notificações iniciais
@@ -142,8 +151,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const loadNotifications = async () => {
     if (!currentUser?.id) return;
     
+    const loadingId = "notifications-load";
+    addLoadingOperation({
+      id: loadingId,
+      priority: 2,
+      description: "Carregando notificações..."
+    });
+
     try {
-      dispatch({ type: "SET_LOADING", payload: true });
       const response = await fetch(`/api/notifications?page=${state.page}`);
       const data: PaginatedResponse<Notification> = await response.json();
       
@@ -162,17 +177,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Erro desconhecido" });
     } finally {
-      dispatch({ type: "SET_LOADING", payload: false });
+      removeLoadingOperation(loadingId);
     }
   };
 
   // Carregar contagem de não lidas
   const loadUnreadCount = async () => {
+    if (!currentUser?.id) return;
+
+    const loadingId = "unread-count-load";
+    addLoadingOperation({
+      id: loadingId,
+      priority: 3,
+      description: "Atualizando contagem de notificações..."
+    });
+
     try {
-      const count = await getUnreadNotificationsCount(currentUser!.id);
+      const count = await getUnreadNotificationsCount(currentUser.id);
       dispatch({ type: "SET_UNREAD_COUNT", payload: count });
     } catch (error) {
       console.error("Erro ao carregar contagem de não lidas:", error);
+    } finally {
+      removeLoadingOperation(loadingId);
     }
   };
 

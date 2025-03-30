@@ -28,9 +28,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative flex min-h-screen flex-col">
       {!isAuthPage && <AppHeader {...getHeaderProps()} />}
-      <div className="flex-1 pb-24">
+      <main className="flex-1">
         {children}
-      </div>
+      </main>
       {!isAuthPage && <BottomNav />}
     </div>
   )

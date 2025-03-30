@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { useGlobalState } from "@/lib/context/global-state"
 import { useAppContext } from "@/lib/context/AppContext"
+import { useLoading } from "@/lib/context/LoadingContext"
 import { getCatsByHouseholdId } from "@/lib/services/apiService"
 import { CatType } from "@/lib/types"
-import LoadingSpinner from "@/components/loading-spinner"
+import { GlobalLoading } from "@/components/ui/global-loading"
 
 interface DataProviderProps {
   children: React.ReactNode
@@ -16,17 +17,20 @@ export function DataProvider({ children }: DataProviderProps) {
   const { data: session } = useSession()
   const { state: globalState, dispatch: globalDispatch } = useGlobalState()
   const { state: appState } = useAppContext()
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { addLoadingOperation, removeLoadingOperation } = useLoading()
 
   useEffect(() => {
     const loadInitialData = async () => {
       if (!session?.user || !appState.currentUser) return
 
-      try {
-        setIsLoading(true)
-        setError(null)
+      const loadingId = "initial-data-load"
+      addLoadingOperation({
+        id: loadingId,
+        priority: 1,
+        description: "Carregando dados iniciais..."
+      })
 
+      try {
         // Carregar domicílios do usuário
         const households = await fetch('/api/households').then(res => res.json())
           .catch(err => {
@@ -64,38 +68,18 @@ export function DataProvider({ children }: DataProviderProps) {
         }
       } catch (error) {
         console.error("Erro ao carregar dados iniciais:", error)
-        setError("Falha ao carregar dados. Por favor, recarregue a página.")
       } finally {
-        setIsLoading(false)
+        removeLoadingOperation(loadingId)
       }
     }
 
     loadInitialData()
-  }, [session, appState.currentUser, globalDispatch])
+  }, [session, appState.currentUser])
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Tentar Novamente
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner size={32} />
-      </div>
-    )
-  }
-
-  return <>{children}</>
+  return (
+    <>
+      <GlobalLoading />
+      {children}
+    </>
+  )
 } 

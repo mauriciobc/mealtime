@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from "react";
 import { Notification } from '../types/notification';
-import { useSession } from "next-auth/react";
 import { BaseCat, BaseFeedingLog, BaseUser, ID } from '@/lib/types/common';
 import { Household } from '@/lib/types';
 
@@ -14,7 +13,6 @@ interface AppState {
   users: BaseUser[];
   notifications: Notification[];
   currentUser: BaseUser | null;
-  isLoading: boolean;
   error: string | null;
 }
 
@@ -32,7 +30,6 @@ type AppAction =
   | { type: "UPDATE_HOUSEHOLD"; payload: Household }
   | { type: "SET_USERS"; payload: BaseUser[] }
   | { type: "SET_CURRENT_USER"; payload: BaseUser | null }
-  | { type: "SET_LOADING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
   | { type: "MARK_ALL_NOTIFICATIONS_READ" }
@@ -48,7 +45,6 @@ const initialState: AppState = {
   users: [],
   notifications: [],
   currentUser: null,
-  isLoading: true,
   error: null,
 };
 
@@ -103,8 +99,6 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return { ...state, users: action.payload };
     case "SET_CURRENT_USER":
       return { ...state, currentUser: action.payload };
-    case "SET_LOADING":
-      return { ...state, isLoading: action.payload };
     case "SET_ERROR":
       return { ...state, error: action.payload };
     case "SET_NOTIFICATIONS":
@@ -149,7 +143,7 @@ const AppContext = createContext<{
   dispatch: React.Dispatch<AppAction>;
 }>({
   state: initialState,
-  dispatch: () => null // Fornece uma função vazia como fallback
+  dispatch: () => null
 });
 
 // Create hook to use context
@@ -164,68 +158,11 @@ export function useAppContext() {
 // Create provider
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const { data: session } = useSession();
-
-  // Load data from API on mount
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        dispatch({ type: "SET_LOADING", payload: true });
-        
-        // Carregar dados do usuário da API
-        if (session?.user) {
-          const response = await fetch('/api/settings')
-          if (!response.ok) {
-            throw new Error('Falha ao carregar configurações')
-          }
-          const userData = await response.json()
-          console.log('User Data from API:', userData);
-          
-          const currentUser = {
-            id: Number(userData.id),
-            name: userData.name || "",
-            email: userData.email || "",
-            avatar: session.user.image || "",
-            householdId: userData.householdId || null,
-            preferences: {
-              timezone: userData.timezone || "UTC",
-              language: userData.language || "pt-BR",
-              notifications: {
-                pushEnabled: true,
-                emailEnabled: true,
-                feedingReminders: true,
-                missedFeedingAlerts: true,
-                householdUpdates: true,
-              },
-            },
-            role: userData.role || "user"
-          };
-          console.log('Processed Current User:', currentUser);
-          dispatch({ type: "SET_CURRENT_USER", payload: currentUser });
-        } else {
-          dispatch({ type: "SET_CURRENT_USER", payload: null });
-        }
-        
-        dispatch({ type: "SET_LOADING", payload: false });
-      } catch (error) {
-        console.error("AppProvider: Erro ao carregar dados:", error);
-        dispatch({ type: "SET_ERROR", payload: "Falha ao carregar dados. Por favor, recarregue a página." });
-        dispatch({ type: "SET_LOADING", payload: false });
-      }
-    };
-
-    loadData();
-
-    return () => {
-      dispatch({ type: "SET_LOADING", payload: false });
-      dispatch({ type: "SET_ERROR", payload: null });
-    };
-  }, [session]);
 
   // Save to localStorage when state changes
   useEffect(() => {
-    // Skip saving if we have no data or still loading
-    if (state.isLoading || (state.cats.length === 0 && state.feedingLogs.length === 0)) {
+    // Skip saving if we have no data
+    if (state.cats.length === 0 && state.feedingLogs.length === 0) {
       return;
     }
 
@@ -252,11 +189,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (state.notifications.length > 0) {
       localStorage.setItem("notifications", JSON.stringify(state.notifications));
       needsUpdate = true;
-    }
-
-    // Only update if we actually saved something
-    if (needsUpdate) {
-      dispatch({ type: "SET_LOADING", payload: false });
     }
   }, [state]);
 

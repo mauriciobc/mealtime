@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import { useRouter } from "next/navigation"
 import { useAppContext } from "@/lib/context/AppContext"
 import { useTheme } from "next-themes"
 import { useSession } from "next-auth/react"
 import { toast } from "sonner"
+import { useLoading } from "@/lib/context/LoadingContext"
 
 // Componentes
 import { AppHeader } from "@/components/app-header"
@@ -26,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ThemeSelector } from "@/components/theme-selector"
+import { Loading } from "@/components/ui/loading"
 
 // Ícones
 import { 
@@ -110,7 +112,7 @@ const SettingsSkeleton = () => (
 )
 
 // Componentes de Seção
-const ProfileSection = ({ user, onEditProfile }: { user: any, onEditProfile: () => void }) => {
+const ProfileSection = memo(({ user, onEditProfile }: { user: any, onEditProfile: () => void }) => {
   const { data: session } = useSession();
   
   // Usar dados do session como fallback
@@ -161,9 +163,9 @@ const ProfileSection = ({ user, onEditProfile }: { user: any, onEditProfile: () 
       </AnimatedCard>
     </section>
   );
-};
+});
 
-const AppearanceSection = ({ theme, onThemeChange }: { theme: string, onThemeChange: () => void }) => (
+const AppearanceSection = memo(({ theme, onThemeChange }: { theme: string, onThemeChange: () => void }) => (
   <AnimatedCard className="p-4">
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-2">
@@ -173,9 +175,9 @@ const AppearanceSection = ({ theme, onThemeChange }: { theme: string, onThemeCha
       <ThemeSelector />
     </div>
   </AnimatedCard>
-)
+));
 
-const RegionalPreferencesSection = ({ 
+const RegionalPreferencesSection = memo(({ 
   language, 
   timezone, 
   onLanguageChange, 
@@ -224,9 +226,9 @@ const RegionalPreferencesSection = ({
       </AnimatedCard>
     </div>
   </section>
-)
+));
 
-const NotificationSection = ({ 
+const NotificationSection = memo(({ 
   settings, 
   onSettingChange 
 }: { 
@@ -271,7 +273,7 @@ const NotificationSection = ({
       ))}
     </div>
   </section>
-)
+));
 
 // Layout comum
 const SettingsLayout = ({ children }: { children: React.ReactNode }) => (
@@ -288,6 +290,7 @@ export default function SettingsPage() {
   const { setTheme, theme } = useTheme()
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { state: loadingState } = useLoading()
   
   // Estados
   const [isLoading, setIsLoading] = useState(true)
@@ -306,6 +309,53 @@ export default function SettingsPage() {
   })
   const [profileName, setProfileName] = useState("")
 
+  const loadSettings = useCallback(async () => {
+    if (!session?.user || status !== "authenticated" || hasAttemptedLoad) return;
+
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/settings');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha ao carregar configurações');
+      }
+
+      const formattedUser = {
+        id: Number(data.id),
+        name: data.name || session.user.name || "",
+        email: data.email || session.user.email || "",
+        avatar: session.user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${data.name || session.user.name || 'U'}`,
+        householdId: data.householdId || null,
+        preferences: {
+          timezone: data.timezone || "UTC",
+          language: data.language || "pt-BR",
+          notifications: {
+            pushEnabled: true,
+            emailEnabled: true,
+            feedingReminders: true,
+            missedFeedingAlerts: true,
+            householdUpdates: true,
+          },
+        },
+        role: (data.role as "admin" | "user") || "user"
+      }
+
+      dispatch({ type: "SET_CURRENT_USER", payload: formattedUser });
+      
+      setSelectedLanguage(formattedUser.preferences.language);
+      setSelectedTimezone(formattedUser.preferences.timezone);
+      setNotification(formattedUser.preferences.notifications);
+      setProfileName(formattedUser.name);
+      setHasAttemptedLoad(true);
+    } catch (error) {
+      console.error('Erro ao carregar configurações:', error);
+      toast.error(error instanceof Error ? error.message : 'Erro ao carregar configurações');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [session, status, hasAttemptedLoad, dispatch]);
+
   // Carregamento inicial
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -317,61 +367,11 @@ export default function SettingsPage() {
       return
     }
 
-    const loadSettings = async () => {
-      try {
-        setHasAttemptedLoad(true)
-        setIsLoading(true)
-        
-        const response = await fetch('/api/settings')
-        if (!response.ok) {
-          throw new Error(`Falha ao carregar configurações: ${response.status}`)
-        }
-
-        const data = await response.json()
-        if (!data || !data.id) {
-          throw new Error('Dados de configuração inválidos')
-        }
-
-        const formattedUser = {
-          id: Number(data.id),
-          name: data.name || session.user.name || "",
-          email: data.email || session.user.email || "",
-          avatar: session.user.image || "",
-          householdId: data.householdId || null,
-          preferences: {
-            timezone: data.timezone || "UTC",
-            language: data.language || "pt-BR",
-            notifications: {
-              pushEnabled: true,
-              emailEnabled: true,
-              feedingReminders: true,
-              missedFeedingAlerts: true,
-              householdUpdates: true,
-            },
-          },
-          role: (data.role as "admin" | "user") || "user"
-        }
-
-        dispatch({ type: "SET_CURRENT_USER", payload: formattedUser })
-        dispatch({ type: "SET_LOADING", payload: false })
-        
-        setSelectedLanguage(formattedUser.preferences.language)
-        setSelectedTimezone(formattedUser.preferences.timezone)
-        setNotification(formattedUser.preferences.notifications)
-        setProfileName(formattedUser.name)
-      } catch (error) {
-        console.error('Erro ao carregar configurações:', error)
-        toast.error(error instanceof Error ? error.message : 'Erro ao carregar configurações')
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadSettings()
-  }, [session, status, dispatch, router, hasAttemptedLoad])
+    loadSettings();
+  }, [session, status, router, hasAttemptedLoad, loadSettings]);
 
   // Funções de atualização
-  const updateSettings = async (updates: any) => {
+  const updateSettings = useCallback(async (updates: any) => {
     if (!state.currentUser) return
 
     try {
@@ -399,47 +399,51 @@ export default function SettingsPage() {
       toast.error("Erro ao atualizar configurações")
       console.error('Erro ao salvar configurações:', error)
     }
-  }
+  }, [state.currentUser, dispatch]);
 
-  const saveLanguage = () => {
+  const saveLanguage = useCallback(() => {
+    if (!state.currentUser) return;
+    
     updateSettings({
       name: state.currentUser.name,
       timezone: state.currentUser.preferences.timezone,
       language: selectedLanguage
-    })
-    setIsLanguageDialogOpen(false)
-  }
+    });
+    setIsLanguageDialogOpen(false);
+  }, [state.currentUser, selectedLanguage, updateSettings]);
 
-  const saveTimezone = () => {
+  const saveTimezone = useCallback(() => {
+    if (!state.currentUser) return;
+    
     updateSettings({
       name: state.currentUser.name,
       timezone: selectedTimezone,
       language: state.currentUser.preferences.language
-    })
-    setIsTimezoneDialogOpen(false)
-  }
+    });
+    setIsTimezoneDialogOpen(false);
+  }, [state.currentUser, selectedTimezone, updateSettings]);
 
-  const saveProfile = () => {
+  const saveProfile = useCallback(() => {
     if (!profileName.trim()) {
-      toast.error("Nome não pode estar vazio")
-      return
+      toast.error("Nome não pode estar vazio");
+      return;
     }
 
     if (!state.currentUser) {
-      toast.error("Erro ao salvar perfil: usuário não encontrado")
-      return
+      toast.error("Erro ao salvar perfil: usuário não encontrado");
+      return;
     }
 
     updateSettings({
       name: profileName.trim(),
       timezone: state.currentUser.preferences.timezone,
       language: state.currentUser.preferences.language
-    })
-    setIsProfileDialogOpen(false)
-  }
+    });
+    setIsProfileDialogOpen(false);
+  }, [state.currentUser, profileName, updateSettings]);
 
-  const updateNotificationSetting = (key: keyof NotificationSettings, value: boolean) => {
-    setNotification(prev => ({ ...prev, [key]: value }))
+  const updateNotificationSetting = useCallback((key: keyof NotificationSettings, value: boolean) => {
+    setNotification(prev => ({ ...prev, [key]: value }));
     
     if (state.currentUser) {
       const updatedUser = {
@@ -451,20 +455,20 @@ export default function SettingsPage() {
             [key]: value
           }
         }
-      }
+      };
       
-      dispatch({ type: "SET_CURRENT_USER", payload: updatedUser })
+      dispatch({ type: "SET_CURRENT_USER", payload: updatedUser });
     }
-  }
+  }, [state.currentUser, dispatch]);
 
-  const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light')
-  }
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  }, [theme, setTheme]);
 
-  const handleLogout = () => {
-    toast.success("Você foi desconectado")
-    router.push('/')
-  }
+  const handleLogout = useCallback(() => {
+    toast.success("Você foi desconectado");
+    router.push('/');
+  }, [router]);
 
   // Renderização condicional
   if (status === "loading" || isLoading) {
@@ -477,19 +481,14 @@ export default function SettingsPage() {
     )
   }
 
-  if (!state.currentUser && !state.isLoading) {
+  if (!state.currentUser && !loadingState.isGlobalLoading) {
     return (
       <SettingsLayout>
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <p className="text-muted-foreground">Você precisa estar logado para acessar as configurações</p>
-            <Button onClick={() => router.push('/login')}>
-              Fazer login
-            </Button>
-          </div>
+          <Loading text="Carregando configurações..." />
         </div>
       </SettingsLayout>
-    )
+    );
   }
 
   // Renderização principal

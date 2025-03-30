@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PlusCircle, Search, Filter, SortDesc, Utensils } from "lucide-react"
+import { PlusCircle, Search, Filter, SortDesc, Utensils, CheckCircle2, Clock, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import PageTransition from "@/components/page-transition"
 import { AppHeader } from "@/components/app-header"
@@ -19,25 +19,45 @@ import { Loading } from "@/components/ui/loading"
 import { PageHeader } from "@/components/page-header"
 import { useGlobalState } from "@/lib/context/global-state"
 import { FeedingLog } from "@/lib/types"
-import { FeedingLogItem } from "@/components/feeding-log-item"
+import { Timeline, TimelineItem } from "@/components/ui/timeline"
+import { Badge } from "@/components/ui/badge"
 
-// Definindo a interface para o registro de alimentação
-interface FeedingLogType {
-  id: number
-  catId: number
-  userId: number
-  timestamp: Date
-  portionSize: number | null
-  notes: string | null
-  createdAt: Date
-  cat: {
-    id: number
-    name: string
-    photoUrl: string | null
+const getStatusIcon = (status: string | undefined) => {
+  switch (status) {
+    case "completed":
+      return <CheckCircle2 className="h-5 w-5 text-green-500" />
+    case "in-progress":
+      return <Clock className="h-5 w-5 text-blue-500" />
+    case "pending":
+      return <AlertCircle className="h-5 w-5 text-yellow-500" />
+    default:
+      return <Utensils className="h-5 w-5 text-primary" />
   }
-  user: {
-    id: number
-    name: string
+}
+
+const getStatusVariant = (status: string | undefined) => {
+  switch (status) {
+    case "completed":
+      return "default"
+    case "in-progress":
+      return "secondary"
+    case "pending":
+      return "warning"
+    default:
+      return "outline"
+  }
+}
+
+const getStatusText = (status: string | undefined) => {
+  switch (status) {
+    case "completed":
+      return "Concluído"
+    case "in-progress":
+      return "Em andamento"
+    case "pending":
+      return "Pendente"
+    default:
+      return "Não especificado"
   }
 }
 
@@ -74,7 +94,7 @@ export default function FeedingsPage() {
       
       dispatch({
         type: "DELETE_FEEDING_LOG",
-        payload: { id: logId },
+        payload: logId,
       })
     } catch (error) {
       console.error("Erro ao deletar registro de alimentação:", error)
@@ -88,14 +108,6 @@ export default function FeedingsPage() {
       transition: {
         staggerChildren: 0.1
       }
-    }
-  }
-  
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1
     }
   }
 
@@ -151,23 +163,31 @@ export default function FeedingsPage() {
             />
           ) : (
             <motion.div 
-              className="space-y-4"
               variants={containerVariants}
               initial="hidden"
               animate="visible"
             >
-              {state.feedingLogs
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                .map((log: FeedingLog) => (
-                  <motion.div key={log.id} variants={itemVariants}>
-                    <FeedingLogItem
-                      log={log}
-                      onView={() => router.push(`/feedings/${log.id}`)}
-                      onEdit={() => router.push(`/feedings/${log.id}/edit`)}
-                      onDelete={() => handleDeleteFeedingLog(log.id)}
+              <Timeline className="mt-4">
+                {state.feedingLogs
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                  .map((log: FeedingLog) => (
+                    <TimelineItem
+                      key={log.id}
+                      date={new Date(log.timestamp)}
+                      title={
+                        <div className="flex items-center gap-2">
+                          <span>{log.cat?.name || 'Gato'}</span>
+                          <Badge variant={getStatusVariant(log.status)}>
+                            {getStatusText(log.status)}
+                          </Badge>
+                        </div>
+                      }
+                      description={`${log.portionSize ? `${log.portionSize}g` : 'Quantidade não especificada'} - ${log.notes || `Alimentado por ${log.user?.name || 'Usuário'}`}`}
+                      icon={getStatusIcon(log.status)}
+                      status={log.status || "completed"}
                     />
-                  </motion.div>
-                ))}
+                  ))}
+              </Timeline>
             </motion.div>
           )}
         </div>

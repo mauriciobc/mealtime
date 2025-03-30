@@ -36,9 +36,8 @@ export async function getData<T>(key: string, mockData: T[]): Promise<T[]> {
     }
 
     const stored = localStorage.getItem(key);
-    if (!stored) {
-      // Primeira execução - salvar dados mockados
-      console.log(`Nenhum dado encontrado para ${key}, inicializando com dados mockados`);
+    if (!stored || stored.trim() === '') {
+      console.warn(`Dados vazios encontrados para ${key}, resetando para dados mockados`);
       localStorage.setItem(key, JSON.stringify(mockData));
       return mockData;
     }

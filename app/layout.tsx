@@ -4,9 +4,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { fontSans } from "@/lib/fonts"
 import { RootClientLayout } from "@/components/layout/root-client-layout"
-import { Inter } from "next/font/google"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "MealTime - Gerenciador de Alimentação",
@@ -45,7 +42,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
       </head>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable, inter.className)}>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <RootClientLayout>
             {children}

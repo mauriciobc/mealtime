@@ -28,7 +28,7 @@ const TimelineItem = React.forwardRef<
   HTMLDivElement,
   Omit<HTMLMotionProps<"div">, "ref"> & {
     date?: Date | string | number
-    title?: string
+    title?: React.ReactNode
     description?: string
     icon?: React.ReactNode
     iconColor?: "primary" | "secondary" | "muted" | "accent"

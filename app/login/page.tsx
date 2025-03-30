@@ -1,33 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, Eye, EyeOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import PageTransition from "@/components/page-transition";
+import { PageTransition } from "@/components/ui/page-transition";
 
-export default function LoginPage() {
+console.log("[Login] Página de login sendo carregada");
+
+function useAuth() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { status } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const redirectingRef = useRef(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    console.log("[Auth] Hook useAuth inicializado");
+    console.log("[Auth] Status da sessão:", status);
+    
+    if (status === "authenticated" && !redirectingRef.current) {
+      console.log("[Auth] Usuário autenticado, redirecionando...");
+      redirectingRef.current = true;
+      router.replace("/");
+    }
+  }, [status, router]);
+
+  const login = async (email: string, password: string) => {
+    console.log("[Auth] Função login chamada");
     
     if (!email || !password) {
+      console.log("[Auth] Email ou senha não fornecidos");
       setError("Por favor, preencha todos os campos");
-      return;
+      return false;
     }
-    
+
+    if (loading) {
+      console.log("[Auth] Login já em andamento, ignorando chamada");
+      return false;
+    }
+
     try {
+      console.log("[Auth] Iniciando processo de login");
       setLoading(true);
       setError("");
       
@@ -37,25 +56,51 @@ export default function LoginPage() {
         password,
       });
       
-      if (result?.error) {
-        setError("Email ou senha inválidos");
-        return;
-      }
+      console.log("[Auth] Resultado do login:", result);
       
-      // Redirecionamento em caso de sucesso
-      router.push("/");
-      router.refresh();
+      if (!result?.ok) {
+        console.log("[Auth] Login falhou:", result?.error);
+        setError(result?.error || "Email ou senha inválidos");
+        return false;
+      }
+
+      console.log("[Auth] Login bem-sucedido");
+      return true;
     } catch (error) {
-      console.error("Erro de login:", error);
+      console.error("[Auth] Erro no login:", error);
       setError("Ocorreu um erro durante o login");
+      return false;
     } finally {
+      console.log("[Auth] Finalizando processo de login");
       setLoading(false);
     }
   };
 
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
+  return { loading, error, login };
+}
+
+export default function LoginPage() {
+  console.log("[Login] Componente LoginPage renderizando");
+  
+  const { loading, error, login } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("[Login] Formulário submetido");
+    
+    if (formRef.current?.checkValidity()) {
+      const success = await login(email, password);
+      console.log("[Login] Resultado do login:", success);
+    }
+  }, [email, password, login]);
+
+  const togglePasswordVisibility = useCallback(() => {
+    setShowPassword(prev => !prev);
+  }, []);
 
   return (
     <PageTransition>
@@ -68,7 +113,7 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />

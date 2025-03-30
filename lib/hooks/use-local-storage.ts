@@ -13,7 +13,7 @@ function readValue<T>(key: string, defaultValue: T): T {
 
   try {
     const item = window.localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultValue;
+    return item && item.trim() !== '' ? JSON.parse(item) : defaultValue;
   } catch (error) {
     console.warn(`Erro ao ler localStorage (chave: ${key}):`, error);
     return defaultValue;
