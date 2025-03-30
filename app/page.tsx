@@ -18,6 +18,7 @@ import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis } 
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FeedingDrawer } from "@/components/feeding-drawer";
+import { NewFeedingSheet } from "@/components/new-feeding-sheet";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const calculateProgress = (total: number, current: number) => {
@@ -33,6 +34,7 @@ export default function Home() {
   const [scheduleCompletionRate, setScheduleCompletionRate] = useState(0);
   const [recentFeedingsData, setRecentFeedingsData] = useState([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isNewFeedingSheetOpen, setIsNewFeedingSheetOpen] = useState(false);
 
   // Memoize cats and feedingLogs to prevent unnecessary re-renders
   const feedingLogsRef = useRef(state.feedingLogs);
@@ -262,10 +264,8 @@ export default function Home() {
                     Detalhes da última alimentação registrada
                   </CardDescription>
                 </div>
-                <Button asChild>
-                  <Link href="/feedings/new">
-                    Alimentar agora
-                  </Link>
+                <Button onClick={() => setIsNewFeedingSheetOpen(true)}>
+                  Alimentar agora
                 </Button>
               </div>
             </CardHeader>
@@ -323,6 +323,11 @@ export default function Home() {
           isOpen={isDrawerOpen}
           onOpenChange={setIsDrawerOpen}
           feedingLog={lastFeedingLog}
+        />
+
+        <NewFeedingSheet
+          isOpen={isNewFeedingSheetOpen}
+          onOpenChange={setIsNewFeedingSheetOpen}
         />
 
         <motion.div variants={itemVariants}>

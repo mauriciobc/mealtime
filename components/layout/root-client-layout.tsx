@@ -24,10 +24,10 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
     <SessionProvider>
       <LoadingProvider>
         <AppProvider>
-          <UserDataLoader />
           <GlobalStateProvider>
             <NotificationProvider>
               <AnimationProvider>
+                <UserDataLoader />
                 <DataProvider>
                   <ClientLayout>
                     {children}

@@ -1,3 +1,5 @@
+import { BaseCat } from "./types/common";
+
 // User & Household
 export interface User {
   id: number;
@@ -35,19 +37,10 @@ export interface CatGroup {
 }
 
 // Cat Profiles
-export interface CatType {
-  id: number;
-  name: string;
-  birthdate?: Date;
-  weight?: number;
+export interface CatType extends BaseCat {
   breed?: string;
-  photoUrl?: string;
-  restrictions?: string;
-  householdId?: number;
-  createdAt?: Date;
   feedingLogs?: FeedingLog[];
   schedules?: Schedule[];
-  feeding_interval: number; // Intervalo padrão de alimentação em horas
 }
 
 // Feeding Logs

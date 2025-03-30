@@ -20,8 +20,13 @@ export function DataProvider({ children }: DataProviderProps) {
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
 
   useEffect(() => {
+    let isMounted = true;
+
     const loadInitialData = async () => {
-      if (!session?.user || !appState.currentUser) return
+      if (!session?.user || !appState.currentUser) {
+        console.log("Aguardando dados do usuário...");
+        return;
+      }
 
       const loadingId = "initial-data-load"
       addLoadingOperation({
@@ -31,6 +36,7 @@ export function DataProvider({ children }: DataProviderProps) {
       })
 
       try {
+        console.log("Iniciando carregamento de dados...");
         // Carregar domicílios do usuário
         const households = await fetch('/api/households').then(res => res.json())
           .catch(err => {
@@ -38,7 +44,9 @@ export function DataProvider({ children }: DataProviderProps) {
             return []
           })
 
-        if (households && households.length > 0) {
+        console.log("Domicílios carregados:", households);
+
+        if (households && households.length > 0 && isMounted) {
           // Atualizar estado global com os domicílios
           globalDispatch({
             type: "SET_HOUSEHOLDS",
@@ -49,7 +57,9 @@ export function DataProvider({ children }: DataProviderProps) {
           const primaryHousehold = households[0]
           const cats = await getCatsByHouseholdId(primaryHousehold.id)
           
-          if (cats && cats.length > 0) {
+          console.log("Gatos carregados:", cats);
+          
+          if (cats && cats.length > 0 && isMounted) {
             globalDispatch({
               type: "SET_CATS",
               payload: cats,
@@ -58,7 +68,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
           // Carregar logs de alimentação
           const feedingsResponse = await fetch('/api/feedings')
-          if (feedingsResponse.ok) {
+          if (feedingsResponse.ok && isMounted) {
             const feedingsData = await feedingsResponse.json()
             globalDispatch({
               type: "SET_FEEDING_LOGS",
@@ -69,12 +79,18 @@ export function DataProvider({ children }: DataProviderProps) {
       } catch (error) {
         console.error("Erro ao carregar dados iniciais:", error)
       } finally {
-        removeLoadingOperation(loadingId)
+        if (isMounted) {
+          removeLoadingOperation(loadingId)
+        }
       }
     }
 
     loadInitialData()
-  }, [session, appState.currentUser])
+
+    return () => {
+      isMounted = false;
+    }
+  }, [session?.user?.email, appState.currentUser?.id])
 
   return (
     <>
