@@ -220,10 +220,19 @@ export default function Home() {
         <motion.div variants={itemVariants}>
           <Card>
             <CardHeader>
-              <CardTitle>Última Alimentação</CardTitle>
-              <CardDescription>
-                Detalhes da última alimentação registrada
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Última Alimentação</CardTitle>
+                  <CardDescription>
+                    Detalhes da última alimentação registrada
+                  </CardDescription>
+                </div>
+                <Button asChild>
+                  <Link href="/feedings/new">
+                    Alimentar agora
+                  </Link>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {lastFeedingLog ? (
