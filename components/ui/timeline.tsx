@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import type { ReactNode, ReactElement } from "react"
 import { cn } from "@/lib/utils"
 import { motion, HTMLMotionProps } from "framer-motion"
 
@@ -28,7 +29,7 @@ const TimelineItem = React.forwardRef<
   HTMLDivElement,
   Omit<HTMLMotionProps<"div">, "ref"> & {
     date?: Date | string | number
-    title?: React.ReactNode
+    title?: ReactElement | string
     description?: string
     icon?: React.ReactNode
     iconColor?: "primary" | "secondary" | "muted" | "accent"

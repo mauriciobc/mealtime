@@ -13,7 +13,7 @@ import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, PieCha
 import { useAppContext } from "@/lib/context/AppContext"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, Cell, Legend } from "recharts"
+import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, Cell } from "recharts"
 import { DataTableSkeleton } from "@/components/skeletons/data-table-skeleton"
 import NoDataMessage from "@/components/no-data-message"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -27,6 +27,7 @@ import { getUserTimezone } from '@/lib/utils/dateUtils';
 import { useSession } from "next-auth/react"
 import { StatCard } from "@/components/ui/stat-card"
 import { Utensils, Scale, CalendarCheck } from "lucide-react"
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 
 interface FeedingData {
   id: string
@@ -74,35 +75,109 @@ const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F'
 
 const LineChartComponent = ({ timeSeriesData, formatTooltip }: ChartProps) => (
   <div className="h-[300px] w-full">
-    <ResponsiveContainer width="100%" height="100%">
-      <RechartsLineChart data={timeSeriesData}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip formatter={formatTooltip} />
-        <Line type="monotone" dataKey="valor" stroke="#8884d8" />
-      </RechartsLineChart>
-    </ResponsiveContainer>
+    <ChartContainer
+      config={{
+        valor: {
+          label: "Consumo (g)",
+          color: "hsl(var(--primary))",
+        },
+      }}
+      className="[&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
+    >
+      <div className="w-full h-full">
+        <ResponsiveContainer width="100%" height={250}>
+          <RechartsLineChart 
+            data={timeSeriesData}
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="name" 
+              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+            />
+            <YAxis 
+              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+              domain={[0, 'auto']}
+              allowDecimals={false}
+            />
+            <ChartTooltip 
+              content={<ChartTooltipContent />}
+              cursor={{ stroke: 'hsl(var(--muted-foreground))' }}
+            />
+            <Line 
+              type="monotone" 
+              dataKey="valor" 
+              strokeWidth={2}
+              dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2 }}
+              activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
+            />
+          </RechartsLineChart>
+        </ResponsiveContainer>
+        <div className="mt-2">
+          <ChartLegend content={<ChartLegendContent />} />
+        </div>
+      </div>
+    </ChartContainer>
   </div>
 )
 
 const BarChartComponent = ({ timeDistributionData }: ChartProps) => (
   <div className="h-[300px] w-full">
-    <ResponsiveContainer width="100%" height="100%">
-      <RechartsBarChart data={timeDistributionData}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Bar dataKey="valor" fill="#8884d8" />
-      </RechartsBarChart>
-    </ResponsiveContainer>
+    <ChartContainer
+      config={{
+        valor: {
+          label: "Quantidade",
+          theme: {
+            light: "hsl(var(--primary))",
+            dark: "hsl(var(--primary))",
+          },
+        },
+      }}
+      className="[&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
+    >
+      <div className="w-full h-full">
+        <ResponsiveContainer width="100%" height={250}>
+          <RechartsBarChart 
+            data={timeDistributionData}
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis 
+              dataKey="name" 
+              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+            />
+            <YAxis 
+              tick={{ fill: 'hsl(var(--muted-foreground))' }}
+              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
+              domain={[0, 'auto']}
+              allowDecimals={false}
+            />
+            <ChartTooltip 
+              content={<ChartTooltipContent />}
+              cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+            />
+            <Bar 
+              dataKey="valor" 
+              radius={[4, 4, 0, 0]}
+              fill="hsl(var(--primary))"
+              style={{
+                filter: "brightness(1.2)",
+              }}
+            />
+          </RechartsBarChart>
+        </ResponsiveContainer>
+        <div className="mt-2">
+          <ChartLegend content={<ChartLegendContent />} />
+        </div>
+      </div>
+    </ChartContainer>
   </div>
 )
 
 const PieChartComponent = ({ catPortionData, formatTooltip }: ChartProps) => {
-  console.log("PieChartComponent - catPortionData:", catPortionData);
-  
   if (!catPortionData || catPortionData.length === 0) {
     return (
       <div className="h-[300px] w-full flex items-center justify-center">
@@ -111,34 +186,45 @@ const PieChartComponent = ({ catPortionData, formatTooltip }: ChartProps) => {
     );
   }
 
+  const config = catPortionData.reduce((acc, item) => ({
+    ...acc,
+    [item.name]: {
+      label: item.name,
+      color: COLORS[catPortionData.indexOf(item) % COLORS.length],
+    },
+  }), {});
+
   return (
-    <div className="relative h-[300px] w-full">
-      <ResponsiveContainer width="100%" height={300}>
-        <RechartsPieChart>
-          <Pie
-            data={catPortionData}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={80}
-            fill="#8884d8"
-            label={(entry) => `${entry.name}: ${entry.value}g`}
-          >
-            {catPortionData.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
-          <Legend verticalAlign="bottom" height={36} />
-          <Tooltip 
-            formatter={(value) => `${value} g`}
-            labelStyle={{ color: '#666' }}
-          />
-        </RechartsPieChart>
-      </ResponsiveContainer>
+    <div className="h-[300px] w-full">
+      <ChartContainer config={config}>
+        <div className="w-full h-full">
+          <ResponsiveContainer width="100%" height={250}>
+            <RechartsPieChart margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+              <Pie
+                data={catPortionData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label={(entry) => `${entry.name}: ${entry.value}g`}
+                labelLine={false}
+              >
+                {catPortionData.map((entry, index) => (
+                  <Cell 
+                    key={`cell-${index}`} 
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <ChartTooltip content={<ChartTooltipContent />} />
+            </RechartsPieChart>
+          </ResponsiveContainer>
+          <div className="mt-2">
+            <ChartLegend content={<ChartLegendContent />} />
+          </div>
+        </div>
+      </ChartContainer>
     </div>
   );
 }

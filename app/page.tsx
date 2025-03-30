@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -14,10 +14,11 @@ import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCatsByHouseholdId } from "@/lib/services/apiService";
 import { useSession } from "next-auth/react";
-import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis } from "recharts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { FeedingDrawer } from "@/components/feeding-drawer";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
 const calculateProgress = (total: number, current: number) => {
   if (total === 0) return 0;
@@ -33,14 +34,40 @@ export default function Home() {
   const [recentFeedingsData, setRecentFeedingsData] = useState([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  // Memoize cats and feedingLogs to prevent unnecessary re-renders
+  const feedingLogsRef = useRef(state.feedingLogs);
+  const catsRef = useRef(state.cats);
+
+  // Update refs when state changes
   useEffect(() => {
-    if (!state.feedingLogs.length) return;
+    feedingLogsRef.current = state.feedingLogs;
+  }, [state.feedingLogs]);
+
+  useEffect(() => {
+    catsRef.current = state.cats;
+  }, [state.cats]);
+
+  // Paleta de cores temática
+  const colorPalette = [
+    "hsl(var(--primary))",
+    "hsl(var(--secondary))",
+    "hsl(221 83% 53%)", // azul
+    "hsl(142 76% 36%)", // verde
+    "hsl(334 86% 48%)", // rosa
+    "hsl(288 95.8% 60.6%)", // roxo
+    "hsl(31 97.8% 58.8%)", // laranja
+    "hsl(266, 100%, 60%)", // violeta
+  ];
+
+  // Effect for calculating feeding data
+  useEffect(() => {
+    if (!feedingLogsRef.current.length) return;
 
     // Calcular alimentações de hoje
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const todayLogs = state.feedingLogs.filter(log => {
+    const todayLogs = feedingLogsRef.current.filter(log => {
       const logDate = new Date(log.timestamp);
       logDate.setHours(0, 0, 0, 0);
       return logDate.getTime() === today.getTime();
@@ -56,7 +83,7 @@ export default function Home() {
     }).reverse();
 
     const recentData = last7Days.map(date => {
-      const dayLogs = state.feedingLogs.filter(log => {
+      const dayLogs = feedingLogsRef.current.filter(log => {
         const logDate = new Date(log.timestamp);
         logDate.setHours(0, 0, 0, 0);
         const compareDate = new Date(date);
@@ -64,16 +91,24 @@ export default function Home() {
         return logDate.getTime() === compareDate.getTime();
       });
 
-      const totalFood = dayLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0);
+      // Agrupar por gato
+      const catData = catsRef.current.reduce((acc, cat) => {
+        const catLogs = dayLogs.filter(log => log.catId === cat.id);
+        const totalFood = catLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0);
+        return {
+          ...acc,
+          [cat.name]: totalFood
+        };
+      }, {});
 
       return {
         name: format(date, 'EEE', { locale: ptBR }),
-        valor: totalFood
+        ...catData
       };
     });
 
     setRecentFeedingsData(recentData);
-  }, [state.feedingLogs]);
+  }, []);  // Empty dependency array since we're using refs
 
   useEffect(() => {
     // Calcular taxa de conclusão dos agendamentos
@@ -298,35 +333,97 @@ export default function Home() {
                 Acompanhe padrões e dados sobre a alimentação dos seus gatos
               </CardDescription>
             </CardHeader>
-            <CardContent className="pb-2">
-              <div className="h-48 w-full">
+            <CardContent className="p-0">
+              <div className="relative w-full h-[240px]">
                 {recentFeedingsData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart data={recentFeedingsData}>
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false}
-                        tickLine={false}
-                        tick={{ fontSize: 12 }}
-                      />
-                      <YAxis 
-                        hide={true}
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'transparent',
-                          border: 'none',
-                          boxShadow: 'none'
-                        }}
-                        formatter={(value) => [`${value}g de alimento`, '']}
-                      />
-                      <Bar 
-                        dataKey="valor" 
-                        fill="#8884d8"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </RechartsBarChart>
-                  </ResponsiveContainer>
+                  <ChartContainer
+                    config={state.cats.reduce((acc, cat, index) => ({
+                      ...acc,
+                      [cat.name]: {
+                        label: cat.name,
+                        theme: {
+                          light: colorPalette[index % colorPalette.length],
+                          dark: colorPalette[index % colorPalette.length],
+                        },
+                      },
+                    }), {})}
+                  >
+                    <div className="absolute inset-0 px-6">
+                      <ResponsiveContainer>
+                        <RechartsBarChart 
+                          data={recentFeedingsData}
+                          margin={{ top: 24, right: 24, left: 24, bottom: 24 }}
+                          barCategoryGap={40}
+                          barGap={8}
+                        >
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                            tickMargin={12}
+                          />
+                          <YAxis 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                            tickFormatter={(value) => `${value}g`}
+                            width={45}
+                            tickMargin={8}
+                          />
+                          <ChartTooltip 
+                            content={({ active, payload }) => {
+                              if (!active || !payload?.length) return null;
+                              const total = payload.reduce((sum, entry) => sum + (Number(entry.value) || 0), 0);
+                              return (
+                                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                  <div className="flex flex-col gap-1">
+                                    {payload.map((entry, index) => (
+                                      <div key={index} className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-2">
+                                          <div 
+                                            className="w-2 h-2 rounded-full"
+                                            style={{ backgroundColor: entry.color }}
+                                          />
+                                          <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                            {entry.name}
+                                          </span>
+                                        </div>
+                                        <span className="font-bold text-muted-foreground">
+                                          {entry.value}g
+                                        </span>
+                                      </div>
+                                    ))}
+                                    <div className="mt-1 pt-1 border-t border-border">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                          Total
+                                        </span>
+                                        <span className="font-bold">
+                                          {total}g
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }}
+                            cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+                          />
+                          {state.cats.map((cat, index) => (
+                            <Bar 
+                              key={cat.id}
+                              dataKey={cat.name}
+                              stackId="a"
+                              radius={index === state.cats.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
+                              maxBarSize={32}
+                              fill={colorPalette[index % colorPalette.length]}
+                            />
+                          ))}
+                        </RechartsBarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </ChartContainer>
                 ) : (
                   <div className="h-full flex items-center justify-center">
                     <p className="text-muted-foreground">Sem dados para exibir</p>
