@@ -6,14 +6,20 @@ import {
   markNotificationAsRead, 
   markAllNotificationsAsRead,
   deleteNotification,
-  getUnreadNotificationsCount,
-  PaginatedResponse
+  getUnreadNotificationsCount
 } from "@/lib/services/notificationService";
 import { Notification } from "@/lib/types/notification";
 import { useAppContext } from "./AppContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 
 // Types
+interface PaginatedResponse<T> {
+  data: T[];
+  totalPages: number;
+  hasMore: boolean;
+  message?: string;
+}
+
 type NotificationState = {
   notifications: Notification[];
   unreadCount: number;
@@ -51,13 +57,6 @@ interface NotificationContextType {
   loadMore: () => Promise<void>;
 }
 
-interface PaginatedResponse<T> {
-  data: T[];
-  totalPages: number;
-  hasMore: boolean;
-  message?: string;
-}
-
 // Initial state
 const initialState: NotificationState = {
   notifications: [],
@@ -74,61 +73,96 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 // Reducer function
 function notificationReducer(state: NotificationState, action: NotificationAction): NotificationState {
-  switch (action.type) {
-    case "SET_NOTIFICATIONS":
-      return { 
-        ...state, 
-        notifications: action.payload.notifications,
-        totalPages: action.payload.totalPages,
-        hasMore: action.payload.hasMore
-      };
-    case "ADD_NOTIFICATION":
-      const updatedNotifications = [action.payload, ...state.notifications];
-      return { 
-        ...state, 
-        notifications: updatedNotifications,
-        unreadCount: updatedNotifications.filter(n => !n.isRead).length
-      };
-    case "MARK_NOTIFICATION_READ":
-      const markedNotifications = state.notifications.map(notification =>
-        notification.id === action.payload.id
-          ? { ...notification, isRead: true }
-          : notification
-      );
-      return { 
-        ...state, 
-        notifications: markedNotifications,
-        unreadCount: markedNotifications.filter(n => !n.isRead).length
-      };
-    case "MARK_ALL_NOTIFICATIONS_READ":
-      const allReadNotifications = state.notifications.map(notification => ({
-        ...notification,
-        isRead: true
-      }));
-      return { 
-        ...state, 
-        notifications: allReadNotifications,
-        unreadCount: 0
-      };
-    case "REMOVE_NOTIFICATION":
-      const filteredNotifications = state.notifications.filter(
-        notification => notification.id !== action.payload.id
-      );
-      return { 
-        ...state, 
-        notifications: filteredNotifications,
-        unreadCount: filteredNotifications.filter(n => !n.isRead).length
-      };
-    case "SET_LOADING":
-      return { ...state, isLoading: action.payload };
-    case "SET_ERROR":
-      return { ...state, error: action.payload };
-    case "SET_PAGE":
-      return { ...state, page: action.payload };
-    case "SET_UNREAD_COUNT":
-      return { ...state, unreadCount: action.payload };
-    default:
-      return state;
+  try {
+    switch (action.type) {
+      case "SET_NOTIFICATIONS":
+        if (!action.payload) {
+          console.error("Payload inválido para SET_NOTIFICATIONS");
+          return state;
+        }
+        
+        const notifications = Array.isArray(action.payload.notifications) 
+          ? action.payload.notifications 
+          : [];
+          
+        return { 
+          ...state, 
+          notifications,
+          totalPages: action.payload.totalPages ?? 1,
+          hasMore: action.payload.hasMore ?? false
+        };
+      case "ADD_NOTIFICATION":
+        if (!action.payload || typeof action.payload.id !== 'number') {
+          console.error("Payload inválido para ADD_NOTIFICATION");
+          return state;
+        }
+        
+        const notificationExists = state.notifications.some(n => n.id === action.payload.id);
+        if (notificationExists) {
+          return state;
+        }
+        
+        const updatedNotifications = [action.payload, ...state.notifications];
+        return { 
+          ...state, 
+          notifications: updatedNotifications,
+          unreadCount: state.unreadCount + 1
+        };
+      case "MARK_NOTIFICATION_READ":
+        if (!action.payload || typeof action.payload.id !== 'number') {
+          console.error("Payload inválido para MARK_NOTIFICATION_READ");
+          return state;
+        }
+        
+        const markedNotifications = state.notifications.map(notification =>
+          notification.id === action.payload.id
+            ? { ...notification, isRead: true }
+            : notification
+        );
+        return { 
+          ...state, 
+          notifications: markedNotifications,
+          unreadCount: Math.max(0, state.unreadCount - 1)
+        };
+      case "MARK_ALL_NOTIFICATIONS_READ":
+        const allReadNotifications = state.notifications.map(notification => ({
+          ...notification,
+          isRead: true
+        }));
+        return { 
+          ...state, 
+          notifications: allReadNotifications,
+          unreadCount: 0
+        };
+      case "REMOVE_NOTIFICATION":
+        if (!action.payload || typeof action.payload.id !== 'number') {
+          console.error("Payload inválido para REMOVE_NOTIFICATION");
+          return state;
+        }
+        
+        const filteredNotifications = state.notifications.filter(
+          notification => notification.id !== action.payload.id
+        );
+        return { 
+          ...state, 
+          notifications: filteredNotifications,
+          unreadCount: Math.max(0, state.unreadCount - 1)
+        };
+      case "SET_LOADING":
+        return { ...state, isLoading: action.payload };
+      case "SET_ERROR":
+        return { ...state, error: action.payload };
+      case "SET_PAGE":
+        return { ...state, page: Math.max(1, action.payload) };
+      case "SET_UNREAD_COUNT":
+        return { ...state, unreadCount: Math.max(0, action.payload) };
+      default:
+        console.warn(`Ação desconhecida: ${(action as any).type}`);
+        return state;
+    }
+  } catch (error) {
+    console.error("Erro no notificationReducer:", error);
+    return state;
   }
 }
 
@@ -139,9 +173,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const currentUser = appState.currentUser;
 
+  // Verificar se o AppProvider está disponível
+  if (!appState) {
+    console.error('NotificationProvider deve ser usado dentro de um AppProvider');
+    return null;
+  }
+
   // Carregar notificações iniciais
   useEffect(() => {
     if (currentUser?.id) {
+      console.log('Carregando notificações para usuário:', currentUser.id);
       loadNotifications();
       loadUnreadCount();
     }
@@ -149,7 +190,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Carregar notificações
   const loadNotifications = async () => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id) {
+      console.log('Usuário não encontrado, não carregando notificações');
+      return;
+    }
     
     const loadingId = "notifications-load";
     addLoadingOperation({
@@ -159,24 +203,41 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
 
     try {
+      dispatch({ type: "SET_LOADING", payload: true });
+      dispatch({ type: "SET_ERROR", payload: null });
+
       const response = await fetch(`/api/notifications?page=${state.page}`);
-      const data: PaginatedResponse<Notification> = await response.json();
+      const data = await response.json();
       
       if (!response.ok) {
         throw new Error(data.message || "Erro ao carregar notificações");
       }
 
+      console.log('Dados recebidos:', data);
+
+      // Garantir que os dados são válidos antes de atualizar o estado
+      const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+      const totalPages = typeof data.totalPages === 'number' ? data.totalPages : 1;
+      const hasMore = typeof data.hasMore === 'boolean' ? data.hasMore : false;
+
+      console.log('Notificações processadas:', notifications);
+
       dispatch({ 
         type: "SET_NOTIFICATIONS", 
         payload: { 
-          notifications: data.data, 
-          totalPages: data.totalPages,
-          hasMore: data.hasMore 
+          notifications,
+          totalPages,
+          hasMore
         } 
       });
     } catch (error) {
-      dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Erro desconhecido" });
+      console.error("Erro ao carregar notificações:", error);
+      dispatch({ 
+        type: "SET_ERROR", 
+        payload: error instanceof Error ? error.message : "Erro desconhecido" 
+      });
     } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
       removeLoadingOperation(loadingId);
     }
   };
@@ -184,21 +245,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   // Carregar contagem de não lidas
   const loadUnreadCount = async () => {
     if (!currentUser?.id) return;
-
-    const loadingId = "unread-count-load";
-    addLoadingOperation({
-      id: loadingId,
-      priority: 3,
-      description: "Atualizando contagem de notificações..."
-    });
-
+    
     try {
       const count = await getUnreadNotificationsCount(currentUser.id);
       dispatch({ type: "SET_UNREAD_COUNT", payload: count });
     } catch (error) {
       console.error("Erro ao carregar contagem de não lidas:", error);
-    } finally {
-      removeLoadingOperation(loadingId);
     }
   };
 
@@ -211,14 +263,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_ERROR", payload: null });
 
       const nextPage = state.page + 1;
-      const response = await getUserNotifications(currentUser!.id, nextPage);
+      const response = await fetch(`/api/notifications?page=${nextPage}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Erro ao carregar mais notificações");
+      }
+
+      const newNotifications = Array.isArray(data.notifications) ? data.notifications : [];
       
       dispatch({ 
         type: "SET_NOTIFICATIONS", 
         payload: {
-          notifications: [...state.notifications, ...response.notifications],
-          totalPages: response.totalPages,
-          hasMore: response.hasMore
+          notifications: [...state.notifications, ...newNotifications],
+          totalPages: data.totalPages,
+          hasMore: data.hasMore
         }
       });
       dispatch({ type: "SET_PAGE", payload: nextPage });
@@ -254,7 +313,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Function to add a notification
   const addNotification = (notification: Notification) => {
-    dispatch({ type: "ADD_NOTIFICATION", payload: notification });
+    dispatch({ 
+      type: "ADD_NOTIFICATION", 
+      payload: notification 
+    });
+    // Atualizar contagem de não lidas
+    loadUnreadCount();
   };
 
   const markAllAsRead = async () => {

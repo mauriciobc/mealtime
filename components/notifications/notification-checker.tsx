@@ -9,11 +9,8 @@ export default function NotificationChecker() {
   const { status } = useSession();
   
   useEffect(() => {
-    // Desativa temporariamente a verificação automática de notificações
-    // para evitar erros na página de alimentação
+    const CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutos
     
-    /*
-    const CHECK_INTERVAL = 5 * 60 * 1000;
     const intervalId = setInterval(() => {
       checkNotifications().catch(err => {
         console.warn('Erro ao verificar notificações:', err);
@@ -30,7 +27,6 @@ export default function NotificationChecker() {
         console.error('Erro ao verificar notificações:', error);
       }
     }
-    */
   }, [status]);
   
   return null;

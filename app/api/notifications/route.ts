@@ -96,10 +96,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const notifications: Notification[] = await request.json();
+    const payload = await request.json();
+    const notifications = Array.isArray(payload) ? payload : [payload];
     
     // Validar se todas as notificações pertencem ao usuário
-    const userId = (session.user as any).id;
+    const userId = typeof session.user.id === 'string' ? parseInt(session.user.id) : session.user.id;
     const validNotifications = notifications.every(n => n.userId === userId);
     
     if (!validNotifications) {
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    return NextResponse.json(savedNotifications);
+    return NextResponse.json(Array.isArray(payload) ? savedNotifications : savedNotifications[0]);
   } catch (error) {
     console.error('Erro ao salvar notificações:', error);
     return NextResponse.json(

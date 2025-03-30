@@ -27,7 +27,6 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
           <GlobalStateProvider>
             <NotificationProvider>
               <AnimationProvider>
-                <UserDataLoader />
                 <DataProvider>
                   <ClientLayout>
                     {children}
@@ -36,6 +35,7 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
                   <NotificationChecker />
                   <OnboardingTour />
                 </DataProvider>
+                <UserDataLoader />
               </AnimationProvider>
             </NotificationProvider>
           </GlobalStateProvider>

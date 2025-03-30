@@ -38,18 +38,18 @@ export function NotificationItem({
   const getIcon = () => {
     switch (type) {
       case 'feeding':
-        return <Utensils className="h-5 w-5 text-blue-500" />;
+        return <Utensils className="h-5 w-5 text-primary" />;
       case 'household':
-        return <Users className="h-5 w-5 text-green-500" />;
+        return <Users className="h-5 w-5 text-emerald-500" />;
       case 'warning':
-        return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+        return <AlertTriangle className="h-5 w-5 text-yellow-500" />;
       case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
+        return <AlertCircle className="h-5 w-5 text-destructive" />;
       case 'info':
-        return <Info className="h-5 w-5 text-blue-500" />;
+        return <Info className="h-5 w-5 text-primary" />;
       case 'system':
       default:
-        return <Bell className="h-5 w-5 text-gray-500" />;
+        return <Bell className="h-5 w-5 text-muted-foreground" />;
     }
   };
   
@@ -63,8 +63,8 @@ export function NotificationItem({
   const content = (
     <div 
       className={cn(
-        "flex items-start gap-3 p-3 hover:bg-muted/50 cursor-pointer",
-        !isRead && "bg-blue-50"
+        "flex items-start gap-3 p-3 hover:bg-accent cursor-pointer rounded-lg transition-colors",
+        !isRead && "bg-accent/50"
       )}
       onClick={onClick}
     >
@@ -78,7 +78,7 @@ export function NotificationItem({
             <Button 
               variant="ghost" 
               size="icon" 
-              className="h-6 w-6 -mt-1 -mr-1 text-muted-foreground" 
+              className="h-6 w-6 -mt-1 -mr-1 text-muted-foreground hover:text-destructive" 
               onClick={handleDelete}
             >
               <Trash2 className="h-4 w-4" />
@@ -90,7 +90,7 @@ export function NotificationItem({
         <p className="text-xs text-muted-foreground mt-1">{timeAgo}</p>
       </div>
       {!isRead && (
-        <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5" />
+        <div className="w-2 h-2 bg-primary rounded-full mt-1.5" />
       )}
     </div>
   );
