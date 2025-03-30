@@ -1,10 +1,14 @@
-import { use } from "react"
+import { Suspense } from "react"
 import CatDetails from "@/app/components/cat-details"
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 export default function CatPage({ params }: PageProps) {
-  return <CatDetails params={params} />
+  return (
+    <Suspense fallback={<div>Carregando...</div>}>
+      <CatDetails params={Promise.resolve(params)} />
+    </Suspense>
+  )
 }

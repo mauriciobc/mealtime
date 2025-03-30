@@ -71,7 +71,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
     formattedTimeDistance, 
     isLoading, 
     handleMarkAsFed 
-  } = useFeeding(resolvedParams.id)
+  } = useFeeding(numericId)
   const [isClient, setIsClient] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -221,17 +221,19 @@ export default function CatDetails({ params }: CatDetailsProps) {
             
             {/* Next Feeding Info */}
             {nextFeedingTime && (
-              <div className="mt-4 bg-primary/10 rounded-lg p-3 flex items-center justify-between">
-                <div className="flex items-center">
-                  <AlarmClock className="h-5 w-5 text-primary mr-2" />
+              <div className="mt-4 bg-card rounded-xl p-4 flex items-center justify-between border shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="bg-primary/10 p-2 rounded-lg">
+                    <AlarmClock className="h-5 w-5 text-primary" />
+                  </div>
                   <div>
-                    <p className="text-sm font-medium text-primary-foreground/90">Próxima alimentação</p>
-                    <p className="text-xs text-primary-foreground/70">
+                    <p className="text-sm font-medium text-card-foreground">Próxima alimentação</p>
+                    <p className="text-xs text-muted-foreground">
                       {isClient && nextFeedingTime ? (
                         <>
                           {formattedNextFeedingTime}
                           {" "}
-                          ({formattedTimeDistance})
+                          <span className="text-muted-foreground/60">({formattedTimeDistance})</span>
                         </>
                       ) : (
                         "Carregando..."
@@ -239,7 +241,12 @@ export default function CatDetails({ params }: CatDetailsProps) {
                     </p>
                   </div>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => handleMarkAsFed()}>
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  onClick={() => handleMarkAsFed()}
+                  className="shadow-none"
+                >
                   Alimentar agora
                 </Button>
               </div>

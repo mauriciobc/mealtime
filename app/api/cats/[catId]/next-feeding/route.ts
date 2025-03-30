@@ -6,10 +6,11 @@ import { addHours, addMinutes, format, parse } from 'date-fns';
 
 export async function GET(
   request: Request,
-  { params }: { params: { catId: string } }
+  context: { params: { catId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
+    const params = await context.params;
     
     if (!session?.user) {
       return NextResponse.json(
