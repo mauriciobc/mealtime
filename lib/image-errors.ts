@@ -1,3 +1,17 @@
+export class ImageValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ImageValidationError';
+  }
+}
+
+export class ImageProcessingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ImageProcessingError';
+  }
+}
+
 export const formatErrorMessage = (error: unknown): string => {
   if (error instanceof Error) {
     return error.message;

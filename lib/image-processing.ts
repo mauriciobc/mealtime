@@ -68,9 +68,13 @@ export const processImage = async (
 export const validateImage = async (filePath: string): Promise<void> => {
   const stats = fs.statSync(filePath);
   const fileSizeInMB = stats.size / (1024 * 1024);
+  const MAX_FILE_SIZE_MB = 10; // Aumentado para 10MB
 
-  if (fileSizeInMB > 5) {
-    throw new ImageValidationError('O tamanho do arquivo deve ser menor que 5MB');
+  if (fileSizeInMB > MAX_FILE_SIZE_MB) {
+    throw new ImageValidationError(
+      `O tamanho do arquivo (${fileSizeInMB.toFixed(2)}MB) excede o limite de ${MAX_FILE_SIZE_MB}MB. ` +
+      'Por favor, escolha uma imagem menor ou comprima a imagem antes de fazer o upload.'
+    );
   }
 
   const metadata = await sharp(filePath).metadata();

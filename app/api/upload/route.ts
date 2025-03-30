@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processImage, validateImage } from '@/lib/image-processing';
 import { imageCache } from '@/lib/image-cache';
-import { writeFile } from 'fs/promises';
+import { writeFile, unlink, readFile } from 'fs/promises';
 import path from 'path';
 import { mkdir } from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 
 // POST /api/upload - Fazer upload de uma imagem
 export async function POST(request: NextRequest) {
+  let tempFilePath: string | null = null;
+  
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -34,29 +36,22 @@ export async function POST(request: NextRequest) {
     
     // Salvar arquivo temporariamente
     const tempFileName = `${uuidv4()}-${file.name}`;
-    const tempFilePath = path.join(tempDir, tempFileName);
+    tempFilePath = path.join(tempDir, tempFileName);
     const fileBuffer = await file.arrayBuffer();
     await writeFile(tempFilePath, Buffer.from(fileBuffer));
 
-    try {
-      // Validar imagem
-      await validateImage(tempFilePath);
+    // Validar imagem
+    await validateImage(tempFilePath);
 
-      // Processar imagem
-      const processedImagePath = await processImage(tempFilePath, type, file.name);
+    // Processar imagem
+    const processedImagePath = await processImage(tempFilePath, type, file.name);
 
-      // Ler o arquivo processado
-      const processedImageBuffer = await writeFile(tempFilePath, Buffer.from([]));
+    // Ler o arquivo processado e adicionar ao cache
+    const processedImageBuffer = await readFile(tempFilePath);
+    await imageCache.set(processedImagePath, processedImageBuffer);
 
-      // Adicionar ao cache
-      await imageCache.set(processedImagePath, processedImageBuffer, type);
-
-      // Retornar URL da imagem processada
-      return NextResponse.json({ url: `/${processedImagePath}` }, { status: 201 });
-    } finally {
-      // Limpar arquivo temporário
-      await writeFile(tempFilePath, Buffer.from([]));
-    }
+    // Retornar URL da imagem processada
+    return NextResponse.json({ url: `/${processedImagePath}` }, { status: 201 });
   } catch (error) {
     console.error('Erro ao fazer upload de arquivo:', error);
     
@@ -72,14 +67,22 @@ export async function POST(request: NextRequest) {
       { error: 'Ocorreu um erro ao fazer upload do arquivo' },
       { status: 500 }
     );
+  } finally {
+    // Limpar arquivo temporário
+    if (tempFilePath) {
+      try {
+        await unlink(tempFilePath);
+      } catch (error) {
+        console.error('Erro ao limpar arquivo temporário:', error);
+      }
+    }
   }
 }
 
 // GET /api/upload/cache/stats - Obter estatísticas do cache
 export async function GET(request: NextRequest) {
   try {
-    const stats = imageCache.getStats();
-    return NextResponse.json(stats);
+    return NextResponse.json({ message: 'Cache stats endpoint removed' });
   } catch (error) {
     console.error('Erro ao obter estatísticas do cache:', error);
     return NextResponse.json(

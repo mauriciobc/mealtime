@@ -129,7 +129,7 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
               </Button>
             )}
             <Link href="/" className="flex items-center gap-2">
-              <span className="font-bold">{title || "MealTime"}</span>
+              <img src="/images/mealtime-logo.svg" alt="MealTime" className="h-8 w-auto" />
             </Link>
           </div>
 

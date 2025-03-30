@@ -144,3 +144,128 @@
   - [ ] Documentar processo de atualização
   - [ ] Adicionar instruções de debug
   - [ ] Criar checklist de validação 
+
+## Controle de Peso
+- [ ] Configurar Estrutura de Dados
+  - [ ] Criar schema no Prisma (`prisma/schema.prisma`)
+    ```prisma
+    model WeightRecord {
+      id        String   @id @default(cuid())
+      catId     String
+      weight    Float
+      date      DateTime @default(now())
+      notes     String?
+      createdAt DateTime @default(now())
+      updatedAt DateTime @updatedAt
+      cat       Cat      @relation(fields: [catId], references: [id])
+    }
+
+    model Cat {
+      // ... existing fields ...
+      weightRecords WeightRecord[]
+      targetWeight  Float?
+      weightGoal    String? // "gain", "lose", "maintain"
+    }
+    ```
+
+- [ ] Implementar Backend
+  - [ ] Criar rota de API em `src/app/api/cats/[catId]/weight/route.ts`
+    - [ ] Implementar GET para histórico de peso
+    - [ ] Implementar POST para novo registro
+    - [ ] Implementar PUT para atualizar meta de peso
+  - [ ] Criar serviço em `src/services/weightService.ts`
+    - [ ] Implementar funções de CRUD
+    - [ ] Adicionar validações com Zod
+    - [ ] Implementar cálculos de progresso
+
+- [ ] Desenvolver Interface do Usuário
+  - [ ] Criar componente de dashboard em `src/components/weight/WeightDashboard.tsx`
+    - [ ] Implementar gráfico com Chart.js
+    - [ ] Adicionar indicadores de progresso
+    - [ ] Criar formulário de entrada de peso
+  - [ ] Criar componente de meta em `src/components/weight/WeightGoal.tsx`
+    - [ ] Implementar formulário de definição de meta
+    - [ ] Adicionar validações
+    - [ ] Criar visualização de progresso
+
+- [ ] Implementar Lógica de Negócio
+  - [ ] Criar utilitários em `src/utils/weightCalculations.ts`
+    - [ ] Implementar cálculo de progresso
+    - [ ] Adicionar validações de peso
+    - [ ] Criar funções de recomendação
+  - [ ] Implementar sistema de notificações
+    - [ ] Criar triggers para alertas
+    - [ ] Implementar notificações push
+    - [ ] Adicionar emails de atualização
+
+- [ ] Testes e Validação
+  - [ ] Criar testes unitários em `src/tests/weight.test.ts`
+    - [ ] Testar cálculos de progresso
+    - [ ] Validar regras de negócio
+    - [ ] Testar integrações
+  - [ ] Implementar testes de integração
+    - [ ] Testar fluxo completo
+    - [ ] Validar persistência
+    - [ ] Testar erros
+
+- [ ] Documentação
+  - [ ] Criar guia de uso em `docs/weight-tracking.md`
+    - [ ] Documentar funcionalidades
+    - [ ] Adicionar exemplos
+    - [ ] Incluir FAQs
+  - [ ] Adicionar comentários no código
+    - [ ] Documentar funções complexas
+    - [ ] Explicar regras de negócio
+    - [ ] Adicionar exemplos de uso
+
+### Marcos de Implementação
+
+1. **Semana 1: Estrutura e Dados**
+   - Configurar schema do Prisma
+   - Implementar tipos TypeScript
+   - Criar rotas básicas da API
+
+2. **Semana 2: Backend e Serviços**
+   - Implementar CRUD completo
+   - Adicionar validações
+   - Configurar cálculos básicos
+
+3. **Semana 3: Interface do Usuário**
+   - Desenvolver dashboard
+   - Criar formulários
+   - Implementar visualizações
+
+4. **Semana 4: Lógica e Testes**
+   - Implementar cálculos avançados
+   - Adicionar sistema de notificações
+   - Criar testes unitários
+
+5. **Semana 5: Refinamento e Documentação**
+   - Otimizar performance
+   - Adicionar documentação
+   - Realizar testes de integração
+
+### Notas para o Desenvolvedor
+
+1. **Arquivos Principais a Modificar:**
+   - `prisma/schema.prisma`: Adicionar modelos de peso
+   - `src/app/api/cats/[catId]/weight/route.ts`: Implementar endpoints
+   - `src/components/weight/WeightDashboard.tsx`: Criar interface principal
+   - `src/services/weightService.ts`: Implementar lógica de negócio
+
+2. **Dependências a Instalar:**
+   ```bash
+   npm install chart.js react-chartjs-2 @prisma/client zod
+   ```
+
+3. **Considerações Importantes:**
+   - Validar todos os inputs de peso
+   - Implementar tratamento de erros robusto
+   - Garantir performance do gráfico
+   - Manter consistência com o design existente
+
+4. **Próximos Passos Após Implementação:**
+   - Realizar code review
+   - Testar em diferentes dispositivos
+   - Coletar feedback dos usuários
+   - Planejar melhorias futuras 
