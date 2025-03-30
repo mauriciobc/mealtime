@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useCallback } from 'react';
 
 interface LoadingOperation {
   id: string;
@@ -59,17 +59,17 @@ function loadingReducer(state: LoadingState, action: LoadingAction): LoadingStat
 export function LoadingProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(loadingReducer, initialState);
 
-  const addLoadingOperation = (operation: LoadingOperation) => {
+  const addLoadingOperation = useCallback((operation: LoadingOperation) => {
     dispatch({ type: 'ADD_OPERATION', payload: operation });
-  };
+  }, []);
 
-  const removeLoadingOperation = (id: string) => {
+  const removeLoadingOperation = useCallback((id: string) => {
     dispatch({ type: 'REMOVE_OPERATION', payload: id });
-  };
+  }, []);
 
-  const clearLoadingOperations = () => {
+  const clearLoadingOperations = useCallback(() => {
     dispatch({ type: 'CLEAR_OPERATIONS' });
-  };
+  }, []);
 
   return (
     <LoadingContext.Provider

@@ -63,7 +63,7 @@ export function UserDataLoader() {
     };
 
     loadData();
-  }, [session?.user?.email, session?.user?.name, session?.user?.image, dispatch, addLoadingOperation, removeLoadingOperation]);
+  }, [session?.user, dispatch, addLoadingOperation, removeLoadingOperation]);
 
   return null;
 } 
