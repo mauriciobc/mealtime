@@ -2,16 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock, PlusCircle } from "lucide-react";
+import { Clock, PlusCircle } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
-import { PageHeader } from "@/components/page-header";
 import { useGlobalState } from "@/lib/context/global-state";
 import { Schedule } from "@/lib/types";
 import { ScheduleItem } from "@/components/schedule-item";
 import { Button } from "@/components/ui/button";
+import { FeedingTimeline } from "@/components/feeding-timeline";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { getNextScheduledTime } from "@/lib/utils/dateUtils";
 
 export default function SchedulesPage() {
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function SchedulesPage() {
   const handleDeleteSchedule = (scheduleId: string) => {
     dispatch({
       type: "DELETE_SCHEDULE",
-      payload: { id: scheduleId },
+      payload: scheduleId,
     });
   };
 
@@ -52,16 +53,25 @@ export default function SchedulesPage() {
     }
   };
 
+  // Transformar agendamentos em eventos do timeline
+  const timelineEvents = state.schedules
+    .filter(schedule => schedule.enabled)
+    .map(schedule => {
+      const nextTime = getNextScheduledTime(schedule);
+      return {
+        id: String(schedule.id),
+        date: nextTime || new Date(),
+        title: `Alimentação - ${schedule.cat?.name || 'Gato'}`,
+        description: schedule.type === 'interval' 
+          ? `A cada ${schedule.interval} horas`
+          : `Horários: ${schedule.times}`,
+        status: "pending" as const
+      };
+    })
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <PageHeader
-        title="Agendamentos"
-        description="Gerencie os horários de alimentação dos seus gatos"
-        actionLabel="Novo Agendamento"
-        actionHref="/schedules/new"
-        icon={<Calendar className="h-6 w-6" />}
-      />
-
       {isLoading ? (
         <Loading />
       ) : state.schedules.length === 0 ? (
@@ -101,18 +111,27 @@ export default function SchedulesPage() {
           >
             {state.schedules
               .filter(schedule => schedule.enabled)
-              .sort((a, b) => a.time.localeCompare(b.time))
+              .sort((a, b) => {
+                const aTime = getNextScheduledTime(a);
+                const bTime = getNextScheduledTime(b);
+                return (aTime?.getTime() || 0) - (bTime?.getTime() || 0);
+              })
               .map((schedule: Schedule) => (
                 <motion.div key={schedule.id} variants={itemVariants}>
                   <ScheduleItem
                     schedule={schedule}
                     onView={() => router.push(`/schedules/${schedule.id}`)}
                     onEdit={() => router.push(`/schedules/${schedule.id}/edit`)}
-                    onDelete={() => handleDeleteSchedule(schedule.id)}
+                    onDelete={() => handleDeleteSchedule(String(schedule.id))}
                   />
                 </motion.div>
               ))}
           </motion.div>
+
+          <div className="mt-8">
+            <h2 className="text-xl font-medium mb-4">Próximas Alimentações</h2>
+            <FeedingTimeline events={timelineEvents} />
+          </div>
         </>
       )}
     </div>

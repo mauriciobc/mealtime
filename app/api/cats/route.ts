@@ -14,19 +14,13 @@ export async function GET(request: NextRequest) {
 
     const cats = await prisma.cat.findMany({
       where,
-      include: {
-        household: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        feedingLogs: {
-          take: 1,
-          orderBy: {
-            timestamp: 'desc'
-          }
-        }
+      select: {
+        id: true,
+        name: true,
+        photoUrl: true
+      },
+      orderBy: {
+        name: 'asc'
       }
     });
 

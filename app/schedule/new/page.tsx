@@ -25,13 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AppHeader } from "@/components/app-header";
 import PageTransition from "@/components/page-transition";
 import { getCats } from "@/lib/data";
 import { toast } from "@/components/ui/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TimeField } from "@/components/ui/time-field";
 import { Separator } from "@/components/ui/separator";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
 // Definindo a interface para o gato
 interface CatType {
@@ -170,7 +171,12 @@ export default function NewSchedulePage() {
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title="Novo Agendamento" showBackButton />
+        <div className="flex items-center p-4 border-b">
+          <Link href="/schedule" className="flex items-center text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Voltar
+          </Link>
+        </div>
 
         <div className="flex-1 p-4">
           <motion.div

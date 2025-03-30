@@ -224,32 +224,11 @@ export const getNextFeedingTime = getNextFeedingTimeFromApi;
 // Buscar todos os gatos
 export async function getCats(householdId?: number) {
   try {
-    const where = householdId 
-      ? { householdId } 
-      : {};
-    
-    const cats = await prisma.cat.findMany({
-      where,
-      include: {
-        household: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        feedingLogs: {
-          take: 1,
-          orderBy: {
-            timestamp: 'desc'
-          }
-        }
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-    
-    return cats;
+    const response = await fetch('/api/cats');
+    if (!response.ok) {
+      throw new Error('Falha ao buscar gatos');
+    }
+    return await response.json();
   } catch (error) {
     console.error("Erro ao buscar gatos:", error);
     return [];
