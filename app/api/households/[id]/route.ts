@@ -21,12 +21,10 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-    console.log('Session:', session);
     
     if (!session?.user) {
-      console.log('Usuário não autenticado');
       return NextResponse.json(
-        { error: 'Não autorizado' },
+        { error: 'Você precisa estar logado para acessar esta página' },
         { 
           status: 401,
           headers: corsHeaders
@@ -34,22 +32,32 @@ export async function GET(
       );
     }
 
-    const { id } = params;
-    console.log('Buscando household:', id);
+    // Aguardar os parâmetros da rota
+    const resolvedParams = await Promise.resolve(params);
+    const { id } = resolvedParams;
+    const householdId = parseInt(id);
+    
+    if (isNaN(householdId)) {
+      return NextResponse.json(
+        { error: 'ID do domicílio inválido' },
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
+    }
 
-    // Validar se a household existe
     const household = await prisma.household.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: householdId },
       include: {
-        members: true,
+        users: true,
         cats: true
       }
     });
 
     if (!household) {
-      console.log('Household não encontrada:', id);
       return NextResponse.json(
-        { error: 'Household não encontrada' },
+        { error: 'Domicílio não encontrado' },
         { 
           status: 404,
           headers: corsHeaders
@@ -57,11 +65,9 @@ export async function GET(
       );
     }
 
-    // Verificar se o usuário tem acesso à household
-    if (session.user.householdId !== parseInt(id)) {
-      console.log('Usuário não tem acesso à household:', id);
+    if (session.user.householdId !== householdId) {
       return NextResponse.json(
-        { error: 'Acesso negado' },
+        { error: 'Você não tem permissão para acessar este domicílio' },
         { 
           status: 403,
           headers: corsHeaders
@@ -75,7 +81,7 @@ export async function GET(
   } catch (error) {
     console.error('Erro ao buscar household:', error);
     return NextResponse.json(
-      { error: 'Erro ao buscar household' },
+      { error: 'Ocorreu um erro ao buscar os detalhes do domicílio. Tente novamente mais tarde.' },
       { 
         status: 500,
         headers: corsHeaders

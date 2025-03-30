@@ -35,6 +35,7 @@ export async function GET() {
       )
     }
 
+    console.log('User from database:', user);
     return NextResponse.json(user)
   } catch (error) {
     console.error("Erro ao buscar configurações:", error)

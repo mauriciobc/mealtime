@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { useGlobalState } from "@/lib/context/global-state"
+import { useAppContext } from "@/lib/context/AppContext"
 import { getCatsByHouseholdId } from "@/lib/services/apiService"
 import { CatType } from "@/lib/types"
 import LoadingSpinner from "@/components/loading-spinner"
@@ -13,13 +14,14 @@ interface DataProviderProps {
 
 export function DataProvider({ children }: DataProviderProps) {
   const { data: session } = useSession()
-  const { state, dispatch } = useGlobalState()
+  const { state: globalState, dispatch: globalDispatch } = useGlobalState()
+  const { state: appState } = useAppContext()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadInitialData = async () => {
-      if (!session?.user) return
+      if (!session?.user || !appState.currentUser) return
 
       try {
         setIsLoading(true)
@@ -34,7 +36,7 @@ export function DataProvider({ children }: DataProviderProps) {
 
         if (households && households.length > 0) {
           // Atualizar estado global com os domicílios
-          dispatch({
+          globalDispatch({
             type: "SET_HOUSEHOLDS",
             payload: households
           })
@@ -44,7 +46,7 @@ export function DataProvider({ children }: DataProviderProps) {
           const cats = await getCatsByHouseholdId(primaryHousehold.id)
           
           if (cats && cats.length > 0) {
-            dispatch({
+            globalDispatch({
               type: "SET_CATS",
               payload: cats,
             })
@@ -54,7 +56,7 @@ export function DataProvider({ children }: DataProviderProps) {
           const feedingsResponse = await fetch('/api/feedings')
           if (feedingsResponse.ok) {
             const feedingsData = await feedingsResponse.json()
-            dispatch({
+            globalDispatch({
               type: "SET_FEEDING_LOGS",
               payload: feedingsData
             })
@@ -68,10 +70,8 @@ export function DataProvider({ children }: DataProviderProps) {
       }
     }
 
-    if (session?.user) {
-      loadInitialData()
-    }
-  }, [session, dispatch])
+    loadInitialData()
+  }, [session, appState.currentUser, globalDispatch])
 
   if (error) {
     return (

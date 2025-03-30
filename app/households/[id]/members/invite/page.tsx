@@ -75,22 +75,36 @@ export default function HouseholdInvitePage({ params }: PageProps) {
     try {
       setIsLoading(true);
       const response = await fetch(`/api/households/${resolvedParams.id}`);
+      const data = await response.json();
       
       if (!response.ok) {
-        if (response.status === 404) {
-          toast.error("Domicílio não encontrado");
-          router.push("/households");
-          return;
+        switch (response.status) {
+          case 401:
+            toast.error("Você precisa estar logado para acessar esta página");
+            router.push("/login");
+            return;
+          case 403:
+            toast.error("Você não tem permissão para acessar este domicílio");
+            router.push("/households");
+            return;
+          case 404:
+            toast.error("Domicílio não encontrado");
+            router.push("/households");
+            return;
+          case 400:
+            toast.error(data.error || "ID do domicílio inválido");
+            router.push("/households");
+            return;
+          default:
+            throw new Error(data.error || 'Falha ao carregar detalhes do domicílio');
         }
-        throw new Error('Falha ao carregar detalhes do domicílio');
       }
       
-      const data = await response.json();
       setHousehold(data);
       setInviteCode(data.inviteCode);
     } catch (error) {
       console.error('Erro ao carregar detalhes do domicílio:', error);
-      toast.error("Não foi possível carregar os detalhes do domicílio");
+      toast.error("Não foi possível carregar os detalhes do domicílio. Tente novamente mais tarde.");
     } finally {
       setIsLoading(false);
     }
@@ -98,13 +112,13 @@ export default function HouseholdInvitePage({ params }: PageProps) {
   
   // Verificar se o usuário tem permissão para convidar (é administrador)
   const currentUser = state.currentUser;
-  const userRole = household?.members.find(
-    (member: any) => member.id === currentUser?.id
-  )?.role || "member";
-  const isAdmin = userRole === "admin";
+  console.log('Current User:', currentUser);
+  const isAdmin = currentUser?.role === "admin";
+  console.log('Is Admin:', isAdmin);
   
   useEffect(() => {
     if (!isLoading && household !== null) {
+      console.log('Checking permissions:', { isLoading, household, isAdmin });
       if (!isAdmin) {
         toast.error("Apenas administradores podem convidar novos membros");
         router.push(`/households/${resolvedParams.id}`);

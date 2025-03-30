@@ -179,6 +179,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             throw new Error('Falha ao carregar configurações')
           }
           const userData = await response.json()
+          console.log('User Data from API:', userData);
           
           const currentUser = {
             id: Number(userData.id),
@@ -197,8 +198,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 householdUpdates: true,
               },
             },
-            role: (userData.role as "admin" | "user") || "user"
+            role: userData.role || "user"
           };
+          console.log('Processed Current User:', currentUser);
           dispatch({ type: "SET_CURRENT_USER", payload: currentUser });
         } else {
           dispatch({ type: "SET_CURRENT_USER", payload: null });
