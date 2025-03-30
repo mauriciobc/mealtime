@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PlusCircle, Search, Filter, Clock, Calendar, Repeat, AlarmClock, Edit, Trash2 } from "lucide-react"
 import Link from "next/link"
 import PageTransition from "@/components/page-transition"
-import { AppHeader } from "@/components/app-header"
 import BottomNav from "@/components/bottom-nav"
 import { motion } from "framer-motion"
 import { getSchedules } from "@/lib/data"
@@ -130,8 +129,6 @@ export default function SchedulePage() {
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title="Agendamentos" />
-        
         <div className="p-4">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold">Agendamentos de Alimentação</h1>

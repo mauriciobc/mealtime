@@ -25,6 +25,8 @@ import { useGlobalState } from "@/lib/context/global-state"
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { getUserTimezone } from '@/lib/utils/dateUtils';
 import { useSession } from "next-auth/react"
+import { StatCard } from "@/components/ui/stat-card"
+import { Utensils, Scale, CalendarCheck } from "lucide-react"
 
 interface FeedingData {
   id: string
@@ -276,7 +278,7 @@ export default function StatisticsPage() {
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 pb-24">
           <PageHeader
             title="Estatísticas"
             description="Análise dos padrões de alimentação dos seus gatos"
@@ -342,47 +344,39 @@ export default function StatisticsPage() {
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
               >
                 <motion.div variants={itemVariants}>
-                  <Card>
-                    <CardHeader className="py-4 px-5">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Total de Alimentações</CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-0 px-5">
-                      <p className="text-2xl font-bold">{statsSummary.totalFeedings}</p>
-                    </CardContent>
-                  </Card>
+                  <StatCard
+                    title="Total de Alimentações"
+                    value={statsSummary.totalFeedings}
+                    icon={<Utensils className="h-4 w-4" />}
+                    description="Registros no período"
+                  />
                 </motion.div>
                 
                 <motion.div variants={itemVariants}>
-                  <Card>
-                    <CardHeader className="py-4 px-5">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Porção Média</CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-0 px-5">
-                      <p className="text-2xl font-bold">{formatNumber(statsSummary.averagePortionSize)} g</p>
-                    </CardContent>
-                  </Card>
+                  <StatCard
+                    title="Porção Média"
+                    value={`${formatNumber(statsSummary.averagePortionSize)} g`}
+                    icon={<Scale className="h-4 w-4" />}
+                    description="Por alimentação"
+                  />
                 </motion.div>
                 
                 <motion.div variants={itemVariants}>
-                  <Card>
-                    <CardHeader className="py-4 px-5">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Máx. Dias Consecutivos</CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-0 px-5">
-                      <p className="text-2xl font-bold">{statsSummary.maxConsecutiveDays}</p>
-                    </CardContent>
-                  </Card>
+                  <StatCard
+                    title="Máx. Dias Consecutivos"
+                    value={statsSummary.maxConsecutiveDays}
+                    icon={<CalendarCheck className="h-4 w-4" />}
+                    description="Sequência de registros"
+                  />
                 </motion.div>
                 
                 <motion.div variants={itemVariants}>
-                  <Card>
-                    <CardHeader className="py-4 px-5">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">Alimentações Perdidas</CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-0 px-5">
-                      <p className="text-2xl font-bold">{statsSummary.missedSchedules}</p>
-                    </CardContent>
-                  </Card>
+                  <StatCard
+                    title="Alimentações Perdidas"
+                    value={statsSummary.missedSchedules}
+                    icon={<AlertTriangle className="h-4 w-4" />}
+                    description="Horários não registrados"
+                  />
                 </motion.div>
               </motion.div>
               
