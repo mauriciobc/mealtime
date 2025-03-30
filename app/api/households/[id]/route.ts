@@ -65,7 +65,11 @@ export async function GET(
       );
     }
 
-    if (session.user.householdId !== householdId) {
+    // Verificar se o usuário atual pertence ao domicílio
+    const userId = parseInt(session.user.id as string);
+    const userBelongsToHousehold = household.users.some(user => user.id === userId);
+
+    if (!userBelongsToHousehold) {
       return NextResponse.json(
         { error: 'Você não tem permissão para acessar este domicílio' },
         { 
@@ -75,7 +79,26 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(household, {
+    // Formatar a resposta
+    const formattedHousehold = {
+      id: String(household.id as unknown),
+      name: household.name,
+      inviteCode: household.inviteCode,
+      members: household.users.map(user => ({
+        id: String(user.id as unknown),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isCurrentUser: user.id === userId
+      })),
+      cats: household.cats.map(cat => ({
+        id: String(cat.id as unknown),
+        name: cat.name,
+        photoUrl: cat.photoUrl
+      }))
+    };
+
+    return NextResponse.json(formattedHousehold, {
       headers: corsHeaders
     });
   } catch (error) {
@@ -109,16 +132,31 @@ export async function PATCH(
     }
 
     const { id } = params;
+    const householdId = parseInt(id);
+
+    if (isNaN(householdId)) {
+      return NextResponse.json(
+        { error: 'ID do domicílio inválido' },
+        { 
+          status: 400,
+          headers: corsHeaders
+        }
+      );
+    }
+
     const body = await request.json();
 
-    // Validar se a household existe
+    // Validar se a household existe e buscar usuários
     const household = await prisma.household.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: householdId },
+      include: {
+        users: true
+      }
     });
 
     if (!household) {
       return NextResponse.json(
-        { error: 'Household não encontrada' },
+        { error: 'Domicílio não encontrado' },
         { 
           status: 404,
           headers: corsHeaders
@@ -126,10 +164,23 @@ export async function PATCH(
       );
     }
 
-    // Verificar se o usuário tem acesso à household
-    if (session.user.householdId !== parseInt(id)) {
+    // Verificar se o usuário atual pertence ao domicílio e é admin
+    const userId = parseInt(session.user.id as string);
+    const currentUser = household.users.find(user => user.id === userId);
+
+    if (!currentUser) {
       return NextResponse.json(
-        { error: 'Acesso negado' },
+        { error: 'Você não tem permissão para acessar este domicílio' },
+        { 
+          status: 403,
+          headers: corsHeaders
+        }
+      );
+    }
+
+    if (currentUser.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Apenas administradores podem editar o domicílio' },
         { 
           status: 403,
           headers: corsHeaders
@@ -139,14 +190,37 @@ export async function PATCH(
 
     // Atualizar a household
     const updatedHousehold = await prisma.household.update({
-      where: { id: parseInt(id) },
+      where: { id: householdId },
       data: {
         name: body.name,
         inviteCode: body.inviteCode
+      },
+      include: {
+        users: true,
+        cats: true
       }
     });
 
-    return NextResponse.json(updatedHousehold, {
+    // Formatar a resposta
+    const formattedHousehold = {
+      id: String(updatedHousehold.id as unknown),
+      name: updatedHousehold.name,
+      inviteCode: updatedHousehold.inviteCode,
+      members: updatedHousehold.users.map(user => ({
+        id: String(user.id as unknown),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isCurrentUser: user.id === userId
+      })),
+      cats: updatedHousehold.cats.map(cat => ({
+        id: String(cat.id as unknown),
+        name: cat.name,
+        photoUrl: cat.photoUrl
+      }))
+    };
+
+    return NextResponse.json(formattedHousehold, {
       headers: corsHeaders
     });
   } catch (error) {

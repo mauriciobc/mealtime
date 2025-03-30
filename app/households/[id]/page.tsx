@@ -80,12 +80,13 @@ interface Household {
 const mapToHouseholdType = (household: Household): any => {
   return {
     ...household,
+    id: String(household.id as unknown),
     members: household.members.map(member => ({
-      userId: member.id,
+      userId: String(member.id as unknown),
       role: member.role === 'admin' ? 'Admin' : 'Member',
       joinedAt: member.joinedAt || new Date(),
     })),
-    cats: household.cats,
+    cats: household.cats.map(catId => String(catId as unknown)),
   };
 };
 
@@ -155,11 +156,11 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
           const mappedHousehold = {
             ...data,
             members: (data.members || []).map((member: any) => ({
-              id: member.id,
+              id: String(member.id as unknown),
               role: member.role === 'Admin' ? 'admin' : 'member',
               name: member.name || '',
               email: member.email || '',
-              isCurrentUser: member.id === session?.user?.id?.toString()
+              isCurrentUser: String(member.id as unknown) === session?.user?.id?.toString()
             }))
           }
           
@@ -213,12 +214,12 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         const mappedHousehold = {
           ...foundHousehold,
           members: (foundHousehold.members || []).map((member: any) => ({
-            id: member.userId,
+            id: String(member.userId as unknown),
             role: member.role === 'Admin' ? 'admin' : 'member',
             joinedAt: member.joinedAt,
             name: member.name || '',
             email: member.email || '',
-            isCurrentUser: member.userId === session?.user?.id?.toString()
+            isCurrentUser: String(member.userId as unknown) === session?.user?.id?.toString()
           }))
         }
         setHousehold(mappedHousehold as unknown as Household)
@@ -270,7 +271,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         // Atualização do estado global
         const updatedHousehold = {
           ...household,
-          members: household.members.filter(m => m.id !== session.user.id.toString()),
+          members: household.members.filter(m => !m.isCurrentUser),
           catGroups: household.catGroups || []
         }
         
@@ -565,13 +566,13 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
                   <div className="flex items-center space-x-3">
                     <Avatar>
                       <AvatarFallback>
-                        {member.name.slice(0, 2).toUpperCase()}
+                        {member.name ? member.name.slice(0, 2).toUpperCase() : 'ME'}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="flex items-center">
                         <p className="font-medium">
-                          {member.name}
+                          {member.name || 'Membro'}
                           {member.isCurrentUser && (
                             <span className="text-xs text-muted-foreground ml-2">
                               (Você)
@@ -585,7 +586,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
                           {formatMemberRole(member.role)}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{member.email}</p>
+                      <p className="text-sm text-muted-foreground">{member.email || 'Sem e-mail'}</p>
                     </div>
                   </div>
                   
