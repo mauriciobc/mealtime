@@ -157,8 +157,6 @@ export async function DELETE(
       );
     }
     
-    const currentUserId = parseInt(session.user.id as string);
-    
     // Verificar permissões
     // Um usuário pode remover a si mesmo ou um administrador pode remover qualquer membro
     const currentUser = household.users.find(user => user.id === currentUserId);
