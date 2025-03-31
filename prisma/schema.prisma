@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -32,6 +32,7 @@ model User {
   feedingLogs FeedingLog[]
   notifications Notification[]
   household   Household?   @relation(fields: [householdId], references: [id])
+  ownedCats   Cat[]        @relation("CatOwner")
 }
 
 model Cat {
@@ -48,7 +49,7 @@ model Cat {
   feedingInterval Int         @default(8)
   portion_size    Float?       @default(0)
   userId          Int
-  user            User        @relation(fields: [userId], references: [id])
+  owner           User        @relation("CatOwner", fields: [userId], references: [id])
   household       Household   @relation(fields: [householdId], references: [id])
   feedingLogs     FeedingLog[]
   schedules       Schedule[]
