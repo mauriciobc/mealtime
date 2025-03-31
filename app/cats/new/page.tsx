@@ -166,7 +166,7 @@ export default function NewCatPage() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="container max-w-md py-6"
+      className="container max-w-md py-6 pb-28"
     >
       <h1 className="text-2xl font-bold mb-6">Adicionar Novo Gato</h1>
       
