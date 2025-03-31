@@ -28,7 +28,7 @@ export function NotificationItem({
   onClick, 
   showActions = false 
 }: NotificationItemProps) {
-  const { removeNotification } = useNotifications();
+  const { removeNotification, isLoading, error } = useNotifications();
   const { id, title, message, type, isRead, createdAt, actionUrl } = notification;
   
   // Format the time
@@ -54,17 +54,28 @@ export function NotificationItem({
   };
   
   // Handle delete notification
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    removeNotification(id);
+    console.log(`[NotificationItem] Delete button clicked for notification:`, {
+      id,
+      title,
+      isRead,
+      type
+    });
+    try {
+      await removeNotification(id);
+    } catch (error) {
+      console.error(`[NotificationItem] Error removing notification:`, error);
+    }
   };
   
   const content = (
     <div 
       className={cn(
         "flex items-start gap-3 p-3 hover:bg-accent cursor-pointer rounded-lg transition-colors",
-        !isRead && "bg-accent/50"
+        !isRead && "bg-accent/50",
+        isLoading && "opacity-50 pointer-events-none"
       )}
       onClick={onClick}
     >
@@ -80,6 +91,7 @@ export function NotificationItem({
               size="icon" 
               className="h-6 w-6 -mt-1 -mr-1 text-muted-foreground hover:text-destructive" 
               onClick={handleDelete}
+              disabled={isLoading}
             >
               <Trash2 className="h-4 w-4" />
               <span className="sr-only">Delete</span>

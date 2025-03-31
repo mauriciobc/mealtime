@@ -26,20 +26,19 @@ function generateUUID() {
 // Helper function to simulate async operations
 export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Generic get function with localStorage fallback to mock data
-export async function getData<T>(key: string, mockData: T[]): Promise<T[]> {
+// Generic get function with localStorage
+export async function getData<T>(key: string): Promise<T[]> {
   try {
     // Verificar se localStorage está disponível
     if (typeof window === 'undefined') {
-      console.log(`localStorage não disponível, retornando dados mockados para ${key}`);
-      return mockData;
+      console.log(`localStorage não disponível para ${key}`);
+      return [];
     }
 
     const stored = localStorage.getItem(key);
     if (!stored || stored.trim() === '') {
-      console.warn(`Dados vazios encontrados para ${key}, resetando para dados mockados`);
-      localStorage.setItem(key, JSON.stringify(mockData));
-      return mockData;
+      console.warn(`Dados vazios encontrados para ${key}`);
+      return [];
     }
 
     try {
@@ -47,33 +46,19 @@ export async function getData<T>(key: string, mockData: T[]): Promise<T[]> {
       
       // Validar se os dados são um array
       if (!Array.isArray(parsed)) {
-        console.warn(`Dados inválidos para ${key}: não é um array, resetando para dados mockados`);
-        localStorage.setItem(key, JSON.stringify(mockData));
-        return mockData;
-      }
-
-      // Se não houver template para validar, retornar os dados parseados
-      if (!mockData || mockData.length === 0) {
-        return parsed as T[];
-      }
-
-      // Validar se os dados têm a estrutura esperada
-      if (parsed.length > 0 && !isValidDataStructure(parsed[0], mockData[0])) {
-        console.warn(`Estrutura de dados inválida para ${key}, resetando para dados mockados`);
-        localStorage.setItem(key, JSON.stringify(mockData));
-        return mockData;
+        console.warn(`Dados inválidos para ${key}: não é um array`);
+        return [];
       }
 
       return parsed as T[];
     } catch (parseError) {
-      console.warn(`Erro ao analisar dados do ${key}, resetando para dados mockados:`, parseError);
+      console.warn(`Erro ao analisar dados do ${key}:`, parseError);
       localStorage.removeItem(key);
-      localStorage.setItem(key, JSON.stringify(mockData));
-      return mockData;
+      return [];
     }
   } catch (error) {
-    console.warn(`Erro ao obter ${key}, retornando dados mockados:`, error);
-    return mockData;
+    console.warn(`Erro ao obter ${key}:`, error);
+    return [];
   }
 }
 
@@ -104,10 +89,10 @@ export async function setData<T>(key: string, data: T[]): Promise<T[]> {
 }
 
 // CAT SERVICES
-export async function getCats(mockData: CatType[]): Promise<CatType[]> {
+export async function getCats(): Promise<CatType[]> {
   // Simulate API latency
   await delay(300);
-  return getData<CatType>('cats', mockData);
+  return getData<CatType>('cats');
 }
 
 export async function getCatsByHouseholdId(householdId: string, userTimezone?: string): Promise<CatType[]> {
@@ -146,20 +131,20 @@ export async function getCatById(catId: string, userTimezone?: string): Promise<
   }
 }
 
-export async function createCat(cat: Omit<CatType, 'id'>, mockData: CatType[]): Promise<CatType> {
+export async function createCat(cat: Omit<CatType, 'id'>): Promise<CatType> {
   await delay(500);
   const newCat: CatType = {
     ...cat,
     id: Math.floor(Math.random() * 1000000) // Gerar um ID numérico aleatório
   };
   
-  const cats = await getData<CatType>('cats', mockData);
+  const cats = await getData<CatType>('cats');
   const updatedCats = [...cats, newCat];
   await setData<CatType>('cats', updatedCats);
   
   // Update household cats array if this cat belongs to a household
   if (cat.householdId) {
-    const households = await getData<Household>('households', []);
+    const households = await getData<Household>('households');
     const household = households.find(h => h.id === cat.householdId);
     
     if (household) {
@@ -179,7 +164,7 @@ export async function createCat(cat: Omit<CatType, 'id'>, mockData: CatType[]): 
   return newCat;
 }
 
-export async function updateCat(catId: string, catData: Partial<CatType>, mockData: CatType[]): Promise<CatType> {
+export async function updateCat(catId: string, catData: Partial<CatType>): Promise<CatType> {
   try {
     // Primeiro, tentar atualizar via API
     const response = await fetch(`/api/cats/${catId}`, {
@@ -197,7 +182,7 @@ export async function updateCat(catId: string, catData: Partial<CatType>, mockDa
     const updatedCat = await response.json();
 
     // Atualizar o localStorage
-    const cats = await getData<CatType>('cats', mockData);
+    const cats = await getData<CatType>('cats');
     const numericId = parseInt(catId);
     const catIndex = cats.findIndex(cat => cat.id === numericId);
     
@@ -224,9 +209,9 @@ export async function updateCat(catId: string, catData: Partial<CatType>, mockDa
   }
 }
 
-export async function deleteCat(id: string, mockData: CatType[]): Promise<void> {
+export async function deleteCat(id: string): Promise<void> {
   await delay(500);
-  const cats = await getData<CatType>('cats', mockData);
+  const cats = await getData<CatType>('cats');
   const numericId = parseInt(id);
   const cat = cats.find(c => c.id === numericId);
   
@@ -240,7 +225,7 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
   
   // Remove from household if exists
   if (cat.householdId) {
-    const households = await getData<Household>('households', []);
+    const households = await getData<Household>('households');
     const household = households.find(h => h.id === cat.householdId);
     
     if (household) {
@@ -261,14 +246,14 @@ export async function deleteCat(id: string, mockData: CatType[]): Promise<void> 
 // Re-exportar as funções relacionadas à alimentação do api-feeding-service
 export { registerFeeding, updateFeedingSchedule, getNextFeedingTime } from './api-feeding-service';
 
-export async function createFeedingLog(log: Omit<FeedingLog, 'id'>, mockData: FeedingLog[]): Promise<FeedingLog> {
+export async function createFeedingLog(log: Omit<FeedingLog, 'id'>): Promise<FeedingLog> {
   await delay(500);
   const newLog: FeedingLog = {
     ...log,
     id: Math.floor(Math.random() * 1000000)
   };
   
-  const logs = await getData<FeedingLog>('feedingLogs', mockData);
+  const logs = await getData<FeedingLog>('feedingLogs');
   const updatedLogs = [...logs, newLog];
   await setData<FeedingLog>('feedingLogs', updatedLogs);
   

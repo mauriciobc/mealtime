@@ -8,13 +8,13 @@ export const formatErrorMessage = (error: unknown): string => {
 export const getFallbackImageUrl = (type: 'user' | 'cat' | 'thumbnail'): string => {
   switch (type) {
     case 'user':
-      return '/images/placeholder-user.png';
+      return '/images/placeholder-user.jpg';
     case 'cat':
       return '/images/placeholder-cat.png';
     case 'thumbnail':
-      return '/images/placeholder-thumbnail.png';
+      return '/images/SVG/placeholder-thumbnail.svg';
     default:
-      return '/images/placeholder-default.png';
+      return '/images/SVG/placeholder.svg';
   }
 };
 

@@ -11,6 +11,7 @@ import { NotificationType } from "@/lib/types/notification";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface LogEntry {
   timestamp: Date;
@@ -27,7 +28,12 @@ interface LogEntry {
 }
 
 export default function TestNotificationsPage() {
-  const { addNotification, notifications } = useNotifications();
+  const { 
+    addNotification, 
+    notifications, 
+    isLoading: notificationsLoading, 
+    error: notificationsError 
+  } = useNotifications();
   const { state: appState } = useAppContext();
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -42,7 +48,12 @@ export default function TestNotificationsPage() {
 
   const handleCreateNotification = useCallback(async (type: NotificationType, title: string, message: string) => {
     if (!type || !title || !message) {
-      toast.error("Dados da notificação inválidos");
+      const missingFields = [];
+      if (!type) missingFields.push('type');
+      if (!title) missingFields.push('title');
+      if (!message) missingFields.push('message');
+
+      toast.error(`Campos obrigatórios faltando: ${missingFields.join(', ')}`);
       addLog({
         timestamp: new Date(),
         type: type || "info",
@@ -54,7 +65,8 @@ export default function TestNotificationsPage() {
           context: {
             type,
             title,
-            message
+            message,
+            missingFields
           }
         }
       });
@@ -73,7 +85,8 @@ export default function TestNotificationsPage() {
           type,
           title,
           message,
-          userId: appState.currentUser?.id
+          userId: appState.currentUser?.id,
+          householdId: appState.currentUser?.householdId
         }
       }
     });
@@ -96,6 +109,24 @@ export default function TestNotificationsPage() {
       return;
     }
 
+    if (!appState.currentUser?.householdId) {
+      toast.error("Usuário não pertence a nenhuma casa");
+      addLog({
+        timestamp: new Date(),
+        type,
+        title,
+        message,
+        status: "error",
+        details: {
+          error: "Usuário não pertence a nenhuma casa",
+          context: {
+            currentUser: appState.currentUser
+          }
+        }
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Log antes da chamada à API
@@ -108,7 +139,9 @@ export default function TestNotificationsPage() {
         details: {
           context: {
             currentNotifications: notifications?.length || 0,
-            isAuthenticated: true
+            isAuthenticated: true,
+            userId: appState.currentUser.id,
+            householdId: appState.currentUser.householdId
           }
         }
       });
@@ -117,7 +150,8 @@ export default function TestNotificationsPage() {
         title,
         message,
         type,
-        userId: appState.currentUser.id
+        userId: appState.currentUser.id,
+        householdId: appState.currentUser.householdId
       });
 
       if (!notification) {
@@ -155,7 +189,7 @@ export default function TestNotificationsPage() {
       });
     } catch (error) {
       console.error("Erro ao criar notificação:", error);
-      toast.error("Erro ao criar notificação");
+      toast.error(error instanceof Error ? error.message : "Erro ao criar notificação");
 
       // Log detalhado do erro
       addLog({
@@ -171,14 +205,16 @@ export default function TestNotificationsPage() {
           } : error,
           context: {
             currentNotifications: notifications?.length || 0,
-            isAuthenticated: true
+            isAuthenticated: true,
+            userId: appState.currentUser.id,
+            householdId: appState.currentUser.householdId
           }
         }
       });
     } finally {
       setIsLoading(false);
     }
-  }, [addNotification, notifications, appState.currentUser?.id, addLog]);
+  }, [addNotification, notifications, appState.currentUser?.id, appState.currentUser?.householdId, addLog]);
 
   const notificationTypes = [
     {
@@ -252,116 +288,76 @@ export default function TestNotificationsPage() {
   };
 
   return (
-    <div className="flex h-screen">
-      {/* Área principal */}
-      <div className="flex-1 p-4 overflow-y-auto">
-        <h1 className="text-2xl font-bold mb-6">Teste de Notificações</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {notificationTypes.map((notification) => (
-            <Card key={notification.type}>
-              <CardHeader>
-                <CardTitle>{notification.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {notification.description}
-                </p>
-                <Button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleCreateNotification(
-                      notification.type,
-                      notification.title,
-                      notification.message
-                    );
-                  }}
-                  disabled={isLoading}
-                  className="w-full"
+    <div className="container mx-auto p-4 space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Teste de Notificações</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {notificationTypes.map((type) => (
+              <Button
+                key={type.type}
+                onClick={() => handleCreateNotification(type.type, type.title, type.message)}
+                disabled={isLoading || notificationsLoading}
+                className="w-full"
+              >
+                {isLoading ? "Criando..." : type.description}
+              </Button>
+            ))}
+          </div>
+          {notificationsError && (
+            <div className="mt-4 p-4 bg-destructive/10 text-destructive rounded-lg">
+              {notificationsError}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Logs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-2">
+              {logs.map((log, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "p-4 rounded-lg",
+                    log.status === "error" && "bg-destructive/10",
+                    log.status === "success" && "bg-emerald-500/10",
+                    log.status === "info" && "bg-accent"
+                  )}
                 >
-                  {isLoading ? "Criando..." : "Criar Notificação"}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Barra lateral de logs */}
-      <div className="w-96 border-l bg-muted/50">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold">Logs de Notificações</h2>
-        </div>
-        <ScrollArea className="h-[calc(100vh-4rem)]">
-          <div className="p-4 space-y-4">
-            {logs.map((log, index) => (
-              <Card key={index} className={`${
-                log.status === "error" ? "border-destructive" : 
-                log.status === "success" ? "border-green-500/50" : 
-                "border-blue-500/50"
-              }`}>
-                <CardContent className="p-3">
-                  <div className="flex items-start justify-between mb-2">
-                    <span className={`text-xs font-medium ${getStatusColor(log.status)}`}>
-                      {getStatusText(log.status)}
-                    </span>
+                  <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {format(log.timestamp, "HH:mm:ss", { locale: ptBR })}
+                      {format(log.timestamp, "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                    </span>
+                    <span className={cn(
+                      "text-xs font-medium",
+                      log.status === "error" && "text-destructive",
+                      log.status === "success" && "text-emerald-500",
+                      log.status === "info" && "text-primary"
+                    )}>
+                      {log.status.toUpperCase()}
                     </span>
                   </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{log.title}</p>
+                  <div className="mt-2">
+                    <h4 className="text-sm font-medium">{log.title}</h4>
                     <p className="text-xs text-muted-foreground">{log.message}</p>
                     {log.details && (
-                      <div className="mt-2 text-xs">
-                        {log.details.error && (
-                          <div className="text-destructive">
-                            <p className="font-medium">Erro:</p>
-                            <pre className="whitespace-pre-wrap">
-                              {JSON.stringify(log.details.error, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                        {log.details.response && (
-                          <div className="text-green-600">
-                            <p className="font-medium">Resposta:</p>
-                            <pre className="whitespace-pre-wrap">
-                              {JSON.stringify(log.details.response, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                        {log.details.context && (
-                          <div className="text-blue-600">
-                            <p className="font-medium">Contexto:</p>
-                            <pre className="whitespace-pre-wrap">
-                              {JSON.stringify(log.details.context, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                        {log.details.payload && (
-                          <div className="text-muted-foreground">
-                            <p className="font-medium">Payload:</p>
-                            <pre className="whitespace-pre-wrap">
-                              {JSON.stringify(log.details.payload, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
+                      <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-x-auto">
+                        {JSON.stringify(log.details, null, 2)}
+                      </pre>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-            {logs.length === 0 && (
-              <div className="text-center text-muted-foreground py-8">
-                Nenhum log disponível
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-      </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 } 

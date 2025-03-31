@@ -216,6 +216,7 @@ export default function NewCatPage() {
                     <ImageUpload
                       value={field.value || ""}
                       onChange={field.onChange}
+                      type="cat"
                     />
                   </FormControl>
                   <FormMessage />

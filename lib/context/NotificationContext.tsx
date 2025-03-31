@@ -31,7 +31,7 @@ type NotificationState = {
 };
 
 type NotificationAction =
-  | { type: "SET_NOTIFICATIONS"; payload: { notifications: Notification[]; totalPages: number; hasMore: boolean } }
+  | { type: "SET_NOTIFICATIONS"; payload: { notifications: Notification[]; totalPages: number; hasMore: boolean; unreadCount: number } }
   | { type: "ADD_NOTIFICATION"; payload: Notification }
   | { type: "MARK_NOTIFICATION_READ"; payload: { id: number } }
   | { type: "MARK_ALL_NOTIFICATIONS_READ" }
@@ -89,7 +89,8 @@ function notificationReducer(state: NotificationState, action: NotificationActio
           ...state, 
           notifications,
           totalPages: action.payload.totalPages ?? 1,
-          hasMore: action.payload.hasMore ?? false
+          hasMore: action.payload.hasMore ?? false,
+          unreadCount: action.payload.unreadCount ?? 0
         };
       case "ADD_NOTIFICATION":
         if (!action.payload || typeof action.payload.id !== 'number') {
@@ -140,13 +141,35 @@ function notificationReducer(state: NotificationState, action: NotificationActio
           return state;
         }
         
+        const notificationToRemove = state.notifications.find(
+          notification => notification.id === action.payload.id
+        );
+
+        if (!notificationToRemove) {
+          console.warn(`Notification ${action.payload.id} not found in state`);
+          return state;
+        }
+
         const filteredNotifications = state.notifications.filter(
           notification => notification.id !== action.payload.id
         );
+
+        // Only decrement unread count if the removed notification was unread
+        const newUnreadCount = notificationToRemove.isRead 
+          ? state.unreadCount 
+          : Math.max(0, state.unreadCount - 1);
+
+        console.log(`[NotificationReducer] Removing notification:`, {
+          id: action.payload.id,
+          wasUnread: !notificationToRemove.isRead,
+          oldUnreadCount: state.unreadCount,
+          newUnreadCount
+        });
+
         return { 
           ...state, 
           notifications: filteredNotifications,
-          unreadCount: Math.max(0, state.unreadCount - 1)
+          unreadCount: newUnreadCount
         };
       case "SET_LOADING":
         return { ...state, isLoading: action.payload };
@@ -179,78 +202,130 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return null;
   }
 
-  // Carregar notificações iniciais
+  // Carregar notificações iniciais e configurar refresh periódico
   useEffect(() => {
     if (currentUser?.id) {
-      console.log('Carregando notificações para usuário:', currentUser.id);
-      loadNotifications();
-      loadUnreadCount();
+      console.log(`[NotificationContext] Initial load for user: ${currentUser.id}`);
+      const initializeNotifications = async () => {
+        try {
+          // First load notifications
+          await loadNotifications();
+          // Then load unread count to ensure it's in sync
+          await loadUnreadCount();
+        } catch (error) {
+          console.error(`[NotificationContext] Error during initialization:`, error);
+        }
+      };
+      initializeNotifications();
+
+      // Set up periodic refresh every 30 seconds
+      const refreshInterval = setInterval(async () => {
+        console.log(`[NotificationContext] Periodic refresh for user: ${currentUser.id}`);
+        try {
+          await loadUnreadCount(); // Only load the count
+        } catch (error) {
+          console.error(`[NotificationContext] Error during periodic refresh:`, error);
+        }
+      }, 30000); // 30 seconds
+
+      // Cleanup interval on unmount or when user changes
+      return () => {
+        console.log(`[NotificationContext] Cleaning up refresh interval for user: ${currentUser.id}`);
+        clearInterval(refreshInterval);
+      };
     }
   }, [currentUser?.id]);
 
   // Carregar notificações
   const loadNotifications = async () => {
     if (!currentUser?.id) {
-      console.log('Usuário não encontrado, não carregando notificações');
+      console.log(`[NotificationContext] Cannot load notifications: No current user ID`);
       return;
     }
     
+    // Prevent concurrent loads
+    if (state.isLoading) {
+      console.log(`[NotificationContext] Skipping load - already loading notifications`);
+      return;
+    }
+    
+    console.log(`[NotificationContext] Loading notifications for user: ${currentUser.id}, page: ${state.page}`);
     const loadingId = "notifications-load";
-    addLoadingOperation({
-      id: loadingId,
-      priority: 2,
-      description: "Carregando notificações..."
-    });
 
     try {
+      // Set loading state
       dispatch({ type: "SET_LOADING", payload: true });
-      dispatch({ type: "SET_ERROR", payload: null });
 
-      const response = await fetch(`/api/notifications?page=${state.page}`);
-      const data = await response.json();
+      // Add loading operation
+      addLoadingOperation({
+        id: loadingId,
+        priority: 2,
+        description: "Carregando notificações..."
+      });
+
+      // Use the service function instead of direct fetch
+      const data = await getUserNotifications(currentUser.id, state.page);
       
-      if (!response.ok) {
-        throw new Error(data.message || "Erro ao carregar notificações");
-      }
+      console.log(`[NotificationContext] Received notifications data:`, {
+        notificationsCount: data.notifications?.length,
+        totalPages: data.totalPages,
+        hasMore: data.hasMore
+      });
 
-      console.log('Dados recebidos:', data);
+      // Get unread count from server instead of calculating from notifications
+      const unreadCount = await getUnreadNotificationsCount(currentUser.id);
+      console.log(`[NotificationContext] Received unread count from server: ${unreadCount}`);
 
-      // Garantir que os dados são válidos antes de atualizar o estado
-      const notifications = Array.isArray(data.notifications) ? data.notifications : [];
-      const totalPages = typeof data.totalPages === 'number' ? data.totalPages : 1;
-      const hasMore = typeof data.hasMore === 'boolean' ? data.hasMore : false;
-
-      console.log('Notificações processadas:', notifications);
-
+      // Update state
       dispatch({ 
         type: "SET_NOTIFICATIONS", 
         payload: { 
-          notifications,
-          totalPages,
-          hasMore
+          notifications: data.notifications,
+          totalPages: data.totalPages,
+          hasMore: data.hasMore,
+          unreadCount
         } 
       });
+
+      console.log(`[NotificationContext] Updated notifications and unread count state`);
     } catch (error) {
-      console.error("Erro ao carregar notificações:", error);
+      console.error(`[NotificationContext] Error loading notifications:`, error);
       dispatch({ 
         type: "SET_ERROR", 
         payload: error instanceof Error ? error.message : "Erro desconhecido" 
       });
     } finally {
+      // Remove loading state and operation
       dispatch({ type: "SET_LOADING", payload: false });
-      removeLoadingOperation(loadingId);
+      try {
+        removeLoadingOperation(loadingId);
+      } catch (error) {
+        console.error(`[NotificationContext] Error removing loading operation:`, error);
+      }
     }
   };
 
   // Carregar contagem de não lidas
   const loadUnreadCount = async () => {
-    if (!currentUser?.id) return;
+    if (!currentUser?.id) {
+      console.log(`[NotificationContext] Cannot load unread count: No current user ID`);
+      return;
+    }
     
+    // Prevent concurrent loads
+    if (state.isLoading) {
+      console.log(`[NotificationContext] Skipping unread count load - already loading`);
+      return;
+    }
+    
+    console.log(`[NotificationContext] Loading unread count for user: ${currentUser.id}`);
     try {
       const count = await getUnreadNotificationsCount(currentUser.id);
+      console.log(`[NotificationContext] Received unread count from server: ${count}`);
       dispatch({ type: "SET_UNREAD_COUNT", payload: count });
+      console.log(`[NotificationContext] Updated unread count in state: ${count}`);
     } catch (error) {
-      console.error("Erro ao carregar contagem de não lidas:", error);
+      console.error(`[NotificationContext] Error loading unread count:`, error);
     }
   };
 
@@ -263,19 +338,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       dispatch({ type: "SET_ERROR", payload: null });
 
       const nextPage = state.page + 1;
-      const response = await fetch(`/api/notifications?page=${nextPage}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || "Erro ao carregar mais notificações");
-      }
-
-      const newNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+      const data = await getUserNotifications(currentUser.id, nextPage);
       
       dispatch({ 
         type: "SET_NOTIFICATIONS", 
         payload: {
-          notifications: [...state.notifications, ...newNotifications],
+          notifications: [...state.notifications, ...data.notifications],
           totalPages: data.totalPages,
           hasMore: data.hasMore
         }
@@ -293,32 +361,75 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Function to mark a notification as read
   const markAsRead = async (id: number) => {
-    try {
-      await markNotificationAsRead(id);
-      dispatch({ type: "MARK_NOTIFICATION_READ", payload: { id } });
-    } catch (error) {
-      console.error("Erro ao marcar notificação como lida:", error);
-    }
-  };
+    console.log(`[NotificationContext] Marking notification as read:`, { id });
+    
+    // Store the previous state for rollback
+    const previousState = {
+      notifications: [...state.notifications],
+      unreadCount: state.unreadCount
+    };
 
-  // Function to delete a notification
-  const removeNotification = async (id: number) => {
     try {
-      await deleteNotification(id);
-      dispatch({ type: "REMOVE_NOTIFICATION", payload: { id } });
+      // Optimistically update UI
+      dispatch({ type: "MARK_NOTIFICATION_READ", payload: { id } });
+      
+      // Update server
+      await markNotificationAsRead(id);
+      
+      // Update unread count without refreshing all notifications
+      await loadUnreadCount();
+      
+      console.log(`[NotificationContext] Successfully marked notification as read:`, { id });
     } catch (error) {
-      console.error("Erro ao remover notificação:", error);
+      console.error(`[NotificationContext] Error marking notification as read:`, error);
+      
+      // Rollback on error
+      dispatch({ 
+        type: "SET_NOTIFICATIONS", 
+        payload: {
+          notifications: previousState.notifications,
+          totalPages: state.totalPages,
+          hasMore: state.hasMore,
+          unreadCount: previousState.unreadCount
+        }
+      });
+      
+      throw error;
     }
   };
 
   // Function to add a notification
   const addNotification = (notification: Notification) => {
-    dispatch({ 
-      type: "ADD_NOTIFICATION", 
-      payload: notification 
-    });
-    // Atualizar contagem de não lidas
-    loadUnreadCount();
+    try {
+      dispatch({ type: "ADD_NOTIFICATION", payload: notification });
+      // Update unread count
+      loadUnreadCount();
+    } catch (error) {
+      console.error("Erro ao adicionar notificação:", error);
+    }
+  };
+
+  // Function to delete a notification
+  const removeNotification = async (id: number) => {
+    console.log(`[NotificationContext] Removing notification:`, { id });
+    try {
+      addLoadingOperation('removeNotification');
+      await deleteNotification(id);
+      
+      // Update local state immediately
+      dispatch({ type: 'REMOVE_NOTIFICATION', payload: { id } });
+      
+      // Refresh notifications to ensure sync with server
+      await loadNotifications();
+      await loadUnreadCount();
+      
+      console.log(`[NotificationContext] Notification removed successfully:`, { id });
+    } catch (error) {
+      console.error(`[NotificationContext] Error removing notification:`, error);
+      throw error;
+    } finally {
+      removeLoadingOperation('removeNotification');
+    }
   };
 
   const markAllAsRead = async () => {

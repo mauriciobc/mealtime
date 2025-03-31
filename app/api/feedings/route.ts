@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
             name: true,
             photoUrl: true,
             portion_size: true,
-            feeding_interval: true
+            feedingInterval: true
           }
         },
         user: {
@@ -50,8 +50,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(feedings);
   } catch (error) {
     console.error('Erro ao buscar registros de alimentação:', error);
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar os registros de alimentação' },
+      { 
+        error: 'Ocorreu um erro ao buscar os registros de alimentação',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
@@ -121,7 +125,7 @@ export async function POST(request: NextRequest) {
             name: true,
             photoUrl: true,
             portion_size: true,
-            feeding_interval: true
+            feedingInterval: true
           }
         },
         user: {

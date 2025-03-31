@@ -63,6 +63,20 @@ export async function getUnreadNotificationsCount(userId: number): Promise<numbe
 // Create a new notification
 export async function createNotification(payload: CreateNotificationPayload): Promise<Notification> {
   try {
+    // Validate required fields
+    const requiredFields = ['title', 'message', 'type', 'userId'];
+    const missingFields = requiredFields.filter(field => !payload[field]);
+    
+    if (missingFields.length > 0) {
+      console.error('[NotificationService] Missing required fields:', missingFields);
+      throw new Error(`Campos obrigatórios faltando: ${missingFields.join(', ')}`);
+    }
+
+    console.log('[NotificationService] Creating notification:', {
+      ...payload,
+      data: payload.data ? JSON.stringify(payload.data) : null
+    });
+
     const response = await fetch('/api/notifications', {
       method: 'POST',
       headers: {
@@ -72,14 +86,21 @@ export async function createNotification(payload: CreateNotificationPayload): Pr
       body: JSON.stringify(payload)
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error('Falha ao criar notificação');
+      console.error('[NotificationService] Server error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data
+      });
+      throw new Error(data.error || 'Falha ao criar notificação');
     }
 
-    const notification = await response.json();
-    return notification;
+    console.log('[NotificationService] Successfully created notification:', data);
+    return data;
   } catch (error) {
-    console.error('Erro ao criar notificação:', error);
+    console.error('[NotificationService] Error creating notification:', error);
     throw error;
   }
 }
@@ -87,6 +108,7 @@ export async function createNotification(payload: CreateNotificationPayload): Pr
 // Mark a notification as read
 export async function markNotificationAsRead(id: number): Promise<Notification> {
   try {
+    console.log(`[NotificationService] Marking notification as read:`, { id });
     const response = await fetch(`/api/notifications/${id}/read`, {
       method: 'PATCH',
       headers: {
@@ -95,14 +117,17 @@ export async function markNotificationAsRead(id: number): Promise<Notification> 
       credentials: 'include'
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error('Falha ao marcar notificação como lida');
+      console.error(`[NotificationService] Server error response:`, data);
+      throw new Error(data.error || 'Falha ao marcar notificação como lida');
     }
 
-    const notification = await response.json();
-    return notification;
+    console.log(`[NotificationService] Successfully marked notification as read:`, data);
+    return data;
   } catch (error) {
-    console.error('Erro ao marcar notificação como lida:', error);
+    console.error(`[NotificationService] Error marking notification as read:`, error);
     throw error;
   }
 }
@@ -141,7 +166,8 @@ export async function deleteNotification(id: number): Promise<void> {
     });
 
     if (!response.ok) {
-      throw new Error('Falha ao deletar notificação');
+      const data = await response.json();
+      throw new Error(data.error || 'Falha ao deletar notificação');
     }
   } catch (error) {
     console.error('Erro ao deletar notificação:', error);

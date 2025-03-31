@@ -1,21 +1,43 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Clock, History, Settings } from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
-import { catProfiles } from "@/lib/data"
+import { getNextFeedingTime, getCats } from "@/lib/data"
 import { useAppContext } from "@/lib/context/AppContext"
 import { format, formatDistanceToNow } from "date-fns"
-import { getNextFeedingTime } from "@/lib/services/apiService"
+import { useRouter } from "next/navigation"
+import { CatType } from "@/lib/types"
 
-export default function CatList() {
-  const [cats, setCats] = useState(catProfiles)
+export function CatList() {
+  const [cats, setCats] = useState<CatType[]>([])
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
   const { state } = useAppContext()
+
+  useEffect(() => {
+    const loadCats = async () => {
+      try {
+        const data = await getCats()
+        setCats(data)
+      } catch (error) {
+        console.error('Error loading cats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadCats()
+  }, [])
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
 
   // Function to record a feeding
   const recordFeeding = (id: string) => {
@@ -86,7 +108,7 @@ export default function CatList() {
           <CardContent className="p-0">
             <div className="flex items-center p-4 bg-gradient-to-r from-primary/10 to-secondary/10">
               <Avatar className="h-16 w-16 border-2 border-primary">
-                <AvatarImage src={cat.avatar} alt={cat.name} />
+                <AvatarImage src={cat.photoUrl} alt={cat.name} />
                 <AvatarFallback className="bg-primary text-primary-foreground">
                   {cat.name.substring(0, 2)}
                 </AvatarFallback>
@@ -115,7 +137,7 @@ export default function CatList() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between p-4">
+          <CardHeader className="flex justify-between p-4">
             <div className="flex space-x-2">
               <Link href={`/history/${cat.id}`}>
                 <Button variant="outline" size="sm">
@@ -136,7 +158,7 @@ export default function CatList() {
             >
               Feed Now
             </Button>
-          </CardFooter>
+          </CardHeader>
         </Card>
       ))}
     </div>

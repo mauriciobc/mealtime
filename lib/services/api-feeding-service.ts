@@ -179,8 +179,7 @@ export const getFeedingLogs = async (catId: string, userTimezone?: string): Prom
   console.log('- CatId:', catId);
   console.log('- Timezone recebido:', userTimezone);
   
-  const mockData: FeedingLog[] = []; // Dados mockados vazios como fallback
-  const logs = await getData<FeedingLog>('feedingLogs', mockData);
+  const logs = await getData<FeedingLog>('feedingLogs');
   console.log('- Total de logs encontrados (antes do filtro):', logs.length);
   
   const timezone = getUserTimezone(userTimezone);

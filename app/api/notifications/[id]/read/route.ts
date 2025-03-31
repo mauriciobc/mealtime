@@ -18,19 +18,27 @@ export async function PATCH(
       );
     }
     
-    const id = params.id;
+    const id = parseInt(params.id);
+    const userId = parseInt(session.user.id as string);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'ID de notificação inválido' },
+        { status: 400 }
+      );
+    }
     
     // Verificar se a notificação existe e pertence ao usuário
     const notification = await prisma.notification.findFirst({
       where: {
         id,
-        userId: parseInt(session.user.id as string)
+        userId
       }
     });
     
     if (!notification) {
       return NextResponse.json(
-        { error: 'Notificação não encontrada' },
+        { error: 'Notificação não encontrada ou não pertence ao usuário' },
         { status: 404 }
       );
     }

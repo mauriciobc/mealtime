@@ -1,10 +1,10 @@
 "use client";
 
-import { useAppContext } from "@/lib/context/AppContext";
+import { useNotifications } from "@/lib/context/NotificationContext";
 import { NotificationCenter } from "./notification-center";
 
 export function NotificationBadge() {
-  const { state } = useAppContext();
+  const { unreadCount } = useNotifications();
   
   return <NotificationCenter />;
 }

@@ -56,7 +56,18 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const userId = parseInt(session.user.id as string);
+    // Convert session user ID to string before parsing
+    const userIdString = String(session.user.id);
+    const userId = parseInt(userIdString, 10); // Add radix parameter
+    
+    // Check if parsing resulted in NaN
+    if (isNaN(userId)) {
+      return NextResponse.json(
+        { error: 'Formato de ID de usuário inválido' },
+        { status: 400 }
+      );
+    }
+    
     const searchParams = request.nextUrl.searchParams;
     
     // Parâmetros de paginação
@@ -90,6 +101,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session || !session.user) {
+      console.error('[NotificationsAPI] Unauthorized request');
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
@@ -104,11 +116,47 @@ export async function POST(request: NextRequest) {
     const validNotifications = notifications.every(n => n.userId === userId);
     
     if (!validNotifications) {
+      console.error('[NotificationsAPI] Invalid notifications:', {
+        userId,
+        notificationUserIds: notifications.map(n => n.userId)
+      });
       return NextResponse.json(
         { error: 'Notificações inválidas' },
         { status: 400 }
       );
     }
+
+    // Validar campos obrigatórios
+    const requiredFields = ['title', 'message', 'type', 'userId'];
+    const missingFields = notifications.some(n => 
+      requiredFields.some(field => !n[field])
+    );
+
+    if (missingFields) {
+      console.error('[NotificationsAPI] Missing required fields');
+      return NextResponse.json(
+        { error: 'Campos obrigatórios faltando' },
+        { status: 400 }
+      );
+    }
+
+    // Validar tipos de notificação
+    const validTypes = ['feeding', 'reminder', 'household', 'system', 'info', 'warning', 'error'];
+    const invalidTypes = notifications.some(n => !validTypes.includes(n.type));
+
+    if (invalidTypes) {
+      console.error('[NotificationsAPI] Invalid notification types');
+      return NextResponse.json(
+        { error: 'Tipo de notificação inválido' },
+        { status: 400 }
+      );
+    }
+
+    console.log('[NotificationsAPI] Creating notifications:', {
+      userId,
+      count: notifications.length,
+      types: notifications.map(n => n.type)
+    });
 
     // Salvar notificações no banco de dados
     const savedNotifications = await Promise.all(
@@ -118,7 +166,7 @@ export async function POST(request: NextRequest) {
             title: notification.title,
             message: notification.message,
             type: notification.type,
-            isRead: notification.isRead,
+            isRead: notification.isRead ?? false,
             userId: notification.userId,
             catId: notification.catId,
             householdId: notification.householdId,
@@ -131,9 +179,14 @@ export async function POST(request: NextRequest) {
       )
     );
 
+    console.log('[NotificationsAPI] Successfully created notifications:', {
+      count: savedNotifications.length,
+      ids: savedNotifications.map(n => n.id)
+    });
+
     return NextResponse.json(Array.isArray(payload) ? savedNotifications : savedNotifications[0]);
   } catch (error) {
-    console.error('Erro ao salvar notificações:', error);
+    console.error('[NotificationsAPI] Error saving notifications:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

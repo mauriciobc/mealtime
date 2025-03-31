@@ -19,26 +19,36 @@ export async function DELETE(
     }
     
     const id = parseInt(params.id);
-    const userId = session.user.id;
+    const userId = parseInt(session.user.id as string);
+    
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: 'ID de notificação inválido' },
+        { status: 400 }
+      );
+    }
     
     // Verificar se a notificação existe e pertence ao usuário
-    const existingNotification = await prisma.$queryRaw`
-      SELECT * FROM Notification 
-      WHERE id = ${id} AND userId = ${userId}
-    `;
+    const existingNotification = await prisma.notification.findFirst({
+      where: {
+        id,
+        userId
+      }
+    });
     
-    if (!existingNotification || (Array.isArray(existingNotification) && existingNotification.length === 0)) {
+    if (!existingNotification) {
       return NextResponse.json(
-        { error: 'Notificação não encontrada' },
+        { error: 'Notificação não encontrada ou não pertence ao usuário' },
         { status: 404 }
       );
     }
     
     // Remover a notificação
-    await prisma.$executeRaw`
-      DELETE FROM Notification 
-      WHERE id = ${id}
-    `;
+    await prisma.notification.delete({
+      where: {
+        id
+      }
+    });
     
     return NextResponse.json({ message: 'Notificação removida com sucesso' });
   } catch (error) {

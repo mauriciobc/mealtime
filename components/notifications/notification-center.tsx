@@ -26,14 +26,43 @@ export function NotificationCenter() {
     unreadCount, 
     markAsRead, 
     markAllAsRead, 
-    removeNotification 
+    removeNotification,
+    refreshNotifications,
+    isLoading 
   } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
+
+  // Refresh notifications when the popover is opened
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    if (isOpen && !isLoading) {
+      const now = Date.now();
+      // Only refresh if it's been more than 5 seconds since last refresh
+      if (now - lastRefresh > 5000) {
+        console.log(`[NotificationCenter] Popover opened, scheduling refresh`);
+        timeoutId = setTimeout(() => {
+          console.log(`[NotificationCenter] Executing debounced refresh`);
+          refreshNotifications();
+          setLastRefresh(now);
+        }, 300);
+      }
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [isOpen, refreshNotifications, isLoading, lastRefresh]);
 
   // Marcar todas as notificações como lidas
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead();
+      // Refresh notifications after marking all as read
+      await refreshNotifications();
       toast({
         description: "Todas as notificações foram marcadas como lidas",
       });
@@ -44,19 +73,41 @@ export function NotificationCenter() {
 
   // Marcar uma notificação como lida
   const handleMarkAsRead = async (id: number) => {
+    console.log(`[NotificationCenter] Marking notification as read:`, { id });
     try {
       await markAsRead(id);
+      // Refresh notifications after marking as read
+      await refreshNotifications();
+      toast({
+        description: "Notificação marcada como lida",
+      });
     } catch (error) {
-      console.error("Erro ao marcar notificação como lida:", error);
+      console.error(`[NotificationCenter] Error marking notification as read:`, error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível marcar a notificação como lida",
+        variant: "destructive",
+      });
     }
   };
 
-  // Remover uma notificação
+  // Handle notification removal
   const handleRemoveNotification = async (id: number) => {
+    console.log(`[NotificationCenter] Removing notification:`, { id });
     try {
       await removeNotification(id);
+      // Close the popover after successful deletion
+      setIsOpen(false);
+      toast({
+        description: "Notificação removida",
+      });
     } catch (error) {
-      console.error("Erro ao remover notificação:", error);
+      console.error(`[NotificationCenter] Error removing notification:`, error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível remover a notificação",
+        variant: "destructive",
+      });
     }
   };
 
@@ -99,6 +150,7 @@ export function NotificationCenter() {
                       <NotificationItem 
                         notification={notification} 
                         onClick={() => setIsOpen(false)}
+                        showActions={true}
                       />
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -129,9 +181,12 @@ export function NotificationCenter() {
         </ScrollArea>
         <Separator />
         <div className="p-2">
-          <Button variant="ghost" className="w-full justify-center hover:text-primary" asChild>
-            <Link href="/notifications">Ver todas as notificações</Link>
-          </Button>
+          <Link href="/notifications" className="w-full">
+            <Button variant="ghost" className="w-full justify-start">
+              Ver todas as notificações
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
         </div>
       </PopoverContent>
     </Popover>
