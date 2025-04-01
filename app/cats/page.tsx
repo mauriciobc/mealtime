@@ -37,68 +37,101 @@ import { CatCard } from "@/components/cat-card"
 import { Loading } from "@/components/ui/loading"
 import { EmptyState } from "@/components/ui/empty-state"
 import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 export default function CatsPage() {
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(true)
-  const [apiCats, setApiCats] = useState<CatType[]>([])
 
   useEffect(() => {
-    async function loadCats() {
+    async function loadCatsForHousehold() {
+      if (status !== "authenticated" || !state.currentUser?.householdId) {
+        return;
+      }
+
+      const currentHouseholdId = state.currentUser.householdId;
+      setIsLoading(true);
+
       try {
-        setIsLoading(true)
-        
-        // Verificar se há um domicílio ativo
-        if (state.households.length > 0) {
-          const activeHousehold = state.households[0]; // Assumindo que o primeiro é o ativo
-          const cats = await getCatsByHouseholdId(activeHousehold.id)
-          setApiCats(cats)
-          
-          // Atualizar o estado global com os gatos da API
-          dispatch({
-            type: "SET_CATS",
-            payload: cats,
-          })
-        } else {
-          // Sem domicílio ativo, carregar todos os gatos
-          const cats = await fetch('/api/cats').then(res => res.json())
-          setApiCats(cats)
-          
-          // Atualizar o estado global
-          dispatch({
-            type: "SET_CATS",
-            payload: cats,
-          })
+        const response = await fetch(`/api/households/${currentHouseholdId}/cats`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch cats: ${response.statusText}`);
         }
+        const cats: CatType[] = await response.json();
+
+        dispatch({
+          type: "SET_CATS",
+          payload: cats,
+        });
+
       } catch (error) {
-        console.error("Erro ao buscar gatos:", error)
+        console.error("Erro ao buscar gatos:", error);
+        toast.error("Não foi possível carregar a lista de gatos.");
+        dispatch({ type: "SET_CATS", payload: [] });
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
     }
 
-    loadCats()
-  }, [dispatch, state.households])
+    loadCatsForHousehold();
+  }, [status, state.currentUser, dispatch]);
 
   const handleDeleteCat = async (catId: string) => {
+    const previousCats = state.cats;
+    dispatch({ type: "DELETE_CAT", payload: Number(catId) });
+
     try {
-      // Atualizar o estado global
-      dispatch({
-        type: "DELETE_CAT",
-        payload: { id: catId },
-      })
-      
-      // Remover da API
-      await fetch(`/api/cats/${catId}`, { method: 'DELETE' })
+      const response = await fetch(`/api/cats/${catId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error('Failed to delete cat');
+      }
+      toast.success("Gato excluído com sucesso!");
     } catch (error) {
-      console.error("Erro ao excluir gato:", error)
+      console.error("Erro ao excluir gato:", error);
+      toast.error("Erro ao excluir gato. Restaurando lista.");
+      dispatch({ type: "SET_CATS", payload: previousCats });
     }
+  };
+
+  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+    return <Loading text="Carregando gatos..." />;
   }
 
-  // Decidir qual conjunto de dados usar (priorizar a API)
-  const catsToDisplay = state.cats
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return <Loading text="Redirecionando..." />;
+  }
+
+  if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col min-h-screen bg-background">
+           <div className="flex-1 p-4 pb-24">
+              <PageHeader
+                title="Meus Gatos"
+                description="Gerencie seus gatos e seus perfis"
+              />
+             <EmptyState
+                icon={Users}
+                title="Sem Residência Associada"
+                description="Você precisa criar ou juntar-se a uma residência para adicionar e gerenciar gatos."
+                actionLabel="Ir para Configurações"
+                actionHref="/settings"
+             />
+           </div>
+           <BottomNav />
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (isLoading) {
+    return <Loading text="Carregando gatos..." />;
+  }
+
+  const catsToDisplay = state.cats;
 
   return (
     <PageTransition>
@@ -106,18 +139,16 @@ export default function CatsPage() {
         <div className="flex-1 p-4 pb-24">
           <PageHeader
             title="Meus Gatos"
-            description="Gerencie seus gatos e seus perfis"
+            description="Gerencie os perfis dos seus felinos"
             actionLabel="Adicionar Gato"
             actionHref="/cats/new"
           />
-          
-          {isLoading ? (
-            <Loading />
-          ) : catsToDisplay.length === 0 ? (
+
+          {catsToDisplay.length === 0 ? (
             <EmptyState
               icon={CatIcon}
               title="Nenhum gato cadastrado"
-              description="Você ainda não adicionou nenhum gato. Adicione seu primeiro gato para começar a registrar as alimentações."
+              description="Você ainda não adicionou nenhum gato a esta residência. Que tal adicionar o primeiro?"
               actionLabel="Adicionar Meu Primeiro Gato"
               actionHref="/cats/new"
               variant="cat"
@@ -130,33 +161,15 @@ export default function CatsPage() {
                   cat={cat}
                   onView={() => router.push(`/cats/${cat.id}`)}
                   onEdit={() => router.push(`/cats/${cat.id}/edit`)}
-                  onDelete={() => handleDeleteCat(cat.id)}
+                  onDelete={() => handleDeleteCat(cat.id.toString())}
                 />
               ))}
             </div>
           )}
         </div>
-        
+
         <BottomNav />
       </div>
     </PageTransition>
-  )
-}
-
-function formatAge(birthdate: string | Date) {
-  const birth = new Date(birthdate)
-  const now = new Date()
-  
-  const years = now.getFullYear() - birth.getFullYear()
-  const months = now.getMonth() - birth.getMonth()
-  
-  if (months < 0 || (months === 0 && now.getDate() < birth.getDate())) {
-    return `${years - 1} anos e ${months + 12} meses`
-  }
-  
-  if (years === 0) {
-    return `${months} meses`
-  }
-  
-  return `${years} anos e ${months} meses`
+  );
 }

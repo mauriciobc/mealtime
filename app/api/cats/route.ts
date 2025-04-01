@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 // GET /api/cats - Listar todos os gatos (filtragem opcional por householdId)
 export async function GET(request: NextRequest) {
@@ -37,6 +39,15 @@ export async function GET(request: NextRequest) {
 // POST /api/cats - Criar um novo perfil de gato
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      );
+    }
+
     const {
       name,
       photoUrl,
@@ -52,6 +63,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Nome e ID do domicílio são obrigatórios' },
         { status: 400 }
+      );
+    }
+
+    // Verificar se o usuário pertence ao domicílio
+    const user = await prisma.user.findFirst({
+      where: {
+        id: parseInt(session.user.id),
+        householdId: householdId
+      }
+    });
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Você não pertence a este domicílio' },
+        { status: 403 }
       );
     }
 
@@ -81,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar o perfil do gato
-    const catData: any = {
+    const catData = {
       name,
       photoUrl: photoUrl || null,
       birthdate: birthdate ? new Date(birthdate) : null,
@@ -89,7 +115,8 @@ export async function POST(request: NextRequest) {
       restrictions: restrictions || null,
       notes: notes || null,
       householdId,
-      feeding_interval: parsedInterval
+      feedingInterval: parsedInterval,
+      userId: parseInt(session.user.id)
     };
 
     const cat = await prisma.cat.create({

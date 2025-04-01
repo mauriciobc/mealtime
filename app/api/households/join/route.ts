@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getToken } from 'next-auth/jwt';
 
 // POST /api/households/join - Entrar em um domicílio usando um código de convite
 export async function POST(request: NextRequest) {
@@ -95,8 +96,18 @@ export async function POST(request: NextRequest) {
         photoUrl: cat.photoUrl
       }))
     };
-    
-    return NextResponse.json(formattedHousehold);
+
+    // Atualizar o token com o novo householdId
+    const token = await getToken({ req: request });
+    if (token) {
+      token.householdId = Number(household.id);
+    }
+
+    // Retornar o novo householdId junto com os dados do domicílio
+    return NextResponse.json({
+      ...formattedHousehold,
+      newHouseholdId: Number(household.id)
+    });
   } catch (error) {
     console.error('Erro ao entrar no domicílio:', error);
     return NextResponse.json(

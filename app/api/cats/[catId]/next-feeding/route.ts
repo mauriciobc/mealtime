@@ -74,6 +74,8 @@ export async function GET(
 
     const now = new Date();
     let nextFeedingTime: Date | null = null;
+    const lastFeedingTimestamp = lastFeeding?.timestamp ? new Date(lastFeeding.timestamp) : null;
+    const isValidLastFeeding = lastFeedingTimestamp && !isNaN(lastFeedingTimestamp.getTime());
 
     // Se houver um agendamento
     if (cat.schedules && cat.schedules.length > 0) {
@@ -81,10 +83,12 @@ export async function GET(
 
       if (schedule.type === 'interval') {
         // Se for baseado em intervalo
-        if (lastFeeding) {
-          nextFeedingTime = addHours(new Date(lastFeeding.timestamp), schedule.interval);
-        } else {
-          nextFeedingTime = addHours(now, schedule.interval);
+        if (typeof schedule.interval === 'number' && !isNaN(schedule.interval)) {
+          if (isValidLastFeeding) {
+            nextFeedingTime = addHours(lastFeedingTimestamp, schedule.interval);
+          } else {
+            nextFeedingTime = addHours(now, schedule.interval);
+          }
         }
       } else if (schedule.type === 'fixedTime') {
         // Se for horário fixo
@@ -104,18 +108,27 @@ export async function GET(
         
         // Ordenar para encontrar o próximo horário
         timesList.sort((a, b) => a.getTime() - b.getTime());
-        nextFeedingTime = timesList[0];
+        if (timesList.length > 0 && !isNaN(timesList[0].getTime())) {
+           nextFeedingTime = timesList[0];
+        }
       }
     } else {
       // Se não houver agendamento, usar o intervalo padrão
-      if (lastFeeding) {
-        nextFeedingTime = addHours(new Date(lastFeeding.timestamp), cat.feeding_interval);
-      } else {
-        nextFeedingTime = addHours(now, cat.feeding_interval);
+      if (typeof cat.feeding_interval === 'number' && !isNaN(cat.feeding_interval)) {
+        if (isValidLastFeeding) {
+          nextFeedingTime = addHours(lastFeedingTimestamp, cat.feeding_interval);
+        } else {
+          nextFeedingTime = addHours(now, cat.feeding_interval);
+        }
       }
     }
 
-    return NextResponse.json(nextFeedingTime?.toISOString() || null);
+    // Only attempt toISOString if nextFeedingTime is a valid Date
+    const responseBody = nextFeedingTime instanceof Date && !isNaN(nextFeedingTime.getTime()) 
+      ? nextFeedingTime.toISOString() 
+      : null;
+
+    return NextResponse.json(responseBody);
   } catch (error) {
     console.error('Erro ao buscar próxima alimentação:', error);
     return NextResponse.json(

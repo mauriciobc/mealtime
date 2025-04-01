@@ -22,6 +22,16 @@ import { toast } from "@/components/ui/use-toast";
 import { useGlobalState } from "@/lib/context/global-state";
 import Link from "next/link";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface NewFeedingSheetProps {
   isOpen: boolean;
@@ -36,6 +46,8 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
   const [selectedCats, setSelectedCats] = useState<number[]>([]);
   const [feedingLogs, setFeedingLogs] = useState<FeedingLog[]>([]);
   const [portions, setPortions] = useState<{[key: number]: number}>({});
+  const [portionsInput, setPortionsInput] = useState<{[key: number]: string}>({});
+  const [portionsTimeout, setPortionsTimeout] = useState<{[key: number]: NodeJS.Timeout}>({});
   const [statuses, setStatuses] = useState<{[key: number]: string}>({});
   const [notes, setNotes] = useState<{[key: number]: string}>({});
   const [activeNotifications, setActiveNotifications] = useState<{[key: number]: NodeJS.Timeout}>({});
@@ -46,16 +58,46 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
       : 'pt-BR'
   );
 
+  // --- State for AlertDialog ---
+  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [confirmDialogContent, setConfirmDialogContent] = useState({
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+  // --- End State for AlertDialog ---
+
+  // Monitorar mudanças no estado global
   useEffect(() => {
+    if (!isOpen) return;
+
+    // Memoize the filtered cats and logs
+    const filteredCats = state.cats;
+    const filteredLogs = state.feedingLogs.filter(log => 
+      filteredCats.some(cat => cat.id === log.catId)
+    );
+
+    // Only update if there are actual changes
+    const catsChanged = JSON.stringify(filteredCats) !== JSON.stringify(cats);
+    const logsChanged = JSON.stringify(filteredLogs) !== JSON.stringify(feedingLogs);
+
+    if (catsChanged) {
+      setCats(filteredCats);
+    }
+    if (logsChanged) {
+      setFeedingLogs(filteredLogs);
+    }
+  }, [isOpen, state.cats, state.feedingLogs]);
+
+  // Separate effect for initial data loading
+  useEffect(() => {
+    if (!isOpen) return;
+
     const loadData = async () => {
       try {
         setIsLoading(true);
         const userData = session?.user as any;
-        const householdId = userData?.households?.[0] ? parseInt(userData.households[0]) : null;
-
-        console.log("Estado global:", state);
-        console.log("Gatos no estado global:", state.cats);
-        console.log("Household ID:", householdId);
+        const householdId = userData?.householdId ? parseInt(String(userData.householdId)) : null;
 
         if (!householdId) {
           toast({
@@ -68,7 +110,6 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
 
         // Garantir que temos os gatos no estado global
         if (state.cats.length > 0) {
-          console.log("Definindo gatos no componente:", state.cats);
           setCats(state.cats);
 
           // Filtrar logs apenas para os gatos disponíveis
@@ -77,7 +118,6 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
           );
           setFeedingLogs(logs);
         } else {
-          console.log("Nenhum gato encontrado no estado global");
           toast({
             title: t("error"),
             description: t("no_cats_found"),
@@ -96,31 +136,19 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
       }
     };
 
-    if (isOpen) {
-      loadData();
-    } else {
+    loadData();
+
+    return () => {
       // Limpar estados quando o sheet é fechado
       setCats([]);
       setSelectedCats([]);
       setFeedingLogs([]);
       setPortions({});
+      setPortionsInput({});
       setStatuses({});
       setNotes({});
-    }
+    };
   }, [isOpen, session, state.cats, state.feedingLogs]);
-
-  // Monitorar mudanças no estado global
-  useEffect(() => {
-    if (isOpen && state.cats.length > 0) {
-      console.log("Estado global atualizado:", state.cats);
-      setCats(state.cats);
-      
-      const logs = state.feedingLogs.filter(log => 
-        state.cats.some(cat => cat.id === log.catId)
-      );
-      setFeedingLogs(logs);
-    }
-  }, [state.cats, state.feedingLogs, isOpen]);
 
   const getLastFeedingText = (cat: CatType) => {
     const lastFeeding = feedingLogs.find(log => log.catId === cat.id);
@@ -158,6 +186,44 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
     return nextFeedingTime && new Date() >= nextFeedingTime;
   };
 
+  const handlePortionChange = (catId: number, value: string) => {
+    // Update the input value immediately for UI responsiveness
+    setPortionsInput(prev => ({
+      ...prev,
+      [catId]: value
+    }));
+
+    // Clear any existing timeout for this cat
+    if (portionsTimeout[catId]) {
+      clearTimeout(portionsTimeout[catId]);
+    }
+
+    // Set a new timeout to update the actual portions state
+    const timeoutId = setTimeout(() => {
+      const numValue = parseInt(value);
+      if (!isNaN(numValue)) {
+        setPortions(prev => ({
+          ...prev,
+          [catId]: numValue
+        }));
+      }
+    }, 300); // 300ms debounce
+
+    setPortionsTimeout(prev => ({
+      ...prev,
+      [catId]: timeoutId
+    }));
+  };
+
+  useEffect(() => {
+    return () => {
+      // Clear all timeouts when component unmounts
+      Object.values(portionsTimeout).forEach(timeout => {
+        if (timeout) clearTimeout(timeout);
+      });
+    };
+  }, [portionsTimeout]);
+
   const toggleCatSelection = (catId: number) => {
     const cat = cats.find(c => c.id === catId);
     if (!cat) return;
@@ -166,6 +232,10 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
       if (prev.includes(catId)) {
         // Limpar dados do gato quando ele é desmarcado
         setPortions(prev => {
+          const { [catId]: _, ...rest } = prev;
+          return rest;
+        });
+        setPortionsInput(prev => {
           const { [catId]: _, ...rest } = prev;
           return rest;
         });
@@ -185,6 +255,10 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
             ...prev,
             [catId]: cat.portion_size || 0
           }));
+          setPortionsInput(prev => ({
+            ...prev,
+            [catId]: (cat.portion_size || 0).toString()
+          }));
         }
         setStatuses(prev => ({
           ...prev,
@@ -196,11 +270,17 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
   };
 
   const handleSubmit = async () => {
+    console.log("[handleSubmit] Starting submission...");
     try {
       const userData = session?.user as any;
-      const householdId = userData?.households?.[0] ? parseInt(userData.households[0]) : null;
+      console.log("[handleSubmit] User data from session:", userData);
+
+      const householdId = userData?.householdId ? parseInt(String(userData.householdId)) : null;
+
+      console.log(`[handleSubmit] UserData processed, Household ID: ${householdId}`);
 
       if (!householdId) {
+        console.error("[handleSubmit] Error: No household ID found.");
         toast({
           title: t("attention"),
           description: t("no_household_identified"),
@@ -210,11 +290,13 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
       }
 
       // Validar porções
+      console.log("[handleSubmit] Validating portions:", portions);
       const invalidPortions = Object.entries(portions).some(([_, size]) => 
         size < 1 || size > 1000
       );
 
       if (invalidPortions) {
+        console.error("[handleSubmit] Error: Invalid portion sizes found.");
         toast({
           title: t("feed_invalid_portions"),
           description: t("feed_invalid_portions_message"),
@@ -222,19 +304,74 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
         });
         return;
       }
+      console.log("[handleSubmit] Portion validation passed.");
+
+      // Define the core submission logic as a separate function
+      const proceedWithSubmission = async () => {
+        console.log("[proceedWithSubmission] Starting log creation...");
+        let creationErrorOccurred = false;
+        const newFeedingLogsPromises = selectedCats.map(async catId => {
+          const logPayload = {
+            catId,
+            userId: userData.id,
+            timestamp: new Date().toISOString(),
+            portionSize: portions[catId] || null,
+            notes: notes[catId] || null,
+            status: (statuses[catId] || "completed") as "completed" | "in-progress" | "pending",
+          };
+          console.log(`[proceedWithSubmission] Payload for cat ${catId}:`, logPayload);
+          try {
+            const result = await createFeedingLog(logPayload);
+            console.log(`[proceedWithSubmission] API response for cat ${catId}:`, result);
+            return result;
+          } catch (apiError) {
+            console.error(`[proceedWithSubmission] Error creating log for cat ${catId}:`, apiError);
+            creationErrorOccurred = true;
+            return null;
+          }
+        });
+
+        const results = await Promise.all(newFeedingLogsPromises);
+
+        if (creationErrorOccurred) {
+          console.error("[proceedWithSubmission] One or more feeding logs failed to create.");
+          throw new Error("Failed to create one or more feeding logs.");
+        }
+
+        const newFeedingLogs = results.filter(log => log !== null) as FeedingLog[];
+        console.log("[proceedWithSubmission] All feeding logs created successfully:", newFeedingLogs);
+
+        console.log("[proceedWithSubmission] Dispatching SET_FEEDING_LOGS state update...");
+        dispatch({
+          type: "SET_FEEDING_LOGS",
+          payload: [...state.feedingLogs, ...newFeedingLogs],
+        });
+        console.log("[proceedWithSubmission] State update dispatched.");
+
+        console.log("[proceedWithSubmission] Closing sheet...");
+        onOpenChange(false);
+
+        console.log("[proceedWithSubmission] Showing success toast.");
+        toast({
+          title: t("feed_success"),
+          description: t("feed_success_message"),
+        });
+        console.log("[proceedWithSubmission] Submission complete.");
+      };
 
       // Verificar alimentações recentes
+      console.log("[handleSubmit] Checking for recent feedings...");
       const recentFeedings = selectedCats.filter(catId => {
         const lastFeeding = feedingLogs.find(log => log.catId === catId);
         if (!lastFeeding) return false;
 
         const interval = cats.find(cat => cat.id === catId)?.feeding_interval || 8;
-        const userData = session?.user as any;
         const timezone = getUserTimezone(userData?.timezone);
         const nextFeedingTime = calculateNextFeeding(new Date(lastFeeding.timestamp), interval, timezone);
         
         return nextFeedingTime && new Date() < nextFeedingTime;
       });
+      console.log("[handleSubmit] Cats fed recently:", recentFeedings);
 
       if (recentFeedings.length > 0) {
         const catNames = recentFeedings
@@ -246,45 +383,29 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
           ? `${catNames} ${t("feed_recent_feeding_confirm")}`
           : `${catNames} ${t("feed_recent_feeding_confirm_plural")}`;
 
-        if (!window.confirm(confirmMessage)) {
-          return;
-        }
+        // --- Replace window.confirm with AlertDialog state update ---
+        console.log("[handleSubmit] Recent feeding detected, preparing confirmation dialog.");
+        setConfirmDialogContent({
+          title: t("attention"), // Or a more specific title like "Confirm Feeding"
+          message: confirmMessage,
+          onConfirm: proceedWithSubmission // Set the function to run on confirm
+        });
+        setIsConfirmDialogOpen(true);
+        // --- End replacement ---
+
+      } else {
+        // No recent feedings detected, proceed directly
+        console.log("[handleSubmit] No recent feedings detected, proceeding directly.");
+        await proceedWithSubmission();
       }
 
-      // Criar logs de alimentação
-      const newFeedingLogs = await Promise.all(
-        selectedCats.map(async catId => {
-          const log = {
-            catId,
-            userId: userData.id,
-            timestamp: new Date(),
-            portionSize: portions[catId] || null,
-            notes: notes[catId] || null,
-            status: (statuses[catId] || "completed") as "completed" | "in-progress" | "pending",
-          };
-
-          return createFeedingLog(log, state.feedingLogs);
-        })
-      );
-
-      // Atualizar estado global
-      dispatch({
-        type: "SET_FEEDING_LOGS",
-        payload: [...state.feedingLogs, ...newFeedingLogs],
-      });
-
-      // Fechar o sheet
-      onOpenChange(false);
-      
-      toast({
-        title: t("feed_success"),
-        description: t("feed_success_message"),
-      });
     } catch (error) {
-      console.error("Erro ao salvar alimentação:", error);
+      // This catch block now primarily handles errors from proceedWithSubmission
+      console.error("[handleSubmit] Error during submission process:", error);
       toast({
         title: t("feed_error"),
-        description: t("feed_error_message"),
+        // Use error.message if available, otherwise generic message
+        description: error instanceof Error ? error.message : t("feed_error_message"),
         variant: "destructive",
       });
     }
@@ -445,11 +566,8 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
                                   </label>
                                   <Input
                                     type="number"
-                                    value={portions[cat.id] || ""}
-                                    onChange={(e) => setPortions(prev => ({
-                                      ...prev,
-                                      [cat.id]: parseInt(e.target.value)
-                                    }))}
+                                    value={portionsInput[cat.id] || ""}
+                                    onChange={(e) => handlePortionChange(cat.id, e.target.value)}
                                     className="bg-background border-input focus:ring-ring focus:border-ring"
                                   />
                                 </div>
@@ -511,6 +629,31 @@ export function NewFeedingSheet({ isOpen, onOpenChange }: NewFeedingSheetProps) 
             </div>
           )}
         </div>
+
+        {/* --- Add AlertDialog Component --- */}
+        <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{confirmDialogContent.title}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {confirmDialogContent.message}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => console.log("[AlertDialog] Cancelled.")}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => {
+                  console.log("[AlertDialog] Confirmed. Executing onConfirm...");
+                  confirmDialogContent.onConfirm();
+                }}
+              >
+                Confirmar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        {/* --- End AlertDialog Component --- */}
+
       </SheetContent>
     </Sheet>
   );

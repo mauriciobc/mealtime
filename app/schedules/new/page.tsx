@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Users, Cat as CatIcon, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
@@ -28,303 +28,368 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCats } from "@/lib/data";
 import { CatType } from "@/lib/types";
 import { PageTransition } from "@/components/ui/page-transition";
 import { SimpleTimePicker } from "@/components/ui/simple-time-picker";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { format } from "date-fns";
+import { useGlobalState } from "@/lib/context/global-state";
+import { useSession } from "next-auth/react";
+import { Loading } from "@/components/ui/loading";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/page-header";
+import { Switch } from "@/components/ui/switch";
 
 const formSchema = z.object({
-  catId: z.string({
-    required_error: "Por favor, selecione um gato",
-  }),
-  type: z.enum(["interval", "fixedTime"], {
-    required_error: "Por favor, selecione um tipo de agendamento",
-  }),
+  catId: z.string({ required_error: "Selecione um gato." }),
+  type: z.enum(["interval", "fixedTime"], { required_error: "Selecione um tipo." }),
   interval: z.string().optional(),
   times: z.string().optional(),
+  enabled: z.boolean().default(true),
+}).refine(data => {
+    if (data.type === 'interval') {
+        const intervalNum = parseInt(data.interval || "0");
+        return data.interval && !isNaN(intervalNum) && intervalNum >= 1 && intervalNum <= 48;
+    }
+    return true;
+}, {
+    message: "Intervalo deve ser entre 1 e 48 horas.",
+    path: ["interval"],
+}).refine(data => {
+    if (data.type === 'fixedTime') {
+        return data.times && data.times.split(',').every(t => /^\d{2}:\d{2}$/.test(t.trim()));
+    }
+    return true;
+}, {
+    message: "Formato de horário inválido. Use HH:mm, separado por vírgulas.",
+    path: ["times"],
 });
 
 export default function NewSchedulePage() {
   const router = useRouter();
+  const { state, dispatch } = useGlobalState();
+  const { data: session, status } = useSession();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [cats, setCats] = useState<CatType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedTimes, setSelectedTimes] = useState<(Date | undefined)[]>([undefined]);
-
-  // Carregar a lista de gatos
-  useEffect(() => {
-    async function loadCats() {
-      try {
-        setIsLoading(true);
-        const catsData = await getCats();
-        setCats(catsData);
-      } catch (error) {
-        console.error("Erro ao carregar gatos:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadCats();
-  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      catId: undefined,
       type: "interval",
-      interval: "12",
-      times: "",
+      interval: "8",
+      times: "08:00",
+      enabled: true,
     },
   });
 
   const watchType = form.watch("type");
 
-  // Adicionar um novo horário
-  const addTimeField = () => {
-    setSelectedTimes([...selectedTimes, undefined]);
-  };
+  useEffect(() => {
+    if (watchType === 'fixedTime') {
+        const timesString = selectedTimes
+            .filter((d): d is Date => d instanceof Date)
+            .map(d => format(d, "HH:mm"))
+            .sort()
+            .join(", ");
+        form.setValue("times", timesString, { shouldValidate: true });
+    } else {
+         form.setValue("times", undefined);
+    }
+  }, [selectedTimes, watchType, form]);
 
-  // Remover um horário
-  const removeTimeField = (index: number) => {
-    const newTimes = [...selectedTimes];
-    newTimes.splice(index, 1);
-    setSelectedTimes(newTimes);
-  };
+  const addTimeField = useCallback(() => {
+    if (selectedTimes.length < 5) {
+        setSelectedTimes(prev => [...prev, undefined]);
+    } else {
+        toast.warning("Limite de 5 horários por agendamento.");
+    }
+  }, [selectedTimes]);
 
-  // Atualizar um horário
-  const updateTime = (index: number, date: Date | undefined) => {
-    const newTimes = [...selectedTimes];
-    newTimes[index] = date;
-    setSelectedTimes(newTimes);
-    
-    // Atualizar o campo times no formulário com os horários formatados
-    const times = newTimes
-      .filter((d): d is Date => d !== undefined)
-      .map(d => format(d, "HH:mm"));
-    
-    form.setValue("times", times.join(","));
-  };
+  const removeTimeField = useCallback((index: number) => {
+    setSelectedTimes(prev => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const updateTime = useCallback((index: number, date: Date | undefined) => {
+    setSelectedTimes(prev => {
+        const newTimes = [...prev];
+        newTimes[index] = date;
+        return newTimes;
+    });
+  }, []);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!state.currentUser?.id || !state.currentUser?.householdId) {
+      toast.error("Erro: Usuário ou residência não identificados.");
+      return;
+    }
+    const householdCats = state.cats;
+    if (!householdCats.some(cat => String(cat.id) === values.catId)) {
+         toast.error("Erro: Gato selecionado não pertence à sua residência.");
+         return;
+    }
+
+    setIsSubmitting(true);
+    const currentUserId = state.currentUser.id;
+    const currentHouseholdId = state.currentUser.householdId;
+
+    const payload = {
+      catId: parseInt(values.catId),
+      userId: currentUserId,
+      householdId: currentHouseholdId,
+      type: values.type,
+      interval: values.type === "interval" ? parseInt(values.interval!) : null,
+      times: values.type === "fixedTime" ? values.times?.split(',').map(t => t.trim()).filter(t => t) : [],
+      enabled: values.enabled,
+      days: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+    };
+
+    if (payload.type === 'interval' && (payload.interval === null || isNaN(payload.interval) || payload.interval < 1)) {
+        toast.error("Intervalo inválido.");
+        setIsSubmitting(false);
+        return;
+    }
+     if (payload.type === 'fixedTime' && (!payload.times || payload.times.length === 0)) {
+        toast.error("Pelo menos um horário fixo é necessário.");
+        setIsSubmitting(false);
+        return;
+    }
+
     try {
-      setIsSubmitting(true);
-
-      // Validar os dados com base no tipo selecionado
-      if (values.type === "interval" && (!values.interval || parseInt(values.interval) <= 0)) {
-        toast({
-          title: "Erro",
-          description: "Por favor, informe um intervalo válido",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (values.type === "fixedTime" && (!values.times || values.times.trim() === "")) {
-        toast({
-          title: "Erro",
-          description: "Por favor, adicione pelo menos um horário",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const response = await fetch("/api/schedules", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          catId: parseInt(values.catId),
-          type: values.type,
-          interval: values.type === "interval" ? parseInt(values.interval || "0") : 0,
-          times: values.type === "fixedTime" ? values.times : "",
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        throw new Error("Falha ao criar agendamento");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Falha ao criar agendamento");
       }
 
-      toast({
-        title: "Sucesso",
-        description: "Agendamento criado com sucesso!",
-      });
+      const newSchedule = await response.json();
 
+      dispatch({ type: "ADD_SCHEDULE", payload: newSchedule });
+
+      toast.success("Agendamento criado com sucesso!");
       router.push("/schedules");
-      router.refresh();
-    } catch (error) {
+
+    } catch (error: any) {
       console.error("Erro ao criar agendamento:", error);
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao criar o agendamento",
-        variant: "destructive",
-      });
+      toast.error(`Erro: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+    return <Loading text="Carregando..." />;
+  }
+
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return <Loading text="Redirecionando..." />;
+  }
+
+  if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+     return (
+       <PageTransition>
+         <div className="container max-w-md mx-auto py-6 pb-28">
+             <PageHeader title="Novo Agendamento" backHref="/schedules" />
+             <div className="mt-6">
+                <EmptyState
+                    icon={Users}
+                    title="Sem Residência Associada"
+                    description="Associe-se a uma residência para criar agendamentos."
+                    actionLabel="Ir para Configurações"
+                    actionHref="/settings"
+                 />
+             </div>
+         </div>
+       </PageTransition>
+     );
+  }
+
+  const householdCats = state.cats;
+
+   if (householdCats.length === 0) {
+        return (
+           <PageTransition>
+             <div className="container max-w-md mx-auto py-6 pb-28">
+                 <PageHeader title="Novo Agendamento" backHref="/schedules" />
+                 <div className="mt-6">
+                    <EmptyState
+                        icon={CatIcon}
+                        title="Nenhum Gato Cadastrado"
+                        description="Cadastre pelo menos um gato antes de criar agendamentos."
+                        actionLabel="Cadastrar Gato"
+                        actionHref="/cats/new"
+                     />
+                 </div>
+             </div>
+           </PageTransition>
+        );
+    }
+
   return (
     <PageTransition>
-      <div className="flex flex-col min-h-screen bg-background">
-        <div className="flex items-center p-4 border-b">
-          <Link href="/schedules" className="flex items-center text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar
-          </Link>
-        </div>
+        <div className="container max-w-md mx-auto py-6 pb-28">
+           <PageHeader title="Novo Agendamento" backHref="/schedules" />
 
-        <div className="flex-1 p-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-md mx-auto"
-          >
-            <h1 className="text-2xl font-bold mb-6">Criar Novo Agendamento</h1>
+           <motion.div
+             initial={{ opacity: 0, y: 20 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="mt-6"
+           >
+             <Form {...form}>
+               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                 <FormField
+                   control={form.control}
+                   name="catId"
+                   render={({ field }) => (
+                     <FormItem>
+                       <FormLabel>Gato</FormLabel>
+                       <Select
+                         onValueChange={field.onChange}
+                         defaultValue={field.value}
+                         disabled={isSubmitting}
+                       >
+                         <FormControl>
+                           <SelectTrigger>
+                             <SelectValue placeholder="Selecione um gato" />
+                           </SelectTrigger>
+                         </FormControl>
+                         <SelectContent>
+                           {householdCats.map((cat) => (
+                             <SelectItem key={cat.id} value={cat.id.toString()}>
+                               {cat.name}
+                             </SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                       <FormMessage />
+                     </FormItem>
+                   )}
+                 />
 
-            {isLoading ? (
-              <div className="space-y-4 animate-pulse">
-                <div className="h-10 bg-muted rounded-md"></div>
-                <div className="h-10 bg-muted rounded-md"></div>
-                <div className="h-24 bg-muted rounded-md"></div>
-                <div className="h-10 bg-muted rounded-md"></div>
-              </div>
-            ) : (
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="catId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Gato</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          disabled={isSubmitting}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione um gato" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {cats.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id.toString()}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
+                 <FormField
                     control={form.control}
                     name="type"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tipo de Agendamento</FormLabel>
-                        <Tabs
-                          defaultValue={field.value}
-                          onValueChange={field.onChange}
-                          className="w-full"
-                        >
-                          <TabsList className="grid w-full grid-cols-2">
-                            <TabsTrigger value="interval">Intervalo</TabsTrigger>
-                            <TabsTrigger value="fixedTime">Horário Fixo</TabsTrigger>
-                          </TabsList>
-                          <TabsContent value="interval" className="mt-4">
-                            <FormField
-                              control={form.control}
-                              name="interval"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Intervalo (horas)</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      max="24"
-                                      placeholder="Ex: 12"
-                                      {...field}
-                                      disabled={isSubmitting}
-                                    />
-                                  </FormControl>
-                                  <FormDescription>
-                                    Alimentar o gato a cada X horas
-                                  </FormDescription>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                          </TabsContent>
-                          <TabsContent value="fixedTime" className="mt-4">
-                            <FormItem>
-                              <FormLabel>Horários</FormLabel>
-                              <div className="space-y-2">
-                                {selectedTimes.map((time, index) => (
-                                  <div key={index} className="flex items-center gap-2">
-                                    <SimpleTimePicker
-                                      value={time || new Date()}
-                                      onChange={(newTime) => updateTime(index, newTime)}
-                                      disabled={isSubmitting}
-                                      use12HourFormat={false}
-                                    />
-                                    {index > 0 && (
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeTimeField(index)}
-                                        disabled={isSubmitting}
-                                      >
-                                        Remover
-                                      </Button>
-                                    )}
-                                  </div>
-                                ))}
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={addTimeField}
-                                  disabled={isSubmitting}
-                                >
-                                  Adicionar Horário
-                                </Button>
-                              </div>
-                              <FormDescription>
-                                Alimentar o gato em horários específicos do dia
-                              </FormDescription>
-                              <FormMessage />
-                            </FormItem>
-                          </TabsContent>
-                        </Tabs>
-                        <FormMessage />
+                         <FormControl>
+                             <Tabs
+                               defaultValue={field.value}
+                               onValueChange={field.onChange}
+                               className="w-full"
+                            >
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="interval">Intervalo</TabsTrigger>
+                                    <TabsTrigger value="fixedTime">Horário Fixo</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                         </FormControl>
+                         <FormMessage />
                       </FormItem>
                     )}
-                  />
+                 />
 
-                  <Separator />
+                 {watchType === 'interval' && (
+                    <FormField
+                      control={form.control}
+                      name="interval"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Intervalo (1-48 horas)</FormLabel>
+                          <FormControl>
+                            <Input
+                               type="number"
+                               min="1"
+                               max="48"
+                               placeholder="Ex: 8"
+                               {...field}
+                               disabled={isSubmitting}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                 )}
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Criando..." : "Criar Agendamento"}
-                  </Button>
-                </form>
-              </Form>
-            )}
-          </motion.div>
-        </div>
-      </div>
+                  {watchType === 'fixedTime' && (
+                     <div className="space-y-4 rounded-md border p-4">
+                        <FormLabel>Horários Fixos (HH:mm)</FormLabel>
+                         {selectedTimes.map((time, index) => (
+                           <div key={index} className="flex items-center gap-2">
+                              <SimpleTimePicker
+                                 date={time}
+                                 setDate={(newDate) => updateTime(index, newDate)}
+                               />
+                               {selectedTimes.length > 1 && (
+                                  <Button
+                                     type="button"
+                                     variant="ghost"
+                                     size="sm"
+                                     onClick={() => removeTimeField(index)}
+                                     disabled={isSubmitting}
+                                     className="text-destructive hover:text-destructive"
+                                  >
+                                     Remover
+                                  </Button>
+                               )}
+                           </div>
+                         ))}
+                         <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={addTimeField}
+                             disabled={isSubmitting || selectedTimes.length >= 5}
+                         >
+                             Adicionar Horário
+                         </Button>
+                         <FormField
+                            control={form.control}
+                            name="times"
+                            render={({ field }) => ( <Input type="hidden" {...field} /> )}
+                         />
+                         <FormMessage>{form.formState.errors.times?.message}</FormMessage>
+                     </div>
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="enabled"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                            <FormLabel className="text-base">Ativado</FormLabel>
+                            <FormDescription>
+                                O agendamento gerará lembretes quando ativado.
+                            </FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            disabled={isSubmitting}
+                            />
+                        </FormControl>
+                        </FormItem>
+                    )}
+                    />
+
+                 <Separator />
+
+                 <Button type="submit" className="w-full" disabled={isSubmitting}>
+                   {isSubmitting ? "Criando..." : "Criar Agendamento"}
+                 </Button>
+               </form>
+             </Form>
+           </motion.div>
+         </div>
     </PageTransition>
   );
 } 

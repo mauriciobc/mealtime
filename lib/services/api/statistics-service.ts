@@ -31,7 +31,7 @@ export async function getFeedingStatistics(
     console.log("Período de busca:", { startDate, endDate });
 
     // Buscar logs de alimentação
-    const logs = await FeedingRepository.getByHousehold(householdId);
+    const logs = await FeedingRepository.getByHousehold(Number(householdId));
     console.log("Logs encontrados:", logs.length);
     
     // Filtrar logs pelo período e gato (se especificado)

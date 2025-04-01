@@ -113,13 +113,19 @@ export default function UpcomingFeedings() {
 
   const handleFeedNow = async (catId: ID) => {
     const user = session?.user as SessionUser | undefined;
-    if (!user?.activeHousehold) return;
-    
+    if (!user?.activeHousehold) {
+        console.warn("handleFeedNow: User or activeHousehold not found. Aborting.");
+        return;
+    }
+
+    console.log(`handleFeedNow: Attempting to feed cat ${catId}`);
+
     try {
-      // Criar timestamp em UTC
       const now = new Date();
       now.setMilliseconds(0);
-      
+      const timestampISO = now.toISOString();
+      console.log(`handleFeedNow: Sending POST to /api/feedings for cat ${catId}, timestamp: ${timestampISO}`);
+
       const response = await fetch('/api/feedings', {
         method: 'POST',
         headers: {
@@ -129,36 +135,58 @@ export default function UpcomingFeedings() {
           catId,
           householdId: parseInt(user.activeHousehold),
           userId: user.id,
-          timestamp: now,
+          timestamp: timestampISO,
           notes: ''
         }),
       });
 
+      console.log(`handleFeedNow: Response status: ${response.status}`);
+
       if (!response.ok) {
-        throw new Error('Erro ao registrar alimentação');
+         let errorBody = 'Could not read error body';
+         try {
+            errorBody = await response.text();
+         } catch (e) {
+             console.error("handleFeedNow: Failed to read error body", e);
+         }
+         console.error(`handleFeedNow: Error response: ${response.status}`, errorBody);
+        throw new Error(`Erro ao registrar alimentação (${response.status})`);
       }
 
-      // Atualizar a lista de próximas alimentações
+      const newFeedingLog = await response.json();
+      console.log("handleFeedNow: Feeding logged successfully:", newFeedingLog);
+
+      console.log("handleFeedNow: Updating upcoming feedings list...");
       const updatedFeedings = await Promise.all(
         upcomingFeedings.map(async (feeding) => {
           if (feeding.catId === catId) {
-            const nextFeedingPromise = getNextFeedingTime(catId.toString(), user.timezone);
-            const nextFeeding = await nextFeedingPromise;
-            return {
-              ...feeding,
-              nextFeeding: nextFeeding || now,
-              lastFed: now
-            };
+            try {
+              const timezone = getUserTimezone(user.timezone);
+              const nextFeedingTime = await getNextFeedingTime(catId.toString(), timezone);
+              console.log(`handleFeedNow: New next feeding time for cat ${catId}:`, nextFeedingTime);
+              return {
+                ...feeding,
+                nextFeeding: nextFeedingTime || now,
+                lastFed: now,
+              };
+            } catch (timeError) {
+              console.error(`handleFeedNow: Error getting next feeding time for cat ${catId}:`, timeError);
+              return { ...feeding, lastFed: now };
+            }
           }
           return feeding;
         })
       );
 
+      console.log("handleFeedNow: Setting updated feedings state.");
       setUpcomingFeedings(updatedFeedings.sort((a, b) => a.nextFeeding.getTime() - b.nextFeeding.getTime()));
+      console.log("handleFeedNow: Displaying success toast.");
       sonnerToast.success('Alimentação registrada com sucesso!');
-    } catch (error) {
-      console.error('Erro ao registrar alimentação:', error);
-      sonnerToast.error('Erro ao registrar alimentação');
+
+    } catch (error: any) {
+      console.error('handleFeedNow: Error caught:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      sonnerToast.error(`Erro: ${errorMessage}`);
     }
   };
 

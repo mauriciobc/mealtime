@@ -29,7 +29,7 @@ const calculateProgress = (total: number, current: number) => {
 export default function Home() {
   const { state } = useGlobalState();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [todayFeedingCount, setTodayFeedingCount] = useState(0);
   const [scheduleCompletionRate, setScheduleCompletionRate] = useState(0);
   const [recentFeedingsData, setRecentFeedingsData] = useState([]);
@@ -63,6 +63,11 @@ export default function Home() {
 
   // Effect for calculating feeding data
   useEffect(() => {
+    // Ensure currentUser and householdId are available before calculating based on potentially filtered logs
+    if (status !== "authenticated" || !state.currentUser || !state.currentUser.householdId) {
+      // console.log("Dashboard: Waiting for user/household data before calculating feeding stats.");
+      return;
+    }
     if (!feedingLogsRef.current.length) return;
 
     // Calcular alimentações de hoje
@@ -110,49 +115,20 @@ export default function Home() {
     });
 
     setRecentFeedingsData(recentData);
-  }, []);  // Empty dependency array since we're using refs
+  }, [status, state.currentUser, state.feedingLogs]);
 
   useEffect(() => {
+    // Ensure currentUser and householdId are available before calculating based on potentially filtered schedules
+    if (status !== "authenticated" || !state.currentUser || !state.currentUser.householdId) {
+      // console.log("Dashboard: Waiting for user/household data before calculating schedule stats.");
+      return;
+    }
+
     // Calcular taxa de conclusão dos agendamentos
     const totalSchedules = state.schedules.length;
     const completedSchedules = state.schedules.filter(s => s.status === "completed").length;
     setScheduleCompletionRate(calculateProgress(totalSchedules, completedSchedules));
-  }, [state.schedules]);
-
-  const dashboardItems = [
-    {
-      title: "Gatos",
-      value: state.cats.length,
-      icon: <Cat className="h-5 w-5" />,
-      color: "bg-purple-100 text-purple-500",
-      href: "/cats",
-      empty: state.cats.length === 0,
-    },
-    {
-      title: "Alimentações Hoje",
-      value: todayFeedingCount,
-      icon: <Utensils className="h-5 w-5" />,
-      color: "bg-emerald-100 text-emerald-500",
-      href: "/feedings",
-      empty: todayFeedingCount === 0,
-    },
-    {
-      title: "Agendamentos",
-      value: state.schedules.length,
-      icon: <Calendar className="h-5 w-5" />,
-      color: "bg-amber-100 text-amber-500",
-      href: "/schedules",
-      empty: state.schedules.length === 0,
-    },
-    {
-      title: "Residências",
-      value: state.households.length,
-      icon: <Users className="h-5 w-5" />,
-      color: "bg-blue-100 text-blue-500",
-      href: "/households",
-      empty: state.households.length === 0,
-    },
-  ];
+  }, [status, state.currentUser, state.schedules]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -173,14 +149,20 @@ export default function Home() {
   };
 
   const getLastFeedingLog = () => {
-    if (state.feedingLogs.length === 0) return null;
-    
-    const lastLog = state.feedingLogs.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    )[0];
+    // Check householdId before accessing logs
+    if (!state.currentUser?.householdId || state.feedingLogs.length === 0) return null;
 
+    // Assuming feedingLogs are already filtered by household in DataProvider
+    const sortedLogs = [...state.feedingLogs].sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+     if(sortedLogs.length === 0) return null; // Double check after potential filtering if needed
+    const lastLog = sortedLogs[0];
+
+     // Assuming cats are also filtered by household in DataProvider
     const cat = state.cats.find(cat => cat.id === lastLog.catId);
-    
+
     return {
       ...lastLog,
       cat: cat ? {
@@ -195,18 +177,19 @@ export default function Home() {
 
   const lastFeedingLog = getLastFeedingLog();
 
-  const isNewUser = state.cats.length === 0 && state.feedingLogs.length === 0;
+  // isNewUser check should happen *after* household check and state is confirmed populated
+  const isNewUserFlow = state.cats.length === 0 && state.feedingLogs.length === 0 && !!state.currentUser?.householdId;
 
-  if (isNewUser) {
+   if (isNewUserFlow) {
     return (
       <div className="container px-4 py-8">
         <EmptyState
           icon={Cat}
           title="Bem-vindo ao MealTime!"
-          description="Para começar, cadastre seu primeiro gato e comece a registrar as alimentações."
+          description="Sua residência está configurada! Cadastre seu primeiro gato para começar."
           actionLabel="Cadastrar Meu Primeiro Gato"
           actionHref="/cats/new"
-          secondaryActionLabel="Ver Tutorial"
+           secondaryActionLabel="Ver Tutorial"
           secondaryActionOnClick={() => {
             localStorage.removeItem("onboarding-completed");
             document.body.style.overflow = "auto";
@@ -218,6 +201,71 @@ export default function Home() {
       </div>
     );
   }
+
+  // Loading state check
+  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+    return <Loading text="Carregando painel..." />;
+  }
+
+  // Unauthenticated state (should be handled by middleware/layout, but good failsafe)
+  if (status === "unauthenticated") {
+     // Or redirect: router.push('/login');
+     return <Loading text="Redirecionando para login..." />;
+  }
+
+  // Authenticated but no household check
+  if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+    return (
+       <div className="container px-4 py-8">
+         <EmptyState
+           icon={Users}
+           title="Associe uma Residência"
+           description="Você precisa criar ou juntar-se a uma residência para usar o painel."
+           actionLabel="Ir para Configurações"
+           actionHref="/settings" // Or specific household management page
+           className="max-w-xl mx-auto my-12"
+         />
+       </div>
+     );
+  }
+
+  // ----- All checks passed, proceed with rendering the dashboard -----
+
+  // Now define dashboardItems as state.currentUser is guaranteed to exist
+   const dashboardItems = [
+    {
+      title: "Gatos",
+      value: state.cats.length, // Assumes state.cats is correctly filtered by household in DataProvider
+      icon: <Cat className="h-5 w-5" />,
+      color: "bg-purple-100 text-purple-500",
+      href: "/cats",
+      empty: state.cats.length === 0,
+    },
+    {
+      title: "Alimentações Hoje",
+      value: todayFeedingCount, // Calculation depends on logs, checked above
+      icon: <Utensils className="h-5 w-5" />,
+      color: "bg-emerald-100 text-emerald-500",
+      href: "/feedings",
+      empty: todayFeedingCount === 0,
+    },
+     {
+      title: "Agendamentos",
+      value: state.schedules.length, // Assumes state.schedules is correctly filtered
+      icon: <Calendar className="h-5 w-5" />,
+      color: "bg-amber-100 text-amber-500",
+      href: "/schedules",
+      empty: state.schedules.length === 0,
+    },
+    {
+      title: "Residência", // Changed from "Residências" to singular, as user belongs to one active one
+      value: state.households.find(h => String(h.id) === String(state.currentUser?.householdId))?.name || "Minha Casa", // Display current household name
+      icon: <Users className="h-5 w-5" />,
+      color: "bg-blue-100 text-blue-500",
+      href: "/settings", // Link to settings where household is managed
+      empty: !state.currentUser?.householdId, // Should not be empty due to checks above, but good practice
+    },
+  ];
 
   return (
     <div className="container px-4 py-8">
@@ -246,7 +294,7 @@ export default function Home() {
                 </CardContent>
                 <CardFooter className="py-4 px-5">
                   <p className="text-xs text-muted-foreground">
-                    {item.empty ? "Nenhum registro ainda" : "Ver detalhes →"}
+                    {item.empty ? (item.title === "Residência" ? "Configure nos Ajustes" : "Nenhum registro ainda") : "Ver detalhes →"}
                   </p>
                 </CardFooter>
               </Card>

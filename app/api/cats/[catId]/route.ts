@@ -73,7 +73,8 @@ export async function PUT(
       notes,
       householdId,
       schedules,
-      feeding_interval
+      feeding_interval,
+      portion
     } = await request.json();
 
     // Verificar se o gato existe
@@ -113,13 +114,14 @@ export async function PUT(
       where: { id },
       data: {
         name: name || undefined,
-        photoUrl: photoUrl !== undefined ? photoUrl : undefined,
-        birthdate: birthdate ? new Date(birthdate) : undefined,
-        weight: weight !== undefined ? parseFloat(String(weight)) : undefined,
-        restrictions: restrictions !== undefined ? restrictions : undefined,
-        notes: notes !== undefined ? notes : undefined,
+        photoUrl: photoUrl === undefined ? undefined : photoUrl,
+        birthdate: birthdate === undefined ? undefined : new Date(birthdate),
+        weight: weight === undefined ? undefined : parseFloat(weight),
+        restrictions: restrictions === undefined ? undefined : restrictions,
+        portion_size: portion === undefined ? undefined : parseFloat(portion),
+        notes: notes === undefined ? undefined : notes,
+        feedingInterval: feeding_interval === undefined ? undefined : parseInt(feeding_interval),
         householdId: householdId || undefined,
-        feeding_interval: feeding_interval !== undefined ? parseInt(String(feeding_interval)) : undefined,
         schedules: schedules ? {
           deleteMany: {}, // Remove schedules existentes
           create: schedules.map((schedule: any) => ({

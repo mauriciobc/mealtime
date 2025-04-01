@@ -21,13 +21,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7dias";
     const catId = searchParams.get("catId") || "todos";
+    const householdId = Number(session.user.householdId);
 
-    console.log("Parâmetros recebidos:", { period, catId, householdId: session.user.householdId });
+    console.log("Parâmetros recebidos:", { period, catId, householdId });
 
     const stats = await getFeedingStatistics(
       period,
       catId,
-      session.user.householdId
+      householdId
     );
 
     console.log("Estatísticas calculadas:", stats);

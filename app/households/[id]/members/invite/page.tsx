@@ -1,22 +1,19 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { AppHeader } from "@/components/app-header";
 import BottomNav from "@/components/bottom-nav";
 import PageTransition from "@/components/page-transition";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UserPlus, Copy, Check, Share2, ChevronLeft, Mail } from "lucide-react";
-import { useAppContext } from "@/lib/context/AppContext";
+import { UserPlus, Copy, Check, Share2, ChevronLeft, Mail, AlertTriangle, RefreshCw } from "lucide-react";
+import { useGlobalState } from "@/lib/context/global-state";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { v4 as uuidv4 } from "uuid";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -27,8 +24,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Household as HouseholdType } from "@/lib/types";
+import { Loading } from "@/components/ui/loading";
 
-// Esquema de validação
 const emailSchema = z.object({
   email: z.string().email("Digite um endereço de e-mail válido"),
 });
@@ -40,326 +39,324 @@ interface PageProps {
 }
 
 export default function HouseholdInvitePage({ params }: PageProps) {
-  const resolvedParams = use(params)
+  const resolvedParams = use(params);
+  const householdId = resolvedParams.id;
   const router = useRouter();
-  const { state, dispatch } = useAppContext();
+  const { state, dispatch } = useGlobalState();
   const { data: session, status } = useSession();
-  const [household, setHousehold] = useState<any>(null);
+  
+  const [household, setHousehold] = useState<HouseholdType | null | undefined>(undefined);
+  const [isAuthorized, setIsAuthorized] = useState<boolean | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
-  const [email, setEmail] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [errors, setErrors] = useState<{ email?: string }>({});
+  
   const [isSending, setIsSending] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const [isGeneratingLink, setGeneratingLink] = useState(false);
-  
-  // Configurar o formulário de convite por email
+  const [isGenerating, setIsGenerating] = useState(false);
+
   const form = useForm<EmailFormValues>({
     resolver: zodResolver(emailSchema),
-    defaultValues: {
-      email: '',
-    },
+    defaultValues: { email: '' },
   });
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      loadHouseholdDetails();
-      // Gerar um código de convite temporário para a UI (em produção, seria buscado da API)
-      setInviteCode(uuidv4().substring(0, 8).toUpperCase());
-    } else if (status === 'unauthenticated') {
-      router.push('/login');
-    }
-  }, [status, router, resolvedParams.id]);
-  
-  const loadHouseholdDetails = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch(`/api/households/${resolvedParams.id}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        switch (response.status) {
-          case 401:
-            toast.error("Você precisa estar logado para acessar esta página");
-            router.push("/login");
-            return;
-          case 403:
-            toast.error("Você não tem permissão para acessar este domicílio");
-            router.push("/households");
-            return;
-          case 404:
-            toast.error("Domicílio não encontrado");
-            router.push("/households");
-            return;
-          case 400:
-            toast.error(data.error || "ID do domicílio inválido");
-            router.push("/households");
-            return;
-          default:
-            throw new Error(data.error || 'Falha ao carregar detalhes do domicílio');
+    if (status === "authenticated" && state.currentUser && state.households) {
+      const foundHousehold = state.households.find(h => String(h.id) === String(householdId));
+      setHousehold(foundHousehold || null);
+
+      if (foundHousehold) {
+        const isAdmin = foundHousehold.members?.some(
+          member => String(member.userId) === String(state.currentUser!.id) && member.role?.toLowerCase() === 'admin'
+        );
+        setIsAuthorized(isAdmin);
+        if (!isAdmin) {
+           toast.error("Apenas administradores podem convidar membros.");
+           router.replace(`/households/${householdId}`); 
         }
+      } else {
+        setIsAuthorized(false);
+        toast.error("Residência não encontrada.");
+        router.replace('/households');
       }
-      
-      setHousehold(data);
-      setInviteCode(data.inviteCode);
-    } catch (error) {
-      console.error('Erro ao carregar detalhes do domicílio:', error);
-      toast.error("Não foi possível carregar os detalhes do domicílio. Tente novamente mais tarde.");
-    } finally {
       setIsLoading(false);
+    } else if (status === "unauthenticated") {
+       setIsLoading(false);
+       setIsAuthorized(false);
+       router.replace("/login");
+    } else {
+       setIsLoading(true); 
     }
-  };
-  
-  // Verificar se o usuário tem permissão para convidar (é administrador)
-  const currentUser = state.currentUser;
-  console.log('Current User:', currentUser);
-  const isAdmin = currentUser?.role === "admin";
-  console.log('Is Admin:', isAdmin);
-  
-  useEffect(() => {
-    if (!isLoading && household !== null) {
-      console.log('Checking permissions:', { isLoading, household, isAdmin });
-      if (!isAdmin) {
-        toast.error("Apenas administradores podem convidar novos membros");
-        router.push(`/households/${resolvedParams.id}`);
-      }
-    }
-  }, [isLoading, household, isAdmin, resolvedParams.id, router]);
+  }, [status, state.currentUser, state.households, householdId, router]);
   
   const handleSendInvite = async (data: EmailFormValues) => {
-    // Validar e-mail
-    try {
-      emailSchema.parse({ email: data.email });
-      setErrors({});
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        const formattedErrors: { email?: string } = {};
-        error.errors.forEach((err) => {
-          if (err.path[0]) {
-            formattedErrors[err.path[0] as keyof typeof formattedErrors] = err.message;
-          }
-        });
-        setErrors(formattedErrors);
-        return;
-      }
-    }
+    if (!isAuthorized || !household) return;
     
     setIsSending(true);
-    
     try {
-      // Em produção, seria uma chamada real à API
-      // await fetch(`/api/households/${resolvedParams.id}/invite`, {
-      //   method: "POST",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify({ email: data.email }),
-      // });
-      
-      // Simular sucesso
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch(`/api/households/${householdId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: data.email }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+         throw new Error(result.error || "Falha ao enviar convite por e-mail.");
+      }
       
       toast.success(`Convite enviado para ${data.email}`);
-      setEmail("");
-    } catch (error) {
+      form.reset();
+
+    } catch (error: any) {
       console.error("Erro ao enviar convite:", error);
-      toast.error("Não foi possível enviar o convite");
+      toast.error(`Erro ao enviar: ${error.message}`);
     } finally {
       setIsSending(false);
     }
   };
-  
+
   const copyInviteLink = async () => {
-    const inviteUrl = `${window.location.origin}/join?code=${inviteCode}&household=${resolvedParams.id}`;
+    if (!household?.inviteCode) {
+       toast.error("Código de convite não disponível.");
+       return;
+    }
+    const inviteUrl = `${window.location.origin}/join?code=${household.inviteCode}`;
     
     try {
       await navigator.clipboard.writeText(inviteUrl);
       setIsCopied(true);
-      toast.success("Link copiado para a área de transferência");
-      
-      // Resetar o estado após 3 segundos
+      toast.success("Link de convite copiado!");
       setTimeout(() => setIsCopied(false), 3000);
     } catch (error) {
-      console.error("Erro ao copiar para o clipboard:", error);
-      toast.error("Não foi possível copiar o link");
+      console.error("Erro ao copiar link:", error);
+      toast.error("Não foi possível copiar o link.");
     }
   };
-  
+
   const shareInvite = async () => {
-    const inviteUrl = `${window.location.origin}/join?code=${inviteCode}&household=${resolvedParams.id}`;
-    const text = `Junte-se ao meu domicílio "${household?.name}" no aplicativo MealTime!`;
+     if (!household?.inviteCode || !household?.name) return;
+     
+    const inviteUrl = `${window.location.origin}/join?code=${household.inviteCode}`;
+    const text = `Olá! Gostaria de te convidar para participar da minha residência "${household.name}" no MealTime. Use este link para entrar:`;
     
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "Convite para MealTime",
+          title: `Convite para ${household.name} - MealTime`,
           text: text,
           url: inviteUrl,
         });
-        toast.success("Convite compartilhado");
       } else {
-        // Fallback para copiar
-        await copyInviteLink();
+         copyInviteLink();
+         toast.info("API de compartilhamento não suportada. Link copiado!");
       }
     } catch (error) {
-      console.error("Erro ao compartilhar:", error);
-      
-      // Alguns navegadores lançam erro quando o usuário cancela o compartilhamento
-      if (error instanceof Error && error.name !== "AbortError") {
-        toast.error("Não foi possível compartilhar o convite");
+      if (error instanceof Error && error.name !== 'AbortError') {
+         console.error("Erro ao compartilhar:", error);
+         toast.error("Não foi possível compartilhar o convite.");
       }
     }
   };
 
-  const generateInviteLink = async () => {
-    try {
-      setGeneratingLink(true);
-      
-      // Em produção:
-      // await fetch(`/api/households/${resolvedParams.id}/invite`, {
-      //  method: 'POST',
-      //  headers: {
-      //    'Content-Type': 'application/json',
-      //  },
-      // });
-      // ... existing code ...
-    } catch (error) {
-      // ... existing code ...
-    }
-  };
+   const regenerateInviteCode = async () => {
+     if (!isAuthorized || !household) return;
+     setIsGenerating(true);
+     try {
+       const response = await fetch(`/api/households/${householdId}/invite-code`, {
+          method: "PATCH", 
+        });
 
-  if (isLoading || !household) {
+        const result = await response.json();
+
+        if (!response.ok) {
+           throw new Error(result.error || "Falha ao gerar novo código de convite.");
+        }
+       
+       const newCode = result.inviteCode; 
+       const updatedHousehold = { ...household, inviteCode: newCode };
+
+       dispatch({ type: "UPDATE_HOUSEHOLD", payload: updatedHousehold });
+
+       toast.success("Novo código de convite gerado!");
+
+     } catch (error: any) {
+       console.error("Erro ao gerar novo código:", error);
+       toast.error(`Erro: ${error.message}`);
+     } finally {
+       setIsGenerating(false);
+     }
+   };
+
+  if (isLoading || household === undefined) {
     return (
       <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <AppHeader title="Carregando..." showBackButton />
-          <div className="flex-1 p-4 flex items-center justify-center">
-            <p className="text-muted-foreground">Carregando...</p>
-          </div>
-          <BottomNav />
+        <div className="flex min-h-screen flex-col bg-background">
+           <main className="flex-1 pb-20 pt-4">
+             <div className="container max-w-md">
+                <div className="mb-6 flex items-center">
+                 <Skeleton className="h-9 w-9 mr-2 rounded-full" />
+                 <Skeleton className="h-7 w-48" />
+               </div>
+               
+               <Card>
+                 <CardHeader>
+                   <Skeleton className="h-6 w-3/4 mb-2" />
+                   <Skeleton className="h-4 w-full" />
+                 </CardHeader>
+                 <CardContent className="space-y-4">
+                   <Skeleton className="h-10 w-full" />
+                   <Skeleton className="h-10 w-full" />
+                 </CardContent>
+                  <CardFooter>
+                     <Skeleton className="h-10 w-24" />
+                  </CardFooter>
+               </Card>
+             </div>
+           </main>
+           <BottomNav />
         </div>
       </PageTransition>
     );
   }
 
+   if (!household || isAuthorized === false) {
+      return (
+         <PageTransition>
+           <div className="flex min-h-screen flex-col bg-background">
+             <main className="flex-1 flex items-center justify-center p-4">
+                <Loading text={!household ? "Redirecionando... Residência não encontrada." : "Redirecionando... Acesso negado."} />
+             </main>
+             <BottomNav />
+           </div>
+         </PageTransition>
+      );
+   }
+
   return (
     <PageTransition>
-      <div className="flex flex-col min-h-screen bg-background">
-        <AppHeader title="Convidar Membros" showBackButton />
-        
-        <div className="flex-1 p-4">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Convidar para {household.name}</h1>
-            <p className="text-muted-foreground">
-              Convide amigos e familiares para gerenciar este domicílio
-            </p>
-          </div>
-          
-          <Tabs defaultValue="email" className="mb-6">
-            <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="email">Por E-mail</TabsTrigger>
-              <TabsTrigger value="link">Link de Convite</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="email" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Convidar por E-mail</CardTitle>
-                  <CardDescription>
-                    Envie um convite por e-mail para novos membros
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSendInvite)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>E-mail do Convidado</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="amigo@exemplo.com"
-                                {...field}
-                                type="email"
-                                className={errors.email ? "border-destructive" : ""}
-                              />
-                            </FormControl>
-                            {errors.email && (
-                              <FormMessage>{errors.email}</FormMessage>
-                            )}
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button type="submit" className="w-full" disabled={isSending}>
-                        <Mail className="mr-2 h-4 w-4" />
-                        {isSending ? "Enviando..." : "Enviar Convite"}
+      <div className="flex min-h-screen flex-col bg-background">
+        <main className="flex-1 pb-24 pt-4">
+          <div className="container max-w-md">
+            <div className="mb-6 flex items-center">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => router.push(`/households/${householdId}`)}
+                className="mr-2"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                 <h1 className="text-xl font-bold leading-tight">Convidar Membros</h1>
+                 <p className="text-xs text-muted-foreground">Para "{household.name}"</p>
+              </div>
+            </div>
+
+            <Tabs defaultValue="link" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="link">Compartilhar Link</TabsTrigger>
+                <TabsTrigger value="email">Enviar por E-mail</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="link">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Link de Convite</CardTitle>
+                    <CardDescription>
+                      Compartilhe este link com as pessoas que você deseja convidar para "{household.name}".
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between bg-muted rounded-md p-2 pl-3">
+                      <code className="text-sm font-mono mr-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
+                        {`${window.location.origin}/join?code=${household.inviteCode}`}
+                      </code>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 flex-shrink-0"
+                        onClick={copyInviteLink}
+                        title="Copiar Link"
+                        disabled={isGenerating}
+                      >
+                        {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                       </Button>
-                    </form>
-                  </Form>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="link" className="space-y-4 mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Link de Convite</CardTitle>
-                  <CardDescription>
-                    Compartilhe este link com quem você deseja convidar
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="p-3 bg-muted rounded-lg flex items-center justify-between">
-                    <code className="text-sm font-mono overflow-hidden overflow-ellipsis">
-                      {inviteCode}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={copyInviteLink}
-                      className="h-8 w-8"
-                    >
-                      {isCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={copyInviteLink}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copiar Link
-                    </Button>
-                    
-                    <Button
-                      className="flex-1"
-                      onClick={shareInvite}
-                    >
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Compartilhar
-                    </Button>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="text-sm text-muted-foreground">
-                    <p className="mb-2">O código expira em 7 dias.</p>
-                    <p>
-                      Qualquer pessoa com este código poderá se juntar ao seu domicílio.
-                      Compartilhe apenas com pessoas de confiança.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-        
+                    </div>
+                     <Button 
+                        className="w-full" 
+                        onClick={shareInvite}
+                        disabled={isGenerating}
+                     > 
+                       <Share2 className="mr-2 h-4 w-4" />
+                        Compartilhar Link
+                     </Button>
+                  </CardContent>
+                  <CardFooter className="border-t pt-4 flex justify-between items-center">
+                     <p className="text-xs text-muted-foreground">O código expira?</p>
+                     <Button 
+                       variant="outline"
+                       size="sm"
+                       onClick={regenerateInviteCode}
+                       disabled={isGenerating}
+                     >
+                        {isGenerating ? (
+                           <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></span> 
+                        ) : (
+                           <RefreshCw className="mr-2 h-4 w-4" />
+                        )}
+                       Gerar Novo Código
+                     </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="email">
+                 <Card>
+                   <Form {...form}>
+                     <form onSubmit={form.handleSubmit(handleSendInvite)} className="space-y-0">
+                       <CardHeader>
+                         <CardTitle className="text-base">Convidar por E-mail</CardTitle>
+                         <CardDescription>
+                           Enviaremos um convite por e-mail para o endereço fornecido.
+                         </CardDescription>
+                       </CardHeader>
+                       <CardContent>
+                         <FormField
+                           control={form.control}
+                           name="email"
+                           render={({ field }) => (
+                             <FormItem>
+                               <FormLabel>Endereço de E-mail</FormLabel>
+                               <FormControl>
+                                 <Input 
+                                    type="email" 
+                                    placeholder="nome@exemplo.com" 
+                                    {...field} 
+                                    disabled={isSending}
+                                 />
+                               </FormControl>
+                               <FormMessage />
+                             </FormItem>
+                           )}
+                         />
+                       </CardContent>
+                       <CardFooter className="border-t pt-4">
+                         <Button type="submit" disabled={isSending} className="w-full">
+                           {isSending ? (
+                              <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></span> 
+                           ) : (
+                              <Mail className="mr-2 h-4 w-4" />
+                           )}
+                           {isSending ? "Enviando Convite..." : "Enviar Convite por E-mail"}
+                         </Button>
+                       </CardFooter>
+                     </form>
+                   </Form>
+                 </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </main>
         <BottomNav />
       </div>
     </PageTransition>

@@ -23,14 +23,16 @@ function uuidv4(): string {
   });
 }
 
-export function useFeeding(catId: number) {
+export function useFeeding(catId: number | null) {
   const { state, dispatch } = useGlobalState();
+  const { data: session, status } = useSession();
   const [cat, setCat] = useState<CatType | null>(null);
   const [logs, setLogs] = useState<FeedingLog[]>([]);
   const [nextFeedingTime, setNextFeedingTime] = useState<Date | null>(null);
   const [formattedNextFeedingTime, setFormattedNextFeedingTime] = useState<string>("");
   const [formattedTimeDistance, setFormattedTimeDistance] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Memoize the function to update feeding time display
   const updateFeedingTimeDisplay = useCallback((next: Date | null) => {
@@ -44,112 +46,149 @@ export function useFeeding(catId: number) {
 
   // Load cat and feeding data
   useEffect(() => {
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+
     const fetchCatData = async () => {
+      if (!catId || status !== "authenticated" || !state.currentUser?.id || !state.currentUser?.householdId) {
+        setIsLoading(false);
+        if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+            setError("Nenhuma residência associada.");
+        } else if (status === "authenticated" && !catId) {
+             setError("ID do gato inválido.");
+        } else {
+             setError(null);
+        }
+        setCat(null);
+        setLogs([]);
+        setNextFeedingTime(null);
+        return;
+      }
+
       setIsLoading(true);
-      
+      setError(null);
+      const currentHouseholdId = state.currentUser.householdId;
+      const currentUserId = state.currentUser.id;
+
       try {
-        // Primeiro, tenta buscar do estado local
-        let foundCat = state.cats.find(c => c.id === catId) || null;
-        
-        // Se não encontrou localmente, busca da API
-        if (!foundCat && catId) {
+        let foundCat = state.cats.find(c => c.id === catId && String(c.householdId) === String(currentHouseholdId)) || null;
+
+        if (!foundCat) {
           const response = await fetch(`/api/cats/${catId}`);
           if (response.ok) {
             const apiCat = await response.json();
-            // Adiciona ao estado global se não existir
-            if (apiCat && !state.cats.some(c => c.id === apiCat.id)) {
-              dispatch({ type: "ADD_CAT", payload: apiCat });
+            if (String(apiCat.householdId) !== String(currentHouseholdId)) {
+                 console.warn(`Fetched cat ${catId} belongs to household ${apiCat.householdId}, but user is in ${currentHouseholdId}.`);
+                 throw new Error("Gato não pertence à sua residência.");
+            }
+
+            if (!state.cats.some(c => c.id === apiCat.id)) {
+               dispatch({ type: "ADD_CAT", payload: apiCat });
             }
             foundCat = apiCat;
           } else if (response.status === 404) {
-            console.error("Gato não encontrado");
-            setIsLoading(false);
-            return;
+            throw new Error("Gato não encontrado.");
+          } else {
+             throw new Error(`Erro ao buscar gato: ${response.statusText}`);
           }
         }
-        
+
+        if (!isMounted) return;
         setCat(foundCat);
 
-        // Get feeding logs
         if (foundCat) {
           const catLogs = state.feedingLogs
             .filter(log => log.catId === catId)
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          
           setLogs(catLogs);
 
-          // Calculate next feeding time
           const next = await getNextFeedingTime(catId.toString());
-          if (next instanceof Date) {
+          if (next instanceof Date && isMounted) {
             setNextFeedingTime(next);
-            // Update displayed time in a separate step to avoid loops
             updateFeedingTimeDisplay(next);
-          } else {
+          } else if (isMounted) {
             setNextFeedingTime(null);
             setFormattedNextFeedingTime("");
             setFormattedTimeDistance("");
           }
         }
-      } catch (error) {
-        console.error("Erro ao buscar dados do gato:", error);
+      } catch (err: any) {
+        console.error("Erro ao buscar dados do gato:", err);
+        if (isMounted) setError(err.message || "Erro ao carregar dados.");
+        setCat(null);
+        setLogs([]);
+        setNextFeedingTime(null);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
-    
-    if (catId) {
-      fetchCatData();
-    }
-  }, [catId, state.cats, state.feedingLogs, updateFeedingTimeDisplay, dispatch]);
+
+    timeoutId = setTimeout(fetchCatData, 50);
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [catId, status, state.currentUser, state.cats, state.feedingLogs, updateFeedingTimeDisplay, dispatch]);
 
   // Refresh feeding times every minute
   useEffect(() => {
+    if (!nextFeedingTime || isNaN(nextFeedingTime.getTime())) {
+      setFormattedTimeDistance("");
+      return;
+    }
+
     const interval = setInterval(() => {
-      if (nextFeedingTime && !isNaN(nextFeedingTime.getTime())) {
-        // Only update the time distance, not all state variables
-        setFormattedTimeDistance(getRelativeTime(nextFeedingTime));
-      } else {
-        setFormattedTimeDistance("");
-      }
+      setFormattedTimeDistance(getRelativeTime(nextFeedingTime));
     }, 60000);
+
+    setFormattedTimeDistance(getRelativeTime(nextFeedingTime));
 
     return () => clearInterval(interval);
   }, [nextFeedingTime]);
 
   const handleMarkAsFed = async (amount?: string, notes?: string, timestamp?: Date) => {
-    if (!cat) return;
+    if (!cat || !state.currentUser?.id) {
+        toast.error("Não é possível registrar alimentação: dados do gato ou usuário ausentes.");
+        return;
+    }
+    const currentUserId = state.currentUser.id;
 
     try {
-      // Usar o timestamp fornecido ou criar um novo
       const now = timestamp || new Date();
-      now.setMilliseconds(0); // Remover milissegundos para consistência
-      
-      const newLog: Omit<FeedingLog, "id"> = {
-        catId: catId,
-        userId: "1", // TODO: Usar ID do usuário atual
-        timestamp: now, // Timestamp em UTC
+
+      const newLogData: Omit<FeedingLog, "id"> = {
+        catId: cat.id,
+        userId: currentUserId,
+        timestamp: now,
         portionSize: amount ? parseFloat(amount) : null,
         notes: notes || null,
       };
 
-      const result = await createFeedingLog(newLog, state.feedingLogs);
+      const createdLog = await createFeedingLog(newLogData);
 
-      // Atualizar estado global
-      dispatch({
-        type: "ADD_FEEDING_LOG",
-        payload: result,
-      });
+       dispatch({
+         type: "ADD_FEEDING_LOG",
+         payload: createdLog,
+       });
 
-      return result;
+       const next = await getNextFeedingTime(cat.id.toString());
+       if (next instanceof Date) {
+         setNextFeedingTime(next);
+         updateFeedingTimeDisplay(next);
+       } else {
+         setNextFeedingTime(null);
+       }
+
+       toast.success(`Alimentação registrada para ${cat.name}`);
+       return createdLog;
+
     } catch (error) {
       console.error("Erro ao registrar alimentação:", error);
+      toast.error("Falha ao registrar alimentação.");
       throw error;
     }
   };
-
-  useEffect(() => {
-    setIsLoading(false);
-  }, [cat, logs]);
 
   return {
     cat,
@@ -158,6 +197,7 @@ export function useFeeding(catId: number) {
     formattedNextFeedingTime,
     formattedTimeDistance,
     isLoading,
+    error,
     handleMarkAsFed,
   };
 }

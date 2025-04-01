@@ -32,7 +32,7 @@ export const FeedingRepository = {
     const query = {
       where: {
         cat: {
-          householdId,
+          householdId: Number(householdId),
         },
       },
       include: {

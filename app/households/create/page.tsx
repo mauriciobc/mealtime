@@ -2,141 +2,156 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useGlobalState } from "@/lib/context/global-state"
 import { ArrowLeft } from "lucide-react"
 import PageTransition from "@/components/page-transition"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { v4 as uuidv4 } from "uuid"
 import { Household } from "@/lib/types"
+import { useSession } from "next-auth/react"
+import { Loading } from "@/components/ui/loading"
 
 export default function CreateHouseholdPage() {
-  const { state, dispatch } = useAppContext()
+  const { state, dispatch } = useGlobalState()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const [isCreating, setIsCreating] = useState(false)
   const [householdName, setHouseholdName] = useState("")
 
   const handleCreateHousehold = async () => {
     if (!householdName.trim()) {
-      toast.error("Please enter a household name")
+      toast.error("Por favor, insira um nome para a residência")
       return
+    }
+
+    if (status !== "authenticated" || !state.currentUser) {
+        toast.error("Você precisa estar logado para criar uma residência.");
+        return;
     }
 
     setIsCreating(true)
 
     try {
-      // Generate a random invite code (6 character alphanumeric)
-      const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+      const response = await fetch("/api/households", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: householdName.trim() }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+         throw new Error(result.error || "Falha ao criar residência");
+      }
       
-      const newHousehold: Household = {
-        id: uuidv4(),
-        name: householdName.trim(),
-        inviteCode,
-        members: [
-          {
-            userId: state.currentUser?.id || "",
-            role: "Admin",
-            joinedAt: new Date()
-          }
-        ],
-        cats: [],
-        catGroups: []
+      const newHousehold: Household = result.household;
+
+      if (!newHousehold) {
+          throw new Error("Resposta inválida do servidor ao criar residência.");
       }
 
-      // Add household to state
-      dispatch({ type: "SET_HOUSEHOLDS", payload: [...state.households, newHousehold] })
+      dispatch({ type: "ADD_HOUSEHOLD", payload: newHousehold });
 
-      // Add household to user's household list
-      if (state.currentUser) {
-        const updatedUser = {
-          ...state.currentUser,
-          households: [...state.currentUser.households, newHousehold.id],
-          // If this is their first household, set it as primary
-          primaryHousehold: state.currentUser.primaryHousehold || newHousehold.id
-        }
-        dispatch({ type: "SET_CURRENT_USER", payload: updatedUser })
-      }
+      const updatedUserHouseholds = [...(state.currentUser.households || []), newHousehold.id];
+      const primaryHousehold = state.currentUser.primaryHousehold || newHousehold.id;
+      
+      dispatch({ 
+        type: "SET_CURRENT_USER", 
+        payload: { 
+            ...state.currentUser, 
+            households: updatedUserHouseholds,
+            primaryHousehold: primaryHousehold
+        } 
+      });
 
-      toast.success("Household created successfully!")
-      router.push(`/households/${newHousehold.id}`)
-    } catch (error) {
-      console.error("Error creating household:", error)
-      toast.error("Failed to create household. Please try again.")
+      dispatch({ type: "SET_CURRENT_USER_HOUSEHOLD", payload: newHousehold.id });
+
+      toast.success("Residência criada com sucesso!")
+      router.push(`/households`)
+
+    } catch (error: any) {
+      console.error("Erro ao criar residência:", error)
+      toast.error(`Falha ao criar residência: ${error.message}`)
     } finally {
       setIsCreating(false)
     }
   }
 
+  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+    return <Loading text="Carregando..." />;
+  }
+
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return <Loading text="Redirecionando..." />;
+  }
+
   return (
     <PageTransition>
-      <div className="bg-gray-50 min-h-screen">
+      <div className="bg-background min-h-screen">
         <div className="container max-w-md mx-auto p-4">
-          {/* Status Bar Spacer */}
-          <div className="h-6"></div>
-
-          {/* Back Button */}
           <button
             onClick={() => router.back()}
-            className="flex items-center text-gray-500 mb-6"
+            className="flex items-center text-muted-foreground hover:text-foreground transition-colors mb-6 group"
           >
-            <ArrowLeft className="h-5 w-5 mr-1" />
-            <span>Back</span>
+            <ArrowLeft className="h-5 w-5 mr-1 group-hover:-translate-x-1 transition-transform" />
+            <span>Voltar</span>
           </button>
 
-          {/* Header */}
           <header className="mb-8">
-            <h1 className="text-2xl font-bold">Create Household</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Create a new household to manage cats and members
+            <h1 className="text-2xl font-bold">Criar Nova Residência</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Crie uma nova residência para gerenciar gatos e membros
             </p>
           </header>
 
-          {/* Create Household Form */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm mb-8">
+          <div className="bg-card p-6 rounded-lg shadow-sm mb-8 border">
             <form onSubmit={(e) => {
               e.preventDefault()
               handleCreateHousehold()
             }}>
               <div className="mb-6">
-                <Label htmlFor="householdName" className="block mb-2">Household Name</Label>
+                <Label htmlFor="householdName" className="block mb-2 text-sm font-medium">Nome da Residência</Label>
                 <Input
                   id="householdName"
                   type="text"
-                  placeholder="e.g., Smith Family"
+                  placeholder="Ex: Casa da Família Silva"
                   value={householdName}
                   onChange={(e) => setHouseholdName(e.target.value)}
                   className="w-full"
                   required
                 />
-                <p className="text-xs text-gray-500 mt-2">
-                  This will be the name displayed to all household members
+                <p className="text-xs text-muted-foreground mt-2">
+                  Este será o nome exibido para todos os membros da residência
                 </p>
               </div>
 
-              <div className="mb-6">
-                <h3 className="text-sm font-medium mb-2">As the creator, you will:</h3>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Be assigned as the household admin</li>
-                  <li>• Be able to add and remove members</li>
-                  <li>• Be able to manage cats and feeding schedules</li>
+              <div className="mb-6 border-t pt-4">
+                <h3 className="text-sm font-medium mb-2">Como criador(a), você irá:</h3>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>Ser designado(a) como admin da residência</li>
+                  <li>Poder adicionar e remover membros</li>
+                  <li>Poder gerenciar gatos e programações</li>
                 </ul>
               </div>
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={isCreating || !householdName.trim()}
+                disabled={isCreating || !householdName.trim() || status !== 'authenticated'}
               >
-                {isCreating ? "Creating..." : "Create Household"}
+                {isCreating ? "Criando..." : "Criar Residência"}
               </Button>
             </form>
           </div>
 
-          <div className="text-center text-sm text-gray-500">
+          <div className="text-center text-sm text-muted-foreground">
             <p>
-              You can add members after creating your household by sharing the invite code
+              Você poderá adicionar membros após criar a residência, compartilhando o código de convite.
             </p>
           </div>
         </div>

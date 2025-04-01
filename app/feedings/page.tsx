@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PlusCircle, Search, Filter, SortDesc, Utensils, CheckCircle2, Clock, AlertCircle } from "lucide-react"
+import { PlusCircle, Search, Filter, SortDesc, Utensils, CheckCircle2, Clock, AlertCircle, Users } from "lucide-react"
 import Link from "next/link"
 import PageTransition from "@/components/page-transition"
 import BottomNav from "@/components/bottom-nav"
@@ -20,6 +20,8 @@ import { useGlobalState } from "@/lib/context/global-state"
 import { FeedingLog } from "@/lib/types"
 import { Timeline, TimelineItem } from "@/components/ui/timeline"
 import { Badge } from "@/components/ui/badge"
+import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 const getStatusIcon = (status: string | undefined) => {
   switch (status) {
@@ -63,66 +65,114 @@ const getStatusText = (status: string | undefined) => {
 export default function FeedingsPage() {
   const router = useRouter()
   const { state, dispatch } = useGlobalState()
+  const { data: session, status } = useSession()
   const [isLoading, setIsLoading] = useState(true)
   
   useEffect(() => {
+    if (status !== "authenticated" || !state.currentUser?.householdId) {
+      if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+        setIsLoading(false)
+      }
+      return
+    }
+
+    const currentHouseholdId = state.currentUser.householdId
+    setIsLoading(true)
+
     const fetchFeedingLogs = async () => {
       try {
         const response = await fetch('/api/feedings')
-        const data = await response.json()
-        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch feeding logs: ${response.statusText}`)
+        }
+        const data: FeedingLog[] = await response.json()
+
         dispatch({
           type: "SET_FEEDING_LOGS",
           payload: data
         })
       } catch (error) {
         console.error("Erro ao carregar registros de alimentação:", error)
+        toast.error("Não foi possível carregar o histórico de alimentações.")
+        dispatch({ type: "SET_FEEDING_LOGS", payload: [] })
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchFeedingLogs()
-  }, [dispatch])
+  }, [status, state.currentUser, dispatch])
   
   const handleDeleteFeedingLog = async (logId: string) => {
+    const previousLogs = state.feedingLogs
+    dispatch({ type: "DELETE_FEEDING_LOG", payload: { id: logId } })
+
     try {
-      await fetch(`/api/feedings/${logId}`, {
+      const response = await fetch(`/api/feedings/${logId}`, {
         method: 'DELETE'
       })
-      
-      dispatch({
-        type: "DELETE_FEEDING_LOG",
-        payload: logId,
-      })
-    } catch (error) {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Falha ao excluir registro: ${response.statusText}`)
+      }
+      toast.success("Registro excluído com sucesso!")
+    } catch (error: any) {
       console.error("Erro ao deletar registro de alimentação:", error)
+      toast.error(`Erro ao excluir: ${error.message}`)
+      dispatch({ type: "SET_FEEDING_LOGS", payload: previousLogs })
     }
   }
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
+  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+    return <Loading text="Carregando histórico..." />
   }
+
+  if (status === "unauthenticated") {
+    router.push("/login")
+    return <Loading text="Redirecionando..." />
+  }
+
+  if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col min-h-screen bg-background">
+          <div className="p-4 pb-24">
+            <PageHeader
+              title="Histórico de Alimentações"
+              description="Veja todos os registros de alimentação dos seus gatos"
+            />
+            <EmptyState
+              icon={Users}
+              title="Sem Residência Associada"
+              description="Você precisa criar ou juntar-se a uma residência para ver e registrar alimentações."
+              actionLabel="Ir para Configurações"
+              actionHref="/settings"
+            />
+          </div>
+          <BottomNav />
+        </div>
+      </PageTransition>
+    )
+  }
+
+  if (isLoading) {
+    return <Loading text="Carregando registros..." />
+  }
+
+  const feedingLogsToDisplay = state.feedingLogs
 
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Histórico de Alimentações</h1>
-            <Link href="/feedings/new">
-              <Button className="flex items-center gap-2">
-                <PlusCircle size={16} />
-                <span>Registrar</span>
-              </Button>
-            </Link>
-          </div>
+        <div className="p-4 pb-24">
+          <PageHeader
+            title="Histórico de Alimentações"
+            description="Veja todos os registros de alimentação dos seus gatos"
+            actionIcon={<PlusCircle className="h-4 w-4" />}
+            actionLabel="Registrar"
+            actionHref="/feedings/new"
+            showActionButton={!!state.currentUser?.householdId}
+          />
           
           <div className="flex items-center gap-2 mb-6">
             <div className="relative flex-1">
@@ -141,16 +191,14 @@ export default function FeedingsPage() {
             </Button>
           </div>
           
-          {isLoading ? (
-            <Loading />
-          ) : state.feedingLogs.length === 0 ? (
+          {feedingLogsToDisplay.length === 0 ? (
             <EmptyState
               icon={Utensils}
               title="Sem registros de alimentação"
               description={
                 state.cats.length === 0
                   ? "Cadastre seus gatos primeiro para poder registrar alimentações."
-                  : "Você ainda não registrou nenhuma alimentação. Registre a primeira alimentação para começar a acompanhar."
+                  : "Você ainda não registrou nenhuma alimentação para os gatos nesta residência."
               }
               actionLabel={
                 state.cats.length === 0
@@ -161,31 +209,43 @@ export default function FeedingsPage() {
               variant="feeding"
             />
           ) : (
-            <motion.div 
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
             >
               <Timeline className="mt-4">
-                {state.feedingLogs
-                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                  .map((log: FeedingLog) => (
-                    <TimelineItem
-                      key={log.id}
-                      date={new Date(log.timestamp)}
-                      title={
-                        <div className="flex items-center gap-2">
-                          <span>{log.cat?.name || 'Gato'}</span>
-                          <Badge variant={getStatusVariant(log.status)}>
-                            {getStatusText(log.status)}
-                          </Badge>
-                        </div>
-                      }
-                      description={`${log.portionSize ? `${log.portionSize}g` : 'Quantidade não especificada'} - ${log.notes || `Alimentado por ${log.user?.name || 'Usuário'}`}`}
-                      icon={getStatusIcon(log.status)}
-                      status={log.status || "completed"}
-                    />
-                  ))}
+                {feedingLogsToDisplay
+                  .map((log: FeedingLog) => {
+                    const catName = state.cats.find(c => c.id === log.catId)?.name || 'Gato desconhecido'
+                    const userName = log.user?.name || 'Usuário desconhecido'
+
+                    return (
+                      <TimelineItem
+                        key={log.id}
+                        date={new Date(log.timestamp)}
+                        title={
+                          <div className="flex items-center gap-2">
+                            <Link href={`/cats/${log.catId}`} className="font-medium hover:underline">
+                              {catName}
+                            </Link>
+                            {log.status && log.status !== 'completed' && (
+                              <Badge variant={getStatusVariant(log.status)}>
+                                {getStatusText(log.status)}
+                              </Badge>
+                            )}
+                          </div>
+                        }
+                        description={
+                          `${log.portionSize ? `${log.portionSize}g` : 'Quantidade não registrada'} ${log.notes ? `- ${log.notes}` : `- por ${userName}`}`
+                        }
+                        icon={getStatusIcon(log.status)}
+                        status={log.status || "completed"}
+                        onClick={() => router.push(`/feedings/${log.id}`)}
+                        className="cursor-pointer hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors"
+                      />
+                    )
+                  })}
               </Timeline>
             </motion.div>
           )}

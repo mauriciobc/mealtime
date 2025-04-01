@@ -29,9 +29,10 @@ import {
 } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, Clock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ImageUpload } from "@/components/image-upload";
+import { Loading } from "@/components/ui/loading";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -40,13 +41,20 @@ const formSchema = z.object({
   photoUrl: z.string().optional(),
   birthdate: z.date().optional(),
   weight: z.string().optional(),
+  portion: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num > 0;
+  }, {
+    message: "A porção deve ser um número positivo.",
+  }),
   restrictions: z.string().optional(),
   notes: z.string().optional(),
   feeding_interval: z.string().min(1, {
     message: "O intervalo de alimentação é obrigatório.",
   }).refine((val) => {
     const num = parseInt(val);
-    return num >= 1 && num <= 24;
+    return !isNaN(num) && num >= 1 && num <= 24;
   }, {
     message: "O intervalo deve estar entre 1 e 24 horas.",
   }),
@@ -56,9 +64,7 @@ export default function NewCatPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: session, status } = useSession();
-  const [isLoadingHousehold, setIsLoadingHousehold] = useState(true);
-  const [household, setHousehold] = useState<{ id: number, name: string } | null>(null);
-  const { dispatch } = useGlobalState();
+  const { state, dispatch } = useGlobalState();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,10 +74,10 @@ export default function NewCatPage() {
       restrictions: "",
       notes: "",
       feeding_interval: "8",
+      portion: "",
     },
   });
 
-  // Redirecionar para login se o usuário não estiver autenticado
   useEffect(() => {
     if (status === "unauthenticated") {
       toast.error("Você precisa estar conectado para adicionar um gato");
@@ -79,52 +85,17 @@ export default function NewCatPage() {
     }
   }, [status, router]);
 
-  // Buscar informações do domicílio do usuário
-  useEffect(() => {
-    if (status !== "authenticated" || !session?.user?.id) {
-      setIsLoadingHousehold(false);
-      return;
-    }
-
-    async function loadUserHousehold() {
-      try {
-        setIsLoadingHousehold(true);
-        const response = await fetch(`/api/users/${session.user.id}`);
-        
-        if (!response.ok) {
-          throw new Error("Erro ao buscar informações do usuário");
-        }
-        
-        const userData = await response.json();
-        
-        if (userData.household) {
-          setHousehold({
-            id: userData.household.id,
-            name: userData.household.name
-          });
-        } else {
-          setHousehold(null);
-        }
-      } catch (error) {
-        console.error("Erro ao buscar informações do domicílio:", error);
-        toast.error("Não foi possível verificar seu domicílio");
-      } finally {
-        setIsLoadingHousehold(false);
-      }
-    }
-    
-    loadUserHousehold();
-  }, [session, status]);
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!state.currentUser?.householdId) {
+       toast.error("Você precisa pertencer a um domicílio para adicionar um gato.");
+       return;
+    }
+
+    const currentHouseholdId = state.currentUser.householdId;
+
     try {
       setIsSubmitting(true);
-      
-      if (!household) {
-        toast.error("Você precisa pertencer a um domicílio para adicionar um gato.");
-        return;
-      }
-      
+
       const response = await fetch("/api/cats", {
         method: "POST",
         headers: {
@@ -133,7 +104,9 @@ export default function NewCatPage() {
         body: JSON.stringify({
           ...values,
           weight: values.weight ? parseFloat(values.weight) : undefined,
-          householdId: household.id,
+          householdId: currentHouseholdId,
+          feeding_interval: parseInt(values.feeding_interval),
+          portion: values.portion ? parseFloat(values.portion) : undefined
         }),
       });
 
@@ -145,7 +118,6 @@ export default function NewCatPage() {
 
       const newCat = await response.json();
       
-      // Adicionar o gato ao estado global
       dispatch({
         type: "ADD_CAT",
         payload: newCat,
@@ -153,7 +125,6 @@ export default function NewCatPage() {
 
       toast.success("Gato adicionado com sucesso!");
       router.push("/cats");
-      router.refresh();
     } catch (error) {
       console.error("Erro ao criar perfil de gato:", error);
       toast.error("Erro ao adicionar gato. Tente novamente.");
@@ -161,6 +132,39 @@ export default function NewCatPage() {
       setIsSubmitting(false);
     }
   }
+
+  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+     return (
+        <div className="container max-w-md py-6 pb-28 flex justify-center items-center min-h-[300px]">
+          <Loading text="Carregando..." />
+        </div>
+     );
+  }
+
+   if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+     return (
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="container max-w-md py-6 pb-28"
+        >
+          <h1 className="text-2xl font-bold mb-6">Adicionar Novo Gato</h1>
+          <div className="bg-secondary border border-border rounded-md p-6 text-center">
+              <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="font-semibold text-lg mb-2">Nenhum domicílio encontrado</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Você precisa pertencer a um domicílio para adicionar um gato.
+                Crie ou junte-se a um domicílio nas configurações.
+              </p>
+              <Button
+                onClick={() => router.push("/settings")}
+              >
+                Ir para Configurações
+              </Button>
+            </div>
+        </motion.div>
+     );
+   }
 
   return (
     <motion.div
@@ -170,32 +174,12 @@ export default function NewCatPage() {
     >
       <h1 className="text-2xl font-bold mb-6">Adicionar Novo Gato</h1>
       
-      {status === "loading" || isLoadingHousehold ? (
-        <div className="flex justify-center py-10">
-          <div className="animate-pulse h-8 w-8 rounded-full bg-muted"></div>
-        </div>
-      ) : status === "authenticated" && !household ? (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 text-yellow-800">
-          <h3 className="font-medium mb-2">Nenhum domicílio encontrado</h3>
-          <p className="text-sm">
-            Você precisa pertencer a um domicílio para adicionar um gato. 
-            Crie ou junte-se a um domicílio nas configurações.
-          </p>
-          <Button 
-            className="mt-4 w-full" 
-            variant="outline"
-            onClick={() => router.push("/households")}
-          >
-            Ir para Domicílios
-          </Button>
-        </div>
-      ) : (
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nome</FormLabel>
                   <FormControl>
@@ -206,10 +190,10 @@ export default function NewCatPage() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="photoUrl"
-              render={({ field }) => (
+          <FormField
+            control={form.control}
+            name="photoUrl"
+            render={({ field }) => (
                 <FormItem>
                   <FormLabel>Foto</FormLabel>
                   <FormControl>
@@ -224,10 +208,10 @@ export default function NewCatPage() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="birthdate"
-              render={({ field }) => (
+          <FormField
+            control={form.control}
+            name="birthdate"
+            render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Data de Nascimento</FormLabel>
                   <Popover>
@@ -255,9 +239,9 @@ export default function NewCatPage() {
                         selected={field.value}
                         onSelect={field.onChange}
                         disabled={(date) =>
-                          date > new Date() || date < new Date("1990-01-01")
+                          date > new Date() || date < new Date("1900-01-01")
                         }
-                        locale={ptBR}
+                        initialFocus
                       />
                     </PopoverContent>
                   </Popover>
@@ -273,13 +257,35 @@ export default function NewCatPage() {
                 <FormItem>
                   <FormLabel>Peso (kg)</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
-                      step="0.01" 
-                      placeholder="Ex: 4.5" 
-                      {...field} 
-                      id={field.name}
-                    />
+                    <Input type="number" step="0.1" placeholder="Ex: 4.5" {...field} id={field.name}/>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="feeding_interval"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Intervalo Alimentação (horas)</FormLabel>
+                  <FormControl>
+                     <Input type="number" min="1" max="24" placeholder="Ex: 8" {...field} id={field.name}/>
+                  </FormControl>
+                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="portion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Porção por Refeição (ex: gramas)</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="any" placeholder="Ex: 50" {...field} id={field.name}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -293,9 +299,9 @@ export default function NewCatPage() {
                 <FormItem>
                   <FormLabel>Restrições Alimentares</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Liste quaisquer restrições alimentares" 
-                      {...field} 
+                    <Textarea
+                      placeholder="Alguma restrição alimentar? (opcional)"
+                      {...field}
                       id={field.name}
                     />
                   </FormControl>
@@ -309,12 +315,12 @@ export default function NewCatPage() {
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Observações</FormLabel>
+                  <FormLabel>Observações Adicionais</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Outras informações importantes" 
-                      {...field} 
-                      id={field.name}
+                    <Textarea
+                      placeholder="Notas sobre comportamento, saúde, etc. (opcional)"
+                      {...field}
+                       id={field.name}
                     />
                   </FormControl>
                   <FormMessage />
@@ -322,39 +328,11 @@ export default function NewCatPage() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="feeding_interval"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Intervalo de Alimentação (horas)</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <Input 
-                        type="number" 
-                        min="1" 
-                        max="24"
-                        placeholder="Intervalo em horas"
-                        className="pl-10"
-                        {...field} 
-                      />
-                      <Clock className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                    </div>
-                  </FormControl>
-                  <p className="text-xs text-gray-500">
-                    Defina o intervalo entre as alimentações. Você será notificado quando for hora da próxima alimentação.
-                  </p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? "Adicionando..." : "Adicionar Gato"}
-            </Button>
-          </form>
-        </Form>
-      )}
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting ? "Adicionando..." : "Adicionar Gato"}
+          </Button>
+        </form>
+      </Form>
     </motion.div>
   );
 } 

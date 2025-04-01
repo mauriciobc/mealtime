@@ -166,30 +166,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Use this flag to prevent unnecessary updates
-    let needsUpdate = false;
+    // Debounce the localStorage updates
+    const timeoutId = setTimeout(() => {
+      // Only save non-empty data to localStorage
+      if (state.cats.length > 0) {
+        localStorage.setItem("cats", JSON.stringify(state.cats));
+      }
+      if (state.feedingLogs.length > 0) {
+        localStorage.setItem("feedingLogs", JSON.stringify(state.feedingLogs));
+      }
+      if (state.households.length > 0) {
+        localStorage.setItem("households", JSON.stringify(state.households));
+      }
+      if (state.users.length > 0) {
+        localStorage.setItem("users", JSON.stringify(state.users));
+      }
+      if (state.notifications.length > 0) {
+        localStorage.setItem("notifications", JSON.stringify(state.notifications));
+      }
+    }, 1000); // 1 second debounce
 
-    // Only save non-empty data to localStorage
-    if (state.cats.length > 0) {
-      localStorage.setItem("cats", JSON.stringify(state.cats));
-      needsUpdate = true;
-    }
-    if (state.feedingLogs.length > 0) {
-      localStorage.setItem("feedingLogs", JSON.stringify(state.feedingLogs));
-      needsUpdate = true;
-    }
-    if (state.households.length > 0) {
-      localStorage.setItem("households", JSON.stringify(state.households));
-      needsUpdate = true;
-    }
-    if (state.users.length > 0) {
-      localStorage.setItem("users", JSON.stringify(state.users));
-      needsUpdate = true;
-    }
-    if (state.notifications.length > 0) {
-      localStorage.setItem("notifications", JSON.stringify(state.notifications));
-      needsUpdate = true;
-    }
+    return () => clearTimeout(timeoutId);
   }, [state]);
 
   return (

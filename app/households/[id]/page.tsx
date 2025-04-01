@@ -1,11 +1,10 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect, use, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { AppHeader } from "@/components/app-header"
 import BottomNav from "@/components/bottom-nav"
 import PageTransition from "@/components/page-transition"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,7 +13,6 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Separator } from "@/components/ui/separator"
 import { 
   Home, 
   Users, 
@@ -32,12 +30,14 @@ import {
   UserMinus,
   Crown,
   ArrowUpDown,
-  X
+  X,
+  UserCheck,
+  AlertTriangle
 } from "lucide-react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { useGlobalState } from "@/lib/context/global-state"
-import { CatType } from "@/lib/types"
+import { CatType, Household as HouseholdType, HouseholdMember } from "@/lib/types"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,45 +50,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import React from "react"
-import { getCatsByHouseholdId } from "@/lib/services/apiService"
-
-interface Member {
-  id: string;
-  name: string;
-  email: string;
-  role: 'admin' | 'member';
-  isCurrentUser: boolean;
-  joinedAt?: Date;
-}
-
-interface Cat {
-  id: number;
-  name: string;
-  photoUrl: string | null;
-}
-
-interface Household {
-  id: string;
-  name: string;
-  inviteCode: string;
-  members: Member[];
-  cats: string[];
-  catGroups: any[];
-}
-
-// Função utilitária para converter a Household local para o formato esperado pelo contexto
-const mapToHouseholdType = (household: Household): any => {
-  return {
-    ...household,
-    id: String(household.id as unknown),
-    members: household.members.map(member => ({
-      userId: String(member.id as unknown),
-      role: member.role === 'admin' ? 'Admin' : 'Member',
-      joinedAt: member.joinedAt || new Date(),
-    })),
-    cats: household.cats.map(catId => String(catId as unknown)),
-  };
-};
+import { Loading } from "@/components/ui/loading"
+import { Label } from "@/components/ui/label"
+import { AppHeader } from "@/components/app-header"
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -99,771 +63,675 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { state, dispatch } = useGlobalState();
+  const householdId = resolvedParams.id;
   
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [household, setHousehold] = useState<Household | null>(null);
+  const [household, setHousehold] = useState<HouseholdType | null | undefined>(undefined);
   const [cats, setCats] = useState<CatType[]>([])
   const [activeTab, setActiveTab] = useState('members')
   
-  // Estados para diálogos de confirmação
-  const [memberToRemove, setMemberToRemove] = useState<string | null>(null)
-  const [memberToPromote, setMemberToPromote] = useState<string | null>(null)
-  const [memberToDemote, setMemberToDemote] = useState<string | null>(null)
-  const [catToDelete, setCatToDelete] = useState<number | null>(null)
+  const [memberToRemove, setMemberToRemove] = useState<HouseholdMember | null>(null)
+  const [memberToPromote, setMemberToPromote] = useState<HouseholdMember | null>(null)
+  const [memberToDemote, setMemberToDemote] = useState<HouseholdMember | null>(null)
+  const [catToDelete, setCatToDelete] = useState<CatType | null>(null)
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
+  const [showDeleteHouseholdDialog, setShowDeleteHouseholdDialog] = useState(false)
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Verificar se o usuário está autenticado
+  useEffect(() => {
+    if (state.households && householdId) {
+      const foundHousehold = state.households.find(h => String(h.id) === String(householdId));
+      setHousehold(foundHousehold || null);
+      
+      if (foundHousehold) {
+        const householdCats = state.cats.filter(cat => String(cat.householdId) === String(householdId));
+        setCats(householdCats);
+      } else {
+        setCats([]);
+      }
+    }
+  }, [state.households, state.cats, householdId]);
+
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
     }
   }, [status, router]);
 
-  // Carregar dados da residência
-  useEffect(() => {
-    if (session && session.user) {
-      loadHouseholdDetails();
-    }
-  }, [session, resolvedParams.id]);
-
-  const loadHouseholdDetails = async () => {
-    try {
-      setIsLoading(true)
-      
-      // Validar o ID
-      if (!resolvedParams.id || isNaN(Number(resolvedParams.id))) {
-        console.error("ID de residência inválido:", resolvedParams.id)
-        toast.error("ID de residência inválido")
-        router.push("/households")
-        return
-      }
-      
-      // Tentar primeiro fazer uma chamada à API real
-      try {
-        const response = await fetch(`/api/households/${resolvedParams.id}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Dados da residência carregados via API:", data);
-          
-          // Mapear os dados
-          const mappedHousehold = {
-            ...data,
-            members: (data.members || []).map((member: any) => ({
-              id: String(member.id as unknown),
-              role: member.role === 'Admin' ? 'admin' : 'member',
-              name: member.name || '',
-              email: member.email || '',
-              isCurrentUser: String(member.id as unknown) === session?.user?.id?.toString()
-            }))
-          }
-          
-          setHousehold(mappedHousehold as unknown as Household);
-          
-          // Buscar gatos do domicílio usando a API específica
-          try {
-            const catData = await getCatsByHouseholdId(resolvedParams.id);
-            if (catData && catData.length > 0) {
-              console.log("Gatos carregados via API:", catData);
-              setCats(catData);
-              
-              // Atualizar o estado global com os gatos filtrados
-              dispatch({
-                type: "SET_CATS",
-                payload: catData,
-              });
-            }
-          } catch (catError) {
-            console.error("Erro ao carregar gatos do domicílio:", catError);
-          }
-          
-          return;
-        }
-      } catch (apiError) {
-        console.error("Erro ao carregar via API:", apiError);
-        // Continuar para o fallback com dados mockados
-      }
-      
-      // Verificar se temos dados de households no estado
-      if (!state.households || state.households.length === 0) {
-        console.error("Não há households disponíveis no estado")
-        toast.error("Erro ao carregar dados. Tente novamente mais tarde.")
-        router.push("/households")
-        return
-      }
-      
-      console.log("Buscando household com ID:", resolvedParams.id)
-      console.log("Households disponíveis:", state.households)
-      
-      // Tentativa mais robusta de encontrar o household
-      const foundHousehold = state.households.find((h: any) => {
-        if (!h || !h.id) return false
-        return String(h.id) === String(resolvedParams.id)
-      })
-      
-      if (foundHousehold) {
-        console.log("Household encontrado:", foundHousehold)
-        
-        // Mapear os membros para incluir as propriedades necessárias
-        const mappedHousehold = {
-          ...foundHousehold,
-          members: (foundHousehold.members || []).map((member: any) => ({
-            id: String(member.userId as unknown),
-            role: member.role === 'Admin' ? 'admin' : 'member',
-            joinedAt: member.joinedAt,
-            name: member.name || '',
-            email: member.email || '',
-            isCurrentUser: String(member.userId as unknown) === session?.user?.id?.toString()
-          }))
-        }
-        setHousehold(mappedHousehold as unknown as Household)
-        
-        // Buscar gatos associados ao domicílio
-        const householdId = String(foundHousehold.id)
-        const householdCats = state.cats.filter((cat: CatType) => {
-          return cat.householdId && String(cat.householdId) === householdId
-        })
-        
-        console.log("Gatos encontrados para o household:", householdCats)
-        setCats(householdCats as any[])
-      } else {
-        // Se não encontrar o domicílio, voltar para a lista
-        console.error("Domicílio não encontrado. ID:", resolvedParams.id)
-        toast.error("Domicílio não encontrado")
-        router.push("/households")
-      }
-    } catch (error) {
-      console.error("Erro ao carregar detalhes do domicílio:", error)
-      toast.error("Não foi possível carregar os detalhes do domicílio")
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  const isCurrentUserAdmin = useCallback(() => {
+    if (!household || !state.currentUser) return false;
+    const currentUserMember = household.members.find(
+      member => String(member.userId) === String(state.currentUser!.id)
+    );
+    return currentUserMember?.role?.toLowerCase() === 'admin';
+  }, [household, state.currentUser]);
 
   const copyInviteCode = async () => {
-    if (!household) return
-    
+    if (!household?.inviteCode) return;
     try {
-      await navigator.clipboard.writeText(household.inviteCode)
-      toast.success("Código copiado para a área de transferência")
+      await navigator.clipboard.writeText(household.inviteCode);
+      toast.success("Código de convite copiado!");
     } catch (error) {
-      console.error("Erro ao copiar código:", error)
-      toast.error("Não foi possível copiar o código de convite")
+      console.error("Erro ao copiar código:", error);
+      toast.error("Não foi possível copiar o código.");
     }
-  }
+  };
 
   const leaveHousehold = async () => {
-    if (!household || !session?.user?.id) return
-    
+    if (!household || !state.currentUser) return;
+    setIsProcessing(true);
     try {
-      // Em produção, seria uma chamada real à API
-      // await fetch(`/api/households/${household.id}/members/${session.user.id}`, {
-      //   method: "DELETE"
-      // });
+      const response = await fetch(`/api/households/${household.id}/members/${state.currentUser.id}`, {
+        method: "DELETE"
+      });
       
-      if (dispatch) {
-        // Atualização do estado global
-        const updatedHousehold = {
-          ...household,
-          members: household.members.filter(m => !m.isCurrentUser),
-          catGroups: household.catGroups || []
-        }
-        
-        // Converter para o formato esperado pelo contexto
-        const householdForDispatch = mapToHouseholdType(updatedHousehold);
-        
-        dispatch({
-          type: "UPDATE_HOUSEHOLD",
-          payload: householdForDispatch
-        })
+      if (!response.ok) {
+         const errorData = await response.json().catch(() => ({}));
+         throw new Error(errorData.error || 'Falha ao sair da residência');
       }
-      
-      toast.success("Você saiu do domicílio")
-      router.push("/households")
-    } catch (error) {
-      console.error("Erro ao sair do domicílio:", error)
-      toast.error("Não foi possível sair do domicílio")
+
+      dispatch({ 
+        type: "REMOVE_HOUSEHOLD_MEMBER", 
+        payload: { 
+          householdId: String(household.id), 
+          memberId: String(state.currentUser.id) 
+        } 
+      });
+
+      toast.success("Você saiu da residência.");
+      router.push("/households");
+
+    } catch (error: any) {
+      console.error("Erro ao sair da residência:", error);
+      toast.error(`Erro ao sair: ${error.message}`);
     } finally {
-      setShowLeaveDialog(false)
+      setShowLeaveDialog(false);
+      setIsProcessing(false);
     }
-  }
+  };
 
   const removeMember = async (memberId: string) => {
-    if (!household) return
-    
+    if (!household || !memberId) return;
+    setIsProcessing(true);
     try {
-      // Em produção, seria uma chamada real à API
-      // await fetch(`/api/households/${household.id}/members/${memberId}`, {
-      //   method: "DELETE"
-      // });
+      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+         const errorData = await response.json().catch(() => ({}));
+         throw new Error(errorData.error || 'Falha ao remover membro');
+      }
+
+      dispatch({ 
+        type: "REMOVE_HOUSEHOLD_MEMBER", 
+        payload: { householdId: String(household.id), memberId: String(memberId) } 
+      });
+
+      toast.success("Membro removido com sucesso.");
+
+    } catch (error: any) {
+      console.error("Erro ao remover membro:", error);
+      toast.error(`Erro ao remover: ${error.message}`);
+    } finally {
+      setMemberToRemove(null);
+      setIsProcessing(false);
+    }
+  };
+
+  const changeMemberRole = async (memberId: string, newRole: 'Admin' | 'Member') => {
+    if (!household || !memberId) return;
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+
+      if (!response.ok) {
+         const errorData = await response.json().catch(() => ({}));
+         throw new Error(errorData.error || 'Falha ao alterar cargo do membro');
+      }
       
-      if (dispatch) {
-        // Atualização do estado global
-        const updatedHousehold = {
-          ...household,
-          members: household.members.filter(m => m.id !== memberId),
-          catGroups: household.catGroups || []
+      const updatedData = await response.json(); 
+
+      dispatch({ 
+        type: "UPDATE_HOUSEHOLD_MEMBER", 
+        payload: { 
+          householdId: String(household.id), 
+          member: { 
+            id: String(memberId), 
+            role: newRole 
+          } 
+        } 
+      });
+
+      toast.success(`Cargo do membro atualizado para ${newRole}.`);
+
+    } catch (error: any) {
+      console.error(`Erro ao alterar cargo:`, error);
+      toast.error(`Erro ao alterar cargo: ${error.message}`);
+    } finally {
+      setMemberToPromote(null);
+      setMemberToDemote(null);
+      setIsProcessing(false);
+    }
+  };
+
+  const deleteCat = async (catId: string | number) => {
+    if (!household || !catId) return;
+    const catIdStr = String(catId);
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`/api/cats/${catIdStr}`, {
+        method: "DELETE"
+      });
+
+      if (!response.ok) {
+         const errorData = await response.json().catch(() => ({}));
+         throw new Error(errorData.error || 'Falha ao remover gato');
+      }
+
+      dispatch({ type: "DELETE_CAT", payload: Number(catIdStr) });
+
+      toast.success("Gato removido com sucesso.");
+
+    } catch (error: any) {
+      console.error("Erro ao remover gato:", error);
+      toast.error(`Erro ao remover gato: ${error.message}`);
+    } finally {
+      setCatToDelete(null);
+      setIsProcessing(false);
+    }
+  };
+
+  const deleteHousehold = async () => {
+    if (!household) return;
+    setIsProcessing(true);
+    try {
+        const response = await fetch(`/api/households/${household.id}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Falha ao excluir residência');
         }
-        
-        // Converter para o formato esperado pelo contexto
-        const householdForDispatch = mapToHouseholdType(updatedHousehold);
-        
-        dispatch({
-          type: "UPDATE_HOUSEHOLD",
-          payload: householdForDispatch
-        })
-        
-        // Atualização do estado local
-        setHousehold(updatedHousehold)
-      }
-      
-      toast.success("Membro removido com sucesso")
-    } catch (error) {
-      console.error("Erro ao remover membro:", error)
-      toast.error("Não foi possível remover o membro")
+
+        dispatch({ type: 'DELETE_HOUSEHOLD', payload: String(household.id) });
+
+        toast.success('Residência excluída com sucesso.');
+        router.push('/households');
+
+    } catch (error: any) {
+        console.error('Erro ao excluir residência:', error);
+        toast.error(`Erro ao excluir: ${error.message}`);
     } finally {
-      setMemberToRemove(null)
+        setShowDeleteHouseholdDialog(false);
+        setIsProcessing(false);
     }
-  }
+  };
 
-  const changeMemberRole = async (memberId: string, newRole: 'admin' | 'member') => {
-    if (!household) return
-    
-    try {
-      // Em produção, seria uma chamada real à API
-      // await fetch(`/api/households/${household.id}/members/${memberId}`, {
-      //   method: "PATCH",
-      //   headers: {
-      //     "Content-Type": "application/json"
-      //   },
-      //   body: JSON.stringify({ role: newRole })
-      // });
-      
-      if (dispatch) {
-        // Atualização do estado global
-        const updatedHousehold = {
-          ...household,
-          members: household.members.map(m => 
-            m.id === memberId ? { ...m, role: newRole } : m
-          ),
-          catGroups: household.catGroups || []
-        }
-        
-        // Converter para o formato esperado pelo contexto
-        const householdForDispatch = mapToHouseholdType(updatedHousehold);
-        
-        dispatch({
-          type: "UPDATE_HOUSEHOLD",
-          payload: householdForDispatch
-        })
-        
-        // Atualização do estado local
-        setHousehold(updatedHousehold)
-      }
-      
-      toast.success(`Membro ${newRole === 'admin' ? 'promovido' : 'rebaixado'} com sucesso`)
-    } catch (error) {
-      console.error(`Erro ao ${newRole === 'admin' ? 'promover' : 'rebaixar'} membro:`, error)
-      toast.error(`Não foi possível ${newRole === 'admin' ? 'promover' : 'rebaixar'} o membro`)
-    } finally {
-      setMemberToPromote(null)
-      setMemberToDemote(null)
-    }
-  }
-
-  const deleteCat = async (catId: number) => {
-    if (!household) return
-    
-    try {
-      // Em produção, seria uma chamada real à API
-      // await fetch(`/api/cats/${catId}`, {
-      //   method: "DELETE"
-      // });
-      
-      if (dispatch) {
-        // Atualização do estado global
-        dispatch({
-          type: "DELETE_CAT",
-          payload: catId
-        })
-        
-        // Atualização do estado local
-        setCats(prev => prev.filter(c => c.id !== catId))
-      }
-      
-      toast.success("Gato removido com sucesso")
-    } catch (error) {
-      console.error("Erro ao remover gato:", error)
-      toast.error("Não foi possível remover o gato")
-    } finally {
-      setCatToDelete(null)
-    }
-  }
-
-  const isCurrentUserAdmin = () => {
-    if (!household) return false
-    const currentUser = household.members.find(member => member.isCurrentUser)
-    return currentUser?.role === 'admin'
-  }
-
-  const formatMemberRole = (role: string) => {
-    switch (role.toLowerCase()) {
-      case "admin":
-        return "Administrador"
-      case "member":
-        return "Membro"
-      default:
-        return role
-    }
-  }
-
-  if (isLoading) {
+  if (status === "loading" || (status === "authenticated" && !state.currentUser) || household === undefined) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
           <div className="flex-1 p-4">
-            <Skeleton className="h-10 w-48 mb-4" />
+            <Skeleton className="h-8 w-48 mb-4" />
             <Skeleton className="h-6 w-full mb-2" />
             <Skeleton className="h-6 w-3/4 mb-6" />
-            
-            <div className="space-y-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-6 w-32 mb-1" />
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div>
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-48 mt-1" />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div>
-                        <Skeleton className="h-4 w-32" />
-                        <Skeleton className="h-3 w-48 mt-1" />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+             <div className="space-y-4">
+               <Skeleton className="h-40 w-full rounded-lg" />
+               <Skeleton className="h-40 w-full rounded-lg" />
+             </div>
           </div>
-          
           <BottomNav />
         </div>
       </PageTransition>
-    )
+    );
   }
   
-  if (loadError) {
-    return (
-      <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <div className="flex-1 p-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Erro ao carregar detalhes da residência</CardTitle>
-                <CardDescription>
-                  {loadError}
-                </CardDescription>
-              </CardHeader>
-              <CardFooter>
-                <Button asChild className="w-full">
-                  <Link href="/households">Voltar para Domicílios</Link>
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-          
-          <BottomNav />
-        </div>
-      </PageTransition>
-    )
+  if (status === "unauthenticated") {
+    return <Loading text="Redirecionando para login..." />;
   }
 
-  if (!household) {
+  if (household === null) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
-          <div className="flex-1 p-4">
-            <Card>
+           <AppHeader title="Erro" />
+          <div className="flex-1 p-4 flex items-center justify-center">
+            <Card className="w-full max-w-md text-center">
               <CardHeader>
-                <CardTitle>Residência não encontrada</CardTitle>
+                 <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+                <CardTitle className="text-destructive">Residência Não Encontrada</CardTitle>
                 <CardDescription>
-                  Não foi possível encontrar a residência solicitada.
+                  A residência que você está tentando acessar não foi encontrada ou você não tem permissão para vê-la.
                 </CardDescription>
               </CardHeader>
               <CardFooter>
-                <Button asChild className="w-full">
-                  <Link href="/households">Voltar para Domicílios</Link>
+                <Button asChild className="w-full" variant="outline">
+                  <Link href="/households">Voltar para Minhas Residências</Link>
                 </Button>
               </CardFooter>
             </Card>
           </div>
-          
           <BottomNav />
         </div>
       </PageTransition>
-    )
+    );
   }
+
+  const formatMemberRole = (role?: string) => {
+    if (!role) return 'Membro';
+    const lowerRole = role.toLowerCase();
+    if (lowerRole === "admin") return "Admin";
+    if (lowerRole === "member") return "Membro";
+    return role;
+  };
 
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <div className="flex-1 p-4">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">{household.name}</h1>
-            <p className="text-muted-foreground">
-              {household.members.length} {household.members.length === 1 ? 'membro' : 'membros'} • 
-              {cats.length} {cats.length === 1 ? 'gato' : 'gatos'}
-            </p>
-          </div>
+        <div className="flex-1 p-4 pb-24">
+          
+           <div className="flex items-center mb-6">
+             <Button variant="ghost" size="icon" className="mr-2" onClick={() => router.push('/households')}>
+                <ChevronLeft className="h-5 w-5" />
+             </Button>
+             <div>
+                <h1 className="text-xl font-bold leading-tight">{household.name}</h1>
+                <p className="text-xs text-muted-foreground">
+                  {household.members?.length || 0} {household.members?.length === 1 ? 'membro' : 'membros'} • 
+                  {cats.length || 0} {cats.length === 1 ? 'gato' : 'gatos'}
+                </p>
+             </div>
+           </div>
           
           <Tabs 
             defaultValue="members" 
             value={activeTab} 
             onValueChange={setActiveTab}
-            className="mb-6"
           >
             <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="members">Membros</TabsTrigger>
-              <TabsTrigger value="cats">Gatos</TabsTrigger>
-              <TabsTrigger value="settings">Configurações</TabsTrigger>
+              <TabsTrigger value="members"><Users className="h-4 w-4 mr-1.5"/>Membros</TabsTrigger>
+              <TabsTrigger value="cats"><Cat className="h-4 w-4 mr-1.5"/>Gatos</TabsTrigger>
+              <TabsTrigger value="settings"><Settings className="h-4 w-4 mr-1.5"/>Ajustes</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="members" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold">
-                  Membros ({household.members.length})
+            <TabsContent value="members" className="space-y-3">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-base font-semibold">
+                  Membros ({household.members?.length || 0})
                 </h2>
                 {isCurrentUserAdmin() && (
                   <Button 
                     size="sm"
-                    onClick={() => router.push(`/households/${household.id}/members/invite`)}
+                    variant="outline"
+                    onClick={() => household.inviteCode && copyInviteCode()}
+                    title="Copiar código de convite"
                   >
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Convidar
+                    Convidar (Copiar Código)
                   </Button>
                 )}
               </div>
               
-              {household.members.map(member => (
-                <div 
-                  key={member.id}
-                  className="flex items-center justify-between p-4 bg-card rounded-lg border"
-                >
-                  <div className="flex items-center space-x-3">
-                    <Avatar>
-                      <AvatarFallback>
-                        {member.name ? member.name.slice(0, 2).toUpperCase() : 'ME'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center">
-                        <p className="font-medium">
-                          {member.name || 'Membro'}
-                          {member.isCurrentUser && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              (Você)
-                            </span>
-                          )}
-                        </p>
-                        <Badge 
-                          variant={member.role === 'admin' ? 'default' : 'outline'}
-                          className="ml-2"
-                        >
-                          {formatMemberRole(member.role)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{member.email || 'Sem e-mail'}</p>
-                    </div>
-                  </div>
-                  
-                  {isCurrentUserAdmin() && !member.isCurrentUser && (
-                    <div className="flex space-x-1">
-                      {member.role === 'member' ? (
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => setMemberToPromote(member.id)}
-                          title="Promover a Administrador"
-                        >
-                          <Crown className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => setMemberToDemote(member.id)}
-                          title="Rebaixar a Membro"
-                        >
-                          <ArrowUpDown className="h-4 w-4" />
-                        </Button>
-                      )}
-                      
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        className="text-destructive"
-                        onClick={() => setMemberToRemove(member.id)}
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </TabsContent>
-            
-            <TabsContent value="cats" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold">
-                  Gatos ({cats.length})
-                </h2>
-                <Button 
-                  size="sm"
-                  onClick={() => router.push(`/households/${household.id}/cats/new`)}
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Adicionar Gato
-                </Button>
-              </div>
-              
-              {cats.length === 0 ? (
-                <div className="text-center py-8 border rounded-lg bg-muted/30">
-                  <p className="text-muted-foreground">
-                    Nenhum gato registrado neste domicílio.
-                  </p>
-                  <Button 
-                    variant="link" 
-                    onClick={() => router.push(`/households/${household.id}/cats/new`)}
+              {household.members?.map(member => {
+                 const isCurrent = String(member.userId) === String(state.currentUser?.id);
+                 const memberName = isCurrent ? state.currentUser?.name : `Membro ${member.userId}`;
+                 
+                 return (
+                  <div 
+                    key={member.userId}
+                    className="flex items-center justify-between p-3 bg-card rounded-lg border"
                   >
-                    Adicionar um gato
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {cats.map(cat => (
-                    <Card key={typeof cat.id === 'number' ? cat.id : `cat-${Math.random()}`} className="overflow-hidden">
-                      <CardHeader className="flex flex-row items-center justify-between p-4">
-                        <CardTitle className="text-base">{cat.name}</CardTitle>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => setCatToDelete(cat.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </CardHeader>
-                      <CardContent className="p-0">
-                        <Button
-                          variant="ghost"
-                          className="w-full justify-start rounded-none"
-                          onClick={() => router.push(`/cats/${cat.id}`)}
-                        >
-                          Ver Detalhes
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="settings" className="space-y-6">
-              <div className="space-y-4">
-                <h2 className="text-lg font-semibold">Configurações do Domicílio</h2>
-                
-                <div className="p-4 bg-card rounded-lg border space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium mb-1">Nome do Domicílio</p>
-                      <p className="bg-muted p-2 rounded">{household.name}</p>
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-9 w-9">
+                         <AvatarImage 
+                           src={isCurrent ? state.currentUser?.avatar : undefined} 
+                           alt={memberName} 
+                         />
+                        <AvatarFallback>
+                          {memberName ? memberName.slice(0, 2).toUpperCase() : 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center">
+                          <p className="text-sm font-medium">
+                             {memberName}
+                          </p>
+                           <Badge 
+                            variant={member.role?.toLowerCase() === 'admin' ? 'default' : 'secondary'}
+                            className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                           > 
+                            {member.role?.toLowerCase() === 'admin' && <Crown className="h-3 w-3 mr-1"/>}
+                             {formatMemberRole(member.role)}
+                           </Badge>
+                        </div>
+                         {isCurrent && state.currentUser?.email && (
+                           <p className="text-xs text-muted-foreground">{state.currentUser.email}</p>
+                         )}
+                      </div>
                     </div>
                     
-                    <div>
-                      <p className="text-sm font-medium mb-1">Código de Convite</p>
-                      <div className="flex">
-                        <code className="bg-muted p-2 rounded flex-1 font-mono">
-                          {household.inviteCode}
-                        </code>
+                    {isCurrentUserAdmin() && !isCurrent && (
+                      <div className="flex items-center space-x-0.5">
+                        {member.role?.toLowerCase() === 'member' ? (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8 text-primary hover:bg-primary/10"
+                            onClick={() => setMemberToPromote(member)}
+                            title="Promover a Admin"
+                          >
+                            <Crown className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:bg-muted/50"
+                            onClick={() => setMemberToDemote(member)}
+                            title="Rebaixar para Membro"
+                          >
+                             <UserCheck className="h-4 w-4" />
+                          </Button>
+                        )}
+                        
                         <Button 
                           variant="ghost" 
-                          size="icon" 
-                          className="ml-2"
-                          onClick={copyInviteCode}
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                          onClick={() => setMemberToRemove(member)}
+                          title="Remover Membro"
                         >
-                          <CopyCheck className="h-4 w-4" />
+                          <UserMinus className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
+                    )}
                   </div>
-                  
+                 );
+              })}
+            </TabsContent>
+            
+            <TabsContent value="cats" className="space-y-3">
+               <div className="flex justify-between items-center mb-3">
+                 <h2 className="text-base font-semibold">
+                   Gatos ({cats.length})
+                 </h2>
+                 <Button 
+                   size="sm"
+                   variant="outline"
+                   onClick={() => router.push(`/cats/new?householdId=${household.id}`)}
+                 >
+                   <Cat className="mr-2 h-4 w-4" />
+                   Adicionar Gato
+                 </Button>
+               </div>
+               
+               {cats.length === 0 ? (
+                 <div className="text-center py-10 border border-dashed rounded-lg bg-muted/30">
+                   <Cat className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                   <p className="text-sm text-muted-foreground mb-3">
+                     Nenhum gato registrado nesta residência ainda.
+                   </p>
+                   <Button 
+                     variant="default"
+                     size="sm"
+                     onClick={() => router.push(`/cats/new?householdId=${household.id}`)}
+                   >
+                     Adicionar Primeiro Gato
+                   </Button>
+                 </div>
+               ) : (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                   {cats.map(cat => (
+                     <Card key={cat.id} className="overflow-hidden border">
+                        <Link href={`/cats/${cat.id}`} className="block hover:bg-muted/30 transition-colors">
+                         <CardHeader className="flex flex-row items-center space-x-3 p-3">
+                            <Avatar className="h-10 w-10">
+                               <AvatarImage src={cat.photoUrl || undefined} alt={cat.name} />
+                               <AvatarFallback>{cat.name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                               <CardTitle className="text-sm font-medium leading-tight">{cat.name}</CardTitle>
+                               {cat.breed && (
+                                  <CardDescription className="text-xs">{cat.breed}</CardDescription>
+                               )}
+                            </div>
+                         </CardHeader>
+                        </Link>
+                       <CardFooter className="p-2 border-t bg-card flex justify-end">
+                         <Button
+                           variant="ghost"
+                           size="icon"
+                           className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                           onClick={() => setCatToDelete(cat)}
+                           title="Remover Gato"
+                         >
+                           <Trash2 className="h-4 w-4" />
+                         </Button>
+                       </CardFooter>
+                     </Card>
+                   ))}
+                 </div>
+               )}
+             </TabsContent>
+            
+            <TabsContent value="settings" className="space-y-6">
+              <Card className="border">
+                 <CardHeader>
+                    <CardTitle className="text-base">Informações</CardTitle>
+                 </CardHeader>
+                 <CardContent className="space-y-4">
+                     <div>
+                       <Label className="text-xs text-muted-foreground">Nome da Residência</Label>
+                       <p className="font-medium">{household.name}</p>
+                     </div>
+                     
+                     <div>
+                       <Label className="text-xs text-muted-foreground">Código de Convite</Label>
+                       <div className="flex items-center justify-between bg-muted rounded-md p-2 pl-3 mt-1">
+                         <code className="text-sm font-mono mr-2">
+                           {household.inviteCode}
+                         </code>
+                         <Button 
+                           variant="ghost" 
+                           size="icon" 
+                           className="h-7 w-7"
+                           onClick={copyInviteCode}
+                           title="Copiar Código"
+                         >
+                           <CopyCheck className="h-4 w-4" />
+                         </Button>
+                       </div>
+                     </div>
+                 </CardContent>
                   {isCurrentUserAdmin() && (
-                    <>
-                      <div className="pt-4 border-t">
-                        <Button 
-                          variant="outline"
-                          onClick={() => router.push(`/households/${household.id}/edit`)}
-                        >
-                          Editar Domicílio
-                        </Button>
-                      </div>
-                      
-                      <div className="pt-4 border-t">
-                        <h3 className="text-sm font-medium mb-2">Zona de Perigo</h3>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive">
-                              Excluir Domicílio
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir Domicílio</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir este domicílio? Esta ação não pode ser desfeita.
-                                Todos os gatos e programações associados serão excluídos.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-destructive text-destructive-foreground"
-                                onClick={() => {
-                                  // Implementar lógica de exclusão do domicílio
-                                }}
-                              >
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </>
+                      <CardFooter className="border-t p-3">
+                         <Button 
+                           variant="outline"
+                           size="sm"
+                           onClick={() => router.push(`/households/${household.id}/edit`)}
+                         >
+                           <Pencil className="mr-2 h-4 w-4" />
+                           Editar Residência
+                         </Button>
+                      </CardFooter>
                   )}
-                </div>
-              </div>
+              </Card>
+              
+               <Card className="border border-destructive/50 bg-destructive/5">
+                  <CardHeader>
+                     <CardTitle className="text-base text-destructive">Zona de Perigo</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                     {!isCurrentUserAdmin() && (
+                        <div>
+                           <p className="text-sm font-medium mb-1">Sair da Residência</p>
+                           <p className="text-xs text-muted-foreground mb-2">Você perderá o acesso a esta residência e seus dados.</p>
+                           <Button 
+                              variant="outline"
+                              className="border-destructive text-destructive hover:bg-destructive/10"
+                              size="sm"
+                              onClick={() => setShowLeaveDialog(true)}
+                           >
+                              <LogOut className="mr-2 h-4 w-4" />
+                              Sair desta Residência
+                           </Button>
+                        </div>
+                     )}
+                     
+                     {isCurrentUserAdmin() && (
+                       <div>
+                           <p className="text-sm font-medium mb-1">Excluir Residência</p>
+                           <p className="text-xs text-muted-foreground mb-2">Esta ação é irreversível e excluirá todos os membros, gatos, agendamentos e outros dados associados.</p>
+                           <Button 
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setShowDeleteHouseholdDialog(true)}
+                           >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir Permanentemente
+                           </Button>
+                        </div>
+                     )}
+                  </CardContent>
+               </Card>
             </TabsContent>
           </Tabs>
         </div>
         
         <BottomNav />
         
-        {/* Diálogo de confirmação para sair do domicílio */}
         <AlertDialog open={showLeaveDialog} onOpenChange={setShowLeaveDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Sair do Domicílio</AlertDialogTitle>
+              <AlertDialogTitle>Sair da Residência?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja sair deste domicílio? Você perderá o acesso a todos os gatos e dados associados.
+                 <p>Tem certeza que deseja sair de "{household.name}"? Você perderá o acesso a todos os gatos e dados associados. Esta ação não pode ser desfeita.</p>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                className="bg-destructive text-destructive-foreground"
+                className="bg-destructive hover:bg-destructive/90"
                 onClick={leaveHousehold}
+                disabled={isProcessing}
               >
-                Sair
+                 {isProcessing ? "Saindo..." : "Confirmar Saída"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
         
-        {/* Diálogo de confirmação para remover membro */}
         <AlertDialog open={memberToRemove !== null} onOpenChange={(open) => !open && setMemberToRemove(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Remover Membro</AlertDialogTitle>
+              <AlertDialogTitle>Remover Membro?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja remover este membro do domicílio? Esta ação não pode ser desfeita.
+                 Tem certeza que deseja remover {memberToRemove ? `Membro ${memberToRemove.userId}` : 'este membro'} de "{household.name}"? Eles perderão o acesso.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                className="bg-destructive text-destructive-foreground"
-                onClick={() => memberToRemove && removeMember(memberToRemove)}
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => memberToRemove && removeMember(String(memberToRemove.userId))}
+                disabled={isProcessing}
               >
-                Remover
+                 {isProcessing ? "Removendo..." : "Confirmar Remoção"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Diálogo de confirmação para promover membro */}
         <AlertDialog open={memberToPromote !== null} onOpenChange={(open) => !open && setMemberToPromote(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Promover a Administrador</AlertDialogTitle>
+              <AlertDialogTitle>Promover a Admin?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja promover este membro a administrador? Ele terá acesso total ao domicílio.
+                 Tem certeza que deseja promover {memberToPromote ? `Membro ${memberToPromote.userId}` : 'este membro'} a Administrador em "{household.name}"? Eles terão permissões completas.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => memberToPromote && changeMemberRole(memberToPromote, 'admin')}
+                onClick={() => memberToPromote && changeMemberRole(String(memberToPromote.userId), 'Admin')}
+                disabled={isProcessing}
               >
-                Promover
+                 {isProcessing ? "Promovendo..." : "Confirmar Promoção"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Diálogo de confirmação para rebaixar membro */}
         <AlertDialog open={memberToDemote !== null} onOpenChange={(open) => !open && setMemberToDemote(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Rebaixar a Membro</AlertDialogTitle>
+              <AlertDialogTitle>Rebaixar para Membro?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja rebaixar este administrador a membro regular?
+                 Tem certeza que deseja rebaixar {memberToDemote ? `Membro ${memberToDemote.userId}` : 'este admin'} para Membro regular em "{household.name}"? Suas permissões de admin serão removidas.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                onClick={() => memberToDemote && changeMemberRole(memberToDemote, 'member')}
+                onClick={() => memberToDemote && changeMemberRole(String(memberToDemote.userId), 'Member')}
+                disabled={isProcessing}
               >
-                Rebaixar
+                 {isProcessing ? "Rebaixando..." : "Confirmar Rebaixamento"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Diálogo de confirmação para excluir gato */}
         <AlertDialog open={catToDelete !== null} onOpenChange={(open) => !open && setCatToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir Gato</AlertDialogTitle>
+              <AlertDialogTitle>Excluir Gato?</AlertDialogTitle>
               <AlertDialogDescription>
-                Tem certeza que deseja excluir este gato? Todos os registros de alimentação serão excluídos.
+                 Tem certeza que deseja excluir "{catToDelete?.name}"? Todos os registros de alimentação associados a ele também serão excluídos. Esta ação não pode ser desfeita.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
-                className="bg-destructive text-destructive-foreground"
-                onClick={() => catToDelete && deleteCat(catToDelete)}
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => catToDelete && deleteCat(catToDelete.id)}
+                disabled={isProcessing}
               >
-                Excluir
+                 {isProcessing ? "Excluindo..." : "Confirmar Exclusão"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+         <AlertDialog open={showDeleteHouseholdDialog} onOpenChange={setShowDeleteHouseholdDialog}>
+           <AlertDialogContent>
+             <AlertDialogHeader>
+               <AlertDialogTitle>Excluir Residência?</AlertDialogTitle>
+               <AlertDialogDescription>
+                  Tem certeza que deseja excluir permanentemente "{household.name}"? Esta ação é <span className="font-bold">irreversível</span> e removerá todos os membros, gatos, agendamentos e outros dados associados.
+               </AlertDialogDescription>
+             </AlertDialogHeader>
+             <AlertDialogFooter>
+               <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
+               <AlertDialogAction
+                 className="bg-destructive hover:bg-destructive/90"
+                 onClick={deleteHousehold}
+                 disabled={isProcessing}
+               >
+                  {isProcessing ? "Excluindo..." : "Confirmar Exclusão Permanente"}
+               </AlertDialogAction>
+             </AlertDialogFooter>
+           </AlertDialogContent>
+         </AlertDialog>
       </div>
     </PageTransition>
   )

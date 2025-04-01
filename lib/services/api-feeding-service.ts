@@ -210,78 +210,83 @@ export const getFeedingLogs = async (catId: string, userTimezone?: string): Prom
  * Função auxiliar para cálculo local da próxima alimentação
  */
 async function calculateNextFeedingLocally(catId: number, userTimezone?: string): Promise<Date | null> {
-  const timezone = getUserTimezone(userTimezone);
-  console.log('\n[calculateNextFeedingLocally] Iniciando cálculo:');
-  console.log('- CatId:', catId);
-  console.log('- Timezone recebido:', userTimezone);
-  console.log('- Timezone resolvido:', timezone);
-  
-  const now = toDate(new Date(), { timeZone: timezone });
-  console.log('- Data atual:', formatDateTimeForDisplay(now, timezone));
-  
-  // Obter logs ordenados por timestamp
-  const logs = await getFeedingLogs(catId.toString(), timezone);
-  console.log('- Total de logs encontrados:', logs.length);
-  
-  const lastFeeding = logs
-    .sort((a, b) => {
-      const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
-      const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
-      return dateB.getTime() - dateA.getTime();
-    })[0];
-
-  // Se não houver logs, retorna null
-  if (!lastFeeding) {
-    console.log('- Nenhum log de alimentação encontrado');
-    return null;
-  }
-
-  console.log('- Última alimentação encontrada:', {
-    id: lastFeeding.id,
-    timestamp: formatDateTimeForDisplay(new Date(lastFeeding.timestamp), timezone)
-  });
-
-  // Obter gato e seu agendamento
-  const response = await fetch(`/api/cats/${catId}`);
-  if (!response.ok) {
-    console.log('- Gato não encontrado');
-    return null;
-  }
-
-  const cat = await response.json() as CatType;
-  console.log('- Dados do gato:', {
-    id: cat.id,
-    name: cat.name,
-    feeding_interval: cat.feeding_interval,
-    schedules: cat.schedules?.map(s => ({
-      enabled: s.enabled,
-      type: s.type,
-      interval: s.interval
-    }))
-  });
-
-  // Se houver um agendamento ativo
-  const activeSchedule = cat.schedules?.find(s => s.enabled);
-  if (activeSchedule && activeSchedule.interval) {
-    console.log('- Usando agendamento ativo:', {
-      type: activeSchedule.type,
-      interval: activeSchedule.interval
-    });
+  try {
+    const timezone = getUserTimezone(userTimezone);
+    console.log('\n[calculateNextFeedingLocally] Iniciando cálculo:');
+    console.log('- CatId:', catId);
+    console.log('- Timezone recebido:', userTimezone);
+    console.log('- Timezone resolvido:', timezone);
     
-    const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), activeSchedule.interval, timezone);
-    console.log('- Próxima alimentação calculada (agendamento):', formatDateTimeForDisplay(nextFeeding, timezone));
-    return nextFeeding;
-  }
-  // Se não houver agendamento mas tiver intervalo padrão
-  else if (cat.feeding_interval) {
-    console.log('- Usando intervalo padrão:', cat.feeding_interval);
-    const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), cat.feeding_interval, timezone);
-    console.log('- Próxima alimentação calculada (intervalo padrão):', formatDateTimeForDisplay(nextFeeding, timezone));
-    return nextFeeding;
-  }
+    const now = toDate(new Date(), { timeZone: timezone });
+    console.log('- Data atual:', formatDateTimeForDisplay(now, timezone));
+    
+    // Obter logs ordenados por timestamp
+    const logs = await getFeedingLogs(catId.toString(), timezone);
+    console.log('- Total de logs encontrados:', logs.length);
+    
+    const lastFeeding = logs
+      .sort((a, b) => {
+        const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
+        const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
+        return dateB.getTime() - dateA.getTime();
+      })[0];
 
-  console.log('- Nenhum intervalo ou agendamento encontrado');
-  return null;
+    // Se não houver logs, retorna null
+    if (!lastFeeding) {
+      console.log('- Nenhum log de alimentação encontrado');
+      return null;
+    }
+
+    console.log('- Última alimentação encontrada:', {
+      id: lastFeeding.id,
+      timestamp: formatDateTimeForDisplay(new Date(lastFeeding.timestamp), timezone)
+    });
+
+    // Obter gato e seu agendamento
+    const response = await fetch(`/api/cats/${catId}`);
+    if (!response.ok) {
+      console.log('- Gato não encontrado');
+      return null;
+    }
+
+    const cat = await response.json() as CatType;
+    console.log('- Dados do gato:', {
+      id: cat.id,
+      name: cat.name,
+      feeding_interval: cat.feeding_interval,
+      schedules: cat.schedules?.map(s => ({
+        enabled: s.enabled,
+        type: s.type,
+        interval: s.interval
+      }))
+    });
+
+    // Se houver um agendamento ativo
+    const activeSchedule = cat.schedules?.find(s => s.enabled);
+    if (activeSchedule && activeSchedule.interval) {
+      console.log('- Usando agendamento ativo:', {
+        type: activeSchedule.type,
+        interval: activeSchedule.interval
+      });
+      
+      const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), activeSchedule.interval, timezone);
+      console.log('- Próxima alimentação calculada (agendamento):', formatDateTimeForDisplay(nextFeeding, timezone));
+      return nextFeeding;
+    }
+    // Se não houver agendamento mas tiver intervalo padrão
+    else if (cat.feeding_interval) {
+      console.log('- Usando intervalo padrão:', cat.feeding_interval);
+      const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), cat.feeding_interval, timezone);
+      console.log('- Próxima alimentação calculada (intervalo padrão):', formatDateTimeForDisplay(nextFeeding, timezone));
+      return nextFeeding;
+    }
+
+    console.log('- Nenhum intervalo ou agendamento encontrado');
+    return null;
+  } catch (error) {
+    console.error('[calculateNextFeedingLocally] Erro durante o cálculo local:', error);
+    return null;
+  }
 }
 
 /**

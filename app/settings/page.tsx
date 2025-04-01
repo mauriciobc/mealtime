@@ -443,23 +443,46 @@ export default function SettingsPage() {
   }, [state.currentUser, profileName, updateSettings]);
 
   const updateNotificationSetting = useCallback((key: keyof NotificationSettings, value: boolean) => {
-    setNotification(prev => ({ ...prev, [key]: value }));
-    
+    // Update local state for immediate UI feedback
+    const newSettings = { ...notification, [key]: value };
+    setNotification(newSettings);
+
+    // Prepare update payload for the API
     if (state.currentUser) {
+      const updates = {
+        // Include other potentially required fields for the API endpoint,
+        // like name, timezone, language, or just the preferences object.
+        // Assuming the API accepts updates to the nested preferences structure:
+         preferences: {
+             ...state.currentUser.preferences, // Keep existing language/timezone
+             notifications: newSettings // Send the complete updated notifications object
+         }
+         // Alternatively, if the API endpoint only wants the changed key:
+         // notificationKey: key,
+         // notificationValue: value
+      };
+
+       // Call the function to persist changes via API
+       updateSettings(updates);
+
+      // Also update global state optimistically (or after successful API call in updateSettings)
+      // The current optimistic update in updateSettings might be sufficient if the API returns the full user object.
+      // Let's keep the optimistic global state update here for faster UI reflection,
+      // assuming updateSettings handles potential API errors and rollbacks if necessary.
       const updatedUser = {
         ...state.currentUser,
         preferences: {
           ...state.currentUser.preferences,
-          notifications: {
-            ...state.currentUser.preferences.notifications,
-            [key]: value
-          }
-        }
+          notifications: newSettings,
+        },
       };
-      
       dispatch({ type: "SET_CURRENT_USER", payload: updatedUser });
+
+    } else {
+       toast.error("Erro: Usuário não encontrado para salvar configurações de notificação.");
     }
-  }, [state.currentUser, dispatch]);
+
+  }, [state.currentUser, notification, updateSettings, dispatch]); // Added notification and updateSettings to dependencies
 
   const toggleTheme = useCallback(() => {
     setTheme(theme === 'light' ? 'dark' : 'light');

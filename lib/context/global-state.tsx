@@ -3,6 +3,27 @@
 import { createContext, useContext, useReducer, ReactNode, Dispatch } from "react";
 import { CatType, FeedingLog, Schedule, Notification } from "@/lib/types";
 
+// Interface for the current user data
+interface CurrentUser {
+  id: number;
+  name: string;
+  email: string;
+  avatar: string;
+  householdId: number | null;
+  preferences: {
+    timezone: string;
+    language: string;
+    notifications: {
+      pushEnabled: boolean;
+      emailEnabled: boolean;
+      feedingReminders: boolean;
+      missedFeedingAlerts: boolean;
+      householdUpdates: boolean;
+    };
+  };
+  role: string;
+}
+
 // Tipos de ação
 type ActionType =
   | { type: "SET_CATS"; payload: CatType[] }
@@ -24,7 +45,9 @@ type ActionType =
   | { type: "DELETE_HOUSEHOLD"; payload: string }
   | { type: "ADD_HOUSEHOLD_MEMBER"; payload: { householdId: string; member: any } }
   | { type: "REMOVE_HOUSEHOLD_MEMBER"; payload: { householdId: string; memberId: string } }
-  | { type: "UPDATE_HOUSEHOLD_MEMBER"; payload: { householdId: string; member: any } };
+  | { type: "UPDATE_HOUSEHOLD_MEMBER"; payload: { householdId: string; member: any } }
+  | { type: "SET_CURRENT_USER"; payload: CurrentUser | null }
+  | { type: "SET_ERROR"; payload: string | null };
 
 // Estado global
 interface GlobalState {
@@ -33,7 +56,9 @@ interface GlobalState {
   schedules: Schedule[];
   notifications: Notification[];
   households: any[];
+  currentUser: CurrentUser | null;
   isLoading: boolean;
+  error: string | null;
 }
 
 // Estado inicial
@@ -43,7 +68,9 @@ const initialState: GlobalState = {
   schedules: [],
   notifications: [],
   households: [],
+  currentUser: null,
   isLoading: false,
+  error: null,
 };
 
 // Contexto
@@ -191,6 +218,16 @@ function reducer(state: GlobalState, action: ActionType): GlobalState {
               }
             : household
         ),
+      };
+    case "SET_CURRENT_USER":
+      return {
+        ...state,
+        currentUser: action.payload,
+      };
+    case "SET_ERROR":
+      return {
+        ...state,
+        error: action.payload,
       };
     default:
       return state;

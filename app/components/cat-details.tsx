@@ -14,7 +14,9 @@ import {
   Utensils,
   MoreHorizontal,
   Share2,
-  Trash2
+  Trash2,
+  AlertTriangle,
+  Ban
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -47,7 +49,6 @@ import { useFeeding } from "@/hooks/use-feeding"
 import { getAgeString } from "@/lib/utils/dateUtils"
 import { deleteCat } from "@/lib/services/apiService"
 import { toast } from "sonner"
-import { notFound } from "next/navigation"
 import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { FeedingForm } from "./feeding-form"
@@ -70,6 +71,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
     formattedNextFeedingTime, 
     formattedTimeDistance, 
     isLoading, 
+    error,
     handleMarkAsFed 
   } = useFeeding(numericId)
   const [isClient, setIsClient] = useState(false)
@@ -80,6 +82,17 @@ export default function CatDetails({ params }: CatDetailsProps) {
     setIsClient(true)
   }, [])
   
+  if (numericId === null || isNaN(numericId)) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
+        <Ban className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-semibold mb-2">ID Inválido</h2>
+        <p className="text-muted-foreground mb-4">O ID do gato fornecido na URL não é válido.</p>
+        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
+      </div>
+    )
+  }
+  
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -88,8 +101,26 @@ export default function CatDetails({ params }: CatDetailsProps) {
     )
   }
   
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
+        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Erro ao Carregar</h2>
+        <p className="text-muted-foreground mb-4">{error}</p>
+        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
+      </div>
+    )
+  }
+  
   if (!cat) {
-    notFound()
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
+        <Ban className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Gato Não Encontrado</h2>
+        <p className="text-muted-foreground mb-4">Não foi possível encontrar um gato com este ID ou você não tem permissão para vê-lo.</p>
+        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
+      </div>
+    )
   }
 
   // Função para excluir o gato
@@ -97,12 +128,12 @@ export default function CatDetails({ params }: CatDetailsProps) {
     setIsDeleting(true)
     
     try {
-      await deleteCat(numericId.toString(), state.cats)
+      await deleteCat(numericId.toString())
       
       // Atualizar o estado local
       dispatch({
         type: "DELETE_CAT",
-        payload: numericId
+        payload: { id: numericId }
       })
       
       toast.success(`${cat.name} foi excluído`)

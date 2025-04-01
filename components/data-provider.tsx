@@ -8,6 +8,7 @@ import { useLoading } from "@/lib/context/LoadingContext"
 import { getCatsByHouseholdId } from "@/lib/services/apiService"
 import { CatType } from "@/lib/types"
 import { GlobalLoading } from "@/components/ui/global-loading"
+import { UserDataLoader } from "./data/user-data-loader"
 
 interface DataProviderProps {
   children: React.ReactNode
@@ -23,8 +24,14 @@ export function DataProvider({ children }: DataProviderProps) {
     let isMounted = true;
 
     const loadInitialData = async () => {
-      if (!session?.user || !appState.currentUser) {
-        console.log("Aguardando dados do usuário...");
+      if (!session?.user || !globalState.currentUser) {
+        console.log("Aguardando sessão e globalState.currentUser...");
+        return;
+      }
+
+      const householdId = globalState.currentUser.householdId;
+      if (!householdId) {
+        console.log("DataProvider: currentUser existe, mas sem householdId. Não é possível carregar gatos.");
         return;
       }
 
@@ -54,8 +61,7 @@ export function DataProvider({ children }: DataProviderProps) {
           })
 
           // Carregar gatos do domicílio principal
-          const primaryHousehold = households[0]
-          const cats = await getCatsByHouseholdId(primaryHousehold.id)
+          const cats = await getCatsByHouseholdId(householdId)
           
           console.log("Gatos carregados:", cats);
           
@@ -90,11 +96,12 @@ export function DataProvider({ children }: DataProviderProps) {
     return () => {
       isMounted = false;
     }
-  }, [session?.user?.email, appState.currentUser?.id])
+  }, [session?.user?.email, globalState.currentUser?.id, globalDispatch, addLoadingOperation, removeLoadingOperation])
 
   return (
     <>
       <GlobalLoading />
+      <UserDataLoader />
       {children}
     </>
   )

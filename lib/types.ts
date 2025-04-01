@@ -17,15 +17,18 @@ export interface User {
   imageUrl?: string;
 }
 
+// Define HouseholdMember explicitly
+export interface HouseholdMember {
+  userId: number;
+  role: 'Admin' | 'Member';
+  joinedAt: Date;
+}
+
 export interface Household {
   id: number;
   name: string;
   inviteCode: string;
-  members: {
-    userId: number;
-    role: 'Admin' | 'Member'; // Role-based access
-    joinedAt: Date;
-  }[];
+  members: HouseholdMember[]; // Use the defined interface
   cats: number[]; // IDs of cats
   catGroups: CatGroup[];
 }
@@ -37,9 +40,19 @@ export interface CatGroup {
 }
 
 // Cat Profiles
-export interface CatType extends BaseCat {
-  breed?: string;
-  feedingLogs?: FeedingLog[];
+export interface CatType {
+  id: number;
+  name: string;
+  photoUrl?: string | null;
+  birthdate?: Date | string | null;
+  weight?: number | null;
+  feeding_interval: number;
+  restrictions?: string | null;
+  portion?: number | null;
+  notes?: string | null;
+  householdId: number;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
   schedules?: Schedule[];
 }
 
