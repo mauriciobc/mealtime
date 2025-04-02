@@ -332,6 +332,61 @@ export default function SettingsPage() {
     }
   }, []);
 
+  const handleSaveSettings = useCallback(async () => {
+    if (!currentUser?.id || isLoading) return;
+
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: profileName,
+          preferences: {
+            language: selectedLanguage,
+            timezone: selectedTimezone,
+            notifications: notification,
+          },
+        }),
+      });
+
+      if (!mountedRef.current) return;
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Falha ao salvar configurações');
+      }
+
+      if (mountedRef.current) {
+        dispatch({
+          type: "SET_CURRENT_USER",
+          payload: {
+            ...currentUser,
+            name: profileName,
+            preferences: {
+              language: selectedLanguage,
+              timezone: selectedTimezone,
+              notifications: notification,
+            },
+          },
+        });
+        toast.success('Configurações salvas com sucesso');
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        console.error('Erro ao salvar configurações:', error);
+        toast.error(error instanceof Error ? error.message : 'Erro ao salvar configurações');
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [currentUser?.id, isLoading, profileName, selectedLanguage, selectedTimezone, notification, mountedRef, dispatch]);
+
   const saveLanguage = useCallback(async () => {
     setIsLanguageDialogOpen(false);
     await handleSaveSettings();
@@ -418,61 +473,6 @@ export default function SettingsPage() {
       loadSettings();
     }
   }, [loadSettings, hasAttemptedLoad]);
-
-  const handleSaveSettings = async () => {
-    if (!currentUser?.id || isLoading) return;
-
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: profileName,
-          preferences: {
-            language: selectedLanguage,
-            timezone: selectedTimezone,
-            notifications: notification,
-          },
-        }),
-      });
-
-      if (!mountedRef.current) return;
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Falha ao salvar configurações');
-      }
-
-      if (mountedRef.current) {
-        dispatch({
-          type: "SET_CURRENT_USER",
-          payload: {
-            ...currentUser,
-            name: profileName,
-            preferences: {
-              language: selectedLanguage,
-              timezone: selectedTimezone,
-              notifications: notification,
-            },
-          },
-        });
-        toast.success('Configurações salvas com sucesso');
-      }
-    } catch (error) {
-      if (mountedRef.current) {
-        console.error('Erro ao salvar configurações:', error);
-        toast.error(error instanceof Error ? error.message : 'Erro ao salvar configurações');
-      }
-    } finally {
-      if (mountedRef.current) {
-        setIsLoading(false);
-      }
-    }
-  };
 
   // Renderização condicional
   if (status === "loading") {
