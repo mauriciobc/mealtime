@@ -4,46 +4,60 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function clean() {
-  console.log('Iniciando limpeza do banco de dados...');
+  console.log('🧹 Starting database cleanup...');
 
   try {
-    // Limpar os dados em ordem para respeitar as relações de chave estrangeira
-    console.log('Removendo registros de alimentação...');
+    // Delete in order to respect foreign key constraints
+    console.log('📝 Removing feeding logs...');
     await prisma.feedingLog.deleteMany();
     
-    // Verificar se o modelo Notification existe
-    if ('notification' in prisma) {
-      console.log('Removendo notificações...');
-      await prisma.$queryRaw`DELETE FROM Notification`;
-    }
+    console.log('🔔 Removing notifications...');
+    await prisma.notification.deleteMany();
     
-    console.log('Removendo agendamentos...');
+    console.log('📅 Removing schedules...');
     await prisma.schedule.deleteMany();
     
-    console.log('Removendo gatos dos grupos...');
-    // Primeiro precisamos desassociar os gatos dos grupos antes de excluí-los
-    // Como estamos usando uma tabela de relacionamento, isso acontece automaticamente quando
-    // excluímos os registros
+    console.log('👥 Removing cat group associations...');
+    // This will remove the associations in the many-to-many relationship table
+    const cats = await prisma.cat.findMany();
+    for (const cat of cats) {
+      await prisma.cat.update({
+        where: { id: cat.id },
+        data: { groups: { set: [] } }
+      });
+    }
     
-    console.log('Removendo gatos...');
+    console.log('🐱 Removing cats...');
     await prisma.cat.deleteMany();
     
-    console.log('Removendo grupos de gatos...');
+    console.log('👥 Removing cat groups...');
     await prisma.catGroup.deleteMany();
     
-    console.log('Removendo usuários...');
-    await prisma.user.deleteMany();
-    
-    console.log('Removendo domicílios...');
-    await prisma.household.deleteMany();
+    // First remove user associations with households (except ownership)
+    console.log('🏠 Removing user-household associations...');
+    await prisma.user.updateMany({
+      where: { householdId: { not: null } },
+      data: { householdId: null }
+    });
 
-    console.log('✅ Banco de dados limpo com sucesso!');
+    // Now remove households first since they depend on users as owners
+    console.log('🏠 Removing households...');
+    await prisma.household.deleteMany();
+    
+    console.log('👤 Removing users...');
+    await prisma.user.deleteMany();
+
+    console.log('✅ Database cleaned successfully!');
   } catch (error) {
-    console.error('Erro ao limpar o banco de dados:', error);
-    process.exit(1);
+    console.error('❌ Error cleaning database:', error);
+    throw error;
   } finally {
     await prisma.$disconnect();
   }
 }
 
-clean(); 
+clean()
+  .catch((error) => {
+    console.error('Failed to clean database:', error);
+    process.exit(1);
+  }); 
