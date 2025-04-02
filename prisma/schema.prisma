@@ -13,6 +13,8 @@ model Household {
   inviteCode String   @unique
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  ownerId    Int
+  owner      User     @relation("OwnedHouseholds", fields: [ownerId], references: [id])
   cats       Cat[]
   users      User[]
   notifications Notification[]
@@ -33,6 +35,7 @@ model User {
   notifications Notification[]
   household   Household?   @relation(fields: [householdId], references: [id])
   ownedCats   Cat[]        @relation("CatOwner")
+  ownedHouseholds Household[] @relation("OwnedHouseholds")
 }
 
 model Cat {

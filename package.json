@@ -21,6 +21,7 @@
     "test:notifications:postman": "echo 'Importe a coleção postman/notifications-collection.json no Postman'"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.8.0",
     "@emotion/is-prop-valid": "^1.2.1",
     "@hookform/resolvers": "^3.9.1",
     "@prisma/client": "^6.5.0",

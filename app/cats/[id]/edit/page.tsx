@@ -32,15 +32,19 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
-import { useGlobalState } from "@/lib/context/global-state"
-import { getCatById, updateCat, deleteCat } from "@/lib/services/apiService"
+import { useAppContext } from "@/lib/context/AppContext"
+import { useUserContext } from "@/lib/context/UserContext"
+import { useLoading } from "@/lib/context/LoadingContext"
 import { toast } from "sonner"
-import { format, parseISO } from "date-fns"
+import { format, parseISO, isValid } from "date-fns"
 import { CatType, Schedule } from "@/lib/types"
 import { ImageUpload } from "@/components/image-upload"
 import { useSession } from "next-auth/react"
 import { Loading } from "@/components/ui/loading"
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid'
+import { Skeleton } from "@/components/ui/skeleton"
+import { PageHeader } from "@/components/page-header"
+import { EmptyState } from "@/components/ui/empty-state"
 
 interface PageProps {
   params: Promise<{
@@ -51,389 +55,380 @@ interface PageProps {
 export default function EditCatPage({ params }: PageProps) {
   const resolvedParams = use(params)
   const router = useRouter()
-  const { state, dispatch } = useGlobalState()
+  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { state: userState } = useUserContext()
+  const { addLoadingOperation, removeLoadingOperation } = useLoading()
+  const { cats } = appState
+  const { currentUser } = userState
   const { data: session, status } = useSession()
   const [cat, setCat] = useState<CatType | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
-  // Form state
   const [formData, setFormData] = useState({
     name: "",
     birthdate: "",
     weight: "",
     restrictions: "",
-    photoUrl: "/placeholder.svg?height=200&width=200",
-    feeding_interval: "8",
-    portion: "",
+    photoUrl: "",
+    feedingInterval: "8",
+    portion_size: "",
     notes: "",
-    schedules: [] as Schedule[]
   })
   
   const catId = resolvedParams.id ? parseInt(resolvedParams.id) : null
   
-  // Fetch cat data
   useEffect(() => {
-    let isMounted = true
-    
-    const loadCat = async () => {
-      if (!catId || status !== "authenticated" || !state.currentUser?.id || !state.currentUser?.householdId) {
-        if (isMounted) {
-          setIsLoading(false)
-          if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
-            setError("Nenhuma residência associada. Não é possível editar o gato.")
-          } else if (status === "authenticated" && !catId) {
-            setError("ID do gato inválido.")
-          } else {
-            // Still loading auth or user... wait.
+    const opId = `load-cat-${catId}`
+    addLoadingOperation({ id: opId, priority: 1, description: "Loading cat data..." })
+    setIsLoadingData(true)
+    setError(null)
+
+    if (status === "authenticated" && currentUser && catId && cats.length > 0) {
+      const foundCat = cats.find(c => c.id === catId)
+
+      if (foundCat) {
+        if (String(foundCat.householdId) !== String(currentUser.householdId)) {
+          console.warn(`Attempted to edit cat ${catId} from household ${foundCat.householdId}, user belongs to ${currentUser.householdId}.`)
+          setError("Você não tem permissão para editar este gato.")
+          setCat(null)
+        } else {
+          setCat(foundCat)
+          let formattedBirthdate = ""
+          if (foundCat.birthdate) {
+            try {
+              const dateObj = typeof foundCat.birthdate === 'string' ? parseISO(foundCat.birthdate) : new Date(foundCat.birthdate)
+              if (isValid(dateObj)) {
+                formattedBirthdate = format(dateObj, "yyyy-MM-dd")
+              } else {
+                console.warn("Invalid birthdate format received:", foundCat.birthdate)
+              }
+            } catch (e) {
+              console.error("Error parsing birthdate:", foundCat.birthdate, e)
+            }
           }
+          
+          setFormData({
+            name: foundCat.name,
+            birthdate: formattedBirthdate,
+            weight: foundCat.weight?.toString() || "",
+            restrictions: foundCat.restrictions || "",
+            photoUrl: foundCat.photoUrl || "",
+            feedingInterval: foundCat.feedingInterval?.toString() || "8",
+            portion_size: foundCat.portion_size?.toString() || "",
+            notes: foundCat.notes || "",
+          })
         }
-        return
+      } else {
+        setError("Gato não encontrado.")
+        setCat(null)
       }
-      
-      setIsLoading(true)
-      setError(null)
-      const currentHouseholdId = state.currentUser.householdId
-      const currentUserId = state.currentUser.id
-      
-      try {
-        const fetchedCat = await getCatById(catId.toString())
-        
-        if (!isMounted) return
-        
-        if (!fetchedCat) {
-          throw new Error("Gato não encontrado.")
-        }
-        
-        if (String(fetchedCat.householdId) !== String(currentHouseholdId)) {
-          console.warn(`Attempted to edit cat ${catId} from household ${fetchedCat.householdId}, user belongs to ${currentHouseholdId}.`)
-          throw new Error("Você não tem permissão para editar este gato.")
-        }
-        
-        setCat(fetchedCat)
-        
-        let formattedBirthdate = ""
-        if (fetchedCat.birthdate) {
-          try {
-            const date = typeof fetchedCat.birthdate === 'string' ? parseISO(fetchedCat.birthdate) : new Date(fetchedCat.birthdate)
-            formattedBirthdate = format(date, "yyyy-MM-dd")
-          } catch (e) {
-            console.error("Error parsing birthdate:", fetchedCat.birthdate, e)
-          }
-        }
-        
-        const existingSchedules = fetchedCat.schedules || []
-        console.log('Agendamentos existentes:', existingSchedules)
-        
-        setFormData({
-          name: fetchedCat.name,
-          birthdate: formattedBirthdate,
-          weight: fetchedCat.weight?.toString() || "",
-          restrictions: fetchedCat.restrictions || "",
-          photoUrl: fetchedCat.photoUrl || "/placeholder.svg?height=200&width=200",
-          feeding_interval: fetchedCat.feeding_interval?.toString() || "8",
-          portion: fetchedCat.portion?.toString() || "",
-          notes: fetchedCat.notes || "",
-          schedules: existingSchedules.map(schedule => ({
-            ...schedule,
-            times: schedule.times || "",
-            enabled: schedule.enabled !== undefined ? schedule.enabled : true,
-            status: schedule.status || "pending"
-          }))
-        })
-        
-        console.log('Form data atualizado:', formData)
-      } catch (err: any) {
-        console.error("Erro ao carregar gato:", err)
-        if (isMounted) setError(err.message || "Falha ao carregar dados do gato")
-      } finally {
-        if (isMounted) setIsLoading(false)
-      }
+      setIsLoadingData(false)
+      removeLoadingOperation(opId)
+    } else if (status === "unauthenticated") {
+      setIsLoadingData(false)
+      removeLoadingOperation(opId)
+      setError("Autenticação necessária.")
+      router.replace("/login")
+    } else if (status === "loading" || (currentUser && cats.length === 0)) {
+      setIsLoadingData(true)
+    } else if (!catId) {
+      setIsLoadingData(false)
+      removeLoadingOperation(opId)
+      setError("ID do gato inválido.")
     }
-    
-    loadCat()
-    
-    return () => { isMounted = false }
-  }, [catId, status, state.currentUser, router, dispatch])
+  }, [catId, status, currentUser, cats, router, addLoadingOperation, removeLoadingOperation])
   
-  // Handle form input changes
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
   }, [])
   
-  // Handle image upload change
   const handlePhotoChange = useCallback((url: string) => {
     setFormData(prev => ({ ...prev, photoUrl: url }))
   }, [])
   
-  // Handle delete
   const handleDelete = async () => {
-    if (!cat || String(cat.householdId) !== String(state.currentUser?.householdId)) {
-      toast.error("Não é possível excluir: Gato não pertence à sua residência.")
-      setShowDeleteDialog(false)
+    if (!cat || !currentUser?.householdId || String(cat.householdId) !== String(currentUser.householdId)) {
+      toast.error("Não é possível excluir: Gato inválido ou permissão negada.")
       return
     }
     
+    const opId = `delete-cat-${cat.id}`
+    addLoadingOperation({ id: opId, priority: 1, description: `Deleting ${cat.name}...` })
     setIsDeleting(true)
+    const previousCats = cats
+    
+    appDispatch({ type: "DELETE_CAT", payload: cat.id })
+    
     try {
-      await deleteCat(cat.id.toString())
-      
-      dispatch({
-        type: "DELETE_CAT",
-        payload: cat.id
-      })
-      
-      toast.success("Gato excluído com sucesso")
+      const response = await fetch(`/api/cats/${cat.id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to delete cat on server')
+      }
+      toast.success(`${cat.name} foi excluído com sucesso`)
       router.push("/cats")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao excluir gato:", error)
-      toast.error("Falha ao excluir gato")
+      toast.error(`Falha ao excluir gato: ${error.message}`)
+      appDispatch({ type: "SET_CATS", payload: previousCats })
+    } finally {
       setIsDeleting(false)
-      setShowDeleteDialog(false)
+      removeLoadingOperation(opId)
     }
   }
   
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (isLoading || isSubmitting) return
-    if (!cat || !state.currentUser?.householdId || String(cat.householdId) !== String(state.currentUser.householdId)) {
-      toast.error("Não é possível salvar: Dados inválidos ou permissão negada.")
+    if (isLoadingData || isSubmitting || !cat || !currentUser?.householdId || String(cat.householdId) !== String(currentUser.householdId)) {
+      toast.error("Não é possível salvar: Dados inválidos, carregando ou permissão negada.")
       return
     }
     
+    const opId = `update-cat-${cat.id}`
+    addLoadingOperation({ id: opId, priority: 1, description: `Saving ${formData.name}...` })
     setIsSubmitting(true)
     
     try {
       const updatedData: Partial<CatType> = {
         name: formData.name.trim(),
         photoUrl: formData.photoUrl || null,
-        birthdate: formData.birthdate ? new Date(formData.birthdate) : undefined,
-        weight: formData.weight ? parseFloat(formData.weight) : undefined,
-        restrictions: formData.restrictions?.trim() || undefined,
-        feeding_interval: formData.feeding_interval ? parseInt(formData.feeding_interval) : undefined,
-        portion: formData.portion ? parseFloat(formData.portion) : undefined,
-        notes: formData.notes?.trim() || undefined,
+        birthdate: formData.birthdate ? new Date(formData.birthdate) : null,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        restrictions: formData.restrictions?.trim() || null,
+        feedingInterval: formData.feedingInterval ? parseInt(formData.feedingInterval) : null,
+        portion_size: formData.portion_size ? parseFloat(formData.portion_size) : null,
+        notes: formData.notes?.trim() || null,
       }
       
-      if (updatedData.feeding_interval !== undefined && (isNaN(updatedData.feeding_interval) || updatedData.feeding_interval < 1 || updatedData.feeding_interval > 24)) {
+      if (updatedData.feedingInterval !== null && (isNaN(updatedData.feedingInterval) || updatedData.feedingInterval < 1 || updatedData.feedingInterval > 24)) {
         toast.error("Intervalo de alimentação deve ser entre 1 e 24 horas.")
         setIsSubmitting(false)
+        removeLoadingOperation(opId)
         return
       }
+
+      console.log('Sending update request with data:', updatedData)
       
-      const updatedCatResult = await updateCat(cat.id.toString(), updatedData)
-      
-      dispatch({
-        type: "UPDATE_CAT",
-        payload: updatedCatResult
+      const response = await fetch(`/api/cats/${cat.id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(updatedData),
       })
       
-      toast.success(`${updatedCatResult.name} foi atualizado com sucesso`)
+      const responseData = await response.json()
+      
+      if (!response.ok) {
+        console.error('Server response:', responseData)
+        throw new Error(responseData.error || 'Failed to update cat on server')
+      }
+      
+      console.log('Server response:', responseData)
+      
+      appDispatch({
+        type: "UPDATE_CAT",
+        payload: responseData
+      })
+      
+      toast.success(`${responseData.name} foi atualizado com sucesso`)
       router.push(`/cats/${cat.id}`)
     } catch (error: any) {
       console.error("Erro ao atualizar gato:", error)
+      console.error("Stack trace:", error.stack)
       toast.error(error.message || "Algo deu errado. Por favor, tente novamente.")
     } finally {
       setIsSubmitting(false)
+      removeLoadingOperation(opId)
     }
   }
   
-  if (isLoading || status === 'loading' || (status === 'authenticated' && !state.currentUser)) {
+  if (isLoadingData) {
     return (
-      <div className="container max-w-md py-6 pb-28 flex justify-center items-center min-h-[400px]">
-        <Loading text="Carregando dados do gato..." />
-      </div>
+      <PageTransition>
+        <div className="container max-w-md py-6 pb-28">
+          <div className="flex items-center mb-6">
+            <Skeleton className="h-8 w-8 mr-2 rounded-full" />
+            <Skeleton className="h-7 w-32" />
+          </div>
+          <div className="space-y-6">
+            <div className="flex justify-center mb-4">
+              <Skeleton className="h-32 w-32 rounded-full" />
+            </div>
+            <Skeleton className="h-4 w-20 mb-1" /> 
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-24 mb-1" /> 
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-16 mb-1" /> 
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-32 mb-1" /> 
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-4 w-28 mb-1" /> 
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-full mt-4" />
+          </div>
+        </div>
+      </PageTransition>
     )
   }
   
   if (error) {
     return (
-      <div className="container max-w-md py-6 pb-28 flex flex-col items-center justify-center text-center min-h-[400px]">
-        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Erro ao Carregar</h2>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
-      </div>
-    )
-  }
-  
-  if (status === 'authenticated' && state.currentUser && !state.currentUser.householdId) {
-    return (
-      <div className="container max-w-md py-6 pb-28 flex flex-col items-center justify-center text-center min-h-[400px]">
-        <Users className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Sem Residência</h2>
-        <p className="text-muted-foreground mb-4">Você precisa de uma residência associada para editar gatos.</p>
-        <Button onClick={() => router.push("/settings")} variant="outline">Ir para Configurações</Button>
-      </div>
-    )
-  }
-  
-  if (!cat) {
-    return (
-      <div className="container max-w-md py-6 pb-28 flex flex-col items-center justify-center text-center min-h-[400px]">
-        <Ban className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Não foi possível carregar</h2>
-        <p className="text-muted-foreground mb-4">Os dados do gato não puderam ser carregados.</p>
-        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
-      </div>
+      <PageTransition>
+        <div className="container max-w-md py-6 pb-28">
+          <PageHeader title="Erro ao Editar Gato" /> 
+          <div className="mt-6">
+            <EmptyState 
+              icon={AlertTriangle}
+              title="Erro ao Carregar"
+              description={error || "Não foi possível carregar os dados deste gato."}
+              actionLabel="Voltar para Gatos"
+              actionHref="/cats"
+            />
+          </div>
+        </div>
+      </PageTransition>
     )
   }
   
   return (
     <PageTransition>
       <div className="container max-w-md py-6 pb-28">
-        <div className="flex items-center justify-between mb-4">
-          <Link href={`/cats/${cat.id}`} className="flex items-center text-sm font-medium text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Voltar para {cat.name}
-          </Link>
-        </div>
-        
-        <h1 className="text-2xl font-bold mb-6">Editar {cat.name}</h1>
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="flex flex-col items-center space-y-4">
-            <Label htmlFor="photoUrl" className="cursor-pointer">
-              <Avatar className="h-24 w-24 ring-2 ring-offset-2 ring-primary/50">
-                <AvatarImage src={formData.photoUrl || undefined} alt={formData.name} />
-                <AvatarFallback>{formData.name ? formData.name.substring(0, 2) : "Gato"}</AvatarFallback>
-              </Avatar>
-            </Label>
+        <PageHeader title={`Editar ${formData.name || "Gato"}`} />
+
+        <form onSubmit={handleSubmit} className="space-y-6 mt-6">
+          <div className="flex justify-center">
             <ImageUpload
-              value={formData.photoUrl || ""}
+              value={formData.photoUrl}
               onChange={handlePhotoChange}
               type="cat"
             />
           </div>
-          
-          <div>
-            <Label htmlFor="name">Nome</Label>
-            <Input
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              placeholder="Nome do gato"
+
+          <div className="grid gap-2">
+            <Label htmlFor="name">Nome *</Label>
+            <Input 
+              id="name" 
+              name="name" 
+              value={formData.name} 
+              onChange={handleChange} 
+              placeholder="Nome do gato" 
+              required 
             />
           </div>
-          
-          <div>
+
+          <div className="grid gap-2">
             <Label htmlFor="birthdate">Data de Nascimento</Label>
-            <Input
-              id="birthdate"
-              name="birthdate"
-              type="date"
-              value={formData.birthdate}
-              onChange={handleChange}
+            <Input 
+               id="birthdate" 
+               name="birthdate" 
+               type="date" 
+               value={formData.birthdate} 
+               onChange={handleChange} 
             />
           </div>
-          
-          <div>
+
+          <div className="grid gap-2">
             <Label htmlFor="weight">Peso (kg)</Label>
-            <Input
-              id="weight"
-              name="weight"
-              type="number"
-              step="0.1"
+            <Input 
+              id="weight" 
+              name="weight" 
+              type="number" 
+              step="0.1" 
+              value={formData.weight} 
+              onChange={handleChange} 
               placeholder="Ex: 4.5"
-              value={formData.weight}
-              onChange={handleChange}
-            />
+             />
           </div>
           
-          <div>
-            <Label htmlFor="feeding_interval">Intervalo Alimentação (horas)</Label>
-            <Input
-              id="feeding_interval"
-              name="feeding_interval"
-              type="number"
-              min="1"
-              max="24"
-              placeholder="Ex: 8"
-              value={formData.feeding_interval}
-              onChange={handleChange}
-              required
-            />
+          <div className="grid gap-2">
+            <Label htmlFor="portion_size">Porção Recomendada (gramas)</Label>
+             <Input
+               id="portion_size"
+               name="portion_size"
+               type="number"
+               step="1"
+               placeholder="Ex: 50"
+               value={formData.portion_size}
+               onChange={handleChange}
+             />
           </div>
-          
-          <div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="feedingInterval">Intervalo Entre Refeições (horas) *</Label>
+            <Input 
+              id="feedingInterval" 
+              name="feedingInterval" 
+              type="number" 
+              min="1" 
+              max="24" 
+              value={formData.feedingInterval} 
+              onChange={handleChange} 
+              required 
+            />
+            
+            {(parseInt(formData.feedingInterval) < 1 || parseInt(formData.feedingInterval) > 24) && (
+              <p className="text-sm text-destructive">O intervalo deve ser entre 1 e 24 horas.</p>
+            )}
+          </div>
+
+          <div className="grid gap-2">
             <Label htmlFor="restrictions">Restrições Alimentares</Label>
-            <Textarea
-              id="restrictions"
-              name="restrictions"
-              placeholder="Alguma restrição? (opcional)"
-              value={formData.restrictions}
-              onChange={handleChange}
-              rows={3}
+            <Textarea 
+              id="restrictions" 
+              name="restrictions" 
+              value={formData.restrictions} 
+              onChange={handleChange} 
+              placeholder="Ex: Alergia a frango" 
             />
           </div>
-          
-          <div>
-            <Label htmlFor="portion">Porção por Refeição (ex: gramas)</Label>
-            <Input
-              id="portion"
-              name="portion"
-              type="number"
-              step="any"
-              placeholder="Ex: 50"
-              value={formData.portion}
-              onChange={handleChange}
-            />
-          </div>
-          
-          <div>
+
+          <div className="grid gap-2">
             <Label htmlFor="notes">Observações Adicionais</Label>
-            <Textarea
-              id="notes"
-              name="notes"
-              placeholder="Notas sobre comportamento, saúde, etc. (opcional)"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={3}
+            <Textarea 
+              id="notes" 
+              name="notes" 
+              value={formData.notes} 
+              onChange={handleChange} 
+              placeholder="Ex: Prefere comer no quarto" 
             />
           </div>
           
           <Separator />
-          
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <Button type="submit" disabled={isSubmitting || isLoading}>
-              <Save className="h-4 w-4 mr-2" />
-              {isSubmitting ? "Salvando..." : "Salvar Alterações"}
-            </Button>
-            
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <AlertDialog onOpenChange={(open) => !open && setIsDeleting(false)}> 
               <AlertDialogTrigger asChild>
-                <Button type="button" variant="destructive">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Excluir Gato
-                </Button>
+                 <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={isSubmitting || isDeleting}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir Gato
+                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Isso excluirá permanentemente {formData.name} e todos os seus dados. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-destructive hover:bg-destructive/90"
-                    disabled={isDeleting}
-                  >
-                    {isDeleting ? "Excluindo..." : "Confirmar Exclusão"}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                    <AlertDialogDescription>
+                       Tem certeza que deseja excluir {cat?.name || "este gato"}? Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+                      {isDeleting ? <Loading text="Excluindo..." size="sm" /> : "Confirmar Exclusão"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
             </AlertDialog>
+            
+            <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || isDeleting || isLoadingData}>
+              {isSubmitting ? <Loading text="Salvando..." size="sm" /> : <><Save className="mr-2 h-4 w-4" /> Salvar Alterações</>}
+            </Button>
           </div>
         </form>
       </div>

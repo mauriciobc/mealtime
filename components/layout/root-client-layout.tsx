@@ -6,7 +6,8 @@ import { NotificationProvider } from "@/lib/context/NotificationContext"
 import { SessionProvider } from "@/components/auth/session-provider"
 import { Toaster } from "sonner"
 import NotificationChecker from "@/components/notifications/notification-checker"
-import { GlobalStateProvider } from "@/lib/context/global-state"
+import { UserProvider } from "@/lib/context/UserContext"
+import { ScheduleProvider } from "@/lib/context/ScheduleContext"
 import { AnimationProvider } from "@/components/animation-provider"
 import { ClientLayout } from "@/components/layout/client-layout"
 import { DataProvider } from "@/components/data-provider"
@@ -23,23 +24,25 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <LoadingProvider>
-        <AppProvider>
-          <GlobalStateProvider>
-            <NotificationProvider>
-              <AnimationProvider>
-                <DataProvider>
-                  <ClientLayout>
-                    {children}
-                  </ClientLayout>
-                  <Toaster position="top-center" />
-                  <NotificationChecker />
-                  <OnboardingTour />
-                </DataProvider>
-                <UserDataLoader />
-              </AnimationProvider>
-            </NotificationProvider>
-          </GlobalStateProvider>
-        </AppProvider>
+        <UserProvider>
+          <AppProvider>
+            <ScheduleProvider>
+              <NotificationProvider>
+                <AnimationProvider>
+                  <DataProvider>
+                    <ClientLayout>
+                      {children}
+                    </ClientLayout>
+                    <Toaster position="top-center" />
+                    <NotificationChecker />
+                    <OnboardingTour />
+                  </DataProvider>
+                  <UserDataLoader />
+                </AnimationProvider>
+              </NotificationProvider>
+            </ScheduleProvider>
+          </AppProvider>
+        </UserProvider>
       </LoadingProvider>
     </SessionProvider>
   )

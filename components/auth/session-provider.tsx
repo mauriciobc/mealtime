@@ -8,10 +8,13 @@ interface SessionProviderProps {
 }
 
 export function SessionProvider({ children }: SessionProviderProps) {
+  console.log("[SessionProvider] Initializing");
+  
   return (
     <NextAuthSessionProvider
-      refetchInterval={0}
-      refetchOnWindowFocus={false}
+      refetchInterval={5 * 60} // Refetch every 5 minutes
+      refetchOnWindowFocus={true}
+      refetchWhenOffline={false}
     >
       {children}
     </NextAuthSessionProvider>

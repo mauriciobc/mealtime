@@ -8,13 +8,13 @@ const mockCats: BaseCat[] = [
     id: 1,
     name: 'Whiskers',
     householdId: 1,
-    feeding_interval: 8,
+    feedingInterval: 8,
   },
   {
     id: 2,
     name: 'Mittens',
     householdId: 1,
-    feeding_interval: 6,
+    feedingInterval: 6,
   },
 ];
 
@@ -82,7 +82,7 @@ describe('API Service', () => {
         id: cat.id,
         name: cat.name,
         householdId: cat.householdId,
-        feeding_interval: cat.feeding_interval,
+        feedingInterval: cat.feedingInterval,
       }))).toEqual(mockCats);
       expect(global.fetch).toHaveBeenCalledWith('/api/households/1/cats');
     });
@@ -93,7 +93,7 @@ describe('API Service', () => {
         id: cat.id,
         name: cat.name,
         householdId: cat.householdId,
-        feeding_interval: cat.feeding_interval,
+        feedingInterval: cat.feedingInterval,
       }))).toEqual(mockCats);
       expect(global.fetch).toHaveBeenCalledWith('/api/households/1/cats');
     });

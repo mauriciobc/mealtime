@@ -3,7 +3,8 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Session } from 'next-auth';
 import FeedingSchedule from '@/components/feeding-schedule';
-import { GlobalStateProvider } from '@/lib/context/global-state';
+import { AppProvider } from '@/lib/context/AppContext';
+import { ScheduleProvider } from '@/lib/context/ScheduleContext';
 import { BaseCat, BaseHousehold } from '@/lib/types/common';
 
 // Mock data
@@ -20,13 +21,13 @@ const mockCats: BaseCat[] = [
     id: 1,
     name: 'Whiskers',
     householdId: 1,
-    feeding_interval: 8,
+    feedingInterval: 8,
   },
   {
     id: 2,
     name: 'Mittens',
     householdId: 1,
-    feeding_interval: 6,
+    feedingInterval: 6,
   },
 ];
 
@@ -81,27 +82,54 @@ jest.mock('@/lib/services/apiService', () => ({
   getFeedingLogs: jest.fn(() => new Promise(resolve => setTimeout(() => resolve([]), 100))),
 }));
 
-// Mock global state
-jest.mock('@/lib/context/global-state', () => ({
-  useGlobalState: jest.fn(() => ({
+// Mock the new contexts
+jest.mock('@/lib/context/AppContext', () => ({
+  useAppContext: jest.fn(() => ({
     state: {
-      households: [
-        {
-          id: '1',
-          name: 'Test Household',
-          ownerId: 1,
-        },
-      ],
+      cats: mockCats,       // Provide mock cats
+      households: mockHouseholds, // Provide mock households
+      feedingLogs: [], // Provide empty or mock logs if needed
+      users: [], // Provide empty or mock users if needed
+      error: null,
     },
+    dispatch: jest.fn(), // Mock dispatch
   })),
-  GlobalStateProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  AppProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+jest.mock('@/lib/context/ScheduleContext', () => ({
+  useScheduleContext: jest.fn(() => ({
+    state: {
+      schedules: [], // Provide mock schedules if needed by the component
+      isLoading: false,
+      error: null,
+    },
+    dispatch: jest.fn(), // Mock dispatch
+  })),
+  ScheduleProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
+// Mock useLoading if needed by the component
+jest.mock('@/lib/context/LoadingContext', () => ({
+  useLoading: jest.fn(() => ({
+    state: { operations: [], isGlobalLoading: false },
+    addLoadingOperation: jest.fn(),
+    removeLoadingOperation: jest.fn(),
+    clearLoadingOperations: jest.fn(),
+  })),
+  LoadingProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 const renderWithProviders = (component: React.ReactNode) => {
   return render(
-    <GlobalStateProvider>
-      {component}
-    </GlobalStateProvider>
+    <AppProvider>
+      <ScheduleProvider>
+        {/* Add LoadingProvider if component uses useLoading */}
+        {/* <LoadingProvider> */}
+          {component}
+        {/* </LoadingProvider> */}
+      </ScheduleProvider>
+    </AppProvider>
   );
 };
 

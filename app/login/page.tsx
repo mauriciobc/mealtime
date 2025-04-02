@@ -1,106 +1,142 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageTransition } from "@/components/ui/page-transition";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { PageTransition } from "@/components/ui/page-transition";
+import Link from "next/link";
 
 console.log("[Login] Página de login sendo carregada");
 
 function useAuth() {
   const router = useRouter();
-  const { status } = useSession();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const searchParams = useSearchParams();
+  const { data: session, status } = useSession();
   const redirectingRef = useRef(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
+  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
 
   useEffect(() => {
     console.log("[Auth] Hook useAuth inicializado");
     console.log("[Auth] Status da sessão:", status);
+    console.log("[Auth] Session data:", session);
     
-    if (status === "authenticated" && !redirectingRef.current) {
+    // Check for error in URL
+    const errorParam = searchParams.get("error");
+    if (errorParam) {
+      console.log("[Auth] Error from URL:", errorParam);
+      if (errorParam === "CredentialsSignin") {
+          setError("Email ou senha inválidos.");
+      } else if (errorParam === "OAuthSignin") {
+          setError("Erro ao iniciar autenticação com Google.");
+      } else if (errorParam === "OAuthCallback") {
+          setError("Erro ao processar resposta do Google.");
+      } else {
+          setError("Erro durante a autenticação.");
+      }
+      return;
+    }
+    
+    if (status === "authenticated" && session?.user && !redirectingRef.current) {
       console.log("[Auth] Usuário autenticado, redirecionando...");
       redirectingRef.current = true;
-      router.replace("/");
+      const callbackUrl = searchParams.get("callbackUrl");
+      const targetUrl = callbackUrl || "/";
+      console.log("[Auth] Redirecionando para:", targetUrl);
+      router.replace(targetUrl);
     }
-  }, [status, router]);
+  }, [status, session, router, searchParams]);
 
-  const login = async (email: string, password: string) => {
-    console.log("[Auth] Função login chamada");
-    
-    if (!email || !password) {
-      console.log("[Auth] Email ou senha não fornecidos");
-      setError("Por favor, preencha todos os campos");
-      return false;
-    }
-
-    if (loading) {
-      console.log("[Auth] Login já em andamento, ignorando chamada");
-      return false;
-    }
-
+  const loginWithGoogle = async () => {
     try {
-      console.log("[Auth] Iniciando processo de login");
-      setLoading(true);
-      setError("");
+      setIsLoadingGoogle(true);
+      setError(null);
+      console.log("[Auth] Iniciando login com Google");
       
+      const callbackUrl = searchParams.get("callbackUrl") || "/";
+      console.log("[Auth] Callback URL:", callbackUrl);
+      
+      await signIn("google", { 
+        callbackUrl,
+        redirect: true 
+      }).catch(error => {
+        console.error("[Auth] Error during Google sign-in:", error);
+        throw error;
+      });
+    } catch (error) {
+      console.error("[Auth] Erro no login com Google:", error);
+      setError("Erro ao iniciar login com Google.");
+    } finally {
+      setIsLoadingGoogle(false);
+    }
+  };
+  
+  const loginWithCredentials = async (email: string, password: string) => {
+    try {
+      setIsLoadingCredentials(true);
+      setError(null);
+      console.log("[Auth] Iniciando login com credenciais", { email });
+
+      const callbackUrl = searchParams.get("callbackUrl") || "/";
+      console.log("[Auth] Callback URL for credentials:", callbackUrl);
+
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
+        callbackUrl,
       });
-      
-      console.log("[Auth] Resultado do login:", result);
-      
-      if (!result?.ok) {
-        console.log("[Auth] Login falhou:", result?.error);
-        setError(result?.error || "Email ou senha inválidos");
-        return false;
-      }
 
-      console.log("[Auth] Login bem-sucedido");
-      return true;
+      console.log("[Auth] Credentials signin result:", result);
+
+      if (result?.ok && !result?.error) {
+        console.log("[Auth] Login com credenciais bem-sucedido, aguardando atualização da sessão...");
+      } else {
+        console.log("[Auth] Falha no login com credenciais:", result?.error);
+        setError(result?.error === "CredentialsSignin" ? "Email ou senha inválidos." : "Ocorreu um erro no login.");
+      }
     } catch (error) {
-      console.error("[Auth] Erro no login:", error);
-      setError("Ocorreu um erro durante o login");
-      return false;
+      console.error("[Auth] Erro inesperado no login com credenciais:", error);
+      setError("Ocorreu um erro inesperado durante o login.");
     } finally {
-      console.log("[Auth] Finalizando processo de login");
-      setLoading(false);
+      setIsLoadingCredentials(false);
     }
   };
 
-  return { loading, error, login };
+  return { status, error, loginWithGoogle, isLoadingGoogle, loginWithCredentials, isLoadingCredentials, setError };
 }
 
 export default function LoginPage() {
   console.log("[Login] Componente LoginPage renderizando");
+  const { status, error, loginWithGoogle, isLoadingGoogle, loginWithCredentials, isLoadingCredentials, setError } = useAuth();
+  const searchParams = useSearchParams();
   
-  const { loading, error, login } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+  useEffect(() => {
+    const params = Object.fromEntries(searchParams.entries());
+    console.log("[Login] URL parameters:", params);
+  }, [searchParams]);
+
+  const handleCredentialsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("[Login] Formulário submetido");
-    
-    if (formRef.current?.checkValidity()) {
-      const success = await login(email, password);
-      console.log("[Login] Resultado do login:", success);
+    if (!email || !password) {
+        setError("Por favor, preencha o email e a senha.");
+        return;
     }
-  }, [email, password, login]);
+    console.log("[Login] Tentando login com credenciais:", email);
+    loginWithCredentials(email, password);
+  };
 
-  const togglePasswordVisibility = useCallback(() => {
-    setShowPassword(prev => !prev);
-  }, []);
+  const isLoading = status === "loading" || isLoadingGoogle || isLoadingCredentials;
 
   return (
     <PageTransition>
@@ -109,17 +145,18 @@ export default function LoginPage() {
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">MealTime</CardTitle>
             <CardDescription className="text-center">
-              Entre na sua conta para continuar
+              Entre com seu email e senha ou use o Google
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
+          <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -128,55 +165,80 @@ export default function LoginPage() {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={loading}
                   required
+                  disabled={isLoading}
                 />
               </div>
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Senha</Label>
-                  <a href="#" className="text-sm text-primary">
-                    Esqueceu a senha?
-                  </a>
-                </div>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                    required
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    onClick={togglePasswordVisibility}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Sua senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Entrando..." : "Entrar"}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoadingCredentials ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...</>
+                ) : (
+                  "Entrar com Email"
+                )}
               </Button>
             </form>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <div className="text-center text-sm">
-              Não tem uma conta?{" "}
-              <a
-                href="/signup"
-                className="underline text-primary"
-              >
-                Criar conta
-              </a>
+
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Ou continue com
+                </span>
+              </div>
             </div>
+
+            <Button
+              onClick={() => {
+                console.log("[Login] Botão de login Google clicado");
+                loginWithGoogle();
+              }}
+              disabled={isLoading}
+              className="w-full"
+              variant="outline"
+            >
+              {isLoadingGoogle ? (
+                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...</>
+              ) : (
+                <>
+                  <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                    <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+                  </svg>
+                  Entrar com Google
+                </>
+              )}
+            </Button>
+          </CardContent>
+          <CardFooter className="flex flex-col items-center space-y-2 text-center text-sm text-muted-foreground">
+             <div>
+                Não tem uma conta?{' '}
+                <Link href="/signup" className="underline hover:text-primary">
+                  Registre-se
+                </Link>
+              </div>
+              <div> 
+                Ao entrar, você concorda com nossos{" "}
+                <Link href="/terms" className="underline hover:text-primary">
+                  Termos de Serviço
+                </Link>{" "}
+                e{" "}
+                <Link href="/privacy" className="underline hover:text-primary">
+                  Política de Privacidade
+                </Link>
+              </div>
           </CardFooter>
         </Card>
       </div>

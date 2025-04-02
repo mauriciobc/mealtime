@@ -75,8 +75,8 @@ export default async function CatSettingsPage({ params }: { params: { id: string
               <Input id="weight" type="number" step="0.1" defaultValue={cat.weight} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="feeding_interval">Feeding Interval (hours)</Label>
-              <Input id="feeding_interval" type="number" defaultValue={cat.feeding_interval} />
+              <Label htmlFor="feedingInterval">Feeding Interval (hours)</Label>
+              <Input id="feedingInterval" type="number" defaultValue={cat.feedingInterval} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="restrictions">Dietary Restrictions</Label>

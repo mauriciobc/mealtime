@@ -25,16 +25,18 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import PageTransition from "@/components/page-transition"
 import { format } from "date-fns"
-import { useGlobalState } from "@/lib/context/global-state"
+import { useAppContext } from "@/lib/context/AppContext"
+import { useLoading } from "@/lib/context/LoadingContext"
 import { useFeeding } from "@/hooks/use-feeding"
 import { getAgeString } from "@/lib/utils/dateUtils"
-import { deleteCat } from "@/lib/services/apiService"
+import { deleteCat as deleteCatService } from "@/lib/services/apiService"
 import { toast } from "sonner"
 import { notFound } from "next/navigation"
 import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { FeedingForm } from "@/components/feeding-form"
 import { CatType } from "@/lib/types"
+import { Loading } from "@/components/ui/loading"
 
 // Interface para agendamentos (schedules)
 interface Schedule {
@@ -47,28 +49,29 @@ interface Schedule {
 
 export default function CatDetailsClient({ id }: { id: string }) {
   const router = useRouter()
-  const { state, dispatch } = useGlobalState()
+  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { 
     cat, 
     logs, 
     nextFeedingTime, 
     formattedNextFeedingTime, 
     formattedTimeDistance, 
-    isLoading, 
+    isLoading: isFeedingLoading, 
     handleMarkAsFed 
   } = useFeeding(id)
   const [isClient, setIsClient] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [isProcessingDelete, setIsProcessingDelete] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   
   useEffect(() => {
     setIsClient(true)
   }, [])
   
-  if (isLoading) {
+  if (isFeedingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Carregando perfil do gato...</p>
+        <Loading text="Carregando perfil do gato..." />
       </div>
     )
   }
@@ -79,25 +82,42 @@ export default function CatDetailsClient({ id }: { id: string }) {
 
   // Função para excluir o gato
   const handleDelete = async () => {
-    setIsDeleting(true)
-    
+    const opId = `delete-cat-${id}`;
+    addLoadingOperation({ id: opId, description: `Excluindo ${cat?.name || 'gato'}...`, priority: 1 });
+    setIsProcessingDelete(true);
+    const previousCats = appState.cats;
+
+    // Optimistic update
+    const catIdNumber = parseInt(id, 10);
+    if (isNaN(catIdNumber)) {
+        toast.error("ID do gato inválido.");
+        setIsProcessingDelete(false);
+        removeLoadingOperation(opId);
+        return;
+    }
+    appDispatch({ type: "DELETE_CAT", payload: catIdNumber });
+
     try {
-      await deleteCat(id, state.cats)
-      
-      // Atualizar o estado local
-      dispatch({
-        type: "DELETE_CAT",
-        payload: { id }
-      })
-      
-      toast.success(`${cat.name} foi excluído`)
-      router.push("/cats")
-    } catch (error) {
-      console.error("Erro ao excluir gato:", error)
-      toast.error("Falha ao excluir o gato")
+      // Removed state.cats from service call, assuming it's not needed
+      const response = await fetch(`/api/cats/${id}`, { method: 'DELETE' });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao excluir o gato no servidor');
+      }
+
+      toast.success(`${cat?.name || 'Gato'} foi excluído`);
+      router.push("/cats");
+
+    } catch (error: any) {
+      console.error("Erro ao excluir gato:", error);
+      toast.error(`Falha ao excluir o gato: ${error.message}`);
+      // Rollback optimistic update on error
+      appDispatch({ type: "SET_CATS", payload: previousCats });
     } finally {
-      setIsDeleting(false)
-      setShowDeleteDialog(false)
+      setIsProcessingDelete(false);
+      setShowDeleteDialog(false);
+      removeLoadingOperation(opId);
     }
   }
 
@@ -157,18 +177,18 @@ export default function CatDetailsClient({ id }: { id: string }) {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Isso excluirá permanentemente {cat.name} e todos os seus registros de alimentação.
+                          Isso excluirá permanentemente {cat?.name || 'este gato'} e todos os seus registros de alimentação.
                           Esta ação não pode ser desfeita.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isProcessingDelete}>Cancelar</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleDelete}
                           className="bg-destructive hover:bg-destructive/90"
-                          disabled={isDeleting}
+                          disabled={isProcessingDelete}
                         >
-                          {isDeleting ? "Excluindo..." : "Excluir"}
+                          {isProcessingDelete ? <Loading text="Excluindo..." size="sm" /> : "Excluir"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

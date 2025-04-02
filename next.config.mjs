@@ -10,9 +10,6 @@ const nextConfig = {
     unoptimized: true,
   },
   experimental: {
-    webpackBuildWorker: true,
-    parallelServerBuildTraces: true,
-    parallelServerCompiles: true,
     serverActions: {
       bodySizeLimit: '10mb'
     }
@@ -21,6 +18,11 @@ const nextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': '.',
+    }
+    // Increase the timeout for chunk loading
+    config.watchOptions = {
+      ...config.watchOptions,
+      aggregateTimeout: 300,
     }
     return config
   },

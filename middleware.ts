@@ -3,35 +3,65 @@ import { getToken } from "next-auth/jwt";
 import { imageCache } from '@/lib/image-cache';
 
 // Rotas públicas que não requerem autenticação
-const publicRoutes = ["/login", "/signup", "/api/auth"];
+const publicRoutes = ["/login", "/signup", "/terms", "/privacy"];
 
 // Rotas de administrador que requerem papel específico
 const adminRoutes = ["/admin"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  console.log('[Middleware] Processing request for:', pathname);
 
-  // Verificar se a rota é pública
-  if (publicRoutes.some((route) => pathname.startsWith(route))) {
+  // List of public paths that don't require authentication
+  const publicPaths = [
+    '/login',
+    '/signup',
+    '/terms',
+    '/privacy',
+    '/api/auth',
+    '/_next',
+    '/favicon.ico',
+  ];
+
+  // Check if the current path is public
+  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  console.log('[Middleware] Path access check:', { pathname, isPublicPath });
+
+  // Allow all static files and API routes without token check
+  if (
+    pathname.includes('.') || // Static files
+    pathname.startsWith('/_next') || // Next.js resources
+    pathname.startsWith('/api/auth') || // Auth endpoints
+    pathname === '/favicon.ico'
+  ) {
+    console.log('[Middleware] Allowing static/system path:', pathname);
     return NextResponse.next();
   }
 
-  // Verificar o token de autenticação
-  const token = await getToken({
+  // Get the token
+  const token = await getToken({ 
     req: request,
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET 
   });
 
-  // Se não estiver autenticado, redirecionar para login
-  if (!token) {
-    const url = new URL("/login", request.url);
-    url.searchParams.set("callbackUrl", encodeURI(request.url));
-    return NextResponse.redirect(url);
+  console.log('[Middleware] Token status:', { 
+    path: pathname,
+    hasToken: !!token,
+    isPublicPath
+  });
+
+  // Redirect authenticated users away from auth pages
+  if (token && isPublicPath) {
+    console.log('[Middleware] Authenticated user accessing public path, redirecting to home');
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
-  // Verificar permissões para rotas de administrador
-  if (adminRoutes.some((route) => pathname.startsWith(route)) && token.role !== "Admin") {
-    return NextResponse.redirect(new URL("/", request.url));
+  // Redirect unauthenticated users to login
+  if (!token && !isPublicPath) {
+    console.log('[Middleware] Unauthenticated user accessing protected path, redirecting to login');
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('callbackUrl', request.url);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Verificar se é uma requisição para uma imagem de perfil
@@ -54,24 +84,39 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    console.log('[Middleware] JWT token for API request:', token ? 'Present' : 'Not present');
+  }
+
+  // Add security headers
+  const response = NextResponse.next();
+  
+  const cspHeader = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com https://*.google.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.gstatic.com",
+    "img-src 'self' data: https://* blob: https://*.google.com https://*.gstatic.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "frame-src 'self' https://accounts.google.com https://*.google.com",
+    "connect-src 'self' https://accounts.google.com https://*.google.com https://*.gstatic.com",
+    "form-action 'self' https://accounts.google.com https://*.google.com",
+  ].join('; ');
+
+  response.headers.set('Content-Security-Policy', cspHeader);
+
+  return response;
 }
 
-// Configurar em quais caminhos o middleware deve ser executado
+// Configure which paths the middleware should run on
 export const config = {
   matcher: [
-    // Caminhos que requerem autenticação
-    "/",
-    "/cats/:path*",
-    "/households/:path*",
-    "/schedule/:path*",
-    "/settings/:path*",
-    "/history/:path*",
-    "/statistics/:path*",
-    "/admin/:path*",
-    "/api/households/:path*",
-    "/api/cats/:path*",
-    "/api/feeding-logs/:path*",
-    '/profiles/:path*'
-  ]
-} 
+    /*
+     * Match all paths except:
+     * 1. /api/auth (NextAuth.js authentication routes)
+     * 2. /_next (Next.js internals)
+     * 3. /static (static files)
+     * 4. /favicon.ico, /sitemap.xml (public files)
+     */
+    '/((?!api/auth|_next|static|favicon.ico|sitemap.xml).*)',
+  ],
+}; 

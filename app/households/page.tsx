@@ -30,7 +30,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useGlobalState } from "@/lib/context/global-state";
+import { useAppContext } from "@/lib/context/AppContext";
+import { useUserContext } from "@/lib/context/UserContext";
+import { useLoading } from "@/lib/context/LoadingContext";
 import { Household as HouseholdType, HouseholdMember } from "@/lib/types";
 import { Loading } from "@/components/ui/loading";
 import { PageHeader } from "@/components/page-header";
@@ -98,15 +100,54 @@ function LoadingHouseholds() {
 
 export default function HouseholdsPage() {
   const router = useRouter();
-  const { state, dispatch } = useGlobalState();
+  const { state: appState, dispatch: appDispatch } = useAppContext();
+  const { state: userState, dispatch: userDispatch } = useUserContext();
+  const { addLoadingOperation, removeLoadingOperation, state: loadingState } = useLoading();
+  const { households } = appState;
+  const { currentUser } = userState;
   const { data: session, status } = useSession();
   const [householdToDelete, setHouseholdToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  useEffect(() => {
+    // Only fetch if authenticated, user is loaded, and households are not yet loaded
+    if (status === "authenticated" && currentUser && households.length === 0) {
+        const fetchHouseholds = async () => {
+            const opId = "fetch-households";
+            addLoadingOperation({ id: opId, priority: 1, description: "Carregando residências..." });
+            try {
+                const response = await fetch('/api/households'); // Fetch from the correct endpoint
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || "Falha ao carregar residências");
+                }
+                const fetchedHouseholds: HouseholdType[] = await response.json();
+                
+                // Ensure owner data is included (or handle potentially missing data)
+                // You might need to adjust the API endpoint or parsing if owner isn't included
+                console.log("Fetched households:", fetchedHouseholds); 
+                
+                appDispatch({ type: "SET_HOUSEHOLDS", payload: fetchedHouseholds });
+            } catch (error: any) {
+                console.error("Error fetching households:", error);
+                toast.error(`Erro ao carregar residências: ${error.message}`);
+                // Optionally dispatch an error to context
+                // appDispatch({ type: "SET_ERROR", payload: error.message || "Failed to load households" });
+            } finally {
+                removeLoadingOperation(opId);
+            }
+        };
+        
+        fetchHouseholds(); // Call the fetch function
+    }
+  }, [status, currentUser, households.length, appDispatch, addLoadingOperation, removeLoadingOperation]);
+
   const handleDeleteHousehold = async (id: string) => {
      if (!id) return;
+     const opId = `delete-household-${id}`;
+     addLoadingOperation({ id: opId, priority: 1, description: "Deleting household..." });
      setIsDeleting(true);
-     const previousHouseholds = state.households;
+     const previousHouseholds = households; // From appState
 
     try {
       const response = await fetch(`/api/households/${id}`, { method: 'DELETE' });
@@ -116,12 +157,22 @@ export default function HouseholdsPage() {
          throw new Error(errorData.error || 'Erro ao excluir residência');
       }
 
-      dispatch({ type: "DELETE_HOUSEHOLD", payload: { id } });
+      // Dispatch deletion to AppContext
+      appDispatch({ type: "DELETE_HOUSEHOLD", payload: id });
 
-       if (String(state.currentUser?.householdId) === String(id)) {
-           dispatch({ type: "SET_CURRENT_USER_HOUSEHOLD", payload: null });
-       }
-
+      // Dispatch update to UserContext if the deleted household was the primary one
+      // This logic needs careful handling - what should be the new primary?
+      // Simplest might be to set primaryHousehold to null or the first available one.
+      if (String(currentUser?.householdId) === String(id)) { // Assuming householdId is primary
+          // Find a new primary or set to null
+          const nextPrimary = previousHouseholds.find(h => String(h.id) !== String(id))?.id || null;
+          userDispatch({ 
+              type: "SET_CURRENT_USER", 
+              // Assuming user object structure allows setting householdId directly
+              payload: currentUser ? { ...currentUser, householdId: nextPrimary } : null 
+          });
+          // Consider adding a more specific action like SET_PRIMARY_HOUSEHOLD in UserContext
+      }
 
       toast.success("Residência excluída com sucesso");
       setHouseholdToDelete(null);
@@ -129,19 +180,22 @@ export default function HouseholdsPage() {
     } catch (error: any) {
       console.error("Erro ao excluir residência:", error);
       toast.error(`Erro ao excluir: ${error.message}`);
-      
+      // Rollback optimistic delete (by setting households back - less ideal)
+      // appDispatch({ type: "SET_HOUSEHOLDS", payload: previousHouseholds });
     } finally {
         setIsDeleting(false);
+        removeLoadingOperation(opId);
     }
   };
 
-  const isAdmin = useCallback((household: HouseholdType) => {
-     if (!state.currentUser?.id || !household?.members) return false;
+  const isAdmin = useCallback((household: HouseholdType): boolean => {
+     if (!currentUser?.id || !household?.members) return false;
+     // Check if the current user is listed as an admin in the household members
      const currentUserMember = household.members.find(
-       member => String(member.id) === String(state.currentUser!.id)
+       member => String(member.userId) === String(currentUser.id)
      );
      return currentUserMember?.role?.toLowerCase() === "admin";
-  }, [state.currentUser]);
+  }, [currentUser]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -160,7 +214,7 @@ export default function HouseholdsPage() {
     }
   };
 
-  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+  if (status === "loading" || (status === "authenticated" && !currentUser)) {
      return (
          <PageTransition>
             <div className="flex flex-col min-h-screen bg-background">
@@ -177,7 +231,8 @@ export default function HouseholdsPage() {
     return <Loading text="Redirecionando..." />;
   }
 
-  const householdsToDisplay = state.households || [];
+  const householdsToDisplay = households || [];
+  const isGloballyLoading = loadingState.isGlobalLoading;
 
   return (
      <PageTransition>
@@ -191,7 +246,9 @@ export default function HouseholdsPage() {
                     actionHref="/households/new"
                 />
 
-                {householdsToDisplay.length === 0 ? (
+                {isGloballyLoading && householdsToDisplay.length === 0 ? (
+                    <LoadingHouseholds />
+                ) : householdsToDisplay.length === 0 ? (
                     <EmptyHouseholdsState />
                 ) : (
                     <motion.div
@@ -205,11 +262,12 @@ export default function HouseholdsPage() {
                         <Card className="overflow-hidden flex flex-col h-full">
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start">
-                                    <CardTitle className="text-lg mb-1">{household.name}</CardTitle>
+                                    <CardTitle className="text-lg mb-1 truncate" title={household.name}>{household.name}</CardTitle>
                                      <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 -mt-1 flex-shrink-0">
                                                 <MoreVertical className="h-4 w-4" />
+                                                <span className="sr-only">Opções</span>
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
@@ -245,7 +303,7 @@ export default function HouseholdsPage() {
                                                                     disabled={isDeleting}
                                                                     className="bg-destructive hover:bg-destructive/90"
                                                                 >
-                                                                    {isDeleting ? "Excluindo..." : "Excluir"}
+                                                                    {isDeleting ? <Loading text="Excluindo..." size="sm"/> : "Excluir"}
                                                                 </AlertDialogAction>
                                                                 </AlertDialogFooter>
                                                             </AlertDialogContent>

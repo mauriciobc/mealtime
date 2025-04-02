@@ -8,7 +8,9 @@ import * as z from "zod";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-import { useGlobalState } from "@/lib/context/global-state";
+import { useAppContext } from "@/lib/context/AppContext";
+import { useUserContext } from "@/lib/context/UserContext";
+import { useLoading } from "@/lib/context/LoadingContext";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +35,8 @@ import { Calendar as CalendarIcon, Clock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ImageUpload } from "@/components/image-upload";
 import { Loading } from "@/components/ui/loading";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -40,17 +44,15 @@ const formSchema = z.object({
   }),
   photoUrl: z.string().optional(),
   birthdate: z.date().optional(),
-  weight: z.string().optional(),
-  portion: z.string().optional().refine((val) => {
-    if (!val) return true;
-    const num = parseFloat(val);
-    return !isNaN(num) && num > 0;
-  }, {
-    message: "A porção deve ser um número positivo.",
+  weight: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+    message: "Peso deve ser um número positivo.",
+  }),
+  portion: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+    message: "Porção deve ser um número positivo.",
   }),
   restrictions: z.string().optional(),
   notes: z.string().optional(),
-  feeding_interval: z.string().min(1, {
+  feedingInterval: z.string().min(1, {
     message: "O intervalo de alimentação é obrigatório.",
   }).refine((val) => {
     const num = parseInt(val);
@@ -64,17 +66,22 @@ export default function NewCatPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: session, status } = useSession();
-  const { state, dispatch } = useGlobalState();
+  const { dispatch: appDispatch } = useAppContext();
+  const { state: userState } = useUserContext();
+  const { addLoadingOperation, removeLoadingOperation } = useLoading();
+  const { currentUser } = userState;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       photoUrl: "",
+      birthdate: undefined,
+      weight: "",
+      portion: "",
       restrictions: "",
       notes: "",
-      feeding_interval: "8",
-      portion: "",
+      feedingInterval: "8",
     },
   });
 
@@ -86,54 +93,59 @@ export default function NewCatPage() {
   }, [status, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!state.currentUser?.householdId) {
+    if (!currentUser?.householdId) {
        toast.error("Você precisa pertencer a um domicílio para adicionar um gato.");
        return;
     }
 
-    const currentHouseholdId = state.currentUser.householdId;
+    const currentHouseholdId = currentUser.householdId;
+    const opId = "create-cat";
+    addLoadingOperation({ id: opId, priority: 1, description: "Adding cat..." });
+    setIsSubmitting(true);
 
     try {
-      setIsSubmitting(true);
+      const payload = {
+        ...values,
+        birthdate: values.birthdate ? values.birthdate.toISOString() : null,
+        weight: values.weight ? parseFloat(values.weight) : null,
+        portion_size: values.portion ? parseFloat(values.portion) : null,
+        feedingInterval: parseInt(values.feedingInterval),
+        householdId: currentHouseholdId,
+      };
 
       const response = await fetch("/api/cats", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...values,
-          weight: values.weight ? parseFloat(values.weight) : undefined,
-          householdId: currentHouseholdId,
-          feeding_interval: parseInt(values.feeding_interval),
-          portion: values.portion ? parseFloat(values.portion) : undefined
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         console.error("Erro do servidor:", errorData);
         throw new Error(errorData.error || "Falha ao adicionar gato");
       }
 
       const newCat = await response.json();
       
-      dispatch({
+      appDispatch({
         type: "ADD_CAT",
         payload: newCat,
       });
 
       toast.success("Gato adicionado com sucesso!");
       router.push("/cats");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao criar perfil de gato:", error);
-      toast.error("Erro ao adicionar gato. Tente novamente.");
+      toast.error(`Erro ao adicionar gato: ${error.message || "Tente novamente."}`);
     } finally {
       setIsSubmitting(false);
+      removeLoadingOperation(opId);
     }
   }
 
-  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+  if (status === "loading" || (status === "authenticated" && !currentUser)) {
      return (
         <div className="container max-w-md py-6 pb-28 flex justify-center items-center min-h-[300px]">
           <Loading text="Carregando..." />
@@ -141,27 +153,23 @@ export default function NewCatPage() {
      );
   }
 
-   if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+   if (status === "authenticated" && currentUser && !currentUser.householdId) {
      return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="container max-w-md py-6 pb-28"
         >
-          <h1 className="text-2xl font-bold mb-6">Adicionar Novo Gato</h1>
-          <div className="bg-secondary border border-border rounded-md p-6 text-center">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-semibold text-lg mb-2">Nenhum domicílio encontrado</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Você precisa pertencer a um domicílio para adicionar um gato.
-                Crie ou junte-se a um domicílio nas configurações.
-              </p>
-              <Button
-                onClick={() => router.push("/settings")}
-              >
-                Ir para Configurações
-              </Button>
-            </div>
+          <PageHeader title="Adicionar Novo Gato" />
+          <div className="mt-6">
+            <EmptyState 
+              icon={Users}
+              title="Nenhum domicílio encontrado"
+              description="Você precisa pertencer a um domicílio para adicionar um gato. Crie ou junte-se a um domicílio nas configurações."
+              actionLabel="Ir para Configurações"
+              actionHref="/settings"
+             />
+          </div>
         </motion.div>
      );
    }
@@ -172,18 +180,18 @@ export default function NewCatPage() {
       animate={{ opacity: 1, y: 0 }}
       className="container max-w-md py-6 pb-28"
     >
-      <h1 className="text-2xl font-bold mb-6">Adicionar Novo Gato</h1>
+      <PageHeader title="Adicionar Novo Gato" />
       
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-6">
           <FormField
             control={form.control}
             name="name"
             render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome</FormLabel>
+                  <FormLabel>Nome *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Nome do gato" {...field} id={field.name} />
+                    <Input placeholder="Nome do gato" {...field} id="name" required disabled={isSubmitting}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -223,6 +231,7 @@ export default function NewCatPage() {
                             "w-full pl-3 text-left font-normal",
                             !field.value && "text-muted-foreground"
                           )}
+                          disabled={isSubmitting}
                         >
                           {field.value ? (
                             format(field.value, "PPP", { locale: ptBR })
@@ -238,8 +247,11 @@ export default function NewCatPage() {
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
+                        captionLayout="dropdown-buttons"
+                        fromYear={1990}
+                        toYear={new Date().getFullYear()}
                         disabled={(date) =>
-                          date > new Date() || date < new Date("1900-01-01")
+                          date > new Date() || date < new Date("1990-01-01")
                         }
                         initialFocus
                       />
@@ -257,7 +269,14 @@ export default function NewCatPage() {
                 <FormItem>
                   <FormLabel>Peso (kg)</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.1" placeholder="Ex: 4.5" {...field} id={field.name}/>
+                    <Input 
+                        type="number" 
+                        step="0.1" 
+                        placeholder="Ex: 4.5" 
+                        {...field} 
+                        id="weight"
+                        disabled={isSubmitting}
+                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -266,12 +285,21 @@ export default function NewCatPage() {
 
             <FormField
               control={form.control}
-              name="feeding_interval"
+              name="feedingInterval"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Intervalo Alimentação (horas)</FormLabel>
+                  <FormLabel>Intervalo Ideal Entre Refeições (horas) *</FormLabel>
                   <FormControl>
-                     <Input type="number" min="1" max="24" placeholder="Ex: 8" {...field} id={field.name}/>
+                     <Input 
+                        type="number" 
+                        min="1" 
+                        max="24" 
+                        placeholder="Ex: 8" 
+                        {...field} 
+                        id="feedingInterval"
+                        required 
+                        disabled={isSubmitting}
+                     />
                   </FormControl>
                    <FormMessage />
                 </FormItem>
@@ -283,9 +311,16 @@ export default function NewCatPage() {
               name="portion"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Porção por Refeição (ex: gramas)</FormLabel>
+                  <FormLabel>Porção Recomendada (gramas)</FormLabel>
                   <FormControl>
-                    <Input type="number" step="any" placeholder="Ex: 50" {...field} id={field.name}/>
+                    <Input 
+                        type="number" 
+                        step="1" 
+                        placeholder="Ex: 50" 
+                        {...field} 
+                        id="portion"
+                        disabled={isSubmitting}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -300,9 +335,11 @@ export default function NewCatPage() {
                   <FormLabel>Restrições Alimentares</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Alguma restrição alimentar? (opcional)"
+                      placeholder="Ex: Alergia a frango, sensível a grãos"
+                      className="resize-none"
                       {...field}
-                      id={field.name}
+                      id="restrictions"
+                      disabled={isSubmitting}
                     />
                   </FormControl>
                   <FormMessage />
@@ -318,9 +355,11 @@ export default function NewCatPage() {
                   <FormLabel>Observações Adicionais</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Notas sobre comportamento, saúde, etc. (opcional)"
+                      placeholder="Ex: Prefere comer no quarto, só come ração úmida"
+                      className="resize-none"
                       {...field}
-                       id={field.name}
+                      id="notes"
+                      disabled={isSubmitting}
                     />
                   </FormControl>
                   <FormMessage />
@@ -328,8 +367,8 @@ export default function NewCatPage() {
               )}
             />
 
-          <Button type="submit" disabled={isSubmitting} className="w-full">
-            {isSubmitting ? "Adicionando..." : "Adicionar Gato"}
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? <Loading text="Adicionando..." size="sm" /> : "Adicionar Gato"}
           </Button>
         </form>
       </Form>

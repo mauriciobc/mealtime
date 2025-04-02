@@ -86,7 +86,7 @@ export async function GET(
       weight: cat.weight || undefined,
       restrictions: cat.restrictions || undefined,
       householdId: cat.householdId,
-      feeding_interval: cat.feeding_interval || 8
+      feedingInterval: cat.feedingInterval || 8
     };
     
     return NextResponse.json(formattedCat);
@@ -170,6 +170,7 @@ export async function PATCH(
     }
     
     const body = await request.json();
+    console.log('Received update request with body:', body);
     
     // Validar dados
     if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
@@ -178,21 +179,40 @@ export async function PATCH(
         { status: 400 }
       );
     }
+
+    if (body.feedingInterval !== undefined) {
+      const interval = parseInt(String(body.feedingInterval));
+      if (isNaN(interval) || interval < 1 || interval > 24) {
+        return NextResponse.json(
+          { error: 'O intervalo de alimentação deve estar entre 1 e 24 horas' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Preparar dados para atualização
+    const updateData = {
+      name: body.name !== undefined ? body.name : undefined,
+      photoUrl: body.photoUrl !== undefined ? body.photoUrl : undefined,
+      birthdate: body.birthdate !== undefined 
+        ? (body.birthdate ? new Date(body.birthdate) : null) 
+        : undefined,
+      weight: body.weight !== undefined ? body.weight : undefined,
+      restrictions: body.restrictions !== undefined ? body.restrictions : undefined,
+      notes: body.notes !== undefined ? body.notes : undefined,
+      feedingInterval: body.feedingInterval !== undefined ? parseInt(String(body.feedingInterval)) : undefined,
+      portion_size: body.portion_size !== undefined ? parseFloat(String(body.portion_size)) : undefined
+    };
+
+    console.log('Attempting to update cat with data:', updateData);
     
     // Atualizar o gato
     const updatedCat = await prisma.cat.update({
       where: { id: catId },
-      data: {
-        name: body.name !== undefined ? body.name : undefined,
-        photoUrl: body.photoUrl !== undefined ? body.photoUrl : undefined,
-        birthdate: body.birthdate !== undefined 
-          ? (body.birthdate ? new Date(body.birthdate) : null) 
-          : undefined,
-        weight: body.weight !== undefined ? body.weight : undefined,
-        restrictions: body.restrictions !== undefined ? body.restrictions : undefined,
-        notes: body.notes !== undefined ? body.notes : undefined
-      }
+      data: updateData
     });
+    
+    console.log('Cat updated successfully:', updatedCat);
     
     // Formatar os dados para a resposta
     const formattedCat = {
@@ -202,14 +222,33 @@ export async function PATCH(
       birthdate: updatedCat.birthdate,
       weight: updatedCat.weight,
       restrictions: updatedCat.restrictions,
-      notes: updatedCat.notes
+      notes: updatedCat.notes,
+      feedingInterval: updatedCat.feedingInterval,
+      portion_size: updatedCat.portion_size,
+      householdId: updatedCat.householdId
     };
     
     return NextResponse.json(formattedCat);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao atualizar gato:', error);
+    console.error('Stack trace:', error.stack);
+    
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'Conflito ao atualizar dados do gato' },
+        { status: 409 }
+      );
+    }
+    
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Gato não encontrado' },
+        { status: 404 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao atualizar o gato' },
+      { error: 'Ocorreu um erro ao atualizar o gato: ' + error.message },
       { status: 500 }
     );
   }

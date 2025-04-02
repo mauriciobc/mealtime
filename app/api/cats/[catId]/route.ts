@@ -73,8 +73,8 @@ export async function PUT(
       notes,
       householdId,
       schedules,
-      feeding_interval,
-      portion
+      feedingInterval,
+      portion_size,
     } = await request.json();
 
     // Verificar se o gato existe
@@ -99,8 +99,8 @@ export async function PUT(
     }
 
     // Validar o intervalo de alimentação se fornecido
-    if (feeding_interval !== undefined) {
-      const interval = parseInt(String(feeding_interval));
+    if (feedingInterval !== undefined) {
+      const interval = parseInt(String(feedingInterval));
       if (isNaN(interval) || interval < 1 || interval > 24) {
         return NextResponse.json(
           { error: 'O intervalo de alimentação deve estar entre 1 e 24 horas' },
@@ -118,9 +118,9 @@ export async function PUT(
         birthdate: birthdate === undefined ? undefined : new Date(birthdate),
         weight: weight === undefined ? undefined : parseFloat(weight),
         restrictions: restrictions === undefined ? undefined : restrictions,
-        portion_size: portion === undefined ? undefined : parseFloat(portion),
+        portion_size: portion_size === undefined ? undefined : parseFloat(portion_size),
         notes: notes === undefined ? undefined : notes,
-        feedingInterval: feeding_interval === undefined ? undefined : parseInt(feeding_interval),
+        feedingInterval: feedingInterval === undefined ? undefined : parseInt(String(feedingInterval)),
         householdId: householdId || undefined,
         schedules: schedules ? {
           deleteMany: {}, // Remove schedules existentes

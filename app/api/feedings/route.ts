@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { BaseFeedingLog } from '@/lib/types/common';
 import { FeedingLog } from '@/lib/types';
 
 // GET /api/feedings - Listar registros de alimentação (filtragem opcional por catId ou householdId)
@@ -16,9 +17,17 @@ export async function GET(request: NextRequest) {
       where.catId = parseInt(catId);
     }
     
+    // Always filter by householdId, either from query params or from cat's householdId
     if (householdId) {
       where.cat = {
         householdId: parseInt(householdId)
+      };
+    } else {
+      // If no householdId provided, we still need to filter by cat's householdId
+      where.cat = {
+        householdId: {
+          not: null
+        }
       };
     }
 
@@ -31,13 +40,21 @@ export async function GET(request: NextRequest) {
             name: true,
             photoUrl: true,
             portion_size: true,
-            feedingInterval: true
+            feedingInterval: true,
+            birthdate: true,
+            weight: true,
+            restrictions: true,
+            notes: true,
+            householdId: true
           }
         },
         user: {
           select: {
             id: true,
-            name: true
+            name: true,
+            email: true,
+            householdId: true,
+            role: true
           }
         }
       },
@@ -47,7 +64,53 @@ export async function GET(request: NextRequest) {
       take: limit
     });
 
-    return NextResponse.json(feedings);
+    // Filter out logs that don't belong to the requested household
+    const filteredLogs = householdId 
+      ? feedings.filter(log => log.cat?.householdId === parseInt(householdId))
+      : feedings;
+
+    const formattedLogs: FeedingLog[] = filteredLogs.map(log => ({
+      id: log.id,
+      catId: log.catId,
+      userId: log.userId,
+      timestamp: log.timestamp,
+      portionSize: log.portionSize || undefined,
+      notes: log.notes || undefined,
+      status: log.status || undefined,
+      createdAt: log.createdAt,
+      cat: log.cat ? {
+        id: log.cat.id,
+        name: log.cat.name,
+        photoUrl: log.cat.photoUrl,
+        birthdate: log.cat.birthdate,
+        weight: log.cat.weight,
+        restrictions: log.cat.restrictions,
+        notes: log.cat.notes,
+        householdId: log.cat.householdId,
+        feedingInterval: log.cat.feedingInterval,
+        portion_size: log.cat.portion_size
+      } : undefined,
+      user: log.user ? {
+        id: log.user.id,
+        name: log.user.name,
+        email: log.user.email,
+        householdId: log.user.householdId,
+        role: log.user.role,
+        preferences: {
+          timezone: "UTC",
+          language: "pt-BR",
+          notifications: {
+            pushEnabled: true,
+            emailEnabled: true,
+            feedingReminders: true,
+            missedFeedingAlerts: true,
+            householdUpdates: true
+          }
+        }
+      } : undefined
+    }));
+
+    return NextResponse.json(formattedLogs);
   } catch (error) {
     console.error('Erro ao buscar registros de alimentação:', error);
     console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
@@ -82,7 +145,19 @@ export async function POST(request: NextRequest) {
 
     // Verificar se o gato existe
     const cat = await prisma.cat.findUnique({
-      where: { id: catId }
+      where: { id: catId },
+      select: {
+        id: true,
+        name: true,
+        photoUrl: true,
+        portion_size: true,
+        feedingInterval: true,
+        birthdate: true,
+        weight: true,
+        restrictions: true,
+        notes: true,
+        householdId: true
+      }
     });
 
     if (!cat) {
@@ -94,7 +169,15 @@ export async function POST(request: NextRequest) {
 
     // Verificar se o usuário existe
     const user = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        householdId: true,
+        preferences: true,
+        role: true
+      }
     });
 
     if (!user) {
@@ -114,30 +197,26 @@ export async function POST(request: NextRequest) {
         catId,
         userId,
         timestamp: utcTimestamp,
-        portionSize: portionSize ? parseFloat(String(portionSize)) : null,
+        portionSize: portionSize ? parseFloat(String(portionSize)) : undefined,
         notes,
         status
-      },
-      include: {
-        cat: {
-          select: {
-            id: true,
-            name: true,
-            photoUrl: true,
-            portion_size: true,
-            feedingInterval: true
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
       }
     });
 
-    return NextResponse.json(feedingLog, { status: 201 });
+    const formattedLog: FeedingLog = {
+      id: feedingLog.id,
+      catId: feedingLog.catId,
+      userId: feedingLog.userId,
+      timestamp: feedingLog.timestamp,
+      portionSize: feedingLog.portionSize || undefined,
+      notes: feedingLog.notes || undefined,
+      status: feedingLog.status || undefined,
+      createdAt: feedingLog.createdAt,
+      cat,
+      user
+    };
+
+    return NextResponse.json(formattedLog, { status: 201 });
   } catch (error) {
     console.error('Erro ao criar registro de alimentação:', error);
     return NextResponse.json(

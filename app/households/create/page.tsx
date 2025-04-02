@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useGlobalState } from "@/lib/context/global-state"
+import { useAppContext } from "@/lib/context/AppContext"
+import { useUserContext } from "@/lib/context/UserContext"
+import { useLoading } from "@/lib/context/LoadingContext"
 import { ArrowLeft } from "lucide-react"
 import PageTransition from "@/components/page-transition"
 import { Label } from "@/components/ui/label"
@@ -14,7 +16,10 @@ import { useSession } from "next-auth/react"
 import { Loading } from "@/components/ui/loading"
 
 export default function CreateHouseholdPage() {
-  const { state, dispatch } = useGlobalState()
+  const { dispatch: appDispatch } = useAppContext()
+  const { state: userState, dispatch: userDispatch } = useUserContext()
+  const { addLoadingOperation, removeLoadingOperation } = useLoading()
+  const { currentUser } = userState
   const { data: session, status } = useSession()
   const router = useRouter()
   const [isCreating, setIsCreating] = useState(false)
@@ -26,11 +31,13 @@ export default function CreateHouseholdPage() {
       return
     }
 
-    if (status !== "authenticated" || !state.currentUser) {
+    if (status !== "authenticated" || !currentUser) {
         toast.error("Você precisa estar logado para criar uma residência.");
         return;
     }
 
+    const opId = "create-household"
+    addLoadingOperation({ id: opId, priority: 1, description: "Creating household..." })
     setIsCreating(true)
 
     try {
@@ -48,40 +55,37 @@ export default function CreateHouseholdPage() {
          throw new Error(result.error || "Falha ao criar residência");
       }
       
-      const newHousehold: Household = result.household;
+      const newHousehold: Household = result;
 
-      if (!newHousehold) {
+      if (!newHousehold?.id) {
           throw new Error("Resposta inválida do servidor ao criar residência.");
       }
 
-      dispatch({ type: "ADD_HOUSEHOLD", payload: newHousehold });
+      appDispatch({ type: "ADD_HOUSEHOLD", payload: newHousehold });
 
-      const updatedUserHouseholds = [...(state.currentUser.households || []), newHousehold.id];
-      const primaryHousehold = state.currentUser.primaryHousehold || newHousehold.id;
-      
-      dispatch({ 
-        type: "SET_CURRENT_USER", 
-        payload: { 
-            ...state.currentUser, 
-            households: updatedUserHouseholds,
-            primaryHousehold: primaryHousehold
-        } 
-      });
-
-      dispatch({ type: "SET_CURRENT_USER_HOUSEHOLD", payload: newHousehold.id });
+      if (!currentUser.householdId) {
+          userDispatch({
+              type: "SET_CURRENT_USER",
+              payload: { ...currentUser, householdId: newHousehold.id }
+          });
+      }
 
       toast.success("Residência criada com sucesso!")
-      router.push(`/households`)
+      
+      setTimeout(() => {
+          router.push(`/households/${newHousehold.id}`);
+      }, 0);
 
     } catch (error: any) {
       console.error("Erro ao criar residência:", error)
       toast.error(`Falha ao criar residência: ${error.message}`)
     } finally {
       setIsCreating(false)
+      removeLoadingOperation(opId);
     }
   }
 
-  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
+  if (status === "loading" || (status === "authenticated" && !currentUser)) {
     return <Loading text="Carregando..." />;
   }
 
@@ -124,6 +128,7 @@ export default function CreateHouseholdPage() {
                   onChange={(e) => setHouseholdName(e.target.value)}
                   className="w-full"
                   required
+                  disabled={isCreating}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
                   Este será o nome exibido para todos os membros da residência
@@ -144,7 +149,7 @@ export default function CreateHouseholdPage() {
                 className="w-full"
                 disabled={isCreating || !householdName.trim() || status !== 'authenticated'}
               >
-                {isCreating ? "Criando..." : "Criar Residência"}
+                {isCreating ? <Loading text="Criando..." size="sm"/> : "Criar Residência"}
               </Button>
             </form>
           </div>

@@ -2,90 +2,99 @@
 
 import { useEffect } from "react"
 import { useSession } from "next-auth/react"
-import { useGlobalState } from "@/lib/context/global-state"
 import { useAppContext } from "@/lib/context/AppContext"
+import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { getCatsByHouseholdId } from "@/lib/services/apiService"
-import { CatType } from "@/lib/types"
+import { CatType, FeedingLog, Household } from "@/lib/types"
 import { GlobalLoading } from "@/components/ui/global-loading"
 import { UserDataLoader } from "./data/user-data-loader"
+import { toast } from "sonner"
 
 interface DataProviderProps {
   children: React.ReactNode
 }
 
 export function DataProvider({ children }: DataProviderProps) {
-  const { data: session } = useSession()
-  const { state: globalState, dispatch: globalDispatch } = useGlobalState()
-  const { state: appState } = useAppContext()
-  const { addLoadingOperation, removeLoadingOperation } = useLoading()
+  const { data: session, status } = useSession()
+  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { state: userState } = useUserContext()
+  const { currentUser } = userState
+  const { addLoadingOperation, removeLoadingOperation, isLoading: isGlobalLoading } = useLoading()
 
   useEffect(() => {
-    let isMounted = true;
+    let isMounted = true
+    let loadingId: string | null = null
 
     const loadInitialData = async () => {
-      if (!session?.user || !globalState.currentUser) {
-        console.log("Aguardando sessão e globalState.currentUser...");
-        return;
+      console.log("[DataProvider] Starting loadInitialData", {
+        status,
+        currentUser,
+        householdId: currentUser?.householdId
+      })
+
+      if (status !== "authenticated" || !currentUser) {
+        console.log("[DataProvider] Not authenticated or no user", { status, currentUser })
+        return
       }
 
-      const householdId = globalState.currentUser.householdId;
+      const householdId = currentUser.householdId
       if (!householdId) {
-        console.log("DataProvider: currentUser existe, mas sem householdId. Não é possível carregar gatos.");
-        return;
+        console.log("[DataProvider] No household ID")
+        return
       }
 
-      const loadingId = "initial-data-load"
+      loadingId = "initial-app-data-load"
       addLoadingOperation({
         id: loadingId,
         priority: 1,
-        description: "Carregando dados iniciais..."
+        description: "Carregando dados da aplicação..."
       })
 
       try {
-        console.log("Iniciando carregamento de dados...");
-        // Carregar domicílios do usuário
-        const households = await fetch('/api/households').then(res => res.json())
-          .catch(err => {
-            console.error("Erro ao carregar domicílios:", err)
-            return []
-          })
-
-        console.log("Domicílios carregados:", households);
-
-        if (households && households.length > 0 && isMounted) {
-          // Atualizar estado global com os domicílios
-          globalDispatch({
-            type: "SET_HOUSEHOLDS",
-            payload: households
-          })
-
-          // Carregar gatos do domicílio principal
-          const cats = await getCatsByHouseholdId(householdId)
-          
-          console.log("Gatos carregados:", cats);
-          
-          if (cats && cats.length > 0 && isMounted) {
-            globalDispatch({
-              type: "SET_CATS",
-              payload: cats,
-            })
-          }
-
-          // Carregar logs de alimentação
-          const feedingsResponse = await fetch('/api/feedings')
-          if (feedingsResponse.ok && isMounted) {
-            const feedingsData = await feedingsResponse.json()
-            globalDispatch({
-              type: "SET_FEEDING_LOGS",
-              payload: feedingsData
-            })
-          }
+        // Load households
+        console.log("[DataProvider] Loading households...")
+        const householdsResponse = await fetch('/api/households')
+        if (!householdsResponse.ok) {
+          throw new Error(`Erro ao carregar residências (${householdsResponse.status})`)
         }
-      } catch (error) {
-        console.error("Erro ao carregar dados iniciais:", error)
-      } finally {
+        const households: Household[] = await householdsResponse.json()
+        if (!isMounted) return
+        console.log("[DataProvider] Households loaded:", households.length)
+        appDispatch({ type: "SET_HOUSEHOLDS", payload: households })
+
+        // Load cats
+        console.log("[DataProvider] Loading cats for household:", householdId)
+        const cats: CatType[] = await getCatsByHouseholdId(householdId)
+        if (!isMounted) return
+        console.log("[DataProvider] Cats loaded:", cats.length)
+        appDispatch({ type: "SET_CATS", payload: cats })
+
+        // Load feedings
+        console.log("[DataProvider] Loading feedings for household:", householdId)
+        const feedingsResponse = await fetch(`/api/feedings?householdId=${householdId}`)
+        if (!feedingsResponse.ok) {
+          const errorText = await feedingsResponse.text()
+          console.error("[DataProvider] Feedings response error:", {
+            status: feedingsResponse.status,
+            statusText: feedingsResponse.statusText,
+            body: errorText
+          })
+          throw new Error(`Erro ao carregar alimentações (${feedingsResponse.status}): ${errorText}`)
+        }
+        const feedingsData: FeedingLog[] = await feedingsResponse.json()
+        if (!isMounted) return
+        console.log("[DataProvider] Feedings loaded:", feedingsData.length)
+        appDispatch({ type: "SET_FEEDING_LOGS", payload: feedingsData })
+
+        console.log("[DataProvider] All data loaded successfully")
+      } catch (error: any) {
+        console.error("[DataProvider] Error loading initial data:", error)
         if (isMounted) {
+          toast.error(`Erro ao carregar dados: ${error.message}`)
+        }
+      } finally {
+        if (isMounted && loadingId) {
           removeLoadingOperation(loadingId)
         }
       }
@@ -94,9 +103,12 @@ export function DataProvider({ children }: DataProviderProps) {
     loadInitialData()
 
     return () => {
-      isMounted = false;
+      isMounted = false
+      if (loadingId) {
+        removeLoadingOperation(loadingId)
+      }
     }
-  }, [session?.user?.email, globalState.currentUser?.id, globalDispatch, addLoadingOperation, removeLoadingOperation])
+  }, [status, currentUser?.id, currentUser?.householdId, appDispatch, addLoadingOperation, removeLoadingOperation])
 
   return (
     <>

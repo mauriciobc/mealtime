@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
   Edit, 
@@ -16,7 +17,8 @@ import {
   Share2,
   Trash2,
   AlertTriangle,
-  Ban
+  Ban,
+  Users
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -44,75 +46,67 @@ import {
 } from "@/components/ui/alert-dialog"
 import PageTransition from "@/components/page-transition"
 import { format } from "date-fns"
-import { useGlobalState } from "@/lib/context/global-state"
+import { useAppContext } from "@/lib/context/AppContext"
+import { useLoading } from "@/lib/context/LoadingContext"
 import { useFeeding } from "@/hooks/use-feeding"
 import { getAgeString } from "@/lib/utils/dateUtils"
-import { deleteCat } from "@/lib/services/apiService"
 import { toast } from "sonner"
 import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { FeedingForm } from "./feeding-form"
 import { CatType, FeedingLog, Schedule } from "@/lib/types"
 import { FeedingHistory } from "./feeding-history"
+import { Loading } from "@/components/ui/loading"
+import { EmptyState } from "@/components/ui/empty-state"
 
 interface CatDetailsProps {
-  params: Promise<{ id: string }>;
+  params: { id: number };
 }
 
 export default function CatDetails({ params }: CatDetailsProps) {
-  const resolvedParams = use(params)
+  const { data: session, status } = useSession()
   const router = useRouter()
-  const { state, dispatch } = useGlobalState()
-  const numericId = parseInt(resolvedParams.id);
+  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { 
     cat, 
     logs, 
     nextFeedingTime, 
     formattedNextFeedingTime, 
     formattedTimeDistance, 
-    isLoading, 
+    isLoading: isFeedingLoading, 
     error,
     handleMarkAsFed 
-  } = useFeeding(numericId)
+  } = useFeeding(params.id)
   const [isClient, setIsClient] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [isProcessingDelete, setIsProcessingDelete] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   
   useEffect(() => {
     setIsClient(true)
   }, [])
-  
-  if (numericId === null || isNaN(numericId)) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
-        <Ban className="h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold mb-2">ID Inválido</h2>
-        <p className="text-muted-foreground mb-4">O ID do gato fornecido na URL não é válido.</p>
-        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
-      </div>
-    )
+
+  // Handle authentication with useEffect to avoid setState during render
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login")
+    }
+  }, [status, router])
+
+  // Handle authentication states
+  if (status === "loading" || status === "unauthenticated") {
+    return <Loading text="Carregando..." />
   }
   
-  if (isLoading) {
+  if (isFeedingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Carregando perfil do gato...</p>
+        <Loading text="Carregando perfil do gato..." />
       </div>
     )
   }
   
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
-        <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Erro ao Carregar</h2>
-        <p className="text-muted-foreground mb-4">{error}</p>
-        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
-      </div>
-    )
-  }
-  
-  if (!cat) {
+  if (error || !cat) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
         <Ban className="h-12 w-12 text-muted-foreground mb-4" />
@@ -125,25 +119,32 @@ export default function CatDetails({ params }: CatDetailsProps) {
 
   // Função para excluir o gato
   const handleDelete = async () => {
-    setIsDeleting(true)
-    
+    const opId = `delete-cat-${params.id}`;
+    addLoadingOperation({ id: opId, description: `Excluindo ${cat?.name || 'gato'}...`, priority: 1 });
+    setIsProcessingDelete(true);
+    const previousCats = appState.cats;
+
+    appDispatch({ type: "DELETE_CAT", payload: params.id });
+
     try {
-      await deleteCat(numericId.toString())
-      
-      // Atualizar o estado local
-      dispatch({
-        type: "DELETE_CAT",
-        payload: { id: numericId }
-      })
-      
-      toast.success(`${cat.name} foi excluído`)
-      router.push("/cats")
-    } catch (error) {
-      console.error("Erro ao excluir gato:", error)
-      toast.error("Falha ao excluir o gato")
+      const response = await fetch(`/api/cats/${params.id}`, { method: 'DELETE' });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao excluir o gato no servidor');
+      }
+
+      toast.success(`${cat.name} foi excluído`);
+      router.push("/cats");
+
+    } catch (error: any) {
+      console.error("Erro ao excluir gato:", error);
+      toast.error(`Falha ao excluir o gato: ${error.message}`);
+      appDispatch({ type: "SET_CATS", payload: previousCats });
     } finally {
-      setIsDeleting(false)
-      setShowDeleteDialog(false)
+      setIsProcessingDelete(false);
+      setShowDeleteDialog(false);
+      removeLoadingOperation(opId);
     }
   }
 
@@ -205,13 +206,13 @@ export default function CatDetails({ params }: CatDetailsProps) {
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isProcessingDelete}>Cancelar</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleDelete}
                           className="bg-destructive hover:bg-destructive/90"
-                          disabled={isDeleting}
+                          disabled={isProcessingDelete}
                         >
-                          {isDeleting ? "Excluindo..." : "Excluir"}
+                          {isProcessingDelete ? <Loading text="Excluindo..." size="sm" /> : "Excluir"}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

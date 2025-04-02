@@ -56,7 +56,8 @@ export async function POST(request: NextRequest) {
       restrictions,
       notes,
       householdId,
-      feeding_interval
+      feeding_interval,
+      portion
     } = await request.json();
 
     if (!name || !householdId) {
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest) {
       notes: notes || null,
       householdId,
       feedingInterval: parsedInterval,
+      portion_size: portion ? parseFloat(String(portion)) : null,
       userId: parseInt(session.user.id)
     };
 

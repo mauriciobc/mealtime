@@ -114,11 +114,11 @@ export async function GET(
       }
     } else {
       // Se não houver agendamento, usar o intervalo padrão
-      if (typeof cat.feeding_interval === 'number' && !isNaN(cat.feeding_interval)) {
-        if (isValidLastFeeding) {
-          nextFeedingTime = addHours(lastFeedingTimestamp, cat.feeding_interval);
+      if (typeof cat.feedingInterval === 'number' && !isNaN(cat.feedingInterval)) {
+        if (lastFeedingTimestamp) {
+          nextFeedingTime = addHours(lastFeedingTimestamp, cat.feedingInterval);
         } else {
-          nextFeedingTime = addHours(now, cat.feeding_interval);
+          nextFeedingTime = addHours(now, cat.feedingInterval);
         }
       }
     }

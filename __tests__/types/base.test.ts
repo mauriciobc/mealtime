@@ -12,13 +12,13 @@ describe('Base Types', () => {
         weight: 4.5,
         restrictions: 'No dairy',
         householdId: 1,
-        feeding_interval: 8
+        feedingInterval: 8
       };
 
       expect(cat).toBeDefined();
       expect(cat.id).toBe(1);
       expect(cat.name).toBe('Whiskers');
-      expect(cat.feeding_interval).toBe(8);
+      expect(cat.feedingInterval).toBe(8);
     });
 
     it('should allow optional fields to be undefined', () => {
@@ -26,7 +26,7 @@ describe('Base Types', () => {
         id: 1,
         name: 'Whiskers',
         householdId: 1,
-        feeding_interval: 8
+        feedingInterval: 8
       };
 
       expect(cat.photoUrl).toBeUndefined();

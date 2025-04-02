@@ -19,18 +19,28 @@ export interface User {
 
 // Define HouseholdMember explicitly
 export interface HouseholdMember {
+  id?: number;
   userId: number;
   role: 'Admin' | 'Member';
   joinedAt: Date;
+  name?: string;
+  email?: string;
+  avatar?: string;
 }
 
 export interface Household {
   id: number;
   name: string;
   inviteCode: string;
-  members: HouseholdMember[]; // Use the defined interface
-  cats: number[]; // IDs of cats
+  members: HouseholdMember[];
+  cats: number[];
   catGroups: CatGroup[];
+  createdAt: Date;
+  owner?: {
+    id: number;
+    name: string;
+    email: string;
+  };
 }
 
 export interface CatGroup {
@@ -43,16 +53,16 @@ export interface CatGroup {
 export interface CatType {
   id: number;
   name: string;
-  photoUrl?: string | null;
-  birthdate?: Date | string | null;
-  weight?: number | null;
-  feeding_interval: number;
-  restrictions?: string | null;
-  portion?: number | null;
-  notes?: string | null;
+  photoUrl?: string;
+  birthdate?: Date;
+  weight?: number;
+  feedingInterval: number;
+  restrictions?: string;
+  portion_size?: number;
+  notes?: string;
   householdId: number;
-  createdAt?: Date | string;
-  updatedAt?: Date | string;
+  createdAt?: Date;
+  updatedAt?: Date;
   schedules?: Schedule[];
 }
 
@@ -62,12 +72,30 @@ export interface FeedingLog {
   catId: number;
   userId: number;
   timestamp: Date;
-  portionSize?: number | null;
-  notes?: string | null;
-  createdAt?: Date;
-  status?: "completed" | "in-progress" | "pending";
+  portionSize?: number;
+  notes?: string;
+  createdAt: Date;
+  status?: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro";
   cat?: CatType;
-  user?: User;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    avatar?: string;
+    householdId: number | null;
+    preferences: {
+      timezone: string;
+      language: string;
+      notifications: {
+        pushEnabled: boolean;
+        emailEnabled: boolean;
+        feedingReminders: boolean;
+        missedFeedingAlerts: boolean;
+        householdUpdates: boolean;
+      };
+    };
+    role: 'admin' | 'user';
+  };
 }
 
 // Notifications

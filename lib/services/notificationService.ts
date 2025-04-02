@@ -30,7 +30,15 @@ export async function getUserNotifications(
       throw new Error('Falha ao buscar notificações');
     }
 
-    return await response.json();
+    const data = await response.json();
+
+    // Explicit check for expected structure after successful response
+    if (!data || typeof data !== 'object' || !Array.isArray(data.data)) {
+      console.error('Resposta inválida ao buscar notificações:', data);
+      throw new Error('Resposta inválida do servidor ao buscar notificações');
+    }
+
+    return data as PaginatedResponse<Notification>; // Ensure type safety
   } catch (error) {
     console.error('Erro ao buscar notificações:', error);
     throw error;
@@ -52,8 +60,15 @@ export async function getUnreadNotificationsCount(userId: number): Promise<numbe
       throw new Error('Falha ao buscar contagem de notificações não lidas');
     }
 
-    const { count } = await response.json();
-    return count;
+    const data = await response.json();
+
+    // Explicit check for expected structure after successful response
+    if (!data || typeof data.count !== 'number') {
+      console.error('Resposta inválida ao buscar contagem de notificações não lidas:', data);
+      throw new Error('Resposta inválida do servidor ao buscar contagem de notificações');
+    }
+    
+    return data.count;
   } catch (error) {
     console.error('Erro ao buscar contagem de notificações não lidas:', error);
     throw error;

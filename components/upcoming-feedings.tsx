@@ -92,7 +92,7 @@ export default function UpcomingFeedings() {
               isOverdue: isBefore(nextFeeding, now),
               avatar: cat.photoUrl || undefined,
               lastFed,
-              interval: cat.feeding_interval || 4
+              interval: cat.feedingInterval || 4
             });
           }
         }

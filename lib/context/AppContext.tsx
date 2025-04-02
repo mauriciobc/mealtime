@@ -1,19 +1,20 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from "react";
-import { Notification } from '../types/notification';
-import { BaseCat, BaseFeedingLog, BaseUser, ID } from '@/lib/types/common';
-import { Household } from '@/lib/types';
+// Remove Notification import if no longer needed directly here
+// import { Notification } from '../types/notification'; 
+import { BaseCat, BaseFeedingLog, BaseUser, ID } from '@/lib/types/common'; // Keep BaseUser if needed for other parts, or remove if not
+import { Household, FeedingLog } from '@/lib/types';
 
 // Define state type
 interface AppState {
   cats: BaseCat[];
-  feedingLogs: BaseFeedingLog[];
+  feedingLogs: FeedingLog[];
   households: Household[];
-  users: BaseUser[];
-  notifications: Notification[];
-  currentUser: BaseUser | null;
-  error: string | null;
+  users: BaseUser[]; // Keep general users list if needed for relationships, or remove if unused
+  // Removed: notifications: Notification[];
+  // Removed: currentUser: BaseUser | null;
+  error: string | null; // Keep general error or move if specific context errors are preferred
 }
 
 // Define action types
@@ -22,29 +23,32 @@ type AppAction =
   | { type: "ADD_CAT"; payload: BaseCat }
   | { type: "UPDATE_CAT"; payload: BaseCat }
   | { type: "DELETE_CAT"; payload: ID }
-  | { type: "SET_FEEDING_LOGS"; payload: BaseFeedingLog[] }
-  | { type: "ADD_FEEDING_LOG"; payload: BaseFeedingLog }
-  | { type: "UPDATE_FEEDING_LOG"; payload: BaseFeedingLog }
+  | { type: "SET_FEEDING_LOGS"; payload: FeedingLog[] }
+  | { type: "ADD_FEEDING_LOG"; payload: FeedingLog }
+  | { type: "UPDATE_FEEDING_LOG"; payload: FeedingLog }
   | { type: "DELETE_FEEDING_LOG"; payload: ID }
   | { type: "SET_HOUSEHOLDS"; payload: Household[] }
   | { type: "UPDATE_HOUSEHOLD"; payload: Household }
-  | { type: "SET_USERS"; payload: BaseUser[] }
-  | { type: "SET_CURRENT_USER"; payload: BaseUser | null }
-  | { type: "SET_ERROR"; payload: string | null }
-  | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
-  | { type: "MARK_ALL_NOTIFICATIONS_READ" }
-  | { type: "MARK_NOTIFICATION_READ"; payload: { id: ID } }
-  | { type: "REMOVE_NOTIFICATION"; payload: { id: ID } }
-  | { type: "ADD_NOTIFICATION"; payload: Notification };
+  | { type: "REMOVE_HOUSEHOLD_MEMBER"; payload: { householdId: string; memberId: string } }
+  | { type: "UPDATE_HOUSEHOLD_MEMBER"; payload: { householdId: string; member: HouseholdMember } }
+  | { type: "SET_USERS"; payload: BaseUser[] } // Keep if general users list is needed
+  // Removed: | { type: "SET_CURRENT_USER"; payload: BaseUser | null }
+  | { type: "SET_ERROR"; payload: string | null };
+  // Removed notification actions:
+  // | { type: "SET_NOTIFICATIONS"; payload: Notification[] }
+  // | { type: "MARK_ALL_NOTIFICATIONS_READ" }
+  // | { type: "MARK_NOTIFICATION_READ"; payload: { id: ID } }
+  // | { type: "REMOVE_NOTIFICATION"; payload: { id: ID } }
+  // | { type: "ADD_NOTIFICATION"; payload: Notification };
 
 // Initial state
 const initialState: AppState = {
   cats: [],
   feedingLogs: [],
   households: [],
-  users: [],
-  notifications: [],
-  currentUser: null,
+  users: [], // Keep if needed
+  // Removed: notifications: [],
+  // Removed: currentUser: null,
   error: null,
 };
 
@@ -95,61 +99,74 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           household.id === action.payload.id ? action.payload : household
         ),
       };
-    case "SET_USERS":
+    case "REMOVE_HOUSEHOLD_MEMBER":
+      return {
+        ...state,
+        households: state.households.map(household => {
+          if (String(household.id) === action.payload.householdId) {
+            return {
+              ...household,
+              members: household.members?.filter(
+                member => String(member.userId) !== action.payload.memberId
+              ) || []
+            };
+          }
+          return household;
+        })
+      };
+    case "UPDATE_HOUSEHOLD_MEMBER":
+      return {
+        ...state,
+        households: state.households.map(household => {
+          if (String(household.id) === action.payload.householdId) {
+            return {
+              ...household,
+              members: household.members?.map(member =>
+                String(member.userId) === String(action.payload.member.userId)
+                  ? { ...member, ...action.payload.member }
+                  : member
+              ) || []
+            };
+          }
+          return household;
+        })
+      };
+    case "SET_USERS": // Keep if needed
       return { ...state, users: action.payload };
-    case "SET_CURRENT_USER":
-      return { ...state, currentUser: action.payload };
+    // Removed: SET_CURRENT_USER case
+    // case "SET_CURRENT_USER":
+    //   return { ...state, currentUser: action.payload };
     case "SET_ERROR":
       return { ...state, error: action.payload };
-    case "SET_NOTIFICATIONS":
-      return { ...state, notifications: action.payload };
-    case "MARK_ALL_NOTIFICATIONS_READ":
-      return {
-        ...state,
-        notifications: state.notifications.map(notification => ({
-          ...notification,
-          isRead: true
-        })),
-      };
-    case "MARK_NOTIFICATION_READ":
-      return {
-        ...state,
-        notifications: state.notifications.map(notification =>
-          notification.id === action.payload.id
-            ? { ...notification, isRead: true }
-            : notification
-        ),
-      };
-    case "REMOVE_NOTIFICATION":
-      return {
-        ...state,
-        notifications: state.notifications.filter(
-          notification => notification.id !== action.payload.id
-        ),
-      };
-    case "ADD_NOTIFICATION":
-      return {
-        ...state,
-        notifications: [action.payload, ...state.notifications],
-      };
+    // Removed Notification cases
+    // case "SET_NOTIFICATIONS":
+    //   return { ...state, notifications: action.payload };
+    // case "MARK_ALL_NOTIFICATIONS_READ":
+    //   // ... removed logic ...
+    // case "MARK_NOTIFICATION_READ":
+    //   // ... removed logic ...
+    // case "REMOVE_NOTIFICATION":
+    //   // ... removed logic ...
+    // case "ADD_NOTIFICATION":
+    //   // ... removed logic ...
     default:
+      // Ensure exhaustive check if using TypeScript, or just return state
+      // const exhaustiveCheck: never = action; // Uncomment for exhaustive check
       return state;
   }
 };
 
 // Create context
+// Keep the context structure, but the state type is now simpler
 const AppContext = createContext<{
   state: AppState;
   dispatch: React.Dispatch<AppAction>;
-}>({
-  state: initialState,
-  dispatch: () => null
-});
+} | undefined>(undefined); // Use undefined for better checking in hook
 
 // Create hook to use context
 export function useAppContext() {
   const context = useContext(AppContext);
-  if (!context) {
+  if (context === undefined) { // Check against undefined
     throw new Error("useAppContext must be used within an AppProvider");
   }
   return context;
@@ -159,35 +176,46 @@ export function useAppContext() {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  // Save to localStorage when state changes
+  // Save to localStorage when relevant state changes
   useEffect(() => {
-    // Skip saving if we have no data
-    if (state.cats.length === 0 && state.feedingLogs.length === 0) {
-      return;
+    // Only save if we have data for these specific slices
+    if (state.cats.length === 0 && state.feedingLogs.length === 0 && state.households.length === 0 && state.users.length === 0) {
+        return;
     }
-
+    
     // Debounce the localStorage updates
     const timeoutId = setTimeout(() => {
       // Only save non-empty data to localStorage
       if (state.cats.length > 0) {
         localStorage.setItem("cats", JSON.stringify(state.cats));
+      } else {
+        localStorage.removeItem("cats"); // Optional: remove if empty
       }
       if (state.feedingLogs.length > 0) {
         localStorage.setItem("feedingLogs", JSON.stringify(state.feedingLogs));
+      } else {
+        localStorage.removeItem("feedingLogs"); // Optional: remove if empty
       }
       if (state.households.length > 0) {
         localStorage.setItem("households", JSON.stringify(state.households));
+      } else {
+         localStorage.removeItem("households"); // Optional: remove if empty
       }
-      if (state.users.length > 0) {
+      if (state.users.length > 0) { // Keep if users list is persisted
         localStorage.setItem("users", JSON.stringify(state.users));
+      } else {
+        localStorage.removeItem("users"); // Optional: remove if empty
       }
-      if (state.notifications.length > 0) {
-        localStorage.setItem("notifications", JSON.stringify(state.notifications));
-      }
+      // Removed saving notifications
+      // if (state.notifications.length > 0) {
+      //   localStorage.setItem("notifications", JSON.stringify(state.notifications));
+      // }
+
     }, 1000); // 1 second debounce
 
+    // Specify dependencies accurately. Only re-run if these specific parts of state change.
     return () => clearTimeout(timeoutId);
-  }, [state]);
+  }, [state.cats, state.feedingLogs, state.households, state.users]); // Update dependencies
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

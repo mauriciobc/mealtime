@@ -12,7 +12,7 @@ const catSchema = z.object({
   weight: z.number().positive().optional(),
   restrictions: z.string().optional(),
   notes: z.string().optional(),
-  feeding_interval: z.number().min(1).max(24).optional(),
+  feedingInterval: z.number().min(1).max(24).optional(),
 });
 
 // GET /api/households/[id]/cats - Listar gatos de um domicílio
@@ -142,7 +142,7 @@ export async function POST(
         restrictions: data.restrictions,
         notes: data.notes,
         householdId: householdId,
-        feeding_interval: data.feeding_interval || 8 // Valor padrão
+        feedingInterval: data.feedingInterval || 8 // Valor padrão
       }
     });
 
@@ -155,7 +155,7 @@ export async function POST(
       weight: cat.weight || undefined,
       restrictions: cat.restrictions || undefined,
       householdId: cat.householdId,
-      feeding_interval: cat.feeding_interval || 8 // Valor padrão
+      feedingInterval: cat.feedingInterval || 8 // Valor padrão
     };
 
     return NextResponse.json(formattedCat, { status: 201 });

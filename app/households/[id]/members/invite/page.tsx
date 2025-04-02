@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Copy, Check, Share2, ChevronLeft, Mail, AlertTriangle, RefreshCw } from "lucide-react";
-import { useGlobalState } from "@/lib/context/global-state";
+import { useAppContext } from "@/lib/context/AppContext";
+import { useUserContext } from "@/lib/context/UserContext";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -27,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Household as HouseholdType } from "@/lib/types";
 import { Loading } from "@/components/ui/loading";
+import { useLoading } from "@/lib/context/LoadingContext";
 
 const emailSchema = z.object({
   email: z.string().email("Digite um endereço de e-mail válido"),
@@ -42,12 +44,14 @@ export default function HouseholdInvitePage({ params }: PageProps) {
   const resolvedParams = use(params);
   const householdId = resolvedParams.id;
   const router = useRouter();
-  const { state, dispatch } = useGlobalState();
+  const { state: appState, dispatch: appDispatch } = useAppContext();
+  const { state: userState } = useUserContext();
+  const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { data: session, status } = useSession();
   
   const [household, setHousehold] = useState<HouseholdType | null | undefined>(undefined);
   const [isAuthorized, setIsAuthorized] = useState<boolean | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   
   const [isSending, setIsSending] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
@@ -59,13 +63,18 @@ export default function HouseholdInvitePage({ params }: PageProps) {
   });
 
   useEffect(() => {
-    if (status === "authenticated" && state.currentUser && state.households) {
-      const foundHousehold = state.households.find(h => String(h.id) === String(householdId));
+    const opId = "household-invite-load";
+    addLoadingOperation({ id: opId, priority: 1, description: "Loading household data..."});
+    setIsLoadingData(true);
+
+    if (status === "authenticated" && userState.currentUser && appState.households.length > 0) {
+      const foundHousehold = appState.households.find(h => String(h.id) === String(householdId));
       setHousehold(foundHousehold || null);
 
       if (foundHousehold) {
-        const isAdmin = foundHousehold.members?.some(
-          member => String(member.userId) === String(state.currentUser!.id) && member.role?.toLowerCase() === 'admin'
+        const isOwner = foundHousehold.owner?.id === userState.currentUser!.id;
+        const isAdmin = isOwner || foundHousehold.members?.some(
+          member => String(member.userId) === String(userState.currentUser!.id) && member.role?.toLowerCase() === 'admin'
         );
         setIsAuthorized(isAdmin);
         if (!isAdmin) {
@@ -74,22 +83,29 @@ export default function HouseholdInvitePage({ params }: PageProps) {
         }
       } else {
         setIsAuthorized(false);
-        toast.error("Residência não encontrada.");
-        router.replace('/households');
+        if (appState.households.length > 0) { 
+            toast.error("Residência não encontrada.");
+            router.replace('/households');
+        }
       }
-      setIsLoading(false);
+      setIsLoadingData(false);
+      removeLoadingOperation(opId);
     } else if (status === "unauthenticated") {
-       setIsLoading(false);
+       setIsLoadingData(false);
+       removeLoadingOperation(opId);
        setIsAuthorized(false);
        router.replace("/login");
+    } else if (status === "loading"){
+      setIsLoadingData(true);
     } else {
-       setIsLoading(true); 
+      setIsLoadingData(true);
     }
-  }, [status, state.currentUser, state.households, householdId, router]);
+  }, [status, userState.currentUser, appState.households, householdId, router, addLoadingOperation, removeLoadingOperation]);
   
   const handleSendInvite = async (data: EmailFormValues) => {
     if (!isAuthorized || !household) return;
-    
+    const opId = "send-invite";
+    addLoadingOperation({ id: opId, priority: 1, description: "Sending invite..." });
     setIsSending(true);
     try {
       const response = await fetch(`/api/households/${householdId}/invite`, {
@@ -112,6 +128,7 @@ export default function HouseholdInvitePage({ params }: PageProps) {
       toast.error(`Erro ao enviar: ${error.message}`);
     } finally {
       setIsSending(false);
+      removeLoadingOperation(opId);
     }
   };
 
@@ -160,6 +177,8 @@ export default function HouseholdInvitePage({ params }: PageProps) {
 
    const regenerateInviteCode = async () => {
      if (!isAuthorized || !household) return;
+     const opId = "regenerate-code";
+     addLoadingOperation({ id: opId, priority: 1, description: "Generating new code..." });
      setIsGenerating(true);
      try {
        const response = await fetch(`/api/households/${householdId}/invite-code`, {
@@ -174,8 +193,9 @@ export default function HouseholdInvitePage({ params }: PageProps) {
        
        const newCode = result.inviteCode; 
        const updatedHousehold = { ...household, inviteCode: newCode };
+       setHousehold(updatedHousehold);
 
-       dispatch({ type: "UPDATE_HOUSEHOLD", payload: updatedHousehold });
+       appDispatch({ type: "UPDATE_HOUSEHOLD", payload: updatedHousehold });
 
        toast.success("Novo código de convite gerado!");
 
@@ -184,10 +204,11 @@ export default function HouseholdInvitePage({ params }: PageProps) {
        toast.error(`Erro: ${error.message}`);
      } finally {
        setIsGenerating(false);
+       removeLoadingOperation(opId);
      }
    };
 
-  if (isLoading || household === undefined) {
+  if (isLoadingData) {
     return (
       <PageTransition>
         <div className="flex min-h-screen flex-col bg-background">
@@ -243,116 +264,129 @@ export default function HouseholdInvitePage({ params }: PageProps) {
                 size="icon"
                 onClick={() => router.push(`/households/${householdId}`)}
                 className="mr-2"
+                aria-label="Voltar"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <div>
                  <h1 className="text-xl font-bold leading-tight">Convidar Membros</h1>
-                 <p className="text-xs text-muted-foreground">Para "{household.name}"</p>
-              </div>
+                 <p className="text-sm text-muted-foreground">Convide pessoas para {household?.name || "sua residência"}</p>
+               </div>
             </div>
 
-            <Tabs defaultValue="link" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-6">
-                <TabsTrigger value="link">Compartilhar Link</TabsTrigger>
-                <TabsTrigger value="email">Enviar por E-mail</TabsTrigger>
+            <Tabs defaultValue="email" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="email">Via E-mail</TabsTrigger>
+                <TabsTrigger value="link">Via Link</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="link">
+              <TabsContent value="email">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Link de Convite</CardTitle>
+                    <CardTitle>Convidar por E-mail</CardTitle>
                     <CardDescription>
-                      Compartilhe este link com as pessoas que você deseja convidar para "{household.name}".
+                      Digite o e-mail da pessoa que você deseja convidar. Ela receberá um link para entrar na residência.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between bg-muted rounded-md p-2 pl-3">
-                      <code className="text-sm font-mono mr-2 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                        {`${window.location.origin}/join?code=${household.inviteCode}`}
-                      </code>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 flex-shrink-0"
-                        onClick={copyInviteLink}
-                        title="Copiar Link"
-                        disabled={isGenerating}
-                      >
-                        {isCopied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                     <Button 
-                        className="w-full" 
-                        onClick={shareInvite}
-                        disabled={isGenerating}
-                     > 
-                       <Share2 className="mr-2 h-4 w-4" />
-                        Compartilhar Link
-                     </Button>
-                  </CardContent>
-                  <CardFooter className="border-t pt-4 flex justify-between items-center">
-                     <p className="text-xs text-muted-foreground">O código expira?</p>
-                     <Button 
-                       variant="outline"
-                       size="sm"
-                       onClick={regenerateInviteCode}
-                       disabled={isGenerating}
-                     >
-                        {isGenerating ? (
-                           <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></span> 
-                        ) : (
-                           <RefreshCw className="mr-2 h-4 w-4" />
-                        )}
-                       Gerar Novo Código
-                     </Button>
-                  </CardFooter>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="email">
-                 <Card>
-                   <Form {...form}>
-                     <form onSubmit={form.handleSubmit(handleSendInvite)} className="space-y-0">
-                       <CardHeader>
-                         <CardTitle className="text-base">Convidar por E-mail</CardTitle>
-                         <CardDescription>
-                           Enviaremos um convite por e-mail para o endereço fornecido.
-                         </CardDescription>
-                       </CardHeader>
+                  <Form {...form}>
+                     <form onSubmit={form.handleSubmit(handleSendInvite)} className="space-y-0"> 
                        <CardContent>
                          <FormField
-                           control={form.control}
-                           name="email"
-                           render={({ field }) => (
-                             <FormItem>
-                               <FormLabel>Endereço de E-mail</FormLabel>
-                               <FormControl>
-                                 <Input 
-                                    type="email" 
-                                    placeholder="nome@exemplo.com" 
-                                    {...field} 
-                                    disabled={isSending}
-                                 />
-                               </FormControl>
-                               <FormMessage />
-                             </FormItem>
-                           )}
-                         />
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel htmlFor="email">E-mail</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                     <Mail className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                                     <Input 
+                                       id="email"
+                                       type="email"
+                                       placeholder="nome@exemplo.com"
+                                       {...field}
+                                       className="pl-8"
+                                       disabled={isSending}
+                                     />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                        </CardContent>
-                       <CardFooter className="border-t pt-4">
-                         <Button type="submit" disabled={isSending} className="w-full">
-                           {isSending ? (
-                              <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></span> 
-                           ) : (
-                              <Mail className="mr-2 h-4 w-4" />
-                           )}
-                           {isSending ? "Enviando Convite..." : "Enviar Convite por E-mail"}
+                       <CardFooter>
+                         <Button type="submit" disabled={isSending}>
+                           {isSending ? <Loading text="Enviando..." size="sm" /> : <><UserPlus className="mr-2 h-4 w-4" /> Enviar Convite</>}
                          </Button>
                        </CardFooter>
                      </form>
                    </Form>
-                 </Card>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="link">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                       <span>Compartilhar Link</span>
+                       <Button 
+                         variant="outline"
+                         size="sm"
+                         onClick={regenerateInviteCode}
+                         disabled={isGenerating}
+                         title="Gerar novo código de convite (invalida o anterior)"
+                       >
+                         {isGenerating ? <Loading text="Gerando..." size="sm" /> : <RefreshCw className="h-4 w-4" />}
+                         <span className="sr-only">Gerar Novo Código</span>
+                       </Button>
+                     </CardTitle>
+                    <CardDescription>
+                      Qualquer pessoa com este link poderá entrar na residência. Compartilhe com cuidado.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {household?.inviteCode ? (
+                      <div className="flex items-center space-x-2 rounded-md border bg-muted px-3 py-2">
+                        <Label htmlFor="invite-link" className="sr-only">
+                          Link de Convite
+                        </Label>
+                        <Input
+                          id="invite-link"
+                          value={`${typeof window !== 'undefined' ? window.location.origin : ''}/join?code=${household.inviteCode}`}
+                          readOnly
+                          className="flex-1 border-0 bg-transparent p-0 shadow-none focus-visible:ring-0"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={copyInviteLink}
+                          disabled={isCopied}
+                          title="Copiar link"
+                          className="h-7 w-7"
+                         >
+                           {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                           <span className="sr-only">{isCopied ? "Copiado" : "Copiar"}</span>
+                         </Button>
+                      </div>
+                    ) : (
+                       <div className="flex items-center justify-center rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                         <AlertTriangle className="mr-2 h-4 w-4" /> Nenhum código de convite ativo.
+                       </div>
+                    )}
+                  </CardContent>
+                  <CardFooter>
+                    <Button 
+                       onClick={shareInvite} 
+                       disabled={!household?.inviteCode} 
+                       className="w-full sm:w-auto"
+                    >
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Compartilhar
+                    </Button>
+                  </CardFooter>
+                </Card>
               </TabsContent>
             </Tabs>
           </div>

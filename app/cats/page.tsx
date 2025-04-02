@@ -27,12 +27,13 @@ import { getAgeString, getScheduleText } from "@/lib/utils/dateUtils"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { AppHeader } from "@/components/app-header"
 import { useRouter } from "next/navigation"
-import { getCats, getCatsByHouseholdId } from "@/lib/services/apiService"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
-import { useGlobalState } from "@/lib/context/global-state"
+import { useAppContext } from "@/lib/context/AppContext"
+import { useUserContext } from "@/lib/context/UserContext"
+import { useLoading } from "@/lib/context/LoadingContext"
 import { CatCard } from "@/components/cat-card"
 import { Loading } from "@/components/ui/loading"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -41,70 +42,67 @@ import { toast } from "sonner"
 
 export default function CatsPage() {
   const router = useRouter()
-  const { state, dispatch } = useGlobalState()
+  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { state: userState } = useUserContext()
+  const { addLoadingOperation, removeLoadingOperation } = useLoading()
+  const { cats } = appState
+  const { currentUser } = userState
   const { data: session, status } = useSession()
-  const [isLoading, setIsLoading] = useState(true)
+  
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
   useEffect(() => {
-    async function loadCatsForHousehold() {
-      if (status !== "authenticated" || !state.currentUser?.householdId) {
-        return;
-      }
-
-      const currentHouseholdId = state.currentUser.householdId;
-      setIsLoading(true);
-
-      try {
-        const response = await fetch(`/api/households/${currentHouseholdId}/cats`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch cats: ${response.statusText}`);
+    if (status === "authenticated" && currentUser && cats.length === 0) {
+        const fetchCats = async () => {
+            const opId = "fetch-cats"
+            addLoadingOperation({ id: opId, priority: 1, description: "Loading cats..." })
+            try {
+                 console.log("Cats might need fetching here or in Provider")
+            } catch (error: any) {
+                 toast.error("Falha ao carregar gatos")
+            } finally {
+                 removeLoadingOperation(opId)
+            }
         }
-        const cats: CatType[] = await response.json();
-
-        dispatch({
-          type: "SET_CATS",
-          payload: cats,
-        });
-
-      } catch (error) {
-        console.error("Erro ao buscar gatos:", error);
-        toast.error("Não foi possível carregar a lista de gatos.");
-        dispatch({ type: "SET_CATS", payload: [] });
-      } finally {
-        setIsLoading(false);
-      }
     }
+  }, [status, currentUser, cats.length, appDispatch, addLoadingOperation, removeLoadingOperation])
 
-    loadCatsForHousehold();
-  }, [status, state.currentUser, dispatch]);
-
-  const handleDeleteCat = async (catId: string) => {
-    const previousCats = state.cats;
-    dispatch({ type: "DELETE_CAT", payload: Number(catId) });
+  const handleDeleteCat = async (catId: number) => {
+    const catIdStr = String(catId)
+    const previousCats = cats
+    const opId = `delete-cat-${catIdStr}`
+    addLoadingOperation({ id: opId, priority: 1, description: `Deleting cat ${catIdStr}...` })
+    setIsDeleting(catIdStr)
+    
+    appDispatch({ type: "DELETE_CAT", payload: catId })
 
     try {
-      const response = await fetch(`/api/cats/${catId}`, { method: 'DELETE' });
+      const response = await fetch(`/api/cats/${catIdStr}`, { method: 'DELETE' })
       if (!response.ok) {
-        throw new Error('Failed to delete cat');
+         const errorData = await response.json().catch(() => ({}))
+         throw new Error(errorData.error || 'Failed to delete cat')
       }
-      toast.success("Gato excluído com sucesso!");
-    } catch (error) {
-      console.error("Erro ao excluir gato:", error);
-      toast.error("Erro ao excluir gato. Restaurando lista.");
-      dispatch({ type: "SET_CATS", payload: previousCats });
+      toast.success("Gato excluído com sucesso!")
+    } catch (error: any) {
+      console.error("Erro ao excluir gato:", error)
+      toast.error(`Erro ao excluir gato: ${error.message}`)
+      appDispatch({ type: "SET_CATS", payload: previousCats })
+    } finally {
+      setIsDeleting(null)
+      removeLoadingOperation(opId)
     }
-  };
+  }
 
-  if (status === "loading" || (status === "authenticated" && !state.currentUser)) {
-    return <Loading text="Carregando gatos..." />;
+  if (status === "loading" || (status === "authenticated" && !currentUser)) {
+    return <Loading text="Carregando gatos..." />
   }
 
   if (status === "unauthenticated") {
-    router.push("/login");
-    return <Loading text="Redirecionando..." />;
+    router.push("/login")
+    return <Loading text="Redirecionando..." />
   }
 
-  if (status === "authenticated" && state.currentUser && !state.currentUser.householdId) {
+  if (status === "authenticated" && currentUser && !currentUser.householdId) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -124,14 +122,10 @@ export default function CatsPage() {
            <BottomNav />
         </div>
       </PageTransition>
-    );
+    )
   }
 
-  if (isLoading) {
-    return <Loading text="Carregando gatos..." />;
-  }
-
-  const catsToDisplay = state.cats;
+  const catsToDisplay = cats
 
   return (
     <PageTransition>
@@ -145,14 +139,16 @@ export default function CatsPage() {
           />
 
           {catsToDisplay.length === 0 ? (
-            <EmptyState
-              icon={CatIcon}
-              title="Nenhum gato cadastrado"
-              description="Você ainda não adicionou nenhum gato a esta residência. Que tal adicionar o primeiro?"
-              actionLabel="Adicionar Meu Primeiro Gato"
-              actionHref="/cats/new"
-              variant="cat"
-            />
+             <div className="mt-6">
+               <EmptyState
+                 icon={CatIcon}
+                 title="Nenhum gato cadastrado"
+                 description="Você ainda não adicionou nenhum gato a esta residência. Que tal adicionar o primeiro?"
+                 actionLabel="Adicionar Meu Primeiro Gato"
+                 actionHref="/cats/new"
+                 variant="cat"
+               />
+             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
               {catsToDisplay.map((cat: CatType) => (
@@ -161,7 +157,7 @@ export default function CatsPage() {
                   cat={cat}
                   onView={() => router.push(`/cats/${cat.id}`)}
                   onEdit={() => router.push(`/cats/${cat.id}/edit`)}
-                  onDelete={() => handleDeleteCat(cat.id.toString())}
+                  onDelete={() => handleDeleteCat(cat.id)}
                 />
               ))}
             </div>
@@ -171,5 +167,5 @@ export default function CatsPage() {
         <BottomNav />
       </div>
     </PageTransition>
-  );
+  )
 }

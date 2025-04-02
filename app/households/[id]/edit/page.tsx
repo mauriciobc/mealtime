@@ -12,7 +12,9 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Home, Save, ChevronLeft, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
-import { useGlobalState } from "@/lib/context/global-state"
+import { useAppContext } from "@/lib/context/AppContext"
+import { useUserContext } from "@/lib/context/UserContext"
+import { useLoading } from "@/lib/context/LoadingContext"
 import { Household as HouseholdType } from "@/lib/types"
 import { Loading } from "@/components/ui/loading"
 
@@ -25,42 +27,54 @@ export default function EditHouseholdPage({ params }: PageProps) {
   const householdId = resolvedParams.id;
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { state, dispatch } = useGlobalState();
+  const { state: appState, dispatch: appDispatch } = useAppContext();
+  const { state: userState } = useUserContext();
+  const { addLoadingOperation, removeLoadingOperation } = useLoading();
+  const { currentUser } = userState;
+  const { households } = appState;
   
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [household, setHousehold] = useState<HouseholdType | null | undefined>(undefined);
   const [householdName, setHouseholdName] = useState("");
   const [isAuthorized, setIsAuthorized] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
-    if (status === "authenticated" && state.currentUser && state.households) {
-      const foundHousehold = state.households.find(h => String(h.id) === String(householdId));
+    const opId = "load-edit-household";
+    addLoadingOperation({ id: opId, priority: 1, description: "Loading household data..."});
+    setIsLoadingData(true);
+
+    if (status === "authenticated" && currentUser && households.length > 0) {
+      const foundHousehold = households.find(h => String(h.id) === String(householdId));
       setHousehold(foundHousehold || null);
 
       if (foundHousehold) {
         setHouseholdName(foundHousehold.name);
-        const isAdmin = foundHousehold.members?.some(
-          member => String(member.userId) === String(state.currentUser!.id) && member.role?.toLowerCase() === 'admin'
+        const isOwner = foundHousehold.owner?.id === currentUser.id;
+        const isAdmin = isOwner || foundHousehold.members?.some(
+          member => String(member.userId) === String(currentUser.id) && member.role?.toLowerCase() === 'admin'
         );
         setIsAuthorized(isAdmin);
       } else {
         setIsAuthorized(false);
+        if (households.length > 0) {
+            toast.error("Residência não encontrada.");
+            router.replace("/households");
+        }
       }
-      setIsLoading(false);
+      setIsLoadingData(false);
+      removeLoadingOperation(opId);
     } else if (status === "unauthenticated") {
-       setIsLoading(false);
+       setIsLoadingData(false);
+       removeLoadingOperation(opId);
        setIsAuthorized(false);
+       router.replace("/login");
+    } else if (status === "loading") {
+       setIsLoadingData(true);
     } else {
-       setIsLoading(true);
+       setIsLoadingData(true);
     }
-  }, [status, state.currentUser, state.households, householdId]);
-
-  useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login");
-    }
-  }, [status, router]);
+  }, [status, currentUser, households, householdId, router, addLoadingOperation, removeLoadingOperation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +95,8 @@ export default function EditHouseholdPage({ params }: PageProps) {
        return;
     }
 
+    const opId = "save-household";
+    addLoadingOperation({ id: opId, priority: 1, description: "Saving household..." });
     setIsSaving(true);
     try {
       const response = await fetch(`/api/households/${householdId}`, {
@@ -95,7 +111,7 @@ export default function EditHouseholdPage({ params }: PageProps) {
         throw new Error(result.error || "Falha ao atualizar a residência.");
       }
 
-      dispatch({
+      appDispatch({
         type: "UPDATE_HOUSEHOLD",
         payload: { ...household, name: trimmedName },
       });
@@ -108,10 +124,11 @@ export default function EditHouseholdPage({ params }: PageProps) {
       toast.error(`Erro ao atualizar: ${error.message}`);
     } finally {
       setIsSaving(false);
+      removeLoadingOperation(opId);
     }
   };
 
-  if (isLoading || household === undefined) {
+  if (isLoadingData) {
     return (
       <PageTransition>
         <div className="flex min-h-screen flex-col bg-background">
@@ -144,7 +161,7 @@ export default function EditHouseholdPage({ params }: PageProps) {
   if (!household || isAuthorized === false) {
     const title = !household ? "Residência Não Encontrada" : "Acesso Negado";
     const description = !household
-      ? "A residência que você está tentando editar não foi encontrada."
+      ? "A residência que você está tentando editar não foi encontrada ou ainda não carregou."
       : "Você não tem permissão para editar esta residência.";
     
     return (
@@ -181,6 +198,7 @@ export default function EditHouseholdPage({ params }: PageProps) {
                 size="icon"
                 onClick={() => router.push(`/households/${householdId}`)} 
                 className="mr-2"
+                aria-label="Voltar"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
@@ -218,15 +236,9 @@ export default function EditHouseholdPage({ params }: PageProps) {
                     disabled={isSaving || !householdName.trim() || householdName.trim() === household.name}
                   >
                     {isSaving ? (
-                      <span className="flex items-center gap-1.5">
-                        <span className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></span>
-                        Salvando...
-                      </span>
+                      <Loading text="Salvando..." size="sm" />
                     ) : (
-                      <span className="flex items-center gap-1.5">
-                        <Save className="h-4 w-4" />
-                        Salvar Alterações
-                      </span>
+                       <><Save className="mr-2 h-4 w-4" /> Salvar Alterações</>
                     )}
                   </Button>
                 </CardFooter>

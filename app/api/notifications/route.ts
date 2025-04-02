@@ -85,7 +85,16 @@ export async function GET(request: NextRequest) {
     // Obter notificações com cache
     const result = await getCachedNotifications(userId, page, limit);
     
-    return NextResponse.json(result);
+    // Rename 'notifications' to 'data' to match the expected PaginatedResponse interface
+    const responseData = {
+      data: result.notifications,
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
+      hasMore: result.hasMore
+    };
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Erro ao buscar notificações:', error);
     return NextResponse.json(

@@ -1,41 +1,34 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths } from "date-fns"
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, getHours } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { AppHeader } from "@/components/app-header"
 import PageTransition from "@/components/page-transition"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, PieChart, Filter, Calendar, PlusCircle, Users } from "lucide-react"
+import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, PieChart, Filter, Calendar, PlusCircle, Users, Utensils, Scale, CalendarCheck } from "lucide-react"
 import { useAppContext } from "@/lib/context/AppContext"
+import { useUserContext } from "@/lib/context/UserContext"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, Cell } from "recharts"
-import { DataTableSkeleton } from "@/components/skeletons/data-table-skeleton"
-import NoDataMessage from "@/components/no-data-message"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Loading } from "@/components/ui/loading"
 import { PageHeader } from "@/components/page-header"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { useGlobalState } from "@/lib/context/global-state"
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { getUserTimezone } from '@/lib/utils/dateUtils';
 import { useSession } from "next-auth/react"
 import { StatCard } from "@/components/ui/stat-card"
-import { Utensils, Scale, CalendarCheck } from "lucide-react"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
+import { FeedingLog, CatType } from "@/lib/types";
 
-interface FeedingData {
-  id: string
-  catId: number
-  catName: string
-  timestamp: Date
-  portionSize: number | null
+interface FeedingData extends FeedingLog {
+  catName?: string
 }
 
 interface TimeSeriesDataPoint {
@@ -51,136 +44,124 @@ interface CatPortion {
 interface StatsSummary {
   totalFeedings: number
   averagePortionSize: number
-  maxConsecutiveDays: number
-  missedSchedules: number
 }
 
 interface StatisticsData {
   totalFeedings: number
   averagePortionSize: number
-  maxConsecutiveDays: number
-  missedSchedules: number
   timeSeriesData: TimeSeriesDataPoint[]
   catPortionData: CatPortion[]
   timeDistributionData: TimeSeriesDataPoint[]
 }
 
 interface ChartProps {
-  timeSeriesData: TimeSeriesDataPoint[];
-  timeDistributionData: TimeSeriesDataPoint[];
-  catPortionData: CatPortion[];
-  formatTooltip: (value: number) => string;
+  data: any[];
+  config?: any;
+  dataKey?: string;
+  nameKey?: string;
 }
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
-const LineChartComponent = ({ timeSeriesData, formatTooltip }: ChartProps) => (
+const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
   <div className="h-[300px] w-full">
     <ChartContainer
       config={{
         valor: {
           label: "Consumo (g)",
           color: "hsl(var(--primary))",
-        },
+        }
       }}
       className="[&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
     >
-      <div className="w-full h-full">
-        <ResponsiveContainer width="100%" height={250}>
-          <RechartsLineChart 
-            data={timeSeriesData}
-            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="name" 
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-              fontSize={12}
-              interval={timeSeriesData.length > 10 ? 'preserveStartEnd' : 0}
-            />
-            <YAxis 
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-              domain={[0, 'auto']}
-              allowDecimals={false}
-              fontSize={12}
-            />
-            <ChartTooltip 
-              content={<ChartTooltipContent indicator="line" />}
-              cursor={{ stroke: 'hsl(var(--muted-foreground))' }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="valor" 
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
-              dot={{ fill: 'hsl(var(--primary))', strokeWidth: 1, r: 3 }}
-              activeDot={{ r: 5, fill: 'hsl(var(--primary))' }}
-            />
-          </RechartsLineChart>
-        </ResponsiveContainer>
-        <div className="mt-2 flex justify-center">
-          <ChartLegend content={<ChartLegendContent />} />
-        </div>
-      </div>
+      <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={300}>
+        <RechartsLineChart 
+          data={data}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="name" 
+            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+            tickLine={false}
+            axisLine={false}
+            fontSize={12}
+            interval={data.length > 10 ? 'preserveStartEnd' : 0}
+          />
+          <YAxis 
+            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+            tickLine={false}
+            axisLine={false}
+            domain={[0, 'auto']}
+            allowDecimals={false}
+            fontSize={12}
+          />
+          <ChartTooltip 
+            cursor={{ stroke: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+          />
+          <Line 
+            type="monotone" 
+            dataKey="valor" 
+            stroke="hsl(var(--primary))"
+            strokeWidth={2}
+            dot={{ fill: 'hsl(var(--primary))', strokeWidth: 1, r: 3 }}
+            activeDot={{ r: 5 }}
+          />
+        </RechartsLineChart>
+      </ResponsiveContainer>
     </ChartContainer>
   </div>
 )
 
-const BarChartComponent = ({ timeDistributionData }: ChartProps) => (
+const BarChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
   <div className="h-[300px] w-full">
     <ChartContainer
       config={{
         valor: {
           label: "Quantidade",
           color: "hsl(var(--primary))",
-        },
+        }
       }}
       className="[&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
     >
-      <div className="w-full h-full">
-        <ResponsiveContainer width="100%" height={250}>
-          <RechartsBarChart 
-            data={timeDistributionData}
-            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-            barGap={4}
-          >
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-            <XAxis 
-              dataKey="name" 
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-              fontSize={12}
-            />
-            <YAxis 
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              tickLine={{ stroke: 'hsl(var(--muted-foreground))' }}
-              domain={[0, 'auto']}
-              allowDecimals={false}
-              fontSize={12}
-            />
-            <ChartTooltip 
-              content={<ChartTooltipContent indicator="dot" />}
-              cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
-            />
-            <Bar 
-              dataKey="valor" 
-              radius={[4, 4, 0, 0]}
-              fill="hsl(var(--primary))" 
-            />
-          </RechartsBarChart>
-        </ResponsiveContainer>
-        <div className="mt-2 flex justify-center">
-          <ChartLegend content={<ChartLegendContent />} />
-        </div>
-      </div>
+      <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={300}>
+        <RechartsBarChart 
+          data={data}
+          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          barGap={4}
+        >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis 
+            dataKey="name" 
+            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+            tickLine={false}
+            axisLine={false}
+            fontSize={12}
+          />
+          <YAxis 
+            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+            tickLine={false}
+            axisLine={false}
+            domain={[0, 'auto']}
+            allowDecimals={false}
+            fontSize={12}
+          />
+          <ChartTooltip 
+            cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+          />
+          <Bar 
+            dataKey="valor" 
+            radius={[4, 4, 0, 0]}
+            fill="hsl(var(--primary))" 
+          />
+        </RechartsBarChart>
+      </ResponsiveContainer>
     </ChartContainer>
   </div>
 )
 
-const PieChartComponent = ({ catPortionData }: ChartProps) => {
-  if (!catPortionData || catPortionData.length === 0) {
+const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
+  if (!data || data.length === 0) {
     return (
       <div className="h-[300px] w-full flex items-center justify-center">
         <p className="text-muted-foreground">Sem dados por gato</p>
@@ -188,446 +169,476 @@ const PieChartComponent = ({ catPortionData }: ChartProps) => {
     );
   }
 
-  const config = catPortionData.reduce((acc, item, index) => ({
+  const config = data.reduce((acc, item, index) => ({
     ...acc,
     [item.name]: {
       label: item.name,
-      color: COLORS[index % COLORS.length],
+      theme: {
+        light: COLORS[index % COLORS.length],
+        dark: COLORS[index % COLORS.length]
+      }
     },
   }), {});
 
   return (
-    <div className="h-[300px] w-full">
-      <ChartContainer config={config} className="mx-auto max-w-[250px]">
-        <div className="w-full h-full">
-          <ResponsiveContainer width="100%" height={250}>
-            <RechartsPieChart margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-              <Pie
-                data={catPortionData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                innerRadius={50}
-                paddingAngle={2}
-              >
-                {catPortionData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={COLORS[index % COLORS.length]}
-                    stroke="hsl(var(--background))"
-                    strokeWidth={1}
-                  />
-                ))}
-              </Pie>
-              <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="name" />} /> 
-            </RechartsPieChart>
-          </ResponsiveContainer>
-          <div className="mt-2 flex justify-center">
-            <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-          </div>
-        </div>
+    <div className="h-[300px] w-full flex flex-col items-center justify-center">
+      <ChartContainer config={config} className="mx-auto aspect-square max-h-[250px]">
+        <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={300}>
+          <RechartsPieChart 
+            margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+          >
+            <ChartTooltip 
+            />
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              innerRadius={50}
+              paddingAngle={2}
+            >
+              {data.map((entry, index) => (
+                <Cell 
+                  key={`cell-${index}`} 
+                  fill={COLORS[index % COLORS.length]}
+                  stroke="hsl(var(--background))"
+                  strokeWidth={1}
+                />
+              ))}
+            </Pie>
+          </RechartsPieChart>
+        </ResponsiveContainer>
       </ChartContainer>
+      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 justify-center text-xs">
+        <ChartLegend 
+        />
+      </div>
     </div>
   );
 }
 
 export default function StatisticsPage() {
   const router = useRouter()
-  const { state, dispatch } = useGlobalState()
+  const { state: appState } = useAppContext()
+  const { state: userState } = useUserContext()
   const { data: session, status } = useSession()
+  const { currentUser } = userState
+  const { cats, feedingLogs } = appState
+
   const [selectedPeriod, setSelectedPeriod] = useState("7dias")
-  const [selectedCat, setSelectedCat] = useState<string>("all")
-  const [feedingData, setFeedingData] = useState<FeedingData[]>([])
+  const [selectedCatId, setSelectedCatId] = useState<string>("all")
   const [isLoading, setIsLoading] = useState(true)
-  const [statsSummary, setStatsSummary] = useState<StatsSummary>({
-    totalFeedings: 0,
-    averagePortionSize: 0,
-    maxConsecutiveDays: 0,
-    missedSchedules: 0,
+  const [error, setError] = useState<string | null>(null)
+
+  console.log('Debug - Loading States:', {
+    sessionStatus: status,
+    hasCurrentUser: !!currentUser,
+    hasCats: !!cats,
+    hasFeedingLogs: !!feedingLogs,
+    isLoading
   })
-  
-  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesDataPoint[]>([])
-  const [catPortionData, setCatPortionData] = useState<CatPortion[]>([])
-  const [timeDistributionData, setTimeDistributionData] = useState<TimeSeriesDataPoint[]>([])
 
-  // Loading states
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false)
-  const [isLoadingStats, setIsLoadingStats] = useState(true)
-  const [userHasHousehold, setUserHasHousehold] = useState<boolean | undefined>(undefined)
-
-  // Verificar se o usuário está autenticado
+  // Reset loading state when data becomes available
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
+    if (status === 'authenticated' && currentUser && cats && feedingLogs) {
+      setIsLoading(false)
     }
-  }, [status, router])
+  }, [status, currentUser, cats, feedingLogs])
 
-  // 1. Effect to track initial context readiness (user and households)
-  useEffect(() => {
-    if (status === "loading") {
-      setInitialLoadComplete(false)
-      return
-    }
-    
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
+  const processedData = useMemo(() => {
+    if (status === "loading" || !currentUser || !cats || !feedingLogs) {
+      return null
     }
 
-    if (status === "authenticated") {
-      if (state.currentUser && state.households) {
-        const currentHouseholdId = state.currentUser.householdId
-        setUserHasHousehold(!!currentHouseholdId)
-        
-        if (currentHouseholdId && !state.households.some(h => String(h.id) === String(currentHouseholdId))) {
-          console.warn(`Statistics: User's household ${currentHouseholdId} not found in state.households.`)
+    try {
+      const now = new Date()
+      let startDate: Date
+      const endDate = endOfDay(now)
+
+      switch (selectedPeriod) {
+        case "hoje":
+          startDate = startOfDay(now)
+          break
+        case "7dias":
+          startDate = startOfDay(subDays(now, 6))
+          break
+        case "30dias":
+          startDate = startOfDay(subDays(now, 29))
+          break
+        case "mesAtual":
+          startDate = startOfMonth(now)
+          break
+        case "mesPassado":
+          const lastMonth = subMonths(now, 1)
+          startDate = startOfMonth(lastMonth)
+          break
+        default:
+          startDate = startOfDay(subDays(now, 6))
+      }
+
+      const filteredLogs = feedingLogs.filter(log => {
+        const logDate = new Date(log.timestamp)
+        const isAfterStart = logDate >= startDate
+        const isBeforeEnd = logDate <= endDate
+        const isCorrectCat = selectedCatId === "all" || String(log.catId) === selectedCatId
+        return isAfterStart && isBeforeEnd && isCorrectCat
+      })
+      
+      console.log('Filtered Logs:', filteredLogs.length, 'Start Date:', startDate, 'End Date:', endDate)
+      
+      if (filteredLogs.length === 0) {
+          setError(`Nenhum registro encontrado para ${selectedCatId !== 'all' ? cats.find(c=>String(c.id) === selectedCatId)?.name || 'gato selecionado' : 'todos os gatos'} no período selecionado.`)
+          return null
+      }
+
+      const totalFeedings = filteredLogs.length
+      const totalPortion = filteredLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0)
+      const averagePortionSize = totalFeedings > 0 ? Math.round(totalPortion / totalFeedings) : 0
+
+      console.log('Processing data - Total Feedings:', totalFeedings, 'Average Portion:', averagePortionSize)
+
+      // Time series data processing
+      const timeSeriesMap = new Map<string, number>()
+      let currentDate = new Date(startDate)
+      while (currentDate <= endDate) {
+          const dateString = format(currentDate, 'dd/MM')
+          timeSeriesMap.set(dateString, 0)
+          currentDate.setDate(currentDate.getDate() + 1)
+      }
+      
+      filteredLogs.forEach(log => {
+          const dateString = format(new Date(log.timestamp), 'dd/MM')
+          const currentValue = timeSeriesMap.get(dateString) || 0
+          timeSeriesMap.set(dateString, currentValue + (log.portionSize || 0))
+      })
+
+      const timeSeriesData: TimeSeriesDataPoint[] = Array.from(timeSeriesMap, ([name, valor]) => ({ name, valor }))
+      console.log('Time Series Data:', timeSeriesData)
+
+      // Cat portion data processing
+      const catPortionMap = new Map<string, number>()
+      
+      // First, process all logs to accumulate portions by cat
+      filteredLogs.forEach(log => {
+        const cat = cats.find(c => c.id === log.catId)
+        if (cat) {
+          const currentTotal = catPortionMap.get(cat.name) || 0
+          const newTotal = currentTotal + (log.portionSize || 0)
+          console.log(`Adding portion for ${cat.name}: ${log.portionSize} (Current: ${currentTotal}, New: ${newTotal})`)
+          catPortionMap.set(cat.name, newTotal)
         }
-        setInitialLoadComplete(true)
-      } else {
-        setInitialLoadComplete(false) 
+      })
+
+      // Convert to array format and filter out zero values
+      const catPortionData: CatPortion[] = Array.from(catPortionMap.entries())
+        .map(([name, value]) => ({ name, value }))
+        .filter(item => item.value > 0)
+
+      console.log('Cat Portion Map:', Object.fromEntries(catPortionMap))
+      console.log('Final Cat Portion Data:', catPortionData)
+
+      // Time distribution data processing
+      const timeDistributionMap = new Map<string, number>()
+      for (let i = 0; i < 24; i++) {
+          timeDistributionMap.set(`${i.toString().padStart(2, '0')}:00`, 0)
       }
-    }
-  }, [status, state.currentUser, state.households, router])
+      
+      filteredLogs.forEach(log => {
+          const hour = getHours(new Date(log.timestamp))
+          const hourString = `${hour.toString().padStart(2, '0')}:00`
+          const currentCount = timeDistributionMap.get(hourString) || 0
+          timeDistributionMap.set(hourString, currentCount + 1)
+      })
 
-  // 2. Effect to fetch statistics data once context is ready and filters change
-  useEffect(() => {
-    if (!initialLoadComplete || !userHasHousehold) {
-      if (initialLoadComplete && userHasHousehold === false) {
-         setIsLoadingStats(false)
+      const timeDistributionData: TimeSeriesDataPoint[] = Array.from(timeDistributionMap, ([name, valor]) => ({ name, valor }))
+
+      console.log('timeDistributionData structure:', timeDistributionData.map(d => ({ ...d, height: 741 })));
+
+      return {
+        totalFeedings,
+        averagePortionSize,
+        timeSeriesData,
+        catPortionData,
+        timeDistributionData,
       }
-      return 
+    } catch (e: any) {
+        console.error("Error processing statistics:", e)
+        setError(e.message || "Erro ao processar estatísticas.")
+        return null
     }
+  }, [selectedPeriod, selectedCatId, feedingLogs, cats, currentUser, status])
 
-    const fetchData = async () => {
-      console.log("Fetching statistics for period:", selectedPeriod, "cat:", selectedCat)
-      setIsLoadingStats(true)
-      try {
-        const response = await fetch(`/api/statistics?period=${selectedPeriod}&catId=${selectedCat}`)
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.error || 'Falha ao buscar estatísticas')
-        }
-
-        const stats = await response.json()
-
-        setStatsSummary({
-          totalFeedings: stats.totalFeedings ?? 0,
-          averagePortionSize: stats.averagePortionSize ?? 0,
-          maxConsecutiveDays: stats.maxConsecutiveDays ?? 0,
-          missedSchedules: stats.missedSchedules ?? 0,
-        })
-        setTimeSeriesData(stats.timeSeriesData || [])
-        setCatPortionData(stats.catPortionData || [])
-        setTimeDistributionData(stats.timeDistributionData || [])
-        setFeedingData(stats.feedingLogs || [])
-
-      } catch (error: any) {
-        console.error("Erro ao carregar estatísticas:", error)
-        toast.error(`Não foi possível carregar as estatísticas: ${error.message}`)
-        setStatsSummary({ totalFeedings: 0, averagePortionSize: 0, maxConsecutiveDays: 0, missedSchedules: 0 })
-        setTimeSeriesData([])
-        setCatPortionData([])
-        setTimeDistributionData([])
-        setFeedingData([])
-      } finally {
-        setIsLoadingStats(false)
-      }
-    }
-
-    fetchData()
-  }, [initialLoadComplete, userHasHousehold, selectedPeriod, selectedCat])
-  
-  // Formatador para o tooltip do gráfico
-  const formatTooltip = (value: number) => {
-    return `${value} g`
-  }
-  
-  // Formatar rótulos numéricos
-  const formatNumber = (num: number) => {
-    return num.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-  }
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1
-    }
-  };
-
-  // A. Initial Loading (Waiting for context/auth)
-  if (!initialLoadComplete) {
-     return <Loading text="Carregando dados do usuário..." />;
-  }
-
-  // B. Context loaded, but user has no associated household
-  if (userHasHousehold === false) {
+  if (status === 'loading' || !currentUser) {
     return (
-       <PageTransition>
-          <div className="flex flex-col min-h-screen bg-background">
-             <div className="container mx-auto px-4 py-8 pb-24">
-                <PageHeader
-                  title="Estatísticas"
-                  description="Análise dos padrões de alimentação dos seus gatos"
-                  icon={<BarChart3 className="h-6 w-6" />}
-                />
-                <EmptyState
-                  icon={Users}
-                  title="Sem Residência Associada"
-                  description="Você precisa criar ou juntar-se a uma residência para visualizar estatísticas."
-                  actionLabel="Ir para Configurações"
-                  actionHref="/settings"
-                />
-             </div>
-          </div>
-       </PageTransition>
-    );
-  }
-
-  // C. Context ready, user has household, but stats are loading (initial or filter change)
-  if (isLoadingStats) {
-    return (
-       <PageTransition>
-         <div className="flex flex-col min-h-screen bg-background">
-           <div className="container mx-auto px-4 py-8 pb-24">
-              <PageHeader
-                 title="Estatísticas"
-                 description="Análise dos padrões de alimentação dos seus gatos"
-                 icon={<BarChart3 className="h-6 w-6" />}
-              />
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                  <div className="flex flex-wrap gap-2">
-                      <Skeleton className="h-10 w-32 rounded-md" />
-                      <Skeleton className="h-10 w-40 rounded-md" />
-                  </div>
-                  <Skeleton className="h-9 w-44 rounded-md" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                  {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-lg" />)}
-               </div>
-               <Skeleton className="h-10 w-full max-w-sm rounded-md mb-4" />
-               <Skeleton className="h-[350px] w-full rounded-lg border bg-card" /> 
+        <PageTransition>
+           <PageHeader title="Estatísticas" actionHref="/" />
+           <div className="container mx-auto p-4">
+               <Loading text="Carregando dados do usuário..." />
            </div>
+        </PageTransition>
+     )
+  }
+
+  if (!currentUser.householdId) {
+      return (
+        <PageTransition>
+          <PageHeader title="Estatísticas" actionHref="/" />
+          <div className="container mx-auto p-4">
+            <EmptyState
+              icon={Users}
+              title="Residência Necessária"
+              description="Associe ou crie uma residência para ver as estatísticas."
+              actionLabel="Ir para Configurações"
+              actionHref="/settings"
+              className="mt-6"
+            />
+          </div>
+        </PageTransition>
+      )
+  }
+  
+  if (cats && cats.length === 0) {
+     return (
+       <PageTransition>
+         <PageHeader title="Estatísticas" actionHref="/" />
+         <div className="container mx-auto p-4">
+           <EmptyState
+             icon={BarChart3}
+             title="Sem Gatos"
+             description="Cadastre um gato para começar a gerar estatísticas."
+             actionLabel="Cadastrar Gato"
+             actionHref="/cats/new"
+             className="mt-6"
+           />
          </div>
        </PageTransition>
-    );
+     )
   }
 
-  // D. Stats loaded, but no data found for the current filters
-  const hasAnyStatsData = statsSummary.totalFeedings > 0 || timeSeriesData.length > 0 || catPortionData.length > 0 || timeDistributionData.length > 0;
-  if (!isLoadingStats && !hasAnyStatsData) {
+  if (isLoading) {
+      return (
+         <PageTransition>
+            <PageHeader title="Estatísticas" actionHref="/" />
+            <div className="container mx-auto p-4">
+               <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                  <Skeleton className="h-10 w-full sm:w-48" />
+                  <Skeleton className="h-10 w-full sm:w-48" />
+               </div>
+               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
+                   <Skeleton className="h-24" />
+                   <Skeleton className="h-24" />
+                   <Skeleton className="h-24" />
+                   <Skeleton className="h-24" />
+               </div>
+               <Card>
+                 <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
+                 <CardContent>
+                   <Skeleton className="h-[300px] w-full" />
+                 </CardContent>
+               </Card>
+            </div>
+         </PageTransition>
+       )
+  }
+
+  if (error) {
     return (
       <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <div className="container mx-auto px-4 py-8 pb-24">
-             <PageHeader
-                title="Estatísticas"
-                description="Análise dos padrões de alimentação dos seus gatos"
-                icon={<BarChart3 className="h-6 w-6" />}
-             />
-             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-               <div className="flex flex-wrap gap-2">
-                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                    <SelectTrigger className="w-32"><SelectValue placeholder="Período" /></SelectTrigger>
-                    <SelectContent>
-                       <SelectItem value="7dias">7 dias</SelectItem>
-                       <SelectItem value="30dias">30 dias</SelectItem>
-                       <SelectItem value="3meses">3 meses</SelectItem>
-                    </SelectContent>
-                 </Select>
-                 <Select value={selectedCat} onValueChange={setSelectedCat}>
-                    <SelectTrigger className="w-40"><SelectValue placeholder="Gato" /></SelectTrigger>
-                    <SelectContent>
-                       <SelectItem value="all">Todos os gatos</SelectItem>
-                       {state.cats?.map(cat => (
-                          <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
-                       ))}
-                    </SelectContent>
-                 </Select>
-               </div>
-               <Button variant="outline" size="sm" asChild>
-                 <Link href="/feedings/new" className="flex items-center gap-2">
-                   <PlusCircle className="h-4 w-4" /><span>Registrar Alimentação</span>
-                 </Link>
-               </Button>
-             </div>
-             <EmptyState
-                icon={Filter}
-                title="Sem Dados para os Filtros"
-                description="Não há registros de alimentação que correspondam aos filtros selecionados. Tente um período diferente ou registre mais alimentações."
-                actionLabel="Registrar Alimentação"
-                actionHref="/feedings/new"
-             />
-          </div>
+        <PageHeader title="Estatísticas" actionHref="/" />
+        <div className="container mx-auto p-4">
+           <div className="flex flex-col sm:flex-row gap-4 mb-6">
+             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+               <SelectTrigger className="w-full sm:w-[180px]">
+                 <SelectValue placeholder="Período" />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="hoje">Hoje</SelectItem>
+                 <SelectItem value="7dias">Últimos 7 dias</SelectItem>
+                 <SelectItem value="30dias">Últimos 30 dias</SelectItem>
+                 <SelectItem value="mesAtual">Mês Atual</SelectItem>
+                 <SelectItem value="mesPassado">Mês Passado</SelectItem>
+               </SelectContent>
+             </Select>
+             <Select value={selectedCatId} onValueChange={setSelectedCatId}>
+               <SelectTrigger className="w-full sm:w-[180px]">
+                 <SelectValue placeholder="Gato" />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="all">Todos os Gatos</SelectItem>
+                 {cats.map(cat => (
+                   <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+                 ))}
+               </SelectContent>
+             </Select>
+           </div>
+           <EmptyState
+             icon={AlertTriangle}
+             title="Sem Dados ou Erro"
+             description={error}
+             actionLabel="Limpar Filtros"
+             actionOnClick={() => { setSelectedPeriod("7dias"); setSelectedCatId("all"); }}
+             className="mt-6"
+           />
         </div>
       </PageTransition>
-    );
+    )
+  }
+  
+  if (!processedData) {
+      return (
+          <PageTransition>
+             <PageHeader title="Estatísticas" actionHref="/" />
+             <div className="container mx-auto p-4">
+                 <Loading text="Preparando dados..." />
+             </div>
+          </PageTransition>
+       )
   }
 
-  // E. Main Render: Context ready, Stats loaded, Data available
   return (
     <PageTransition>
-      <div className="flex flex-col min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 pb-24">
-          <PageHeader
-            title="Estatísticas"
-            description="Análise dos padrões de alimentação dos seus gatos"
-            icon={<BarChart3 className="h-6 w-6" />}
-          />
-          
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div className="flex flex-wrap gap-2">
-              <Select
-                value={selectedPeriod}
-                onValueChange={setSelectedPeriod}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Período" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7dias">7 dias</SelectItem>
-                  <SelectItem value="30dias">30 dias</SelectItem>
-                  <SelectItem value="3meses">3 meses</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select
-                value={selectedCat}
-                onValueChange={setSelectedCat}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Gato" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os gatos</SelectItem>
-                  {state.cats.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id.toString()}>{cat.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/feedings/new" className="flex items-center gap-2">
-                <PlusCircle className="h-4 w-4" />
-                <span>Registrar Alimentação</span>
-              </Link>
-            </Button>
-          </div>
-          
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
-          >
-             <motion.div variants={itemVariants}>
-               <StatCard
-                 title="Total Alimentações"
-                 value={statsSummary.totalFeedings}
-                 icon={<Utensils />}
-                 description="Registros no período"
-               />
-             </motion.div>
-             <motion.div variants={itemVariants}>
-               <StatCard
-                 title="Porção Média"
-                 value={`${formatNumber(statsSummary.averagePortionSize)} g`}
-                 icon={<Scale />}
-                 description="Por alimentação"
-               />
-             </motion.div>
-             <motion.div variants={itemVariants}>
-               <StatCard
-                 title="Máx. Dias Seguidos"
-                 value={statsSummary.maxConsecutiveDays}
-                 icon={<CalendarCheck />}
-                 description="Com registros"
-               />
-             </motion.div>
-             <motion.div variants={itemVariants}>
-               <StatCard
-                 title="Agend. Perdidos"
-                 value={statsSummary.missedSchedules}
-                 icon={<AlertTriangle />}
-                 description="Horários não registrados"
-               />
-             </motion.div>
-          </motion.div>
-          
-          <motion.div variants={itemVariants}>
-            <Tabs defaultValue="consumo" className="mb-8">
-              <TabsList className="grid w-full grid-cols-3 max-w-md mx-auto mb-6">
-                 <TabsTrigger value="consumo">Consumo Diário</TabsTrigger>
-                 <TabsTrigger value="tempo">Horários Frequentes</TabsTrigger>
-                 <TabsTrigger value="gatos">Consumo por Gato</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="consumo">
-                <Card>
-                  <CardHeader>
-                     <CardTitle className="text-base">Consumo Diário (g)</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-1">
-                    <LineChartComponent 
-                       timeSeriesData={timeSeriesData} 
-                       timeDistributionData={[]}
-                       catPortionData={[]} 
-                       formatTooltip={formatTooltip} 
-                     />
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="tempo">
-                <Card>
-                   <CardHeader>
-                      <CardTitle className="text-base">Frequência por Hora</CardTitle>
-                   </CardHeader>
-                   <CardContent className="p-1">
-                     <BarChartComponent 
-                       timeSeriesData={[]} 
-                       timeDistributionData={timeDistributionData}
-                       catPortionData={[]} 
-                       formatTooltip={formatTooltip} 
-                     />
-                   </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="gatos">
-                <Card>
-                   <CardHeader>
-                      <CardTitle className="text-base">Consumo Total por Gato (g)</CardTitle>
-                   </CardHeader>
-                   <CardContent className="p-1 flex justify-center">
-                     <PieChartComponent 
-                       timeSeriesData={[]} 
-                       timeDistributionData={[]} 
-                       catPortionData={catPortionData} 
-                       formatTooltip={formatTooltip} 
-                     />
-                   </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </motion.div>
+      <PageHeader title="Estatísticas" actionHref="/" />
+      <div className="container mx-auto p-4 space-y-6">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+               <Calendar className="mr-2 h-4 w-4 opacity-50" />
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hoje">Hoje</SelectItem>
+              <SelectItem value="7dias">Últimos 7 dias</SelectItem>
+              <SelectItem value="30dias">Últimos 30 dias</SelectItem>
+              <SelectItem value="mesAtual">Mês Atual</SelectItem>
+              <SelectItem value="mesPassado">Mês Passado</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={selectedCatId} onValueChange={setSelectedCatId}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+               <Filter className="mr-2 h-4 w-4 opacity-50" />
+              <SelectValue placeholder="Gato" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Gatos</SelectItem>
+              {cats.map(cat => (
+                <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
+        <motion.div 
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.1 }}
+           className="grid gap-4 md:grid-cols-2 lg:grid-cols-4"
+         >
+          <StatCard 
+            title="Total de Alimentações" 
+            value={processedData.totalFeedings.toString()} 
+            icon={<Utensils className="h-4 w-4" />} 
+            description={`No período selecionado`}
+          />
+          <StatCard 
+            title="Média por Alimentação" 
+            value={`${processedData.averagePortionSize} g`} 
+            icon={<Scale className="h-4 w-4" />} 
+            description={`Média de ração por vez`}
+          />
+          <StatCard 
+            title="Gatos Ativos" 
+            value={selectedCatId === 'all' ? cats.length.toString() : '1'} 
+            icon={<Users className="h-4 w-4" />} 
+            description={selectedCatId === 'all' ? `Gatos na residência` : `Gato selecionado`}
+          />
+           <StatCard 
+            title="Período" 
+            value={selectedPeriod.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+            icon={<Calendar className="h-4 w-4" />} 
+            description={`Dados referentes a este período`}
+          />
+        </motion.div>
+
+        <motion.div
+           initial={{ opacity: 0, y: 10 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.2 }}
+           className="grid gap-6 lg:grid-cols-2"
+         >
+          <Card>
+            <CardHeader>
+              <CardTitle>Consumo Total Diário (g)</CardTitle>
+               <CardDescription>Total de ração consumida por dia no período.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <LineChartComponent data={processedData.timeSeriesData} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribuição por Gato (%)</CardTitle>
+               <CardDescription>Percentual do consumo total por gato.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PieChartComponent data={processedData.catPortionData} />
+            </CardContent>
+          </Card>
+          <Card className="lg:col-span-2">
+             <CardHeader>
+               <CardTitle>Distribuição por Horário</CardTitle>
+               <CardDescription>Quantidade de alimentações por hora do dia.</CardDescription>
+             </CardHeader>
+             <CardContent className="h-[300px]">
+               <ChartContainer
+                 config={{
+                   valor: {
+                     label: "Quantidade",
+                     color: "hsl(var(--primary))",
+                   }
+                 }}
+                 className="h-full [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
+               >
+                 <ResponsiveContainer>
+                   <RechartsBarChart 
+                     data={processedData.timeDistributionData}
+                     margin={{ top: 24, right: 24, left: 0, bottom: 0 }}
+                     barCategoryGap={40}
+                     barGap={8}
+                   >
+                     <XAxis 
+                       dataKey="name" 
+                       axisLine={false}
+                       tickLine={false}
+                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                       tickMargin={12}
+                     />
+                     <YAxis 
+                       axisLine={false}
+                       tickLine={false}
+                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                       tickFormatter={(value) => `${value}g`}
+                       width={45}
+                       tickMargin={8}
+                     />
+                     <ChartTooltip 
+                       content={<ChartTooltipContent hideLabel />}
+                       cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+                     />
+                     <Bar
+                       dataKey="valor"
+                       radius={[4, 4, 0, 0]}
+                       maxBarSize={32}
+                       fill="hsl(var(--primary))"
+                     />
+                   </RechartsBarChart>
+                 </ResponsiveContainer>
+               </ChartContainer>
+             </CardContent>
+           </Card>
+        </motion.div>
       </div>
     </PageTransition>
   )
 }
-

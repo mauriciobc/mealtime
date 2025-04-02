@@ -42,9 +42,10 @@ interface CatCardProps {
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  showAdminActions?: boolean;
 }
 
-export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
+export function CatCard({ cat, onView, onEdit, onDelete, showAdminActions = true }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const formatAge = (birthdate: Date) => {
@@ -94,27 +95,29 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
                 </Avatar>
                 <CardTitle className="text-xl">{cat.name}</CardTitle>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreHorizontal className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={onView} className="flex items-center gap-2 cursor-pointer">
-                    <Eye className="h-4 w-4" />
-                    <span>Visualizar</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={onEdit} className="flex items-center gap-2 cursor-pointer">
-                    <Edit className="h-4 w-4" />
-                    <span>Editar</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDeleteClick} className="flex items-center gap-2 text-destructive cursor-pointer">
-                    <Trash2 className="h-4 w-4" />
-                    <span>Excluir</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {showAdminActions && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={onView} className="flex items-center gap-2 cursor-pointer">
+                      <Eye className="h-4 w-4" />
+                      <span>Visualizar</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={onEdit} className="flex items-center gap-2 cursor-pointer">
+                      <Edit className="h-4 w-4" />
+                      <span>Editar</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDeleteClick} className="flex items-center gap-2 text-destructive cursor-pointer">
+                      <Trash2 className="h-4 w-4" />
+                      <span>Excluir</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </CardHeader>
           <CardContent>

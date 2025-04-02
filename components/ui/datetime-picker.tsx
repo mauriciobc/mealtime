@@ -39,7 +39,7 @@ export function DateTimePicker({ date, setDate }: DateTimePickerProps) {
           selected={date}
           onSelect={setDate}
           initialFocus
-          locale={ptBR}
+          {...{ locale: ptBR }}
         />
       </PopoverContent>
     </Popover>

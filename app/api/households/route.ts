@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
       },
       include: {
         users: true,
-        cats: true
+        cats: true,
+        owner: true
       }
     });
     
@@ -38,11 +39,19 @@ export async function GET(request: NextRequest) {
       id: household.id.toString(),
       name: household.name,
       inviteCode: household.inviteCode,
+      createdAt: household.createdAt,
+      owner: household.owner ? {
+        id: household.owner.id,
+        name: household.owner.name,
+        email: household.owner.email
+      } : null,
       members: household.users.map(user => ({
         id: user.id.toString(),
+        userId: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: user.role,
+        avatar: user.avatar
       })),
       cats: household.cats.map(cat => ({
         id: cat.id.toString(),
@@ -109,11 +118,12 @@ export async function POST(request: NextRequest) {
     // Gerar código de convite
     const inviteCode = uuidv4().substring(0, 8).toUpperCase();
     
-    // Criar o domicílio
+    // Criar o domicílio com o usuário como owner e membro
     const household = await prisma.household.create({
       data: {
         name: body.name,
         inviteCode: inviteCode,
+        ownerId: userId,  // Set the owner
         users: {
           connect: {
             id: userId
@@ -121,32 +131,38 @@ export async function POST(request: NextRequest) {
         }
       },
       include: {
-        users: true
+        users: true,
+        owner: true
       }
     });
     
     // Atualizar o papel do usuário para admin no domicílio recém-criado
     await prisma.user.update({
       where: { id: userId },
-      data: { role: 'admin' }
+      data: { 
+        role: 'admin',
+        householdId: household.id
+      }
     });
     
-    // Formatar os dados para a resposta
+    // Formatar a resposta
     const formattedHousehold = {
-      id: String(household.id),
-      name: household.name,
-      inviteCode: household.inviteCode,
+      ...household,
+      owner: household.owner ? {
+        id: household.owner.id,
+        name: household.owner.name,
+        email: household.owner.email
+      } : null,
       members: household.users.map(user => ({
-        id: String(user.id),
+        id: user.id.toString(),
+        userId: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        isCurrentUser: user.id === userId
-      })),
-      cats: []
+        role: user.role
+      }))
     };
     
-    return NextResponse.json(formattedHousehold, { status: 201 });
+    return NextResponse.json(formattedHousehold);
   } catch (error: any) {
     console.error('Erro ao criar domicílio:', error);
     

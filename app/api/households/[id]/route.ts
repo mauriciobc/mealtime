@@ -178,7 +178,8 @@ export async function PATCH(
       );
     }
 
-    if (currentUser.role !== 'admin') {
+    const isOwner = household.ownerId === userId;
+    if (!isOwner && currentUser.role !== 'admin') {
       return NextResponse.json(
         { error: 'Apenas administradores podem editar o domicílio' },
         { 

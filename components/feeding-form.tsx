@@ -22,39 +22,55 @@ import {
 import { useFeeding } from "@/hooks/use-feeding";
 
 const formSchema = z.object({
-  amount: z.string().optional(),
+  amount: z.string()
+    .min(1, "A quantidade é obrigatória")
+    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+      message: "A quantidade deve ser um número maior que 0"
+    }),
   notes: z.string().optional(),
-  timestamp: z.date().optional(),
+  timestamp: z.date(),
 });
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface FeedingFormProps {
   catId: number;
+  catPortionSize: number;
   onSuccess?: () => void;
 }
 
-export function FeedingForm({ catId, onSuccess }: FeedingFormProps) {
+export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { handleMarkAsFed } = useFeeding(catId);
+  const { handleMarkAsFed, nextFeedingTime, formattedNextFeedingTime } = useFeeding(catId);
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amount: "",
+      amount: catPortionSize ? catPortionSize.toString() : "",
       notes: "",
       timestamp: new Date(),
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: FormValues) {
     try {
       setIsSubmitting(true);
       
-      // Usar o hook useFeeding para registrar a alimentação
-      await handleMarkAsFed(values.amount, values.notes, values.timestamp);
+      // Check if feeding is before the next scheduled time
+      if (nextFeedingTime && values.timestamp < nextFeedingTime) {
+        const confirmEarly = window.confirm(
+          `Ainda não está na hora da próxima alimentação (${formattedNextFeedingTime}). Deseja registrar mesmo assim?`
+        );
+        if (!confirmEarly) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      await handleMarkAsFed(values.amount, values.notes || undefined, values.timestamp);
       
       form.reset();
-      // Atualizar a interface
       router.refresh();
       if (onSuccess) {
         onSuccess();
@@ -82,7 +98,10 @@ export function FeedingForm({ catId, onSuccess }: FeedingFormProps) {
                 <FormControl>
                   <DateTimePicker
                     date={field.value}
-                    setDate={field.onChange}
+                    setDate={(date) => {
+                      field.onChange(date);
+                      field.onBlur();
+                    }}
                   />
                 </FormControl>
                 <FormMessage />

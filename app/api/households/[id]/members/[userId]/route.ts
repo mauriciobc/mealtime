@@ -63,7 +63,8 @@ export async function PATCH(
       );
     }
     
-    if (currentUser.role !== 'admin') {
+    const isOwner = household.ownerId === currentUserId;
+    if (!isOwner && currentUser.role !== 'admin') {
       return NextResponse.json(
         { error: 'Apenas administradores podem alterar papéis de membros' },
         { status: 403 }

@@ -14,13 +14,17 @@ export function PageTransition({
   className = "",
   direction = "up"
 }: PageTransitionProps) {
+
+  // Restore animation logic, but simplified for entry only
+
   const getVariants = () => {
     switch (direction) {
       case "up":
         return {
           hidden: { opacity: 0, y: 30 },
           visible: { opacity: 1, y: 0 },
-          exit: { opacity: 0, y: -30 }
+          // exit variant can remain if needed elsewhere, but not actively used by this component's logic now
+          exit: { opacity: 0, y: -30 } 
         };
       case "down":
         return {
@@ -40,21 +44,31 @@ export function PageTransition({
           visible: { opacity: 1, x: 0 },
           exit: { opacity: 0, x: 30 }
         };
+      default: // Added default case
+        return {
+          hidden: { opacity: 0 },
+          visible: { opacity: 1 },
+          exit: { opacity: 0 }
+        };        
     }
   };
+
+  // Removed state management and useEffect
+  // Removed conditional return based on shouldRender
 
   return (
     <motion.div
       className={className}
-      variants={getVariants()}
-      initial="hidden"
-      animate="visible"
-      exit="exit"
-      transition={{
+      variants={getVariants()} // Use defined variants
+      initial="hidden"         // Start hidden
+      animate="visible"        // Animate to visible state
+      // exit="exit" // Can keep if AnimatePresence is used higher up, otherwise remove
+      transition={{           // Define transition properties
         type: "spring",
         stiffness: 260,
         damping: 20
       }}
+      // Removed onAnimationComplete
     >
       {children}
     </motion.div>
@@ -125,13 +139,21 @@ export function FadeIn({
   duration?: number;
   className?: string;
 }) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, delay * 1000);
+    return () => clearTimeout(timer);
+  }, [delay]);
+
   return (
     <motion.div
       className={className}
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: isVisible ? 1 : 0 }}
       transition={{
-        delay,
         duration,
         ease: "easeOut"
       }}
@@ -163,7 +185,10 @@ export function StaggerContainer({
           opacity: 1,
           transition: {
             delayChildren,
-            staggerChildren
+            staggerChildren,
+            type: "spring",
+            stiffness: 260,
+            damping: 20
           }
         }
       }}

@@ -246,17 +246,35 @@ export async function deleteCat(id: string): Promise<void> {
 // Re-exportar as funções relacionadas à alimentação do api-feeding-service
 export { registerFeeding, updateFeedingSchedule, getNextFeedingTime } from './api-feeding-service';
 
-export async function createFeedingLog(log: Omit<FeedingLog, 'id'>): Promise<FeedingLog> {
+export async function createFeedingLog(log: Omit<BaseFeedingLog, 'id'>): Promise<BaseFeedingLog> {
   await delay(500);
-  const newLog: FeedingLog = {
-    ...log,
-    id: Math.floor(Math.random() * 1000000)
-  };
-  
-  const logs = await getData<FeedingLog>('feedingLogs');
-  const updatedLogs = [...logs, newLog];
-  await setData<FeedingLog>('feedingLogs', updatedLogs);
-  
-  return newLog;
+  try {
+    const response = await fetch('/api/feedings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(log),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create feeding log');
+    }
+
+    const createdLog = await response.json();
+    return {
+      id: createdLog.id,
+      catId: createdLog.catId,
+      userId: createdLog.userId,
+      timestamp: createdLog.timestamp,
+      portionSize: createdLog.portionSize,
+      notes: createdLog.notes,
+      status: createdLog.status,
+      createdAt: createdLog.createdAt
+    };
+  } catch (error) {
+    console.error('Error creating feeding log:', error);
+    throw error;
+  }
 }
 

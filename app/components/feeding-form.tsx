@@ -1,15 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FeedingFormProps } from "@/lib/types";
+import { useAppContext } from "@/lib/context/AppContext";
 
 export function FeedingForm({ catId, onMarkAsFed }: FeedingFormProps) {
-  const [amount, setAmount] = useState("");
+  const { state: appState } = useAppContext();
+  const cat = appState.cats.find((cat) => cat.id === catId);
+  const [amount, setAmount] = useState(cat?.portion?.toString() || "");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (cat?.portion) {
+      setAmount(cat.portion.toString());
+      console.log("Pre-filling Porção field with:", cat.portion.toString());
+    }
+  }, [cat]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

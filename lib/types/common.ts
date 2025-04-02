@@ -42,7 +42,7 @@ export interface BaseCat {
   restrictions?: string;
   notes?: string;
   householdId: ID;
-  feeding_interval: number;
+  feedingInterval: number;
   portion_size?: number;
 }
 
@@ -56,7 +56,7 @@ export interface BaseFeedingLog {
   timestamp: Date;
   portionSize?: number;
   notes?: string;
-  status?: string;
+  status?: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro";
   createdAt: Date;
 }
 

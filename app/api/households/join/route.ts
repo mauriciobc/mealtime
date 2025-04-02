@@ -30,7 +30,15 @@ export async function POST(request: NextRequest) {
     const household = await prisma.household.findUnique({
       where: { inviteCode: body.inviteCode },
       include: {
-        users: true
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        },
+        cats: true
       }
     });
     
@@ -41,10 +49,17 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const userId = parseInt(session.user.id as string);
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'ID do usuário inválido' },
+        { status: 400 }
+      );
+    }
+    
+    const userId = typeof session.user.id === 'string' ? parseInt(session.user.id) : session.user.id;
     
     // Verificar se o usuário já pertence ao domicílio
-    const userAlreadyInHousehold = household.users.some(user => user.id === userId);
+    const userAlreadyInHousehold = household.users.some(user => Number(user.id) === userId);
     
     if (userAlreadyInHousehold) {
       return NextResponse.json(
@@ -59,6 +74,12 @@ export async function POST(request: NextRequest) {
       data: {
         householdId: household.id,
         role: 'member' // Novos usuários sempre entram como membros
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
       }
     });
     
@@ -66,7 +87,14 @@ export async function POST(request: NextRequest) {
     const updatedHousehold = await prisma.household.findUnique({
       where: { id: household.id },
       include: {
-        users: true,
+        users: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        },
         cats: true
       }
     });
@@ -78,35 +106,31 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Formatar os dados para a resposta
+    // Formatar a resposta
     const formattedHousehold = {
-      id: updatedHousehold.id.toString(),
-      name: updatedHousehold.name,
-      inviteCode: updatedHousehold.inviteCode,
+      id: household.id,
+      name: household.name,
+      inviteCode: household.inviteCode,
       members: updatedHousehold.users.map(user => ({
         id: user.id.toString(),
+        userId: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        isCurrentUser: user.id === userId
+        role: user.role
       })),
-      cats: updatedHousehold.cats.map(cat => ({
-        id: cat.id.toString(),
-        name: cat.name,
-        photoUrl: cat.photoUrl
-      }))
+      cats: updatedHousehold.cats
     };
-
+    
     // Atualizar o token com o novo householdId
     const token = await getToken({ req: request });
     if (token) {
-      token.householdId = Number(household.id);
+      token.householdId = household.id;
     }
 
     // Retornar o novo householdId junto com os dados do domicílio
     return NextResponse.json({
       ...formattedHousehold,
-      newHouseholdId: Number(household.id)
+      newHouseholdId: household.id
     });
   } catch (error) {
     console.error('Erro ao entrar no domicílio:', error);

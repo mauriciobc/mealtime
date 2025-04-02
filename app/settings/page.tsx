@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback, memo } from "react"
+import { useState, useEffect, useCallback, memo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useAppContext } from "@/lib/context/AppContext"
 import { useTheme } from "next-themes"
-import { useSession } from "next-auth/react"
+import { useSession, signOut } from "next-auth/react"
 import { toast } from "sonner"
 import { useLoading } from "@/lib/context/LoadingContext"
+import { useUserContext } from "@/lib/context/UserContext"
 
 // Componentes
 import { AppHeader } from "@/components/app-header"
@@ -285,41 +286,91 @@ const SettingsLayout = ({ children }: { children: React.ReactNode }) => (
 )
 
 export default function SettingsPage() {
-  // Hooks
-  const { state, dispatch } = useAppContext()
-  const { setTheme, theme } = useTheme()
-  const router = useRouter()
-  const { data: session, status } = useSession()
-  const { state: loadingState } = useLoading()
-  
-  // Estados
-  const [isLoading, setIsLoading] = useState(true)
-  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
-  const [isLanguageDialogOpen, setIsLanguageDialogOpen] = useState(false)
-  const [isTimezoneDialogOpen, setIsTimezoneDialogOpen] = useState(false)
-  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false)
-  const [selectedLanguage, setSelectedLanguage] = useState<string>("pt-BR")
-  const [selectedTimezone, setSelectedTimezone] = useState<string>("UTC")
-  const [notification, setNotification] = useState<NotificationSettings>({
-    pushEnabled: false,
-    emailEnabled: false,
+  const { data: session, status } = useSession();
+  const { state: userState, dispatch } = useUserContext();
+  const { currentUser } = userState;
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+  const mountedRef = useRef(true);
+  const loadingRef = useRef(false);
+
+  // Add missing state variables
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isLanguageDialogOpen, setIsLanguageDialogOpen] = useState(false);
+  const [isTimezoneDialogOpen, setIsTimezoneDialogOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  const [selectedLanguage, setSelectedLanguage] = useState(currentUser?.preferences?.language || "pt-BR");
+  const [selectedTimezone, setSelectedTimezone] = useState(currentUser?.preferences?.timezone || "UTC");
+  const [notification, setNotification] = useState(currentUser?.preferences?.notifications || {
+    pushEnabled: true,
+    emailEnabled: true,
     feedingReminders: true,
     missedFeedingAlerts: true,
-    householdUpdates: true
-  })
-  const [profileName, setProfileName] = useState("")
+    householdUpdates: true,
+  });
+  const [profileName, setProfileName] = useState(currentUser?.name || "");
+
+  // Add missing handler functions
+  const toggleTheme = useCallback(() => {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  }, [theme, setTheme]);
+
+  const updateNotificationSetting = useCallback((key: keyof NotificationSettings, value: boolean) => {
+    setNotification(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out');
+    }
+  }, []);
+
+  const saveLanguage = useCallback(async () => {
+    setIsLanguageDialogOpen(false);
+    await handleSaveSettings();
+  }, []);
+
+  const saveTimezone = useCallback(async () => {
+    setIsTimezoneDialogOpen(false);
+    await handleSaveSettings();
+  }, []);
+
+  const saveProfile = useCallback(async () => {
+    setIsProfileDialogOpen(false);
+    await handleSaveSettings();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const loadSettings = useCallback(async () => {
-    if (!session?.user || status !== "authenticated" || hasAttemptedLoad) return;
+    if (!session?.user || status !== "authenticated") return;
+    if (loadingRef.current) return;
 
+    loadingRef.current = true;
     try {
       setIsLoading(true);
       const response = await fetch('/api/settings');
+      
+      if (!mountedRef.current) return;
+
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(data.error || 'Falha ao carregar configurações');
       }
+
+      if (!mountedRef.current) return;
 
       const formattedUser = {
         id: Number(data.id),
@@ -331,170 +382,100 @@ export default function SettingsPage() {
           timezone: data.timezone || "UTC",
           language: data.language || "pt-BR",
           notifications: {
-            pushEnabled: true,
-            emailEnabled: true,
-            feedingReminders: true,
-            missedFeedingAlerts: true,
-            householdUpdates: true,
+            pushEnabled: data.notifications?.pushEnabled ?? true,
+            emailEnabled: data.notifications?.emailEnabled ?? true,
+            feedingReminders: data.notifications?.feedingReminders ?? true,
+            missedFeedingAlerts: data.notifications?.missedFeedingAlerts ?? true,
+            householdUpdates: data.notifications?.householdUpdates ?? true,
           },
         },
-        role: (data.role as "admin" | "user") || "user"
+        role: data.role || "user"
+      };
+
+      if (mountedRef.current) {
+        dispatch({ type: "SET_CURRENT_USER", payload: formattedUser });
+        setSelectedLanguage(formattedUser.preferences.language);
+        setSelectedTimezone(formattedUser.preferences.timezone);
+        setNotification(formattedUser.preferences.notifications);
+        setProfileName(formattedUser.name);
       }
-
-      dispatch({ type: "SET_CURRENT_USER", payload: formattedUser });
-      
-      setSelectedLanguage(formattedUser.preferences.language);
-      setSelectedTimezone(formattedUser.preferences.timezone);
-      setNotification(formattedUser.preferences.notifications);
-      setProfileName(formattedUser.name);
-      setHasAttemptedLoad(true);
     } catch (error) {
-      console.error('Erro ao carregar configurações:', error);
-      toast.error(error instanceof Error ? error.message : 'Erro ao carregar configurações');
+      if (mountedRef.current) {
+        console.error('Erro ao carregar configurações:', error);
+        toast.error(error instanceof Error ? error.message : 'Erro ao carregar configurações');
+      }
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+        setHasAttemptedLoad(true);
+        loadingRef.current = false;
+      }
     }
-  }, [session, status, hasAttemptedLoad, dispatch]);
+  }, [session, status, dispatch]);
 
-  // Carregamento inicial
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-      return
+    if (!hasAttemptedLoad) {
+      loadSettings();
     }
+  }, [loadSettings, hasAttemptedLoad]);
 
-    if (status === "loading" || !session?.user || hasAttemptedLoad) {
-      return
-    }
-
-    loadSettings();
-  }, [session, status, router, hasAttemptedLoad, loadSettings]);
-
-  // Funções de atualização
-  const updateSettings = useCallback(async (updates: any) => {
-    if (!state.currentUser) return
+  const handleSaveSettings = async () => {
+    if (!currentUser?.id || isLoading) return;
 
     try {
+      setIsLoading(true);
       const response = await fetch('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: profileName,
+          preferences: {
+            language: selectedLanguage,
+            timezone: selectedTimezone,
+            notifications: notification,
+          },
+        }),
+      });
 
-      const data = await response.json()
+      if (!mountedRef.current) return;
+
+      const data = await response.json();
 
       if (!response.ok) {
-        if (data.errors) {
-          data.errors.forEach((error: { field: string; message: string }) => {
-            toast.error(error.message)
-          })
-          return
-        }
-        throw new Error(data.error || 'Falha ao atualizar configurações')
+        throw new Error(data.error || 'Falha ao salvar configurações');
       }
 
-      dispatch({ type: "SET_CURRENT_USER", payload: data })
-      toast.success("Configurações atualizadas")
+      if (mountedRef.current) {
+        dispatch({
+          type: "SET_CURRENT_USER",
+          payload: {
+            ...currentUser,
+            name: profileName,
+            preferences: {
+              language: selectedLanguage,
+              timezone: selectedTimezone,
+              notifications: notification,
+            },
+          },
+        });
+        toast.success('Configurações salvas com sucesso');
+      }
     } catch (error) {
-      toast.error("Erro ao atualizar configurações")
-      console.error('Erro ao salvar configurações:', error)
+      if (mountedRef.current) {
+        console.error('Erro ao salvar configurações:', error);
+        toast.error(error instanceof Error ? error.message : 'Erro ao salvar configurações');
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
-  }, [state.currentUser, dispatch]);
-
-  const saveLanguage = useCallback(() => {
-    if (!state.currentUser) return;
-    
-    updateSettings({
-      name: state.currentUser.name,
-      timezone: state.currentUser.preferences.timezone,
-      language: selectedLanguage
-    });
-    setIsLanguageDialogOpen(false);
-  }, [state.currentUser, selectedLanguage, updateSettings]);
-
-  const saveTimezone = useCallback(() => {
-    if (!state.currentUser) return;
-    
-    updateSettings({
-      name: state.currentUser.name,
-      timezone: selectedTimezone,
-      language: state.currentUser.preferences.language
-    });
-    setIsTimezoneDialogOpen(false);
-  }, [state.currentUser, selectedTimezone, updateSettings]);
-
-  const saveProfile = useCallback(() => {
-    if (!profileName.trim()) {
-      toast.error("Nome não pode estar vazio");
-      return;
-    }
-
-    if (!state.currentUser) {
-      toast.error("Erro ao salvar perfil: usuário não encontrado");
-      return;
-    }
-
-    updateSettings({
-      name: profileName.trim(),
-      timezone: state.currentUser.preferences.timezone,
-      language: state.currentUser.preferences.language
-    });
-    setIsProfileDialogOpen(false);
-  }, [state.currentUser, profileName, updateSettings]);
-
-  const updateNotificationSetting = useCallback((key: keyof NotificationSettings, value: boolean) => {
-    // Update local state for immediate UI feedback
-    const newSettings = { ...notification, [key]: value };
-    setNotification(newSettings);
-
-    // Prepare update payload for the API
-    if (state.currentUser) {
-      const updates = {
-        // Include other potentially required fields for the API endpoint,
-        // like name, timezone, language, or just the preferences object.
-        // Assuming the API accepts updates to the nested preferences structure:
-         preferences: {
-             ...state.currentUser.preferences, // Keep existing language/timezone
-             notifications: newSettings // Send the complete updated notifications object
-         }
-         // Alternatively, if the API endpoint only wants the changed key:
-         // notificationKey: key,
-         // notificationValue: value
-      };
-
-       // Call the function to persist changes via API
-       updateSettings(updates);
-
-      // Also update global state optimistically (or after successful API call in updateSettings)
-      // The current optimistic update in updateSettings might be sufficient if the API returns the full user object.
-      // Let's keep the optimistic global state update here for faster UI reflection,
-      // assuming updateSettings handles potential API errors and rollbacks if necessary.
-      const updatedUser = {
-        ...state.currentUser,
-        preferences: {
-          ...state.currentUser.preferences,
-          notifications: newSettings,
-        },
-      };
-      dispatch({ type: "SET_CURRENT_USER", payload: updatedUser });
-
-    } else {
-       toast.error("Erro: Usuário não encontrado para salvar configurações de notificação.");
-    }
-
-  }, [state.currentUser, notification, updateSettings, dispatch]); // Added notification and updateSettings to dependencies
-
-  const toggleTheme = useCallback(() => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
-  }, [theme, setTheme]);
-
-  const handleLogout = useCallback(() => {
-    toast.success("Você foi desconectado");
-    router.push('/');
-  }, [router]);
+  };
 
   // Renderização condicional
-  if (status === "loading" || isLoading) {
+  if (status === "loading") {
     return (
       <SettingsLayout>
         <div className="flex-1 p-4 pb-24">
@@ -504,14 +485,19 @@ export default function SettingsPage() {
     )
   }
 
-  if (!state.currentUser && !loadingState.isGlobalLoading) {
+  if (!session?.user) {
+    router.push('/auth/signin');
+    return null;
+  }
+
+  if (isLoading && !currentUser) {
     return (
       <SettingsLayout>
-        <div className="flex-1 flex items-center justify-center">
-          <Loading text="Carregando configurações..." />
+        <div className="flex-1 p-4 pb-24">
+          <SettingsSkeleton />
         </div>
       </SettingsLayout>
-    );
+    )
   }
 
   // Renderização principal
@@ -519,7 +505,7 @@ export default function SettingsPage() {
     <SettingsLayout>
       <div className="flex-1 p-4 pb-24">
         <ProfileSection 
-          user={state.currentUser} 
+          user={currentUser} 
           onEditProfile={() => setIsProfileDialogOpen(true)} 
         />
         

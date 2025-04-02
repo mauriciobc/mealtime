@@ -3,54 +3,141 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "../auth/[...nextauth]/route"
 import prisma from "@/lib/prisma"
 import { validateSettings, validateName, validateTimezone, validateLanguage } from "@/lib/validations/settings"
+import { headers } from 'next/headers'
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
+    console.log("[Settings API] Request received");
+    const headersList = headers();
+    console.log("[Settings API] Request headers:", Object.fromEntries(headersList.entries()));
+
+    console.log("[Settings API] Getting session");
+    const session = await getServerSession(authOptions);
     
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: "Não autorizado" },
-        { status: 401 }
-      )
+    // Log full session object for debugging
+    console.log("[Settings API] Full session object:", JSON.stringify(session, null, 2));
+    console.log("[Settings API] Session details:", { 
+      authenticated: !!session, 
+      hasUser: !!session?.user,
+      email: session?.user?.email,
+      headers: headersList ? Object.fromEntries(headersList.entries()) : 'No headers'
+    });
+    
+    if (!session) {
+      console.log("[Settings API] No session found");
+      return new NextResponse(
+        JSON.stringify({ error: "Sessão não encontrada" }),
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        timezone: true,
-        language: true,
-        role: true,
-        householdId: true
-      }
-    })
+    if (!session.user?.email) {
+      console.log("[Settings API] No user email in session");
+      return new NextResponse(
+        JSON.stringify({ error: "Email do usuário não encontrado na sessão" }),
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    console.log("[Settings API] Finding user by email:", session.user.email);
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          timezone: true,
+          language: true,
+          role: true,
+          householdId: true
+        }
+      });
+      console.log("[Settings API] Prisma query result:", JSON.stringify(user, null, 2));
+    } catch (dbError) {
+      console.error("[Settings API] Database error:", dbError);
+      return new NextResponse(
+        JSON.stringify({ error: "Erro ao buscar dados do usuário no banco de dados" }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Usuário não encontrado" },
-        { status: 404 }
-      )
+      console.log("[Settings API] User not found in database");
+      return new NextResponse(
+        JSON.stringify({ error: "Usuário não encontrado no banco de dados" }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
-    console.log('User from database:', user);
-    return NextResponse.json(user)
+    // Format the response to include preferences
+    const response = {
+      ...user,
+      preferences: {
+        timezone: user.timezone || "UTC",
+        language: user.language || "pt-BR",
+        notifications: {
+          pushEnabled: true,
+          emailEnabled: true,
+          feedingReminders: true,
+          missedFeedingAlerts: true,
+          householdUpdates: true
+        }
+      }
+    };
+
+    console.log('[Settings API] User data being returned:', JSON.stringify(response, null, 2));
+    return new NextResponse(
+      JSON.stringify(response),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   } catch (error) {
-    console.error("Erro ao buscar configurações:", error)
-    return NextResponse.json(
-      { error: "Erro interno do servidor" },
-      { status: 500 }
-    )
+    console.error("[Settings API] Unhandled error:", error);
+    return new NextResponse(
+      JSON.stringify({ error: "Erro interno do servidor" }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
   }
 }
 
 export async function PUT(request: Request) {
   try {
+    console.log("[Settings API] Getting session for PUT");
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.email) {
+      console.log("[Settings API] No authenticated user for PUT");
       return NextResponse.json(
         { error: "Não autorizado" },
         { status: 401 }
@@ -58,11 +145,13 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
+    console.log("[Settings API] Received PUT data:", body);
     const { name, timezone, language } = body
 
     // Validação do nome
     const nameValidation = validateName(name)
     if (!nameValidation.success) {
+      console.log("[Settings API] Name validation failed:", nameValidation.message);
       return NextResponse.json(
         { error: nameValidation.message },
         { status: 400 }
@@ -72,6 +161,7 @@ export async function PUT(request: Request) {
     // Validação do timezone
     const timezoneValidation = validateTimezone(timezone)
     if (!timezoneValidation.success) {
+      console.log("[Settings API] Timezone validation failed:", timezoneValidation.message);
       return NextResponse.json(
         { error: timezoneValidation.message },
         { status: 400 }
@@ -81,6 +171,7 @@ export async function PUT(request: Request) {
     // Validação do idioma
     const languageValidation = validateLanguage(language)
     if (!languageValidation.success) {
+      console.log("[Settings API] Language validation failed:", languageValidation.message);
       return NextResponse.json(
         { error: languageValidation.message },
         { status: 400 }
@@ -102,12 +193,14 @@ export async function PUT(request: Request) {
     })
 
     if (!settingsValidation.success) {
+      console.log("[Settings API] Settings validation failed:", settingsValidation.errors);
       return NextResponse.json(
         { errors: settingsValidation.errors },
         { status: 400 }
       )
     }
 
+    console.log("[Settings API] Updating user:", session.user.email);
     const updatedUser = await prisma.user.update({
       where: { email: session.user.email },
       data: {
@@ -126,9 +219,26 @@ export async function PUT(request: Request) {
       }
     })
 
-    return NextResponse.json(updatedUser)
+    // Format the response to include preferences
+    const response = {
+      ...updatedUser,
+      preferences: {
+        timezone: updatedUser.timezone || "UTC",
+        language: updatedUser.language || "pt-BR",
+        notifications: {
+          pushEnabled: false,
+          emailEnabled: false,
+          feedingReminders: true,
+          missedFeedingAlerts: true,
+          householdUpdates: true
+        }
+      }
+    }
+
+    console.log("[Settings API] Updated user data:", response);
+    return NextResponse.json(response)
   } catch (error) {
-    console.error("Erro ao atualizar configurações:", error)
+    console.error("[Settings API] Error:", error)
     return NextResponse.json(
       { error: "Erro interno do servidor" },
       { status: 500 }

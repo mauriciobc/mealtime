@@ -1,14 +1,23 @@
-import { Drawer } from "vaul";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { FeedingLogItem } from "./feeding-log-item";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect } from "react";
+import { FeedingForm } from "./feeding-form";
+import { BaseFeedingLog, BaseCat, BaseUser } from "@/lib/types/common";
+import { FeedingLog } from "@/lib/types";
 
 interface FeedingDrawerProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  feedingLog: any;
+  feedingLog: FeedingLog;
 }
 
 export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawerProps) {
@@ -22,29 +31,49 @@ export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawe
     }
   }, [isOpen]);
 
+  // Transform FeedingLog into BaseFeedingLog with optional cat and user
+  const transformedLog: BaseFeedingLog & { cat?: BaseCat; user?: BaseUser } = {
+    id: feedingLog.id,
+    catId: feedingLog.catId,
+    userId: feedingLog.userId,
+    timestamp: new Date(feedingLog.timestamp),
+    portionSize: feedingLog.portionSize,
+    notes: feedingLog.notes,
+    status: feedingLog.status,
+    createdAt: new Date(feedingLog.createdAt),
+    cat: feedingLog.cat ? {
+      id: feedingLog.cat.id,
+      name: feedingLog.cat.name,
+      photoUrl: feedingLog.cat.photoUrl,
+      birthdate: feedingLog.cat.birthdate ? new Date(feedingLog.cat.birthdate) : undefined,
+      weight: feedingLog.cat.weight,
+      restrictions: feedingLog.cat.restrictions,
+      notes: feedingLog.cat.notes,
+      householdId: feedingLog.cat.householdId,
+      feedingInterval: feedingLog.cat.feedingInterval,
+      portion_size: feedingLog.cat.portion_size
+    } : undefined,
+    user: feedingLog.user ? {
+      id: feedingLog.user.id,
+      name: feedingLog.user.name,
+      email: feedingLog.user.email,
+      avatar: feedingLog.user.avatar,
+      householdId: feedingLog.user.householdId,
+      preferences: feedingLog.user.preferences,
+      role: feedingLog.user.role
+    } : undefined
+  };
+
   return (
-    <Drawer.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Drawer.Portal>
-        <AnimatePresence>
-          {isOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Drawer.Overlay className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <Drawer.Content className="bg-background flex flex-col rounded-t-[10px] h-[96vh] mt-24 fixed bottom-0 left-0 right-0 border-t">
-          <div className="p-4 bg-background rounded-t-[10px] flex-1 overflow-y-auto">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-muted mb-8" />
-            <div className="max-w-md mx-auto">
+    <Drawer open={isOpen} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <div className="p-4 bg-background rounded-t-[10px] flex-1 overflow-y-auto">
+          <div className="max-w-md mx-auto">
+            <DrawerHeader>
               <div className="flex items-center justify-between mb-2">
-                <Drawer.Title className="text-xl font-semibold text-foreground">
+                <DrawerTitle>
                   Detalhes da Alimentação
-                </Drawer.Title>
+                </DrawerTitle>
                 <button
                   onClick={() => onOpenChange(false)}
                   className="rounded-full p-2 hover:bg-muted transition-colors"
@@ -53,62 +82,40 @@ export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawe
                   <X className="h-5 w-5 text-muted-foreground" />
                 </button>
               </div>
-              <Drawer.Description className="text-sm text-muted-foreground mb-4">
+              <DrawerDescription>
                 Visualize informações detalhadas sobre a última alimentação registrada
-              </Drawer.Description>
-              {feedingLog && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <FeedingLogItem
-                    log={{
-                      ...feedingLog,
-                      createdAt: feedingLog.timestamp,
-                      cat: feedingLog.cat ? {
-                        ...feedingLog.cat,
-                        householdId: feedingLog.cat.householdId || 0,
-                        feeding_interval: feedingLog.cat.feeding_interval || 0
-                      } : undefined,
-                      user: feedingLog.user ? {
-                        id: feedingLog.user.id,
-                        name: feedingLog.user.name,
-                        email: feedingLog.user.email,
-                        avatar: feedingLog.user.avatar,
-                        householdId: feedingLog.user.households?.[0] ? parseInt(feedingLog.user.households[0]) : null,
-                        preferences: {
-                          timezone: "America/Sao_Paulo",
-                          language: "pt-BR",
-                          notifications: {
-                            pushEnabled: true,
-                            emailEnabled: true,
-                            feedingReminders: true,
-                            missedFeedingAlerts: true,
-                            householdUpdates: true
-                          }
-                        },
-                        role: feedingLog.user.role || "user"
-                      } : undefined
-                    }}
-                    onView={() => {
-                      onOpenChange(false);
-                      router.push(`/feedings/${feedingLog.id}`);
-                    }}
-                    onEdit={() => {
-                      onOpenChange(false);
-                      router.push(`/feedings/${feedingLog.id}/edit`);
-                    }}
-                    onDelete={() => {
-                      // Função para excluir o registro
-                    }}
-                  />
-                </motion.div>
-              )}
-            </div>
+              </DrawerDescription>
+            </DrawerHeader>
+            {transformedLog && transformedLog.cat && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <FeedingForm
+                  catId={transformedLog.cat.id}
+                  catPortionSize={transformedLog.cat.portion_size}
+                  onSuccess={() => onOpenChange(false)}
+                />
+                <FeedingLogItem
+                  log={transformedLog}
+                  onView={() => {
+                    onOpenChange(false);
+                    router.push(`/feedings/${transformedLog.id}`);
+                  }}
+                  onEdit={() => {
+                    onOpenChange(false);
+                    router.push(`/feedings/${transformedLog.id}/edit`);
+                  }}
+                  onDelete={() => {
+                    // Função para excluir o registro
+                  }}
+                />
+              </motion.div>
+            )}
           </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 } 
