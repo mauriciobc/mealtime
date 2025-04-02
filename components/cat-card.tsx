@@ -7,12 +7,16 @@ import { ptBR } from "date-fns/locale";
 import { 
   Edit, 
   Trash2, 
-  MoreHorizontal, 
-  Eye
+  Eye,
+  Calendar,
+  Weight,
+  Info
 } from "lucide-react";
+import Image from 'next/image';
 import { CatType } from "@/lib/types";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   Card, 
   CardContent, 
@@ -20,12 +24,6 @@ import {
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,38 +34,35 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getAgeString } from "@/lib/utils/dateUtils";
 
 interface CatCardProps {
   cat: CatType;
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
-  showAdminActions?: boolean;
 }
 
-export function CatCard({ cat, onView, onEdit, onDelete, showAdminActions = true }: CatCardProps) {
+export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  const formatAge = (birthdate: Date) => {
-    const today = new Date();
-    const birth = new Date(birthdate);
-    
-    const yearDiff = today.getFullYear() - birth.getFullYear();
-    const monthDiff = today.getMonth() - birth.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      return `${yearDiff - 1} anos e ${12 + monthDiff} meses`;
-    }
-    
-    if (yearDiff > 0) {
-      return `${yearDiff} ${yearDiff === 1 ? 'ano' : 'anos'} e ${monthDiff} ${monthDiff === 1 ? 'mês' : 'meses'}`;
-    }
-    
-    return `${monthDiff} ${monthDiff === 1 ? 'mês' : 'meses'}`;
+  const ageString = cat.birthdate ? getAgeString(cat.birthdate) : "Idade desconhecida";
+
+  const lastFed = cat.feedingLogs && cat.feedingLogs.length > 0 
+    ? formatDistanceToNow(new Date(cat.feedingLogs[0].timestamp), {
+        addSuffix: true,
+        locale: ptBR,
+      })
+    : "Nunca alimentado";
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteDialog(true);
   };
 
-  const handleDeleteClick = () => {
-    setShowDeleteDialog(true);
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit();
   };
 
   const confirmDelete = () => {
@@ -82,84 +77,64 @@ export function CatCard({ cat, onView, onEdit, onDelete, showAdminActions = true
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
         whileHover={{ y: -5, transition: { duration: 0.2 } }}
+        className="h-full cursor-pointer"
+        onClick={onView}
       >
-        <Card className="h-full overflow-hidden">
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarImage src={cat.photoUrl || ""} alt={cat.name} />
-                  <AvatarFallback className="bg-purple-100 text-purple-500">
-                    {cat.name.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <CardTitle className="text-xl">{cat.name}</CardTitle>
-              </div>
-              {showAdminActions && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={onView} className="flex items-center gap-2 cursor-pointer">
-                      <Eye className="h-4 w-4" />
-                      <span>Visualizar</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={onEdit} className="flex items-center gap-2 cursor-pointer">
-                      <Edit className="h-4 w-4" />
-                      <span>Editar</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleDeleteClick} className="flex items-center gap-2 text-destructive cursor-pointer">
-                      <Trash2 className="h-4 w-4" />
-                      <span>Excluir</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+        <Card className="h-full overflow-hidden flex flex-col">
+           <div className="relative w-full aspect-[3/1] bg-muted"> 
+              {cat.photoUrl ? (
+                 <Image 
+                    src={cat.photoUrl} 
+                    alt={cat.name} 
+                    layout="fill" 
+                    objectFit="cover" 
+                    className="absolute inset-0"
+                 />
+              ) : (
+                 <Avatar className="absolute inset-0 flex items-center justify-center bg-purple-100 w-full h-full rounded-none"> 
+                   <AvatarFallback className="text-purple-500 text-4xl bg-transparent"> 
+                     {cat.name.substring(0, 2).toUpperCase()}
+                   </AvatarFallback>
+                 </Avatar>
               )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2 text-sm">
+           </div>
+
+           <CardHeader className="pt-4 pb-2">
+              <CardTitle className="text-lg font-semibold">{cat.name}</CardTitle>
+           </CardHeader>
+           <CardContent className="flex-grow space-y-1.5 text-sm text-muted-foreground">
               {cat.birthdate && (
-                <p>
-                  <span className="font-medium">Idade:</span>{" "}
-                  {formatAge(cat.birthdate)}
-                </p>
+                 <div className="flex items-center gap-1.5">
+                   <Calendar className="h-4 w-4"/> 
+                   <span>{ageString}</span>
+                 </div>
               )}
               {cat.weight && (
-                <p>
-                  <span className="font-medium">Peso:</span> {cat.weight} kg
-                </p>
+                 <div className="flex items-center gap-1.5">
+                   <Weight className="h-4 w-4"/> 
+                   <span>{cat.weight} kg</span>
+                 </div>
               )}
               {cat.breed && (
-                <p>
-                  <span className="font-medium">Raça:</span>{" "}
-                  {cat.breed}
-                </p>
+                 <p><span className="font-medium">Raça:</span> {cat.breed}</p>
               )}
               {cat.restrictions && (
-                <p>
-                  <span className="font-medium">Restrições:</span>{" "}
-                  {cat.restrictions}
-                </p>
+                 <p><span className="font-medium">Restrições:</span> {cat.restrictions}</p>
               )}
-            </div>
-          </CardContent>
-          <CardFooter className="pt-2 text-xs text-muted-foreground">
-            {cat.feedingLogs && cat.feedingLogs.length > 0 ? (
-              <p>
-                Última alimentação:{" "}
-                {formatDistanceToNow(new Date(cat.feedingLogs[0].timestamp), {
-                  addSuffix: true,
-                  locale: ptBR,
-                })}
-              </p>
-            ) : (
-              <p>Sem registros de alimentação</p>
-            )}
-          </CardFooter>
+              
+              <div className="pt-1"> 
+                 <Badge variant="outline">{lastFed}</Badge>
+              </div>
+           </CardContent>
+
+           <CardFooter className="pt-3 pb-3 flex justify-end gap-2 border-t mt-auto">
+              <Button variant="ghost" size="icon" onClick={handleEditClick} aria-label={`Editar ${cat.name}`}>
+                 <Edit className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDeleteClick} aria-label={`Excluir ${cat.name}`}>
+                 <Trash2 className="h-4 w-4" />
+              </Button>
+           </CardFooter>
         </Card>
       </motion.div>
 
@@ -173,8 +148,8 @@ export function CatCard({ cat, onView, onEdit, onDelete, showAdminActions = true
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground">
+            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

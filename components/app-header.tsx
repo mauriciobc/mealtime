@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import Image from "next/image";
 
 // Componente para exibir os links de navegação no menu
 const NavLinks = ({ className, onClick = () => {} }: { className?: string; onClick?: () => void }) => {
@@ -129,7 +130,18 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
               </Button>
             )}
             <Link href="/" className="flex items-center gap-2">
-              <span className="font-bold">{title || "MealTime"}</span>
+              {title ? (
+                <span className="font-bold">{title}</span>
+              ) : (
+                <Image
+                  src="/images/SVG/mealtime-logo.svg"
+                  alt="MealTime"
+                  width={120}
+                  height={30}
+                  className="h-7 w-auto"
+                  priority
+                />
+              )}
             </Link>
           </div>
 
