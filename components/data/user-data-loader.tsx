@@ -166,7 +166,7 @@ export function UserDataLoader() {
       removeLoadingOperation(currentLoadingId);
     };
     // Correct dependency array using the variable defined outside
-  }, [status, userEmail, userDispatch, updateSession, addLoadingOperation, removeLoadingOperation]);
+  }, [status, userEmail, userDispatch, updateSession, addLoadingOperation, removeLoadingOperation, session]);
 
   return null;
 } 

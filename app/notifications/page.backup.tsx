@@ -147,8 +147,7 @@ export default function NotificationsPage() {
       mountedRef.current = false;
       console.log(`[NotificationsPage] Component unmounted`);
     };
-  // Removed notifications from dependency array to avoid excessive logging/refreshing
-  }, [refreshNotifications, unreadCount, isLoading, lastUpdated]); 
+  }, [refreshNotifications, unreadCount, isLoading, lastUpdated, notifications.length]); 
 
   // Handlers memoizados
   const handleMarkAllAsRead = useCallback(async () => {

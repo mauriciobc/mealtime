@@ -108,7 +108,7 @@ export function DataProvider({ children }: DataProviderProps) {
         removeLoadingOperation(loadingId)
       }
     }
-  }, [status, currentUser?.id, currentUser?.householdId, appDispatch, addLoadingOperation, removeLoadingOperation])
+  }, [status, currentUser?.id, currentUser?.householdId, appDispatch, addLoadingOperation, removeLoadingOperation, currentUser])
 
   return (
     <>

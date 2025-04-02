@@ -335,17 +335,17 @@ export default function SettingsPage() {
   const saveLanguage = useCallback(async () => {
     setIsLanguageDialogOpen(false);
     await handleSaveSettings();
-  }, []);
+  }, [handleSaveSettings]);
 
   const saveTimezone = useCallback(async () => {
     setIsTimezoneDialogOpen(false);
     await handleSaveSettings();
-  }, []);
+  }, [handleSaveSettings]);
 
   const saveProfile = useCallback(async () => {
     setIsProfileDialogOpen(false);
     await handleSaveSettings();
-  }, []);
+  }, [handleSaveSettings]);
 
   useEffect(() => {
     return () => {

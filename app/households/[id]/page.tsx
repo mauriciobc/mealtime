@@ -181,7 +181,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       removeLoadingOperation(opId);
     };
 
-  }, [status, currentUser, households, householdId, allCats, router, addLoadingOperation, removeLoadingOperation]);
+  }, [status, currentUser, households, householdId, allCats, router, addLoadingOperation, removeLoadingOperation, isLoadingData]);
 
   const isCurrentUserAdmin = useCallback(() => {
     if (!household || !currentUser) return false;
