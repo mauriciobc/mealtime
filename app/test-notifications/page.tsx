@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNotifications } from "@/lib/context/NotificationContext";
 import { createNotification } from "@/lib/services/notificationService";
-import { useAppContext } from "@/lib/context/AppContext";
+import { useUserContext } from "@/lib/context/UserContext";
 import { toast } from "sonner";
-import { NotificationType } from "@/lib/types/notification";
+import { NotificationType, CreateNotificationPayload } from "@/lib/types/notification";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -24,75 +24,68 @@ interface LogEntry {
     response?: any;
     error?: any;
     context?: any;
+    errorObject?: any;
   };
 }
 
 export default function TestNotificationsPage() {
+  console.log("[TestNotificationsPage] Rendering...");
   const { 
-    addNotification, 
     notifications, 
     isLoading: notificationsLoading, 
-    error: notificationsError 
+    error: notificationsError,
+    refreshNotifications,
+    unreadCount,
+    isLoading: contextIsLoading,
+    page,
+    totalPages,
+    hasMore
   } = useNotifications();
-  const { state: appState } = useAppContext();
+  const { state: userState } = useUserContext();
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
-  const addLog = useCallback((entry: LogEntry) => {
-    try {
-      setLogs(prev => [entry, ...prev]);
-    } catch (error) {
-      console.error("Erro ao adicionar log:", error);
-    }
+  console.log("[TestNotificationsPage] Context State:", {
+    notificationsCount: notifications.length,
+    unreadCount,
+    contextIsLoading,
+    contextError: notificationsError,
+    page,
+    totalPages,
+    hasMore,
+    componentIsLoading: isLoading
+  });
+  console.log("[TestNotificationsPage] User State:", userState);
+
+  const addLog = useCallback((log: LogEntry) => {
+    console.log("[TestNotificationsPage] Adding log entry:", log);
+    setLogs(prevLogs => [log, ...prevLogs]);
   }, []);
 
   const handleCreateNotification = useCallback(async (type: NotificationType, title: string, message: string) => {
+    console.log(`[TestNotificationsPage] handleCreateNotification called with: type=${type}, title=${title}, message=${message}`);
     if (!type || !title || !message) {
-      const missingFields = [];
-      if (!type) missingFields.push('type');
-      if (!title) missingFields.push('title');
-      if (!message) missingFields.push('message');
-
-      toast.error(`Campos obrigatórios faltando: ${missingFields.join(', ')}`);
+      const errorMsg = "Todos os campos são obrigatórios";
+      console.error(`[TestNotificationsPage] Validation failed: ${errorMsg}`);
+      toast.error(errorMsg);
       addLog({
         timestamp: new Date(),
-        type: type || "info",
-        title: title || "Sem título",
-        message: message || "Sem mensagem",
+        type: type || 'info', // Use provided type or default
+        title: title || 'Validation Error',
+        message: message || 'Missing fields',
         status: "error",
         details: {
-          error: "Dados da notificação inválidos",
-          context: {
-            type,
-            title,
-            message,
-            missingFields
-          }
+          error: errorMsg,
+          context: { type, title, message }
         }
       });
       return;
     }
 
-    // Log inicial
-    addLog({
-      timestamp: new Date(),
-      type,
-      title,
-      message,
-      status: "info",
-      details: {
-        payload: {
-          type,
-          title,
-          message,
-          userId: appState.currentUser?.id,
-          householdId: appState.currentUser?.householdId
-        }
-      }
-    });
-
-    if (!appState.currentUser?.id) {
-      toast.error("Usuário não autenticado");
+    if (!userState.currentUser?.id) {
+      const errorMsg = "Usuário não autenticado";
+      console.error(`[TestNotificationsPage] Auth failed: ${errorMsg}`);
+      toast.error(errorMsg);
       addLog({
         timestamp: new Date(),
         type,
@@ -100,17 +93,17 @@ export default function TestNotificationsPage() {
         message,
         status: "error",
         details: {
-          error: "Usuário não autenticado",
-          context: {
-            currentUser: appState.currentUser
-          }
+          error: errorMsg,
+          context: { currentUser: userState.currentUser }
         }
       });
       return;
     }
 
-    if (!appState.currentUser?.householdId) {
-      toast.error("Usuário não pertence a nenhuma casa");
+    if (!userState.currentUser?.householdId) {
+      const errorMsg = "Usuário não pertence a nenhuma casa";
+       console.error(`[TestNotificationsPage] Household check failed: ${errorMsg}`);
+      toast.error(errorMsg);
       addLog({
         timestamp: new Date(),
         type,
@@ -118,62 +111,29 @@ export default function TestNotificationsPage() {
         message,
         status: "error",
         details: {
-          error: "Usuário não pertence a nenhuma casa",
-          context: {
-            currentUser: appState.currentUser
-          }
+          error: errorMsg,
+          context: { currentUser: userState.currentUser }
         }
       });
       return;
     }
 
+    console.log("[TestNotificationsPage] Setting loading state to true");
     setIsLoading(true);
+
     try {
-      // Log antes da chamada à API
-      addLog({
-        timestamp: new Date(),
+      const payload: CreateNotificationPayload = {
         type,
         title,
         message,
-        status: "info",
-        details: {
-          context: {
-            currentNotifications: notifications?.length || 0,
-            isAuthenticated: true,
-            userId: appState.currentUser.id,
-            householdId: appState.currentUser.householdId
-          }
-        }
-      });
+        userId: userState.currentUser.id,
+        householdId: userState.currentUser.householdId
+      };
+      console.log("[TestNotificationsPage] Calling createNotification service with payload:", payload);
 
-      const notification = await createNotification({
-        title,
-        message,
-        type,
-        userId: appState.currentUser.id,
-        householdId: appState.currentUser.householdId
-      });
-
-      if (!notification) {
-        throw new Error("Falha ao criar notificação: resposta vazia");
-      }
-
-      // Log da resposta da API
-      addLog({
-        timestamp: new Date(),
-        type,
-        title,
-        message,
-        status: "info",
-        details: {
-          response: notification
-        }
-      });
-
-      addNotification(notification);
-      toast.success("Notificação criada com sucesso!");
-
-      // Log de sucesso com contexto atualizado
+      const response = await createNotification(payload);
+      console.log("[TestNotificationsPage] createNotification service responded:", response);
+      
       addLog({
         timestamp: new Date(),
         type,
@@ -181,17 +141,20 @@ export default function TestNotificationsPage() {
         message,
         status: "success",
         details: {
-          context: {
-            updatedNotifications: (notifications?.length || 0) + 1,
-            notificationId: notification.id
-          }
+          payload,
+          response
         }
       });
-    } catch (error) {
-      console.error("Erro ao criar notificação:", error);
-      toast.error(error instanceof Error ? error.message : "Erro ao criar notificação");
 
-      // Log detalhado do erro
+      console.log("[TestNotificationsPage] Notification created successfully. Calling refreshNotifications.");
+      toast.success("Notificação criada com sucesso!");
+      await refreshNotifications();
+      console.log("[TestNotificationsPage] refreshNotifications completed.");
+      
+    } catch (error) {
+      console.error("[TestNotificationsPage] Error creating notification:", error);
+      const errorMsg = error instanceof Error ? error.message : "Erro desconhecido ao criar notificação";
+      
       addLog({
         timestamp: new Date(),
         type,
@@ -199,22 +162,21 @@ export default function TestNotificationsPage() {
         message,
         status: "error",
         details: {
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack
-          } : error,
+          error: errorMsg,
+          errorObject: error, // Log the full error object
           context: {
-            currentNotifications: notifications?.length || 0,
-            isAuthenticated: true,
-            userId: appState.currentUser.id,
-            householdId: appState.currentUser.householdId
+            currentUser: userState.currentUser,
+            payload: { type, title, message } // Log input payload on error
           }
         }
       });
+      
+      toast.error(errorMsg);
     } finally {
+      console.log("[TestNotificationsPage] Setting loading state to false");
       setIsLoading(false);
     }
-  }, [addNotification, notifications, appState.currentUser?.id, appState.currentUser?.householdId, addLog]);
+  }, [userState.currentUser, addLog, refreshNotifications]);
 
   const notificationTypes = [
     {

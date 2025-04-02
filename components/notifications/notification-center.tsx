@@ -59,6 +59,7 @@ export function NotificationCenter() {
 
   // Marcar todas as notificações como lidas
   const handleMarkAllAsRead = async () => {
+    console.log(`[NotificationCenter] Marking all notifications as read`);
     try {
       await markAllAsRead();
       // Refresh notifications after marking all as read
@@ -66,8 +67,15 @@ export function NotificationCenter() {
       toast({
         description: "Todas as notificações foram marcadas como lidas",
       });
+      // Close the popover after successful action
+      setIsOpen(false);
     } catch (error) {
-      console.error("Erro ao marcar notificações como lidas:", error);
+      console.error(`[NotificationCenter] Error marking all notifications as read:`, error);
+      toast({
+        title: "Erro",
+        description: error instanceof Error ? error.message : "Não foi possível marcar todas as notificações como lidas",
+        variant: "destructive",
+      });
     }
   };
 

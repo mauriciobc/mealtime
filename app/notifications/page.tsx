@@ -1,353 +1,269 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, memo, useRef } from "react";
-import { ArrowLeft, CheckSquare, Loader2, Bell, Check, CheckCheck, Trash2, Clock, Calendar } from "lucide-react";
+import React, { useState, useCallback, useMemo } from "react";
+import { ArrowLeft, Bell, Calendar, Check, CheckCheck, Clock, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import PageTransition from "@/components/page-transition";
-import { useNotifications } from "@/lib/context/NotificationContext";
-import { NotificationItem } from "@/components/notifications/notification-item";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { motion } from "framer-motion";
-import { useAppContext } from "@/lib/context/AppContext";
+import PageTransition from "@/components/page-transition"; // Assuming this component exists
+import { useNotifications } from "@/lib/context/NotificationContext";
 import { Notification } from "@/lib/types/notification";
 import { cn } from "@/lib/utils";
-import { useVirtualizer } from '@tanstack/react-virtual';
 
-// Componente memoizado para o ícone de notificação
-const NotificationIcon = ({ type }: { type: string }) => {
-  const icon = useMemo(() => {
-    switch (type) {
-      case "feeding":
-        return <Clock className="h-5 w-5 text-primary" />;
-      case "reminder":
-        return <Calendar className="h-5 w-5 text-amber-500" />;
-      case "system":
-        return <Bell className="h-5 w-5 text-blue-500" />;
-      default:
-        return <Bell className="h-5 w-5" />;
-    }
-  }, [type]);
-
-  return icon;
+// Re-usable Icon component
+const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
+  const icons = {
+    feeding: <Clock className="h-5 w-5 text-primary" />,
+    reminder: <Calendar className="h-5 w-5 text-amber-500" />,
+    system: <Bell className="h-5 w-5 text-blue-500" />,
+  };
+  return icons[type] || <Bell className="h-5 w-5 text-muted-foreground" />;
 };
 
-// Componente memoizado para o item de notificação
-const NotificationCard = memo(({ 
-  notification, 
-  onMarkAsRead, 
-  onRemove 
-}: { 
+// Memoized Notification Item
+const NotificationItem = React.memo(({
+  notification,
+  onMarkRead,
+  onRemove,
+  isProcessing,
+}: {
   notification: Notification;
-  onMarkAsRead: (notification: Notification) => void;
-  onRemove: (notification: Notification) => void;
+  onMarkRead: (id: number) => Promise<void>;
+  onRemove: (id: number) => Promise<void>;
+  isProcessing: boolean;
 }) => {
-  const { isLoading } = useNotifications();
-  const formattedDate = useMemo(() => 
+  const [isMarkingRead, setIsMarkingRead] = useState(false);
+  const [isRemoving, setIsRemoving] = useState(false);
+
+  const handleMarkRead = async () => {
+    setIsMarkingRead(true);
+    try {
+      await onMarkRead(notification.id);
+      toast.success("Notificação marcada como lida.");
+    } catch (err) {
+      toast.error("Falha ao marcar como lida.");
+      console.error("Error marking notification as read:", err);
+    } finally {
+      // No need to set isMarkingRead to false if the component might unmount/re-render on context update
+    }
+  };
+
+  const handleRemove = async () => {
+    setIsRemoving(true);
+    try {
+      await onRemove(notification.id);
+      toast.success("Notificação removida.");
+    } catch (err) {
+      toast.error("Falha ao remover notificação.");
+      console.error("Error removing notification:", err);
+    } finally {
+      // No need to set isRemoving to false if the component might unmount/re-render on context update
+    }
+  };
+
+  const formattedDate = useMemo(() =>
     format(new Date(notification.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }),
     [notification.createdAt]
   );
 
+  const isActionDisabled = isProcessing || isMarkingRead || isRemoving;
+
   return (
     <Card className={cn(
-      "hover:shadow-md transition-shadow",
+      "transition-colors duration-200",
       !notification.isRead && "border-primary/30 bg-primary/5",
-      isLoading && "opacity-50 pointer-events-none"
+      isActionDisabled && "opacity-70 pointer-events-none"
     )}>
       <CardContent className="p-4">
         <div className="flex items-start gap-4">
-          <div className="mt-1">
+          <div className="mt-1 flex-shrink-0">
             <NotificationIcon type={notification.type} />
           </div>
-          <div className="flex-1">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="font-medium">{notification.title}</h3>
-                <p className="text-sm text-muted-foreground">
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start gap-2">
+              <div className="flex-1">
+                <h3 className="font-medium break-words">{notification.title}</h3>
+                <p className="text-sm text-muted-foreground break-words">
                   {notification.message}
                 </p>
               </div>
-              <div className="text-right text-xs text-muted-foreground">
+              <div className="text-right text-xs text-muted-foreground flex-shrink-0 pt-0.5">
                 {formattedDate}
               </div>
             </div>
+            <div className="flex justify-end mt-2 gap-2">
+              {!notification.isRead && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleMarkRead}
+                  className="text-xs h-8"
+                  disabled={isActionDisabled}
+                  aria-label="Marcar como lida"
+                >
+                  {isMarkingRead ? (
+                    <Loader2 size={14} className="mr-1 animate-spin" />
+                  ) : (
+                    <Check size={14} className="mr-1" />
+                  )}
+                  Marcar lida
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRemove}
+                className="text-xs text-destructive h-8 hover:bg-destructive/10"
+                disabled={isActionDisabled}
+                aria-label="Remover notificação"
+              >
+                {isRemoving ? (
+                     <Loader2 size={14} className="mr-1 animate-spin" />
+                ) : (
+                    <Trash2 size={14} className="mr-1" />
+                )}
+                Remover
+              </Button>
+            </div>
           </div>
-        </div>
-        <div className="flex justify-end mt-2 gap-2">
-          {!notification.isRead && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => onMarkAsRead(notification)}
-              className="text-xs h-8"
-              disabled={isLoading}
-            >
-              <Check size={14} className="mr-1" />
-              Marcar como lida
-            </Button>
-          )}
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={() => onRemove(notification)}
-            className="text-xs text-destructive h-8"
-            disabled={isLoading}
-          >
-            <Trash2 size={14} className="mr-1" />
-            Remover
-          </Button>
         </div>
       </CardContent>
     </Card>
   );
 });
-
-NotificationCard.displayName = "NotificationCard";
+NotificationItem.displayName = 'NotificationItem'; // Add display name for debugging
 
 export default function NotificationsPage() {
-  const { 
-    notifications, 
-    unreadCount, 
-    isLoading, 
+  const router = useRouter();
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
     error,
-    markAsRead, 
-    markAllAsRead, 
+    markAsRead,
+    markAllAsRead,
     removeNotification,
-    refreshNotifications 
+    // refreshNotifications // Consider if manual refresh is needed
   } = useNotifications();
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
-  const mountedRef = useRef(true);
-  const router = useRouter();
 
-  // Create a virtualizer for the notification list
-  const parentRef = useRef<HTMLDivElement>(null);
-  const rowVirtualizer = useVirtualizer({
-    count: notifications.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 100, // Estimated height of each notification
-    overscan: 5 // Number of items to render outside of the visible area
-  });
-
-  useEffect(() => {
-    console.log(`[NotificationsPage] Component mounted, current notifications:`, {
-      count: notifications.length,
-      unreadCount,
-      notifications: notifications.map(n => ({ id: n.id, isRead: n.isRead }))
-    });
-    if (mountedRef.current) {
-      refreshNotifications();
-    }
-    return () => {
-      mountedRef.current = false;
-      console.log(`[NotificationsPage] Component unmounted`);
-    };
-  }, [refreshNotifications, notifications, unreadCount]);
-
-  // Handlers memoizados
-  const handleMarkAllAsRead = useCallback(async () => {
-    if (!mountedRef.current) return;
-    console.log(`[NotificationsPage] Marking all notifications as read`);
+  const handleMarkAllRead = useCallback(async () => {
+    if (unreadCount === 0) return;
+    setIsMarkingAllRead(true);
     try {
-      setIsMarkingAllRead(true);
       await markAllAsRead();
-      if (mountedRef.current) {
-        toast.success("Todas as notificações foram marcadas como lidas");
-      }
-    } catch (error) {
-      if (mountedRef.current) {
-        console.error(`[NotificationsPage] Error marking all as read:`, error);
-        toast.error("Não foi possível marcar todas as notificações como lidas");
-      }
+      toast.success("Todas as notificações marcadas como lidas.");
+    } catch (err) {
+      toast.error("Falha ao marcar todas como lidas.");
+      console.error("Error marking all notifications as read:", err);
     } finally {
-      if (mountedRef.current) {
-        setIsMarkingAllRead(false);
-      }
+      setIsMarkingAllRead(false);
     }
-  }, [markAllAsRead]);
+  }, [markAllAsRead, unreadCount]);
 
-  const handleMarkAsRead = useCallback(async (notification: Notification) => {
-    if (!mountedRef.current) return;
-    console.log(`[NotificationsPage] Marking notification as read:`, {
-      id: notification.id,
-      title: notification.title,
-      isRead: notification.isRead
-    });
-    try {
-      await markAsRead(notification.id);
-      if (mountedRef.current) {
-        toast.success("Notificação marcada como lida");
-      }
-    } catch (error) {
-      if (mountedRef.current) {
-        console.error(`[NotificationsPage] Error marking as read:`, error);
-        toast.error("Não foi possível marcar a notificação como lida");
-      }
-    }
+  const handleMarkRead = useCallback(async (id: number) => {
+    await markAsRead(id); // Context handles loading/state updates
   }, [markAsRead]);
 
-  const handleRemoveNotification = useCallback(async (notification: Notification) => {
-    if (!mountedRef.current) return;
-    console.log(`[NotificationsPage] Delete button clicked for notification:`, {
-      id: notification.id,
-      title: notification.title,
-      isRead: notification.isRead,
-      type: notification.type,
-      currentNotificationsCount: notifications.length,
-      currentUnreadCount: unreadCount
-    });
-    try {
-      await removeNotification(notification.id);
-      if (mountedRef.current) {
-        toast.success("Notificação removida com sucesso");
-      }
-    } catch (error) {
-      if (mountedRef.current) {
-        console.error(`[NotificationsPage] Error removing notification:`, error);
-        toast.error("Não foi possível remover a notificação");
-      }
-    }
-  }, [removeNotification, notifications.length, unreadCount]);
+  const handleRemove = useCallback(async (id: number) => {
+    await removeNotification(id); // Context handles loading/state updates
+  }, [removeNotification]);
 
-  // Animações memoizadas
-  const containerVariants = useMemo(() => ({
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  }), []);
+  const sortedNotifications = useMemo(() =>
+    [...notifications].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [notifications]
+  );
 
-  const itemVariants = useMemo(() => ({
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1
-    }
-  }), []);
-
-  // Loading skeleton memoizado
-  const loadingSkeleton = useMemo(() => (
-    <div className="space-y-4">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <Card key={i} className="animate-pulse">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-full bg-muted"></div>
-              <div className="space-y-2 flex-1">
-                <div className="h-4 w-1/3 bg-muted rounded"></div>
-                <div className="h-3 w-1/2 bg-muted rounded"></div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  ), []);
+  const showMarkAllReadButton = unreadCount > 0 && !isLoading;
+  const isProcessing = isLoading || isMarkingAllRead;
 
   return (
     <PageTransition>
-      <div className="container max-w-2xl mx-auto p-4">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
+      <div className="container max-w-3xl mx-auto p-4 md:p-6">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6 gap-4">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
               size="icon"
               onClick={() => router.back()}
-              className="mr-2"
+              aria-label="Voltar"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-2xl font-bold">Suas Notificações</h1>
+            <h1 className="text-2xl font-bold">Notificações</h1>
           </div>
-          
-          {notifications.filter(n => !n.isRead).length > 0 && (
-            <Button 
-              variant="outline" 
+
+          {showMarkAllReadButton && (
+            <Button
+              variant="outline"
               size="sm"
-              onClick={handleMarkAllAsRead}
-              className="flex items-center gap-2"
-              disabled={isLoading || isMarkingAllRead}
+              onClick={handleMarkAllRead}
+              disabled={isProcessing}
+              className="flex-shrink-0"
             >
               {isMarkingAllRead ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <CheckCheck size={16} />
+                <CheckCheck size={16} className="mr-2" />
               )}
-              <span>Marcar todas como lidas</span>
+              <span>Marcar todas lidas ({unreadCount})</span>
             </Button>
           )}
         </div>
-        
+
+        {/* Error State */}
         {error && (
-          <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-lg">
-            {error}
+          <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-lg text-sm">
+            Erro ao carregar notificações: {String(error)}
           </div>
         )}
-        
-        {isLoading ? (
-          loadingSkeleton
-        ) : notifications.length === 0 ? (
+
+        {/* Loading State */}
+        {isLoading && notifications.length === 0 && (
+           <div className="flex justify-center items-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+           </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && notifications.length === 0 && (
           <div className="text-center py-12">
+            <Bell className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-6">
-              Nenhuma notificação para exibir.
+              Você não tem nenhuma notificação no momento.
             </p>
-            <Button onClick={() => router.back()}>
-              Voltar
-            </Button>
+            <Button onClick={() => router.back()}>Voltar</Button>
           </div>
-        ) : (
-          <motion.div 
-            className="space-y-4"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <div
-              ref={parentRef}
-              className="h-[calc(100vh-200px)] overflow-auto"
-            >
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: '100%',
-                  position: 'relative',
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const notification = notifications[virtualRow.index];
-                  return (
-                    <motion.div
-                      key={notification.id}
-                      variants={itemVariants}
-                      layout
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: `${virtualRow.size}px`,
-                        transform: `translateY(${virtualRow.start}px)`,
-                      }}
-                    >
-                      <NotificationItem
-                        notification={notification}
-                        onClick={() => {}}
-                        showActions={true}
-                      />
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          </motion.div>
+        )}
+
+        {/* Notifications List */}
+        {!isLoading && notifications.length > 0 && (
+          <div className="space-y-3">
+            {sortedNotifications.map((notification) => (
+              <NotificationItem
+                key={notification.id}
+                notification={notification}
+                onMarkRead={handleMarkRead}
+                onRemove={handleRemove}
+                isProcessing={isProcessing} // Pass overall processing state
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Optional: Add a subtle loading indicator when refreshing existing list */}
+        {isLoading && notifications.length > 0 && (
+           <div className="text-center py-4">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+           </div>
         )}
       </div>
     </PageTransition>
   );
-}
+} 
