@@ -1,53 +1,88 @@
 import sharp from 'sharp';
-import { promises as fs } from 'fs';
 import path from 'path';
+import fs from 'fs';
+import { ImageValidationError, ImageProcessingError } from './image-errors';
 
+// Tipos de imagem suportados
 export type ImageType = 'user' | 'cat' | 'thumbnail';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_DIMENSIONS = {
-  user: { width: 800, height: 800 },
-  cat: { width: 1200, height: 1200 },
-  thumbnail: { width: 400, height: 400 }
+// Configurações de tamanho para cada tipo de imagem
+const imageConfigs = {
+  user: { width: 400, height: 400 },
+  cat: { width: 300, height: 300 },
+  thumbnail: { width: 150, height: 150 }
+} as const;
+
+// Diretórios base para armazenamento
+const baseDir = path.join(process.cwd(), 'public');
+
+// Função para garantir que o diretório existe
+const ensureDirectoryExists = (dir: string) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
 };
 
-export async function validateImage(filePath: string): Promise<void> {
-  // Check file size
-  const stats = await fs.stat(filePath);
-  if (stats.size > MAX_FILE_SIZE) {
-    throw new Error('Imagem muito grande. Tamanho máximo: 10MB');
-  }
+// Função para gerar nome único de arquivo
+const generateUniqueFileName = (originalName: string): string => {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  const extension = path.extname(originalName);
+  return `${timestamp}-${random}${extension}`;
+};
 
-  // Check file type
-  const metadata = await sharp(filePath).metadata();
-  if (!ALLOWED_TYPES.includes(`image/${metadata.format}`)) {
-    throw new Error('Formato de imagem não suportado. Use JPEG, PNG ou WebP');
-  }
-}
-
-export async function processImage(
-  filePath: string,
+// Função principal para processar imagem
+export const processImage = async (
+  inputPath: string,
   type: ImageType,
   originalName: string
-): Promise<string> {
-  const dimensions = MAX_DIMENSIONS[type];
-  const outputDir = path.join(process.cwd(), 'public', 'uploads', type);
-  await fs.mkdir(outputDir, { recursive: true });
+): Promise<string> => {
+  try {
+    const config = imageConfigs[type];
+    const fileName = generateUniqueFileName(originalName);
+    
+    // Criar diretório específico para o tipo de imagem
+    const outputDir = path.join(baseDir, 'profiles', type === 'thumbnail' ? 'thumbnails' : type === 'user' ? 'humans' : 'cats');
+    ensureDirectoryExists(outputDir);
+    
+    const outputPath = path.join(outputDir, fileName);
 
-  const outputFileName = `${Date.now()}-${originalName}`;
-  const outputPath = path.join(outputDir, outputFileName);
+    // Processar a imagem
+    await sharp(inputPath)
+      .resize(config.width, config.height, {
+        fit: 'cover',
+        position: 'center'
+      })
+      .jpeg({ quality: 80 })
+      .toFile(outputPath);
 
-  await sharp(filePath)
-    .resize(dimensions.width, dimensions.height, {
-      fit: 'inside',
-      withoutEnlargement: true
-    })
-    .webp({ quality: 80 })
-    .toFile(outputPath);
+    // Retornar o caminho relativo para armazenamento no banco de dados usando forward slashes
+    return ['profiles', type === 'thumbnail' ? 'thumbnails' : type === 'user' ? 'humans' : 'cats', fileName]
+      .join('/');
+  } catch (error) {
+    console.error('Erro ao processar imagem:', error);
+    throw new ImageProcessingError('Falha ao processar imagem');
+  }
+};
 
-  // Clean up temp file
-  await fs.unlink(filePath);
+// Função para validar imagem antes do processamento
+export const validateImage = async (filePath: string): Promise<void> => {
+  const stats = fs.statSync(filePath);
+  const fileSizeInMB = stats.size / (1024 * 1024);
 
-  return `/uploads/${type}/${outputFileName}`;
-} 
+  if (fileSizeInMB > 10) {
+    throw new ImageValidationError('O tamanho do arquivo deve ser menor que 10MB');
+  }
+
+  const metadata = await sharp(filePath).metadata();
+  
+  if (!['jpeg', 'png', 'webp'].includes(metadata.format || '')) {
+    throw new ImageValidationError('Formato de arquivo não suportado. Use JPG, PNG ou WebP');
+  }
+
+  if (metadata.width && metadata.height) {
+    if (metadata.width < 150 || metadata.height < 150) {
+      throw new ImageValidationError('As dimensões da imagem devem ser pelo menos 150x150px');
+    }
+  }
+}; 

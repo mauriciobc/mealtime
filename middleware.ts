@@ -23,13 +23,46 @@ export async function middleware(request: NextRequest) {
     '/favicon.ico',
   ];
 
+  // Verificar se é uma requisição para uma imagem de perfil
+  if (pathname.startsWith('/profiles/')) {
+    try {
+      // Normalize the path by removing leading slash for cache lookup
+      const cachePath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
+      
+      // Tentar obter a imagem do cache
+      const imageData = await imageCache.get(cachePath);
+      
+      if (imageData) {
+        // Se encontrada no cache, servir diretamente
+        return new NextResponse(imageData, {
+          status: 200,
+          headers: {
+            'Content-Type': 'image/jpeg',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        });
+      } else {
+        // Se não encontrada no cache, retornar 404
+        return new NextResponse(null, {
+          status: 404,
+          statusText: 'Image not found'
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao servir imagem do cache:', error);
+      return new NextResponse(null, {
+        status: 500,
+        statusText: 'Internal Server Error'
+      });
+    }
+  }
+
   // Check if the current path is public
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
   console.log('[Middleware] Path access check:', { pathname, isPublicPath });
 
   // Allow all static files and API routes without token check
   if (
-    pathname.includes('.') || // Static files
     pathname.startsWith('/_next') || // Next.js resources
     pathname.startsWith('/api/auth') || // Auth endpoints
     pathname === '/favicon.ico'
@@ -62,26 +95,6 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', request.url);
     return NextResponse.redirect(loginUrl);
-  }
-
-  // Verificar se é uma requisição para uma imagem de perfil
-  if (pathname.startsWith('/profiles/')) {
-    try {
-      // Tentar obter a imagem do cache
-      const imageData = await imageCache.get(pathname);
-      
-      if (imageData) {
-        // Se encontrada no cache, servir diretamente
-        return new NextResponse(imageData, {
-          headers: {
-            'Content-Type': 'image/jpeg',
-            'Cache-Control': 'public, max-age=31536000, immutable',
-          },
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao servir imagem do cache:', error);
-    }
   }
 
   if (request.nextUrl.pathname.startsWith('/api/')) {

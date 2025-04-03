@@ -56,8 +56,9 @@ export const processImage = async (
       .jpeg({ quality: 80 })
       .toFile(outputPath);
 
-    // Retornar o caminho relativo para armazenamento no banco de dados
-    return path.join('profiles', type === 'thumbnail' ? 'thumbnails' : type === 'user' ? 'humans' : 'cats', fileName);
+    // Retornar o caminho relativo para armazenamento no banco de dados usando forward slashes
+    return ['profiles', type === 'thumbnail' ? 'thumbnails' : type === 'user' ? 'humans' : 'cats', fileName]
+      .join('/');
   } catch (error) {
     console.error('Erro ao processar imagem:', error);
     throw new ImageProcessingError('Falha ao processar imagem');

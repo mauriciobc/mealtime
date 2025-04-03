@@ -20,4 +20,18 @@ export const getFallbackImageUrl = (type: 'user' | 'cat' | 'thumbnail'): string 
 
 export const isFallbackImage = (url: string): boolean => {
   return url.includes('placeholder-');
-}; 
+};
+
+export class ImageValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ImageValidationError';
+  }
+}
+
+export class ImageProcessingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ImageProcessingError';
+  }
+} 

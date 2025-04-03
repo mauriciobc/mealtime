@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { getAgeString } from "@/lib/utils/dateUtils";
+import { getFallbackImageUrl } from "@/lib/image-errors";
 
 interface CatCardProps {
   cat: CatType;
@@ -71,6 +72,36 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
     setShowDeleteDialog(false);
   };
 
+  const getImageUrl = (photoUrl: string | undefined) => {
+    if (!photoUrl) {
+      const fallbackUrl = getFallbackImageUrl('cat');
+      console.log(`[CatCard] Using fallback URL for ${cat.name}:`, fallbackUrl);
+      return fallbackUrl;
+    }
+    
+    let finalUrl: string;
+    
+    // If it's already a full URL, use it
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+      finalUrl = photoUrl.replace('http://', 'https://');
+    }
+    // If it's a relative path starting with /uploads, use it as is
+    else if (photoUrl.startsWith('/uploads')) {
+      finalUrl = photoUrl;
+    }
+    // Otherwise, assume it's a filename and construct the path
+    else {
+      finalUrl = `/uploads/cat/${photoUrl.replace(/^uploads\/cat\//, '')}`;
+    }
+    
+    console.log(`[CatCard] Image URL for ${cat.name}:`, {
+      originalUrl: photoUrl,
+      processedUrl: finalUrl
+    });
+    
+    return finalUrl;
+  };
+
   return (
     <>
       <motion.div 
@@ -83,33 +114,20 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
       >
         <Card className="h-full overflow-hidden flex flex-col">
            <div className="relative w-full aspect-[3/1] bg-muted"> 
-              {cat.photoUrl && !imageError ? (
+              {!imageError ? (
                  <Image 
-                    src={cat.photoUrl.startsWith('http://') || cat.photoUrl.startsWith('https://')
-                      ? cat.photoUrl.replace('http://', 'https://') 
-                      : cat.photoUrl.startsWith('/uploads')
-                        ? cat.photoUrl
-                        : cat.photoUrl.startsWith('/')
-                          ? cat.photoUrl
-                          : `/uploads/cat/${cat.photoUrl.replace(/^uploads\/cat\//, '')}`
-                    }
+                    src={getImageUrl(cat.photoUrl)}
                     alt={cat.name} 
                     fill
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     className="object-cover absolute inset-0"
                     priority={false}
                     onError={(e) => {
-                      try {
-                        const url = cat.photoUrl || 'unknown';
-                        console.error(`Image load failed for cat ${cat.name}:`, {
-                          url,
-                          error: e
-                        });
-                        setImageError(true);
-                      } catch (err) {
-                        console.error('Error in image error handler:', err);
-                        setImageError(true);
-                      }
+                      console.error(`[CatCard] Image load failed for ${cat.name}:`, {
+                        url: cat.photoUrl,
+                        error: e
+                      });
+                      setImageError(true);
                     }}
                  />
               ) : (

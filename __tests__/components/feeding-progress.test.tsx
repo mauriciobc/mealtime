@@ -1,6 +1,6 @@
 /// <reference types="@testing-library/jest-dom" />
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { SessionProvider } from 'next-auth/react';
 import FeedingProgress from '@/components/feeding-progress';
 
@@ -41,40 +41,55 @@ describe('FeedingProgress', () => {
     jest.useRealTimers();
   });
 
-  it('should render with default props', () => {
+  it('should render with default props', async () => {
     const now = new Date('2024-03-20T10:00:00Z'); // same as lastFed
     jest.setSystemTime(now);
 
     renderWithSession(<FeedingProgress {...defaultProps} />);
-    const progress = screen.getByRole('progressbar');
-    expect(progress).toBeInTheDocument();
-    expect(progress).toHaveAttribute('aria-valuenow', '0');
+    
+    await waitFor(() => {
+      const progress = screen.getByRole('progressbar');
+      const indicator = progress.firstChild as HTMLElement; // Get the inner div
+      expect(indicator).toHaveStyle('transform: translateX(-100%)'); // 0 progress
+    });
   });
 
-  it('should show correct progress for recent feeding', () => {
-    const now = new Date('2024-03-20T12:00:00Z'); // 2 hours after lastFed
+  it('should show correct progress for recent feeding', async () => {
+    const now = new Date('2024-03-20T12:00:00Z'); // 2 hours after lastFed (2/8 = 25%)
     jest.setSystemTime(now);
 
     renderWithSession(<FeedingProgress {...defaultProps} />);
-    const progress = screen.getByRole('progressbar');
-    expect(progress).toHaveAttribute('aria-valuenow', '25');
+
+    await waitFor(() => {
+      const progress = screen.getByRole('progressbar'); 
+      const indicator = progress.firstChild as HTMLElement; // Get the inner div
+      expect(indicator).toHaveStyle('transform: translateX(-75%)'); // 25 progress
+    });
   });
 
-  it('should show correct progress when feeding is overdue', () => {
-    const now = new Date('2024-03-20T19:00:00Z'); // 9 hours after lastFed
+  it('should show correct progress when feeding is overdue', async () => {
+    const now = new Date('2024-03-20T19:00:00Z'); // 9 hours after lastFed (1 hour into next 8h interval = 1/8 = 12.5%)
     jest.setSystemTime(now);
 
     renderWithSession(<FeedingProgress {...defaultProps} />);
-    const progress = screen.getByRole('progressbar');
-    expect(progress).toHaveAttribute('aria-valuenow', '12.5');
+
+    await waitFor(() => {
+      const progress = screen.getByRole('progressbar'); 
+      const indicator = progress.firstChild as HTMLElement; // Get the inner div
+      expect(indicator).toHaveStyle('transform: translateX(-87.5%)'); // 12.5 progress
+    });
   });
 
-  it('should show full progress for immediate feeding', () => {
+  it('should show full progress for immediate feeding', async () => {
     const now = new Date('2024-03-20T10:00:00Z'); // same as lastFed
     jest.setSystemTime(now);
 
     renderWithSession(<FeedingProgress {...defaultProps} />);
-    const progress = screen.getByRole('progressbar');
-    expect(progress).toHaveAttribute('aria-valuenow', '0');
+
+    await waitFor(() => {
+      const progress = screen.getByRole('progressbar'); 
+      const indicator = progress.firstChild as HTMLElement; // Get the inner div
+      expect(indicator).toHaveStyle('transform: translateX(-100%)'); // 0 progress
+    });
   });
 }); 

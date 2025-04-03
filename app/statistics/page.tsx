@@ -64,7 +64,7 @@ interface ChartProps {
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
 const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
-  <div className="h-[300px] w-full">
+  <div className="relative w-full" style={{ minHeight: '300px' }}>
     <ChartContainer
       config={{
         valor: {
@@ -72,12 +72,12 @@ const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
           color: "hsl(var(--primary))",
         }
       }}
-      className="[&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
+      className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
     >
-      <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={300}>
+      <ResponsiveContainer>
         <RechartsLineChart 
           data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          margin={{ top: 16, right: 16, left: 0, bottom: 16 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
@@ -114,7 +114,7 @@ const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
 )
 
 const BarChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
-  <div className="h-[300px] w-full">
+  <div className="relative w-full" style={{ minHeight: '300px' }}>
     <ChartContainer
       config={{
         valor: {
@@ -122,13 +122,12 @@ const BarChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
           color: "hsl(var(--primary))",
         }
       }}
-      className="[&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
+      className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
     >
-      <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={300}>
+      <ResponsiveContainer>
         <RechartsBarChart 
           data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-          barGap={4}
+          margin={{ top: 16, right: 16, left: 0, bottom: 16 }}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis 
@@ -163,8 +162,10 @@ const BarChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
 const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="h-[300px] w-full flex items-center justify-center">
-        <p className="text-muted-foreground">Sem dados por gato</p>
+      <div className="relative w-full" style={{ minHeight: '300px' }}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-muted-foreground">Sem dados por gato</p>
+        </div>
       </div>
     );
   }
@@ -181,22 +182,21 @@ const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
   }), {});
 
   return (
-    <div className="h-[300px] w-full flex flex-col items-center justify-center">
-      <ChartContainer config={config} className="mx-auto aspect-square max-h-[250px]">
-        <ResponsiveContainer width="100%" height="100%" minWidth={300} minHeight={300}>
+    <div className="relative w-full" style={{ minHeight: '300px' }}>
+      <ChartContainer config={config} className="absolute inset-0">
+        <ResponsiveContainer>
           <RechartsPieChart 
-            margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
+            margin={{ top: 16, right: 16, left: 16, bottom: 16 }}
           >
-            <ChartTooltip 
-            />
+            <ChartTooltip />
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius={80}
-              innerRadius={50}
+              outerRadius="35%"
+              innerRadius="25%"
               paddingAngle={2}
             >
               {data.map((entry, index) => (
@@ -211,9 +211,8 @@ const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
           </RechartsPieChart>
         </ResponsiveContainer>
       </ChartContainer>
-      <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 justify-center text-xs">
-        <ChartLegend 
-        />
+      <div className="absolute bottom-0 left-0 right-0 flex flex-wrap gap-x-4 gap-y-1 justify-center text-xs pb-2">
+        <ChartLegend />
       </div>
     </div>
   );
@@ -255,7 +254,7 @@ export default function StatisticsPage() {
     try {
       const now = new Date()
       let startDate: Date
-      const endDate = endOfDay(now)
+      let endDate = endOfDay(now)
 
       switch (selectedPeriod) {
         case "hoje":
@@ -273,6 +272,7 @@ export default function StatisticsPage() {
         case "mesPassado":
           const lastMonth = subMonths(now, 1)
           startDate = startOfMonth(lastMonth)
+          endDate = endOfMonth(lastMonth)
           break
         default:
           startDate = startOfDay(subDays(now, 6))
@@ -280,82 +280,80 @@ export default function StatisticsPage() {
 
       const filteredLogs = feedingLogs.filter(log => {
         const logDate = new Date(log.timestamp)
-        const isAfterStart = logDate >= startDate
-        const isBeforeEnd = logDate <= endDate
-        const isCorrectCat = selectedCatId === "all" || String(log.catId) === selectedCatId
-        return isAfterStart && isBeforeEnd && isCorrectCat
+        return logDate >= startDate && logDate <= endDate && 
+               (selectedCatId === "all" || String(log.catId) === selectedCatId)
       })
       
       console.log('Filtered Logs:', filteredLogs.length, 'Start Date:', startDate, 'End Date:', endDate)
       
       if (filteredLogs.length === 0) {
-          setError(`Nenhum registro encontrado para ${selectedCatId !== 'all' ? cats.find(c=>String(c.id) === selectedCatId)?.name || 'gato selecionado' : 'todos os gatos'} no período selecionado.`)
-          return null
+        setError(`Nenhum registro encontrado para ${selectedCatId !== 'all' ? cats.find(c=>String(c.id) === selectedCatId)?.name || 'gato selecionado' : 'todos os gatos'} no período selecionado.`)
+        return null
       }
 
       const totalFeedings = filteredLogs.length
       const totalPortion = filteredLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0)
       const averagePortionSize = totalFeedings > 0 ? Math.round(totalPortion / totalFeedings) : 0
 
-      console.log('Processing data - Total Feedings:', totalFeedings, 'Average Portion:', averagePortionSize)
-
       // Time series data processing
       const timeSeriesMap = new Map<string, number>()
       let currentDate = new Date(startDate)
+      
+      // Initialize all dates in the range with 0
       while (currentDate <= endDate) {
-          const dateString = format(currentDate, 'dd/MM')
-          timeSeriesMap.set(dateString, 0)
-          currentDate.setDate(currentDate.getDate() + 1)
+        const dateString = format(currentDate, 'dd/MM')
+        timeSeriesMap.set(dateString, 0)
+        currentDate.setDate(currentDate.getDate() + 1)
       }
       
+      // Sum up portions for each date
       filteredLogs.forEach(log => {
-          const dateString = format(new Date(log.timestamp), 'dd/MM')
-          const currentValue = timeSeriesMap.get(dateString) || 0
-          timeSeriesMap.set(dateString, currentValue + (log.portionSize || 0))
+        const dateString = format(new Date(log.timestamp), 'dd/MM')
+        const currentValue = timeSeriesMap.get(dateString) || 0
+        timeSeriesMap.set(dateString, currentValue + (log.portionSize || 0))
       })
 
-      const timeSeriesData: TimeSeriesDataPoint[] = Array.from(timeSeriesMap, ([name, valor]) => ({ name, valor }))
-      console.log('Time Series Data:', timeSeriesData)
+      const timeSeriesData = Array.from(timeSeriesMap.entries())
+        .map(([name, valor]) => ({ name, valor }))
+        .sort((a, b) => {
+          const [dayA, monthA] = a.name.split('/').map(Number)
+          const [dayB, monthB] = b.name.split('/').map(Number)
+          return monthA === monthB ? dayA - dayB : monthA - monthB
+        })
 
       // Cat portion data processing
       const catPortionMap = new Map<string, number>()
+      cats.forEach(cat => catPortionMap.set(cat.name, 0)) // Initialize all cats with 0
       
-      // First, process all logs to accumulate portions by cat
       filteredLogs.forEach(log => {
         const cat = cats.find(c => c.id === log.catId)
         if (cat) {
           const currentTotal = catPortionMap.get(cat.name) || 0
-          const newTotal = currentTotal + (log.portionSize || 0)
-          console.log(`Adding portion for ${cat.name}: ${log.portionSize} (Current: ${currentTotal}, New: ${newTotal})`)
-          catPortionMap.set(cat.name, newTotal)
+          catPortionMap.set(cat.name, currentTotal + (log.portionSize || 0))
         }
       })
 
-      // Convert to array format and filter out zero values
-      const catPortionData: CatPortion[] = Array.from(catPortionMap.entries())
+      const catPortionData = Array.from(catPortionMap.entries())
+        .filter(([_, value]) => value > 0)
         .map(([name, value]) => ({ name, value }))
-        .filter(item => item.value > 0)
-
-      console.log('Cat Portion Map:', Object.fromEntries(catPortionMap))
-      console.log('Final Cat Portion Data:', catPortionData)
 
       // Time distribution data processing
       const timeDistributionMap = new Map<string, number>()
       for (let i = 0; i < 24; i++) {
-          timeDistributionMap.set(`${i.toString().padStart(2, '0')}:00`, 0)
+        timeDistributionMap.set(`${i.toString().padStart(2, '0')}:00`, 0)
       }
       
       filteredLogs.forEach(log => {
-          const hour = getHours(new Date(log.timestamp))
-          const hourString = `${hour.toString().padStart(2, '0')}:00`
-          const currentCount = timeDistributionMap.get(hourString) || 0
-          timeDistributionMap.set(hourString, currentCount + 1)
+        const hour = getHours(new Date(log.timestamp))
+        const hourString = `${hour.toString().padStart(2, '0')}:00`
+        const currentCount = timeDistributionMap.get(hourString) || 0
+        timeDistributionMap.set(hourString, currentCount + 1)
       })
 
-      const timeDistributionData: TimeSeriesDataPoint[] = Array.from(timeDistributionMap, ([name, valor]) => ({ name, valor }))
+      const timeDistributionData = Array.from(timeDistributionMap.entries())
+        .map(([name, valor]) => ({ name, valor }))
 
-      console.log('timeDistributionData structure:', timeDistributionData.map(d => ({ ...d, height: 741 })));
-
+      setError(null)
       return {
         totalFeedings,
         averagePortionSize,
@@ -364,9 +362,9 @@ export default function StatisticsPage() {
         timeDistributionData,
       }
     } catch (e: any) {
-        console.error("Error processing statistics:", e)
-        setError(e.message || "Erro ao processar estatísticas.")
-        return null
+      console.error("Error processing statistics:", e)
+      setError(e.message || "Erro ao processar estatísticas.")
+      return null
     }
   }, [selectedPeriod, selectedCatId, feedingLogs, cats, currentUser, status])
 
@@ -500,7 +498,7 @@ export default function StatisticsPage() {
   return (
     <PageTransition>
       <PageHeader title="Estatísticas" actionHref="/" />
-      <div className="container mx-auto p-4 space-y-6">
+      <div className="container mx-auto p-4 pb-7 space-y-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-full sm:w-[180px]">
@@ -565,78 +563,78 @@ export default function StatisticsPage() {
            initial={{ opacity: 0, y: 10 }}
            animate={{ opacity: 1, y: 0 }}
            transition={{ delay: 0.2 }}
-           className="grid gap-6 lg:grid-cols-2"
+           className="grid gap-6 md:grid-cols-2"
          >
           <Card>
-            <CardHeader>
+            <CardHeader className="space-y-1">
               <CardTitle>Consumo Total Diário (g)</CardTitle>
-               <CardDescription>Total de ração consumida por dia no período.</CardDescription>
+              <CardDescription>Total de ração consumida por dia no período.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4 flex justify-center">
               <LineChartComponent data={processedData.timeSeriesData} />
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
+            <CardHeader className="space-y-1">
               <CardTitle>Distribuição por Gato (%)</CardTitle>
-               <CardDescription>Percentual do consumo total por gato.</CardDescription>
+              <CardDescription>Percentual do consumo total por gato.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-4 flex justify-center">
               <PieChartComponent data={processedData.catPortionData} />
             </CardContent>
           </Card>
-          <Card className="lg:col-span-2">
-             <CardHeader>
-               <CardTitle>Distribuição por Horário</CardTitle>
-               <CardDescription>Quantidade de alimentações por hora do dia.</CardDescription>
-             </CardHeader>
-             <CardContent className="h-[300px]">
-               <ChartContainer
-                 config={{
-                   valor: {
-                     label: "Quantidade",
-                     color: "hsl(var(--primary))",
-                   }
-                 }}
-                 className="h-full [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
-               >
-                 <ResponsiveContainer>
-                   <RechartsBarChart 
-                     data={processedData.timeDistributionData}
-                     margin={{ top: 24, right: 24, left: 0, bottom: 0 }}
-                     barCategoryGap={40}
-                     barGap={8}
-                   >
-                     <XAxis 
-                       dataKey="name" 
-                       axisLine={false}
-                       tickLine={false}
-                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                       tickMargin={12}
-                     />
-                     <YAxis 
-                       axisLine={false}
-                       tickLine={false}
-                       tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                       tickFormatter={(value) => `${value}g`}
-                       width={45}
-                       tickMargin={8}
-                     />
-                     <ChartTooltip 
-                       content={<ChartTooltipContent hideLabel />}
-                       cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
-                     />
-                     <Bar
-                       dataKey="valor"
-                       radius={[4, 4, 0, 0]}
-                       maxBarSize={32}
-                       fill="hsl(var(--primary))"
-                     />
-                   </RechartsBarChart>
-                 </ResponsiveContainer>
-               </ChartContainer>
-             </CardContent>
-           </Card>
+          <Card className="md:col-span-2">
+            <CardHeader className="space-y-1">
+              <CardTitle>Distribuição por Horário</CardTitle>
+              <CardDescription>Quantidade de alimentações por hora do dia.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4">
+              <div className="relative w-full" style={{ minHeight: '300px' }}>
+                <ChartContainer
+                  config={{
+                    valor: {
+                      label: "Quantidade",
+                      color: "hsl(var(--primary))",
+                    }
+                  }}
+                  className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
+                >
+                  <ResponsiveContainer>
+                    <RechartsBarChart 
+                      data={processedData.timeDistributionData}
+                      margin={{ top: 16, right: 16, left: 0, bottom: 16 }}
+                    >
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        tickMargin={12}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                        tickFormatter={(value) => `${value}g`}
+                        width={45}
+                        tickMargin={8}
+                      />
+                      <ChartTooltip 
+                        content={<ChartTooltipContent hideLabel />}
+                        cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+                      />
+                      <Bar
+                        dataKey="valor"
+                        radius={[4, 4, 0, 0]}
+                        maxBarSize={32}
+                        fill="hsl(var(--primary))"
+                      />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </ChartContainer>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       </div>
     </PageTransition>
