@@ -45,6 +45,7 @@ interface CatCardProps {
 
 export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const ageString = cat.birthdate ? getAgeString(cat.birthdate) : "Idade desconhecida";
 
@@ -82,13 +83,34 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
       >
         <Card className="h-full overflow-hidden flex flex-col">
            <div className="relative w-full aspect-[3/1] bg-muted"> 
-              {cat.photoUrl ? (
+              {cat.photoUrl && !imageError ? (
                  <Image 
-                    src={cat.photoUrl} 
+                    src={cat.photoUrl.startsWith('http://') || cat.photoUrl.startsWith('https://')
+                      ? cat.photoUrl.replace('http://', 'https://') 
+                      : cat.photoUrl.startsWith('/uploads')
+                        ? cat.photoUrl
+                        : cat.photoUrl.startsWith('/')
+                          ? cat.photoUrl
+                          : `/uploads/cat/${cat.photoUrl.replace(/^uploads\/cat\//, '')}`
+                    }
                     alt={cat.name} 
-                    layout="fill" 
-                    objectFit="cover" 
-                    className="absolute inset-0"
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover absolute inset-0"
+                    priority={false}
+                    onError={(e) => {
+                      try {
+                        const url = cat.photoUrl || 'unknown';
+                        console.error(`Image load failed for cat ${cat.name}:`, {
+                          url,
+                          error: e
+                        });
+                        setImageError(true);
+                      } catch (err) {
+                        console.error('Error in image error handler:', err);
+                        setImageError(true);
+                      }
+                    }}
                  />
               ) : (
                  <Avatar className="absolute inset-0 flex items-center justify-center bg-purple-100 w-full h-full rounded-none"> 

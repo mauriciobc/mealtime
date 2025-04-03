@@ -14,14 +14,14 @@ import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 import Link from "next/link";
 import { 
-    Sheet, 
-    SheetContent, 
-    SheetHeader, 
-    SheetTitle, 
-    SheetDescription,
-    SheetFooter,
-    SheetClose
-} from "@/components/ui/sheet";
+    Drawer,
+    DrawerContent,
+    DrawerHeader,
+    DrawerTitle,
+    DrawerDescription,
+    DrawerFooter,
+    DrawerClose
+} from "@/components/ui/drawer";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -468,24 +468,24 @@ export function NewFeedingSheet({
    }
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="flex flex-col p-4 sm:max-w-lg">
-        <SheetHeader className="px-1">
-          <SheetTitle>Registrar Nova Alimentação</SheetTitle>
-          <SheetDescription>
+    <Drawer open={isOpen} onOpenChange={onOpenChange}>
+      <DrawerContent className="h-[85vh] p-4 flex flex-col">
+        <DrawerHeader className="px-1">
+          <DrawerTitle>Registrar Nova Alimentação</DrawerTitle>
+          <DrawerDescription>
             Selecione os gatos e informe a quantidade de ração.
-          </SheetDescription>
-        </SheetHeader>
+          </DrawerDescription>
+        </DrawerHeader>
         
-        <div className="flex-grow mt-4 overflow-hidden flex flex-col">
+        <div className="flex-1 mt-4 overflow-hidden flex flex-col">
            {content}
         </div>
 
         {householdCats.length > 0 && currentUser?.householdId && (
-             <SheetFooter className="mt-auto pt-4 border-t">
-                 <SheetClose asChild>
+             <DrawerFooter className="mt-auto pt-4 border-t">
+                 <DrawerClose asChild>
                      <Button variant="outline" disabled={isSubmitting}>Cancelar</Button>
-                 </SheetClose>
+                 </DrawerClose>
                  <Button
                  onClick={handleSubmit}
                  disabled={isSubmitting || selectedCats.length === 0}
@@ -499,9 +499,9 @@ export function NewFeedingSheet({
                      </>
                  )}
                  </Button>
-             </SheetFooter>
+             </DrawerFooter>
         )}
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   );
 } 

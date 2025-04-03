@@ -265,7 +265,7 @@ export default function Home() {
            title="Associe uma Residência"
            description="Você precisa criar ou juntar-se a uma residência para usar o painel."
            actionLabel="Ir para Configurações"
-           actionHref="/settings"
+           actionHref="/household"
            className="max-w-xl mx-auto my-12"
          />
        </div>
@@ -308,7 +308,7 @@ export default function Home() {
   }, {} as { [key: string]: { label: string; color: string } }) || {};
 
   return (
-    <div className="container px-4 py-8">
+    <div className="container px-4 py-8 pb-24">
        <motion.div
          variants={containerVariants}
          initial="hidden"
