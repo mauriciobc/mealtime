@@ -802,3 +802,142 @@
     *   Add more robust error handling and user feedback (e.g., using toasts consistently).
     *   Implement rate limiting on notification sending APIs if abuse is a concern.
     *   Consider the background job queue for sending notifications at scale. 
+
+# CONTEXT REFACTOR
+
+## Phase 1: Setup & Infrastructure (Week 1)
+
+1. **Create Base Infrastructure:**
+   - [ ] Create new logger utility
+     ```typescript
+     // lib/utils/logger.ts
+     - Implement LogLevel types
+     - Add environment-aware logging
+     - Add proper error serialization
+     ```
+   - [ ] Implement Error Boundary component
+     ```typescript
+     // lib/components/ErrorBoundary.tsx
+     - Add error capture
+     - Add error reporting
+     - Add retry mechanism
+     ```
+   - [ ] Set up testing infrastructure
+     ```bash
+     - Configure Jest/Testing Library
+     - Add context-specific test utilities
+     - Set up mock providers
+     ```
+
+2. **Documentation Setup:**
+   - [ ] Create architecture documentation
+     ```markdown
+     // docs/architecture/contexts.md
+     - Document context hierarchy
+     - Define data flow patterns
+     - Specify state management patterns
+     ```
+   - [ ] Set up JSDoc templates
+   - [ ] Create contribution guidelines
+
+## Phase 2: Core Context Implementation (Week 2)
+
+1. **Enhanced User Context:**
+   - [ ] Implement new UserContext with session management
+   - [ ] Add proper error handling
+   - [ ] Add persistence layer
+   - [ ] Add comprehensive tests
+
+2. **Loading Context Improvements:**
+   - [ ] Add priority queue system
+   - [ ] Implement timeout handling
+   - [ ] Add operation cancellation
+   - [ ] Add loading analytics
+
+3. **Error Context Implementation:**
+   - [ ] Create centralized error handling
+   - [ ] Implement error reporting
+   - [ ] Add error recovery strategies
+   - [ ] Add error persistence
+
+## Phase 3: Domain Context Split (Week 3)
+
+1. **Split AppContext into Domains:**
+   - [ ] Create CatsContext
+     ```typescript
+     - Implement state management
+     - Add CRUD operations
+     - Add caching layer
+     ```
+   - [ ] Create FeedingContext
+     ```typescript
+     - Implement state management
+     - Add scheduling system
+     - Add notification integration
+     ```
+   - [ ] Create HouseholdContext
+     ```typescript
+     - Implement state management
+     - Add member management
+     - Add permissions system
+     ```
+
+2. **Implement Context Communication:**
+   - [ ] Create event system
+   - [ ] Implement context bridges
+   - [ ] Add state synchronization
+
+## Phase 4: Performance & Optimization (Week 4)
+
+1. **State Management Optimization:**
+   - [ ] Implement proper memoization
+   - [ ] Add state selectors
+   - [ ] Optimize re-renders
+   - [ ] Add performance monitoring
+
+2. **Storage Layer Implementation:**
+   - [ ] Create storage service
+   - [ ] Add caching strategies
+   - [ ] Implement persistence policies
+   - [ ] Add storage analytics
+
+3. **Testing & Documentation:**
+   - [ ] Add integration tests
+   - [ ] Add performance tests
+   - [ ] Update documentation
+   - [ ] Create migration guide
+
+## Phase 5: Migration & Cleanup (Week 5)
+
+1. **Component Migration:**
+   - [ ] Update all components to use new contexts
+   - [ ] Remove old context usage
+   - [ ] Add new prop types
+   - [ ] Update tests
+
+2. **Validation & Testing:**
+   - [ ] Run full test suite
+   - [ ] Perform performance testing
+   - [ ] Check error handling
+   - [ ] Validate state management
+
+3. **Documentation & Training:**
+   - [ ] Update API documentation
+   - [ ] Create usage examples
+   - [ ] Write migration guide
+   - [ ] Create training materials
+
+## Success Criteria:
+- All contexts properly typed and documented
+- 90%+ test coverage
+- No circular dependencies
+- Improved performance metrics
+- Clear error handling
+- Proper state persistence
+- Comprehensive documentation
+
+## Monitoring & Maintenance:
+- Set up performance monitoring
+- Implement error tracking
+- Add usage analytics
+- Create maintenance schedule 

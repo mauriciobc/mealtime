@@ -16,7 +16,7 @@ const Timeline = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "relative space-y-6 before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:-translate-x-px before:bg-gray-200 before:dark:bg-gray-800",
+        "relative space-y-4 before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:-translate-x-px before:bg-gray-200 before:dark:bg-gray-800",
         className
       )}
       {...props}
@@ -60,7 +60,7 @@ const TimelineItem = React.forwardRef<
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         className={cn(
-          "relative pl-8 sm:pl-12",
+          "relative pl-12",
           className
         )}
         {...props}
@@ -68,7 +68,7 @@ const TimelineItem = React.forwardRef<
         <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md dark:bg-gray-900">
           {icon}
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 pl-14">
           {date && (
             <div className="text-sm text-gray-500 dark:text-gray-400">
               {typeof date === "string" || typeof date === "number"
