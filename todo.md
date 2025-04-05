@@ -906,8 +906,8 @@
 3. **Testing & Documentation:**
    - [ ] Add integration tests
    - [ ] Add performance tests
-   - [ ] Update documentation
-   - [ ] Create migration guide
+   - [x] Update documentation (`docs/architecture/contexts.md`)
+   - [x] Create migration guide (`docs/context-refactor-migration-guide.md`)
 
 **Progress:** Phase 4 partially completed. Proceeding to Phase 5: Migration & Cleanup.
 
