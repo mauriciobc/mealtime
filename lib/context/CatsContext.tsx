@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useMemo } from 'react';
 
 interface Cat {
   id: string;
@@ -47,11 +47,20 @@ const CatsContext = createContext<{
 export const CatsProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(catsReducer, initialState);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
+
   return (
-    <CatsContext.Provider value={{ state, dispatch }}>
+    <CatsContext.Provider value={contextValue}>
       {children}
     </CatsContext.Provider>
   );
 };
 
 export const useCats = () => useContext(CatsContext);
+
+// Add state selectors to allow components to subscribe to specific parts of the state
+export const useCatsSelector = <T, >(selector: (state: CatsState) => T): T => {
+  const { state } = useCats();
+  return selector(state);
+};

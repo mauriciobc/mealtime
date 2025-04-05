@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useMemo } from 'react';
 
 interface Member {
   id: string;
@@ -46,11 +46,20 @@ const HouseholdContext = createContext<{
 export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(householdReducer, initialState);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
+
   return (
-    <HouseholdContext.Provider value={{ state, dispatch }}>
+    <HouseholdContext.Provider value={contextValue}>
       {children}
     </HouseholdContext.Provider>
   );
 };
 
 export const useHousehold = () => useContext(HouseholdContext);
+
+// Add state selectors to allow components to subscribe to specific parts of the state
+export const useHouseholdSelector = <T, >(selector: (state: HouseholdState) => T): T => {
+  const { state } = useHousehold();
+  return selector(state);
+};

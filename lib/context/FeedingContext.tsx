@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useMemo } from 'react';
 
 interface Feeding {
   id: string;
@@ -47,11 +47,20 @@ const FeedingContext = createContext<{
 export const FeedingProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(feedingReducer, initialState);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
+
   return (
-    <FeedingContext.Provider value={{ state, dispatch }}>
+    <FeedingContext.Provider value={contextValue}>
       {children}
     </FeedingContext.Provider>
   );
 };
 
 export const useFeeding = () => useContext(FeedingContext);
+
+// Add state selectors to allow components to subscribe to specific parts of the state
+export const useFeedingSelector = <T, >(selector: (state: FeedingState) => T): T => {
+  const { state } = useFeeding();
+  return selector(state);
+};
