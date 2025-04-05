@@ -9,9 +9,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { formatInTimeZone } from 'date-fns-tz';
 import { getUserTimezone, calculateNextFeeding, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { CatType, FeedingLog } from "@/lib/types";
-import { useAppContext } from "@/lib/context/AppContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
+import { useCats } from "@/lib/context/CatsContext";
+import { useFeeding } from "@/lib/context/FeedingContext";
 import Link from "next/link";
 import { 
     Drawer,
@@ -57,17 +58,19 @@ export function NewFeedingSheet({
     initialCatId 
 }: NewFeedingSheetProps) {
   const router = useRouter();
-  const { state: appState, dispatch: appDispatch } = useAppContext();
   const { state: userState } = useUserContext();
+  const { state: catsState } = useCats();
+  const { state: feedingState, dispatch: feedingDispatch } = useFeeding();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { data: session, status } = useSession();
   const { currentUser } = userState;
-  const { cats, feedingLogs } = appState;
+  const { cats, isLoading: isLoadingCats } = catsState;
+  const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
 
-  const [selectedCats, setSelectedCats] = useState<number[]>([]);
-  const [portions, setPortions] = useState<{ [key: number]: string }>({});
-  const [notes, setNotes] = useState<{ [key: number]: string }>({});
-  const [feedingStatus, setFeedingStatus] = useState<{ [key: number]: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }>({});
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
+  const [portions, setPortions] = useState<{ [key: string]: string }>({});
+  const [notes, setNotes] = useState<{ [key: string]: string }>({});
+  const [feedingStatus, setFeedingStatus] = useState<{ [key: string]: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -78,7 +81,6 @@ export function NewFeedingSheet({
     onConfirm: () => {},
   });
 
-  // Define status options
   const statusOptions = [
     { value: "Normal", label: "Normal" },
     { value: "Comeu Pouco", label: "Comeu Pouco" },
@@ -87,21 +89,27 @@ export function NewFeedingSheet({
     { value: "Outro", label: "Outro (ver notas)" },
   ];
 
+  const householdCats = useMemo(() => {
+    if (isLoadingCats || !cats || !currentUser?.householdId) {
+      return [];
+    }
+    return cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));
+  }, [cats, isLoadingCats, currentUser]);
+
   useEffect(() => {
     if (isOpen) {
       setError(null);
-      const householdCats = cats.filter(cat => String(cat.householdId) === String(currentUser?.householdId));
-      
-      const initialPortions: { [key: number]: string } = {};
+      const initialPortions: { [key: string]: string } = {};
       householdCats.forEach((cat: CatType) => {
         initialPortions[cat.id] = cat.portion_size?.toString() || "";
       });
       setPortions(initialPortions);
       setNotes({});
       
-      if (initialCatId && householdCats.some(cat => cat.id === initialCatId)) {
-          setSelectedCats([initialCatId]);
-          setFeedingStatus({ [initialCatId]: "Normal" });
+      const initialCatIdStr = initialCatId?.toString();
+      if (initialCatIdStr && householdCats.some(cat => cat.id === initialCatIdStr)) {
+          setSelectedCats([initialCatIdStr]);
+          setFeedingStatus({ [initialCatIdStr]: "Normal" });
       } else {
           setSelectedCats([]);
           setFeedingStatus({});
@@ -115,7 +123,7 @@ export function NewFeedingSheet({
       setIsSubmitting(false);
       setError(null);
     }
-  }, [isOpen, cats, currentUser, initialCatId]); 
+  }, [isOpen, householdCats, initialCatId]);
 
   const formatRelativeTime = useCallback((utcDateTime: Date | string | null | undefined) => {
     if (!utcDateTime) return "Nunca";
@@ -128,13 +136,14 @@ export function NewFeedingSheet({
     }
   }, []);
 
-  const getLastFeedingLog = useCallback((catId: number): FeedingLog | undefined => {
+  const getLastFeedingLog = useCallback((catId: string): FeedingLog | undefined => {
+    if (isLoadingFeedings || !feedingLogs) return undefined;
     return feedingLogs
         .filter(log => log.catId === catId)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-  }, [feedingLogs]);
+        [0];
+  }, [feedingLogs, isLoadingFeedings]);
 
-  const toggleCatSelection = useCallback((catId: number) => {
+  const toggleCatSelection = useCallback((catId: string) => {
     setSelectedCats(prev => {
       const isCurrentlySelected = prev.includes(catId);
       if (isCurrentlySelected) {
@@ -154,41 +163,36 @@ export function NewFeedingSheet({
   }, []);
 
   const handleSelectAll = useCallback(() => {
-     const householdCats = cats.filter(cat => String(cat.householdId) === String(currentUser?.householdId));
      const allCatIds = householdCats.map(cat => cat.id);
      setSelectedCats(allCatIds);
-  }, [cats, currentUser]);
+     const newStatus = allCatIds.reduce((acc, id) => ({ ...acc, [id]: "Normal" }), {});
+     setFeedingStatus(newStatus);
+  }, [householdCats]);
 
   const handleDeselectAll = useCallback(() => {
      setSelectedCats([]);
+     setFeedingStatus({});
   }, []);
 
-  const handlePortionChange = useCallback((catId: number, value: string) => {
+  const handlePortionChange = useCallback((catId: string, value: string) => {
     setPortions(prev => ({ ...prev, [catId]: value }));
   }, []);
 
-  const handleNotesChange = useCallback((catId: number, value: string) => {
+  const handleNotesChange = useCallback((catId: string, value: string) => {
     setNotes(prev => ({ ...prev, [catId]: value }));
   }, []);
 
-  const handleStatusChange = useCallback((catId: number, value: string) => {
+  const handleStatusChange = useCallback((catId: string, value: string) => {
     setFeedingStatus(prev => ({ ...prev, [catId]: value as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }));
   }, []);
 
   const handleSubmit = async () => {
     if (!currentUser?.id || !currentUser?.householdId) {
-      toast({
-        title: "Erro",
-        description: "Usuário ou residência não identificados.",
-        variant: "destructive"
-      });
+      toast.error("Erro: Usuário ou residência não identificados.");
       return;
     }
     if (selectedCats.length === 0) {
-       toast({
-        title: "Seleção Necessária",
-        description: "Selecione pelo menos um gato para registrar a alimentação.",
-      });
+      toast.info("Seleção Necessária", { description: "Selecione pelo menos um gato para registrar a alimentação." });
       return;
     }
 
@@ -199,7 +203,7 @@ export function NewFeedingSheet({
     const currentUserId = currentUser.id;
     const timestamp = new Date();
 
-    const logsToCreate: Omit<FeedingLog, 'id' | 'user' | 'cat'>[] = [];
+    const logsToCreate: Omit<FeedingLog, 'id' | 'user' | 'cat' | 'createdAt'>[] = [];
     let validationError = null;
 
     for (const catId of selectedCats) {
@@ -207,7 +211,7 @@ export function NewFeedingSheet({
       const portionNum = portionStr ? parseFloat(portionStr) : null;
 
       if (portionStr && (isNaN(portionNum!) || portionNum! <= 0 || portionNum! > 1000)) {
-          const catName = cats.find(c => c.id === catId)?.name || `Gato ${catId}`;
+          const catName = householdCats.find(c => c.id === catId)?.name || `Gato ${catId}`;
           validationError = `Porção inválida para ${catName}. Use um número positivo (até 1000) ou deixe em branco.`;
           break;
       }
@@ -219,12 +223,11 @@ export function NewFeedingSheet({
         portionSize: portionNum,
         status: feedingStatus[catId] || "Normal",
         notes: notes[catId]?.trim() || null,
-        createdAt: new Date()
       });
     }
 
     if (validationError) {
-        toast({ title: "Erro de Validação", description: validationError, variant: "destructive" });
+        toast.error("Erro de Validação", { description: validationError });
         setError(validationError);
         setIsSubmitting(false);
         removeLoadingOperation(opId);
@@ -246,261 +249,167 @@ export function NewFeedingSheet({
       const createdLogs: FeedingLog[] = await response.json();
 
       createdLogs.forEach(log => {
-        appDispatch({ type: "ADD_FEEDING_LOG", payload: log });
+        const logToDispatch = { 
+            ...log, 
+            timestamp: new Date(log.timestamp),
+            createdAt: new Date(log.createdAt || log.timestamp)
+        };
+        feedingDispatch({ type: "ADD_FEEDING", payload: logToDispatch });
       });
 
-      toast({
-        title: "Sucesso!",
-        description: `${createdLogs.length} ${createdLogs.length > 1 ? 'alimentações registradas' : 'alimentação registrada'}.`,
-      });
-      
+      toast.success(`Alimentação registrada para ${createdLogs.length} ${createdLogs.length === 1 ? 'gato' : 'gatos'}.`);
       onOpenChange(false);
 
-    } catch (error: any) {
-      console.error("Erro ao registrar alimentações:", error);
-      setError(error.message);
-      toast({
-        title: "Erro ao Registrar",
-        description: error.message,
-        variant: "destructive"
-      });
+    } catch (err: any) {
+      console.error("Error submitting feeding logs:", err);
+      setError(err.message || "Ocorreu um erro desconhecido.");
+      toast.error("Erro ao Registrar", { description: err.message || "Ocorreu um erro desconhecido." });
     } finally {
       setIsSubmitting(false);
       removeLoadingOperation(opId);
     }
   };
 
-  const householdCats = useMemo(() => {
-      if (!currentUser?.householdId) return [];
-      return cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));
-  }, [cats, currentUser]);
+  const catListItems = useMemo(() => {
+    if (isLoadingCats) {
+        return <Loading text="Carregando gatos..." />; 
+    }
+    if (!householdCats || householdCats.length === 0) {
+      return (
+        <EmptyState 
+          title="Nenhum gato encontrado"
+          description="Cadastre um gato para poder registrar alimentações."
+          actionLabel="Cadastrar Gato"
+          actionHref="/cats/new"
+          size="sm"
+        />
+      );
+    }
+    
+    return householdCats.map((cat) => {
+      const lastLog = getLastFeedingLog(cat.id);
+      const timeSinceLastFed = formatRelativeTime(lastLog?.timestamp);
+      const isSelected = selectedCats.includes(cat.id);
 
-   let content;
-   if (status === "loading" || (status === "authenticated" && !currentUser)) {
-      content = <Loading text="Carregando usuário..." className="mt-8" />;
-   } else if (!currentUser?.householdId) {
-       content = (
-           <EmptyState 
-               title="Residência Necessária"
-               description="Associe uma residência nas configurações para registrar alimentações."
-               icon={Users}
-               actionHref="/settings"
-               actionLabel="Ir para Configurações"
-               className="mt-8"
-           />
-       );
-   } else if (householdCats.length === 0) {
-       content = (
-           <EmptyState 
-               title="Nenhum Gato Cadastrado"
-               description="Cadastre um gato na sua residência primeiro."
-               icon={CatIcon}
-               actionHref="/cats/new"
-               actionLabel="Cadastrar Gato"
-               className="mt-8"
-            />
-       );
-   } else {
-       content = (
-           <>
-             <div className="mb-4 px-1 flex justify-between items-center">
-               <h3 className="text-sm font-medium">Selecione os Gatos</h3>
-               <div className="space-x-2">
-                 <Button 
-                   variant="outline" 
-                   size="sm" 
-                   onClick={handleSelectAll} 
-                   disabled={selectedCats.length === householdCats.length || isSubmitting}
-                   className="h-7 px-2 text-xs"
-                  >
-                   Todos
-                 </Button>
-                 <Button 
-                   variant="ghost" 
-                   size="sm" 
-                   onClick={handleDeselectAll} 
-                   disabled={selectedCats.length === 0 || isSubmitting}
-                   className="h-7 px-2 text-xs text-muted-foreground"
-                  >
-                   Nenhum
-                 </Button>
-               </div>
-             </div>
- 
-             <ScrollArea className="h-[calc(100vh-350px)] md:h-[calc(100vh-300px)]">
-                 <div className="px-4 py-4 space-y-3">
-                  {householdCats.length > 0 ? (
-                    householdCats.map((cat: CatType) => {
-                      const lastLog = getLastFeedingLog(cat.id);
-                      const nextFeedingTime = lastLog && cat.feedingInterval 
-                        ? calculateNextFeeding(
-                            new Date(lastLog.timestamp), 
-                            cat.feedingInterval, 
-                            currentUser?.preferences?.timezone || "America/Sao_Paulo"
-                          ) 
-                        : null;
-                      const isSelected = selectedCats.includes(cat.id);
-
-                      return (
-                        <motion.div
-                          key={cat.id}
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2 }}
-                          className={cn(
-                            "border rounded-lg p-3 cursor-pointer relative transition-all duration-200 hover:bg-muted/50",
-                            isSelected ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border"
-                          )}
-                          onClick={() => toggleCatSelection(cat.id)}
-                        >
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 text-primary">
-                              <CheckCircle className="h-5 w-5" />
-                            </div>
-                          )}
-                          <div className="flex items-start space-x-3">
-                            <Avatar className="h-10 w-10 border">
-                              <AvatarImage src={cat.photoUrl || undefined} alt={cat.name} />
-                              <AvatarFallback>{cat.name.charAt(0).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex justify-between items-center">
-                                 <p className="text-sm font-medium leading-none">{cat.name}</p>
-                              </div>
-                              <div className="text-xs text-muted-foreground flex items-center space-x-2">
-                                 <Clock className="h-3 w-3" />
-                                 <span>Última: {formatRelativeTime(lastLog?.timestamp)}</span>
-                              </div>
-                              {nextFeedingTime && (
-                                  <div className="text-xs text-muted-foreground flex items-center space-x-2">
-                                      <Bell className="h-3 w-3" />
-                                      <span>Próxima: {formatDateTimeForDisplay(nextFeedingTime, currentUser?.preferences?.timezone || "America/Sao_Paulo")}</span>
-                                  </div>
-                              )}
-                            </div>
-                          </div>
-                          <AnimatePresence>
-                            {isSelected && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0, marginTop: 0 }}
-                                animate={{ height: "auto", opacity: 1, marginTop: "12px" }}
-                                exit={{ height: 0, opacity: 0, marginTop: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label htmlFor={`portion-${cat.id}`} className="text-xs font-medium text-muted-foreground mb-1 block">Porção (g)</label>
-                                    <Input
-                                      id={`portion-${cat.id}`}
-                                      type="number"
-                                      placeholder={cat.portion_size ? `${cat.portion_size}g` : "Ex: 50"}
-                                      value={portions[cat.id] || ""}
-                                      onChange={(e) => handlePortionChange(cat.id, e.target.value)}
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="h-8 text-sm"
-                                      min="0"
-                                      step="1"
-                                    />
-                                  </div>
-                                  <div>
-                                     <label htmlFor={`notes-${cat.id}`} className="text-xs font-medium text-muted-foreground mb-1 block">Notas</label>
-                                     <Input
-                                       id={`notes-${cat.id}`}
-                                       placeholder="Opcional"
-                                       value={notes[cat.id] || ""}
-                                       onChange={(e) => handleNotesChange(cat.id, e.target.value)}
-                                       onClick={(e) => e.stopPropagation()}
-                                       className="h-8 text-sm"
-                                     />
-                                  </div>
-                                </div>
-
-                                <div className="mt-3">
-                                  <label htmlFor={`status-${cat.id}`} className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
-                                  <Select 
-                                    value={feedingStatus[cat.id] || "Normal"}
-                                    onValueChange={(value) => handleStatusChange(cat.id, value)}
-                                  >
-                                    <SelectTrigger 
-                                      id={`status-${cat.id}`}
-                                      className="h-8 text-sm"
-                                      onClick={(e) => e.stopPropagation()} // Prevent card click
-                                      disabled={isSubmitting} // Disable if submitting
-                                    >
-                                      <SelectValue placeholder="Selecionar status..." />
-                                    </SelectTrigger>
-                                    <SelectContent onClick={(e) => e.stopPropagation()}> 
-                                      {statusOptions.map(option => (
-                                        <SelectItem key={option.value} value={option.value} disabled={isSubmitting}>
-                                          {option.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </motion.div>
-                      );
-                    })
-                  ) : (
-                    <EmptyState 
-                       icon={CatIcon}
-                       title="Nenhum Gato Cadastrado"
-                       description="Cadastre seu primeiro gato para começar a registrar alimentações."
-                       actionLabel="Cadastrar Gato"
-                       actionHref="/cats/new"
-                       className="py-8"
-                    />
-                  )}
-                </div>
-             </ScrollArea>
-             {error && (
-                <p className="text-sm text-destructive mt-4 px-1">{error}</p>
-             )}
-           </>
-       );
-   }
+      return (
+        <motion.div
+          key={cat.id}
+          layout
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className={cn(
+            "flex items-center gap-4 p-3 rounded-lg border transition-colors cursor-pointer",
+            isSelected ? "bg-muted border-primary" : "border-transparent hover:bg-muted/50"
+          )}
+          onClick={() => toggleCatSelection(cat.id)}
+        >
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => toggleCatSelection(cat.id)}
+            aria-label={`Selecionar ${cat.name}`}
+            className="flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={cat.photoUrl || undefined} alt={cat.name} />
+            <AvatarFallback>{cat.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="flex-grow min-w-0">
+            <p className="font-medium truncate">{cat.name}</p>
+            <p className="text-xs text-muted-foreground">
+              Última vez: {timeSinceLastFed}
+            </p>
+          </div>
+          {isSelected && (
+            <motion.div 
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="flex items-center gap-2 pl-2 overflow-hidden flex-shrink-0"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Input
+                type="number"
+                placeholder="Grama(s)"
+                value={portions[cat.id] || ""}
+                onChange={(e) => handlePortionChange(cat.id, e.target.value)}
+                min="0"
+                step="1"
+                className="h-8 w-24 text-xs appearance-none m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                aria-label={`Porção para ${cat.name}`}
+              />
+              <Select 
+                value={feedingStatus[cat.id] || "Normal"}
+                onValueChange={(value) => handleStatusChange(cat.id, value)}
+              >
+                <SelectTrigger className="h-8 w-[110px] text-xs">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map(option => (
+                    <SelectItem key={option.value} value={option.value} className="text-xs">
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+               <Input
+                type="text"
+                placeholder="Notas..."
+                value={notes[cat.id] || ""}
+                onChange={(e) => handleNotesChange(cat.id, e.target.value)}
+                className="h-8 w-24 text-xs"
+                aria-label={`Notas para ${cat.name}`}
+              />
+            </motion.div>
+          )}
+        </motion.div>
+      );
+    });
+  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleNotesChange, formatRelativeTime]);
 
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
-      <DrawerContent className="h-[85vh] p-4 flex flex-col">
-        <DrawerHeader className="px-1">
+      <DrawerContent className="max-h-[90vh] flex flex-col">
+        <DrawerHeader className="text-left px-6 pt-4 pb-2">
           <DrawerTitle>Registrar Nova Alimentação</DrawerTitle>
           <DrawerDescription>
-            Selecione os gatos e informe a quantidade de ração.
+            Selecione os gatos e informe os detalhes da refeição.
           </DrawerDescription>
         </DrawerHeader>
-        
-        <div className="flex-1 mt-4 overflow-hidden flex flex-col">
-           {content}
+        <div className="flex justify-between items-center px-6 pb-3">
+           <p className="text-sm text-muted-foreground">
+             {selectedCats.length} de {householdCats.length} gatos selecionados
+           </p>
+           <div className="space-x-2">
+              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0}>
+                 Selecionar Todos
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0}>
+                 Limpar Seleção
+              </Button>
+           </div>
         </div>
-
-        {householdCats.length > 0 && currentUser?.householdId && (
-             <DrawerFooter className="mt-auto pt-4 border-t">
-                 <DrawerClose asChild>
-                     <Button variant="outline" disabled={isSubmitting}>Cancelar</Button>
-                 </DrawerClose>
-                 <Button
-                 onClick={handleSubmit}
-                 disabled={isSubmitting || selectedCats.length === 0}
-                 >
-                 {isSubmitting ? (
-                     <Loading text="Registrando..." size="sm" />
-                 ) : (
-                     <>
-                     <Utensils className="mr-2 h-4 w-4" />
-                     {`Confirmar (${selectedCats.length})`}
-                     </>
-                 )}
-                 </Button>
-             </DrawerFooter>
-        )}
+        <ScrollArea className="flex-grow overflow-y-auto px-6">
+          <div className="space-y-2 pb-4">
+            <AnimatePresence>
+              {catListItems}
+            </AnimatePresence>
+          </div>
+        </ScrollArea>
+         {error && (
+            <p className="px-6 py-2 text-sm text-destructive text-center">Erro: {error}</p>
+         )}
+        <DrawerFooter className="pt-4 border-t">
+          <Button 
+            onClick={handleSubmit}
+            disabled={selectedCats.length === 0 || isSubmitting}
+          >
+            {isSubmitting ? <Loading size="sm" className="mr-2"/> : <Check className="mr-2 h-4 w-4" />} 
+            Confirmar Alimentação ({selectedCats.length})
+          </Button>
+        </DrawerFooter>
       </DrawerContent>
     </Drawer>
   );

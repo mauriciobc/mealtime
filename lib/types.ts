@@ -8,6 +8,7 @@ export interface User {
   avatar?: string;
   households: string[]; // IDs of households
   primaryHousehold: string; // ID of primary household
+  householdId: number | null;
   preferences: {
     timezone: string;
     language: string; // en-US, pt-BR, es-ES

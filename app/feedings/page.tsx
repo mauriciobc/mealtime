@@ -15,7 +15,8 @@ import { motion } from "framer-motion"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Loading } from "@/components/ui/loading"
 import { PageHeader } from "@/components/page-header"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useCats } from "@/lib/context/CatsContext"
+import { useFeeding } from "@/lib/context/FeedingContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { FeedingLog, CatType } from "@/lib/types"
@@ -89,33 +90,39 @@ const getStatusText = (status: string | undefined) => {
 
 export default function FeedingsPage() {
   const router = useRouter()
-  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { state: catsState } = useCats()
+  const { state: feedingState, dispatch: feedingDispatch } = useFeeding()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { data: session, status } = useSession()
-  const { currentUser } = userState
-  const { cats, feedingLogs } = appState
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState
+  const { cats, isLoading: isLoadingCats, error: errorCats } = catsState
+  const { feedingLogs, isLoading: isLoadingFeedings, error: errorFeedings } = feedingState
 
-  const [isLoadingPage, setIsLoadingPage] = useState(true)
+  const isLoading = isLoadingUser || isLoadingCats || isLoadingFeedings
+  const error = errorUser || errorCats || errorFeedings
+  
   const [searchTerm, setSearchTerm] = useState("")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [logToDelete, setLogToDelete] = useState<FeedingLog | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-
-  useEffect(() => {
-    if (status === "authenticated" || status === "unauthenticated") {
-      setIsLoadingPage(false)
-    }
-  }, [status])
 
   const handleDeleteFeedingLog = async (logId: number) => {
     if (!logId) return
     const opId = `delete-feeding-${logId}`
     addLoadingOperation({ id: opId, description: "Excluindo registro..." })
     setIsDeleting(true)
-    const previousLogs = feedingLogs
+    const previousLogs = feedingState.feedingLogs
+    const logToDeleteObject = previousLogs.find(log => Number(log.id) === logId)
 
-    appDispatch({ type: "DELETE_FEEDING_LOG", payload: { id: String(logId) } })
+    if (!logToDeleteObject) {
+      toast.error("Erro: Registro não encontrado para exclusão.")
+      setIsDeleting(false)
+      removeLoadingOperation(opId)
+      return
+    }
+    
+    feedingDispatch({ type: "REMOVE_FEEDING", payload: logToDeleteObject })
 
     try {
       const response = await fetch(`/api/feedings/${logId}`, {
@@ -123,14 +130,14 @@ export default function FeedingsPage() {
       })
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        appDispatch({ type: "SET_FEEDING_LOGS", payload: previousLogs })
+        feedingDispatch({ type: "FETCH_SUCCESS", payload: previousLogs })
         throw new Error(errorData.error || `Falha ao excluir registro: ${response.statusText}`)
       }
       toast.success("Registro excluído com sucesso!")
     } catch (error: any) {
       console.error("Erro ao deletar registro de alimentação:", error)
       toast.error(`Erro ao excluir: ${error.message}`)
-      appDispatch({ type: "SET_FEEDING_LOGS", payload: previousLogs })
+      feedingDispatch({ type: "FETCH_SUCCESS", payload: previousLogs })
     } finally {
       setIsDeleting(false)
       setLogToDelete(null)
@@ -139,14 +146,14 @@ export default function FeedingsPage() {
   }
 
   const filteredAndSortedLogs = useMemo(() => {
-    if (!feedingLogs) return []
+    if (!feedingLogs || !cats) return []
     
     let logs = [...feedingLogs]
     
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase()
       logs = logs.filter(log => 
-        cats.find(c => c.id === log.catId)?.name.toLowerCase().includes(lowerSearchTerm) ||
+        cats.find(c => String(c.id) === String(log.catId))?.name.toLowerCase().includes(lowerSearchTerm) ||
         log.notes?.toLowerCase().includes(lowerSearchTerm) || 
         log.user?.name?.toLowerCase().includes(lowerSearchTerm)
       )
@@ -163,7 +170,7 @@ export default function FeedingsPage() {
   
   const groupedLogs = useMemo(() => groupLogsByDate(filteredAndSortedLogs), [filteredAndSortedLogs])
 
-  if (status === "loading" || (status === "authenticated" && (!currentUser || !cats || !feedingLogs))) {
+  if (status === "loading" || (status === "authenticated" && isLoading)) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -180,6 +187,20 @@ export default function FeedingsPage() {
   if (status === "unauthenticated") {
     router.push("/login")
     return <Loading text="Redirecionando..." />
+  }
+
+  if (error) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col min-h-screen bg-background">
+          <div className="p-4 pb-24">
+            <PageHeader title="Histórico de Alimentações" description="Erro ao carregar dados" />
+            <EmptyState title="Erro" description={error} icon={AlertTriangle} />
+          </div>
+          <BottomNav />
+        </div>
+      </PageTransition>
+    )
   }
 
   if (status === "authenticated" && currentUser && !currentUser.householdId) {
@@ -206,20 +227,6 @@ export default function FeedingsPage() {
     )
   }
 
-  if (isLoadingPage) {
-    return (
-      <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <div className="p-4 pb-24">
-            <PageHeader title="Histórico de Alimentações" description="Veja todos os registros" />
-            <Loading text="Carregando registros..." />
-          </div>
-          <BottomNav />
-        </div>
-      </PageTransition>
-    )
-  }
-
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
@@ -227,10 +234,8 @@ export default function FeedingsPage() {
           <PageHeader
             title="Histórico de Alimentações"
             description="Veja todos os registros de alimentação dos seus gatos"
-            actionIcon={<PlusCircle className="h-4 w-4" />}
-            actionLabel="Registrar"
-            actionHref="/feedings/new"
-            showActionButton={!!currentUser?.householdId}
+            actionLabel={currentUser?.householdId ? "Registrar" : undefined}
+            actionHref={currentUser?.householdId ? "/feedings/new" : undefined}
           />
           
           <div className="flex items-center gap-2 mb-6">
@@ -248,105 +253,126 @@ export default function FeedingsPage() {
               variant="outline" 
               size="icon" 
               className="h-9 w-9"
-              onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-              title={`Ordenar ${sortOrder === 'desc' ? 'Ascendente' : 'Descendente'}`}
+              onClick={() => setSortOrder(prev => prev === "desc" ? "asc" : "desc")}
+              title={sortOrder === "desc" ? "Ordenar ascendente" : "Ordenar descendente"}
             >
-              <SortDesc size={18} className={`transition-transform ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
+              <SortDesc className={`h-4 w-4 transform transition-transform ${sortOrder === "asc" ? 'rotate-180' : ''}`} />
             </Button>
           </div>
           
-          {filteredAndSortedLogs.length === 0 ? (
+          {filteredAndSortedLogs.length === 0 && !isLoading ? (
             <EmptyState
               icon={Utensils}
-              title={searchTerm ? "Nenhum Resultado" : "Sem Registros"}
-              description={
-                searchTerm
-                  ? "Nenhum registro encontrado para sua busca."
-                  : cats.length === 0
-                  ? "Cadastre seus gatos primeiro para poder registrar alimentações."
-                  : "Você ainda não registrou nenhuma alimentação para os gatos nesta residência."
-              }
-              actionLabel={
-                searchTerm
-                  ? "Limpar Busca"
-                  : cats.length === 0
-                  ? "Cadastrar Gato"
-                  : "Registrar Alimentação"
-              }
-              actionOnClick={searchTerm ? () => setSearchTerm("") : undefined}
-              actionHref={!searchTerm ? (cats.length === 0 ? "/cats/new" : "/feedings/new") : undefined}
-              variant="feeding"
-              className="mt-10"
+              title="Nenhum registro encontrado"
+              description={searchTerm 
+                ? "Nenhum registro corresponde à sua busca."
+                : "Nenhum registro de alimentação encontrado para esta residência."}
+              actionLabel="Registrar Primeira Alimentação"
+              actionHref="/feedings/new"
+              className="mt-12"
             />
           ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              {Object.entries(groupedLogs).map(([date, logs]) => (
-                <div key={date} className="mb-6">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 sticky top-0 bg-background/90 backdrop-blur py-1 px-1 -mx-1 z-10">{date}</h3>
-                  <Timeline className="ml-1">
-                    {logs.map((log: FeedingLog) => {
-                      const cat = cats.find(c => c.id === log.catId)
-                      const catName = cat?.name || 'Gato desconhecido'
-                      const userName = log.user?.name || '-'
-
-                      return (
-                        <TimelineItem
-                          key={log.id}
-                          time={new Date(log.timestamp)}
-                          title={
-                            <div className="flex items-center gap-2">
-                              <Link href={`/cats/${log.catId}`} className="font-medium hover:underline">
-                                {catName}
-                              </Link>
-                              {log.portionSize !== null && (
-                                <Badge variant="secondary" className="font-normal">{log.portionSize}g</Badge>
+            <Timeline>
+              {Object.entries(groupedLogs).map(([date, logsOnDate]) => (
+                <div key={date}>
+                  <h2 className="text-lg font-semibold my-4 sticky top-0 bg-background py-2 z-10">
+                    {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  </h2>
+                  {logsOnDate.map((log, index) => {
+                    const cat = cats.find(c => String(c.id) === String(log.catId))
+                    return (
+                      <TimelineItem key={log.id} className="mb-4">
+                        <div className="flex items-start gap-4 w-full">
+                          <div className="text-right text-sm text-muted-foreground pt-1 w-16 flex-shrink-0">
+                            {format(new Date(log.timestamp), "HH:mm")}
+                          </div>
+                          
+                          <Card className="flex-grow shadow-sm">
+                            <CardContent className="p-3">
+                              <div className="flex items-center justify-between gap-2">
+                                 <div className="flex items-center gap-3 flex-grow min-w-0">
+                                   <Link href={`/cats/${cat?.id}`} className="flex-shrink-0">
+                                     <Avatar className="h-9 w-9">
+                                       <AvatarImage src={cat?.photoUrl || undefined} alt={cat?.name} />
+                                       <AvatarFallback>{cat?.name?.substring(0, 2).toUpperCase() || "?"}</AvatarFallback>
+                                     </Avatar>
+                                   </Link>
+                                   <div className="min-w-0">
+                                     <Link href={`/cats/${cat?.id}`} className="font-medium truncate hover:underline">
+                                        {cat?.name || "Gato Desconhecido"}
+                                     </Link>
+                                      {log.user && (
+                                         <p className="text-xs text-muted-foreground truncate">
+                                           por {log.user?.name || "Usuário Desconhecido"}
+                                         </p>
+                                      )}
+                                   </div>
+                                 </div>
+                                 
+                                 <div className="flex items-center gap-2 flex-shrink-0">
+                                    {log.portionSize != null && (
+                                        <Badge variant="outline" className="text-xs">
+                                          {log.portionSize} g
+                                        </Badge>
+                                     )}
+                                     {getStatusIcon(log.status)}
+                                     {log.status && (
+                                         <Badge variant={getStatusVariant(log.status)} className="text-xs">
+                                           {getStatusText(log.status)}
+                                         </Badge>
+                                     )}
+                                    <AlertDialogTrigger asChild>
+                                      <Button 
+                                         variant="ghost" 
+                                         size="icon" 
+                                         className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                         onClick={() => setLogToDelete(log)}
+                                      >
+                                         <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                 </div>
+                                 
+                              </div>
+                              {log.notes && (
+                                <p className="text-xs text-muted-foreground mt-2 pl-12 italic">
+                                  &quot;{log.notes}&quot;
+                                </p>
                               )}
-                            </div>
-                          }
-                          description={
-                            log.notes ? `${log.notes} (por ${userName})` : `Registrado por ${userName}`
-                          }
-                          icon={getStatusIcon(undefined)}
-                          status={"completed"}
-                          onClick={() => router.push(`/feedings/${log.id}`)}
-                          onDelete={() => setLogToDelete(log)}
-                          className="cursor-pointer hover:bg-muted/50 rounded-md p-2 -m-2 transition-colors"
-                        />
-                      )
-                    })}
-                  </Timeline>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </TimelineItem>
+                    )
+                  })}
                 </div>
               ))}
-            </motion.div>
+            </Timeline>
           )}
         </div>
         
-        {logToDelete && (
-          <AlertDialog open={!!logToDelete} onOpenChange={(open) => !open && setLogToDelete(null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Excluir Registro?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Tem certeza que deseja excluir este registro de alimentação para "{cats.find(c=>c.id === logToDelete.catId)?.name || 'este gato'}"? Esta ação não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={() => handleDeleteFeedingLog(logToDelete.id)}
-                  disabled={isDeleting}
-                  className="bg-destructive hover:bg-destructive/90"
-                >
-                  {isDeleting ? <Loading text="Excluindo..." size="sm" /> : "Excluir"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+        <AlertDialog open={!!logToDelete} onOpenChange={(open) => {if (!open) setLogToDelete(null)}}> 
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja excluir este registro de alimentação?
+                {logToDelete && ` (${cats.find(c=>c.id === logToDelete.catId)?.name} em ${format(new Date(logToDelete.timestamp), 'dd/MM HH:mm')})`} 
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setLogToDelete(null)} disabled={isDeleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => handleDeleteFeedingLog(Number(logToDelete?.id))}
+                disabled={isDeleting || !logToDelete}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                 {isDeleting ? <Loading text="Excluindo..." size="sm"/> : "Excluir"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <BottomNav />
       </div>

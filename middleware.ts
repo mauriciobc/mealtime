@@ -1,27 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
 import { imageCache } from '@/lib/image-cache';
 
-// Rotas públicas que não requerem autenticação
-const publicRoutes = ["/login", "/signup", "/terms", "/privacy"];
-
-// Rotas de administrador que requerem papel específico
-const adminRoutes = ["/admin"];
+// Public paths that don't require authentication
+const publicPaths = [
+  '/login',
+  '/signup',
+  '/terms',
+  '/privacy',
+  '/api/auth',
+  '/_next',
+  '/favicon.ico',
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   console.log('[Middleware] Processing request for:', pathname);
-
-  // List of public paths that don't require authentication
-  const publicPaths = [
-    '/login',
-    '/signup',
-    '/terms',
-    '/privacy',
-    '/api/auth',
-    '/_next',
-    '/favicon.ico',
-  ];
 
   // Verificar se é uma requisição para uma imagem de perfil
   if (pathname.startsWith('/profiles/')) {
@@ -71,11 +64,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get the token
-  const token = await getToken({ 
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET 
-  });
+  // Get the session token from the cookie
+  const token = request.cookies.get('next-auth.session-token')?.value;
 
   console.log('[Middleware] Token status:', { 
     path: pathname,
@@ -95,10 +85,6 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('callbackUrl', request.url);
     return NextResponse.redirect(loginUrl);
-  }
-
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    console.log('[Middleware] JWT token for API request:', token ? 'Present' : 'Not present');
   }
 
   // Add security headers

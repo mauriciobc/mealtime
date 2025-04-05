@@ -72,33 +72,30 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
     setShowDeleteDialog(false);
   };
 
-  const getImageUrl = (photoUrl: string | undefined) => {
+  const getImageUrl = (photoUrl: string | undefined): string => {
     if (!photoUrl) {
       const fallbackUrl = getFallbackImageUrl('cat');
-      console.log(`[CatCard] Using fallback URL for ${cat.name}:`, fallbackUrl);
+      // console.log(`[CatCard] Using fallback URL for ${cat.name}:`, fallbackUrl); // Keep console log commented unless debugging
       return fallbackUrl;
     }
-    
+
     let finalUrl: string;
-    
-    // If it's already a full URL, use it
+
     if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
       finalUrl = photoUrl.replace('http://', 'https://');
-    }
-    // If it's a relative path starting with /uploads, use it as is
-    else if (photoUrl.startsWith('/uploads')) {
+    } else if (photoUrl.startsWith('/')) {
+      // If it starts with '/', assume it's a correct relative path from web root
       finalUrl = photoUrl;
+    } else {
+      // Otherwise, assume it's a filename/key relative to the uploads directory
+      finalUrl = `/uploads/cat/${photoUrl}`;
     }
-    // Otherwise, assume it's a filename and construct the path
-    else {
-      finalUrl = `/uploads/cat/${photoUrl.replace(/^uploads\/cat\//, '')}`;
-    }
-    
-    console.log(`[CatCard] Image URL for ${cat.name}:`, {
-      originalUrl: photoUrl,
-      processedUrl: finalUrl
-    });
-    
+
+    // console.log(`[CatCard] Image URL for ${cat.name}:`, { // Keep console log commented unless debugging
+    //   originalUrl: photoUrl,
+    //   processedUrl: finalUrl
+    // });
+
     return finalUrl;
   };
 

@@ -1,5 +1,5 @@
 import prisma from '../prisma';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 export const UserRepository = {
   // Buscar todos os usuários

@@ -1,69 +1,35 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, getHours } from "date-fns"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, getHours, parseISO } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import PageTransition from "@/components/page-transition"
+import { PageTransition } from "@/components/ui/page-transition"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, PieChart, Filter, Calendar, PlusCircle, Users, Utensils, Scale, CalendarCheck } from "lucide-react"
-import { useAppContext } from "@/lib/context/AppContext"
 import { useUserContext } from "@/lib/context/UserContext"
+import { useCats } from "@/lib/context/CatsContext"
+import { useFeeding } from "@/lib/context/FeedingContext"
+import { useSelectFeedingStatistics } from "@/lib/selectors/statisticsSelectors"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, Cell } from "recharts"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Loading } from "@/components/ui/loading"
 import { PageHeader } from "@/components/page-header"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { formatInTimeZone, toDate } from 'date-fns-tz';
-import { getUserTimezone } from '@/lib/utils/dateUtils';
-import { useSession } from "next-auth/react"
 import { StatCard } from "@/components/ui/stat-card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
-import { FeedingLog, CatType } from "@/lib/types";
+import { FeedingLog, CatType } from "@/lib/types"
+import { useSession } from "next-auth/react"
+import { getDateRange, StatisticsData, TimeSeriesDataPoint, CatPortion } from "@/lib/selectors/statisticsSelectors"
 
-interface FeedingData extends FeedingLog {
-  catName?: string
-}
+const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
-interface TimeSeriesDataPoint {
-  name: string
-  valor: number
-}
-
-interface CatPortion {
-  name: string
-  value: number
-}
-
-interface StatsSummary {
-  totalFeedings: number
-  averagePortionSize: number
-}
-
-interface StatisticsData {
-  totalFeedings: number
-  averagePortionSize: number
-  timeSeriesData: TimeSeriesDataPoint[]
-  catPortionData: CatPortion[]
-  timeDistributionData: TimeSeriesDataPoint[]
-}
-
-interface ChartProps {
-  data: any[];
-  config?: any;
-  dataKey?: string;
-  nameKey?: string;
-}
-
-const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
+const LineChartComponent = ({ data }: { data: any[] }) => (
   <div className="relative w-full" style={{ minHeight: '300px' }}>
     <ChartContainer
       config={{
@@ -95,9 +61,18 @@ const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
             domain={[0, 'auto']}
             allowDecimals={false}
             fontSize={12}
+            tickFormatter={(value) => `${value}g`}
           />
           <ChartTooltip 
             cursor={{ stroke: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+            content={<ChartTooltipContent 
+              indicator="line" 
+              labelFormatter={(value, payload) => { 
+                const dataPoint = payload?.[0]?.payload;
+                return dataPoint?.fullDate ? format(parseISO(dataPoint.fullDate), 'dd/MM/yyyy') : value;
+              }}
+              formatter={(value) => `${value}g`} 
+            />}
           />
           <Line 
             type="monotone" 
@@ -113,7 +88,7 @@ const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
   </div>
 )
 
-const BarChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
+const BarChartComponent = ({ data }: { data: any[] }) => (
   <div className="relative w-full" style={{ minHeight: '300px' }}>
     <ChartContainer
       config={{
@@ -147,6 +122,7 @@ const BarChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
           />
           <ChartTooltip 
             cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+            content={<ChartTooltipContent formatter={(value) => `${value}x`} />}
           />
           <Bar 
             dataKey="valor" 
@@ -159,7 +135,7 @@ const BarChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
   </div>
 )
 
-const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
+const PieChartComponent = ({ data }: { data: any[] }) => {
   if (!data || data.length === 0) {
     return (
       <div className="relative w-full" style={{ minHeight: '300px' }}>
@@ -177,7 +153,8 @@ const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
       theme: {
         light: COLORS[index % COLORS.length],
         dark: COLORS[index % COLORS.length]
-      }
+      },
+      color: COLORS[index % COLORS.length]
     },
   }), {});
 
@@ -186,9 +163,9 @@ const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
       <ChartContainer config={config} className="absolute inset-0">
         <ResponsiveContainer>
           <RechartsPieChart 
-            margin={{ top: 16, right: 16, left: 16, bottom: 16 }}
+            margin={{ top: 16, right: 16, left: 16, bottom: 30 }}
           >
-            <ChartTooltip />
+            <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="name" formatter={(value, name, entry) => `${value}g (${(entry.payload.percent * 100).toFixed(0)}%)`} />} />
             <Pie
               data={data}
               dataKey="value"
@@ -208,195 +185,174 @@ const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
                 />
               ))}
             </Pie>
+            <ChartLegend content={<ChartLegendContent nameKey="name" />} className="[&_.recharts-legend-item]:basis-[calc(50%_-_8px)]" />
           </RechartsPieChart>
         </ResponsiveContainer>
       </ChartContainer>
-      <div className="absolute bottom-0 left-0 right-0 flex flex-wrap gap-x-4 gap-y-1 justify-center text-xs pb-2">
-        <ChartLegend />
-      </div>
     </div>
   );
 }
 
 export default function StatisticsPage() {
   const router = useRouter()
-  const { state: appState } = useAppContext()
-  const { state: userState } = useUserContext()
   const { data: session, status } = useSession()
-  const { currentUser } = userState
-  const { cats, feedingLogs } = appState
-
   const [selectedPeriod, setSelectedPeriod] = useState("7dias")
   const [selectedCatId, setSelectedCatId] = useState<string>("all")
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
-  console.log('Debug - Loading States:', {
-    sessionStatus: status,
-    hasCurrentUser: !!currentUser,
-    hasCats: !!cats,
-    hasFeedingLogs: !!feedingLogs,
-    isLoading
-  })
+  const { currentUser, cats, feedingLogs, isLoading, error } = useSelectFeedingStatistics()
 
-  // Reset loading state when data becomes available
-  useEffect(() => {
-    if (status === 'authenticated' && currentUser && cats && feedingLogs) {
-      setIsLoading(false)
+  const handlePeriodChange = (value: string) => {
+    setSelectedPeriod(value)
+  }
+
+  const handleCatChange = (value: string) => {
+    setSelectedCatId(value)
+  }
+
+  const householdCats = useMemo(() => {
+    if (!cats || !currentUser?.householdId) return []
+    return cats.filter(cat => String(cat.householdId) === String(currentUser.householdId))
+  }, [cats, currentUser?.householdId])
+
+  const statisticsData = useMemo<StatisticsData | null>(() => {
+    if (!currentUser) {
+      return null;
     }
-  }, [status, currentUser, cats, feedingLogs])
-
-  const processedData = useMemo(() => {
-    if (status === "loading" || !currentUser || !cats || !feedingLogs) {
-      return null
+    if (!currentUser.householdId) {
+      return null;
+    }
+    if (!cats || cats.length === 0) {
+      return null;
+    }
+    if (!feedingLogs || feedingLogs.length === 0) {
+      return null;
     }
 
-    try {
-      const now = new Date()
-      let startDate: Date
-      let endDate = endOfDay(now)
+    const primaryHouseholdId = currentUser.householdId;
+    const { start, end } = getDateRange(selectedPeriod);
 
-      switch (selectedPeriod) {
-        case "hoje":
-          startDate = startOfDay(now)
-          break
-        case "7dias":
-          startDate = startOfDay(subDays(now, 6))
-          break
-        case "30dias":
-          startDate = startOfDay(subDays(now, 29))
-          break
-        case "mesAtual":
-          startDate = startOfMonth(now)
-          break
-        case "mesPassado":
-          const lastMonth = subMonths(now, 1)
-          startDate = startOfMonth(lastMonth)
-          endDate = endOfMonth(lastMonth)
-          break
-        default:
-          startDate = startOfDay(subDays(now, 6))
+    const relevantLogs = feedingLogs.filter(log => {
+      if (selectedCatId !== "all" && String(log.catId) !== String(selectedCatId)) return false;
+
+      try {
+        const timestampStr = typeof log.timestamp === 'string'
+          ? log.timestamp
+          : log.timestamp instanceof Date
+            ? log.timestamp.toISOString()
+            : String(log.timestamp);
+        if (!timestampStr) return false;
+        const logDate = parseISO(timestampStr);
+        if (isNaN(logDate.getTime())) return false;
+        return logDate >= start && logDate <= end;
+      } catch (e) {
+        console.error(`[StatisticsPage] Error processing timestamp:`, log.timestamp, log, e);
+        return false;
       }
+    });
 
-      const filteredLogs = feedingLogs.filter(log => {
-        const logDate = new Date(log.timestamp)
-        return logDate >= startDate && logDate <= endDate && 
-               (selectedCatId === "all" || String(log.catId) === selectedCatId)
-      })
-      
-      console.log('Filtered Logs:', filteredLogs.length, 'Start Date:', startDate, 'End Date:', endDate)
-      
-      if (filteredLogs.length === 0) {
-        setError(`Nenhum registro encontrado para ${selectedCatId !== 'all' ? cats.find(c=>String(c.id) === selectedCatId)?.name || 'gato selecionado' : 'todos os gatos'} no período selecionado.`)
-        return null
-      }
-
-      const totalFeedings = filteredLogs.length
-      const totalPortion = filteredLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0)
-      const averagePortionSize = totalFeedings > 0 ? Math.round(totalPortion / totalFeedings) : 0
-
-      // Time series data processing
-      const timeSeriesMap = new Map<string, number>()
-      let currentDate = new Date(startDate)
-      
-      // Initialize all dates in the range with 0
-      while (currentDate <= endDate) {
-        const dateString = format(currentDate, 'dd/MM')
-        timeSeriesMap.set(dateString, 0)
-        currentDate.setDate(currentDate.getDate() + 1)
-      }
-      
-      // Sum up portions for each date
-      filteredLogs.forEach(log => {
-        const dateString = format(new Date(log.timestamp), 'dd/MM')
-        const currentValue = timeSeriesMap.get(dateString) || 0
-        timeSeriesMap.set(dateString, currentValue + (log.portionSize || 0))
-      })
-
-      const timeSeriesData = Array.from(timeSeriesMap.entries())
-        .map(([name, valor]) => ({ name, valor }))
-        .sort((a, b) => {
-          const [dayA, monthA] = a.name.split('/').map(Number)
-          const [dayB, monthB] = b.name.split('/').map(Number)
-          return monthA === monthB ? dayA - dayB : monthA - monthB
-        })
-
-      // Cat portion data processing
-      const catPortionMap = new Map<string, number>()
-      cats.forEach(cat => catPortionMap.set(cat.name, 0)) // Initialize all cats with 0
-      
-      filteredLogs.forEach(log => {
-        const cat = cats.find(c => c.id === log.catId)
-        if (cat) {
-          const currentTotal = catPortionMap.get(cat.name) || 0
-          catPortionMap.set(cat.name, currentTotal + (log.portionSize || 0))
-        }
-      })
-
-      const catPortionData = Array.from(catPortionMap.entries())
-        .filter(([_, value]) => value > 0)
-        .map(([name, value]) => ({ name, value }))
-
-      // Time distribution data processing
-      const timeDistributionMap = new Map<string, number>()
-      for (let i = 0; i < 24; i++) {
-        timeDistributionMap.set(`${i.toString().padStart(2, '0')}:00`, 0)
-      }
-      
-      filteredLogs.forEach(log => {
-        const hour = getHours(new Date(log.timestamp))
-        const hourString = `${hour.toString().padStart(2, '0')}:00`
-        const currentCount = timeDistributionMap.get(hourString) || 0
-        timeDistributionMap.set(hourString, currentCount + 1)
-      })
-
-      const timeDistributionData = Array.from(timeDistributionMap.entries())
-        .map(([name, valor]) => ({ name, valor }))
-
-      setError(null)
+    if (relevantLogs.length === 0) {
       return {
-        totalFeedings,
-        averagePortionSize,
-        timeSeriesData,
-        catPortionData,
-        timeDistributionData,
-      }
-    } catch (e: any) {
-      console.error("Error processing statistics:", e)
-      setError(e.message || "Erro ao processar estatísticas.")
-      return null
+        totalFeedings: 0,
+        averagePortionSize: 0,
+        totalPortionSize: 0,
+        timeSeriesData: [],
+        catPortionData: [],
+        timeDistributionData: [],
+      };
     }
-  }, [selectedPeriod, selectedCatId, feedingLogs, cats, currentUser, status])
 
-  if (status === 'loading' || !currentUser) {
+    const totalFeedings = relevantLogs.length;
+    const totalPortionSize = relevantLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0);
+    const averagePortionSize = totalFeedings > 0 
+        ? parseFloat((totalPortionSize / relevantLogs.filter(l => l.portionSize != null).length || 0).toFixed(1))
+        : 0;
+
+    const timeSeriesMap = new Map<string, number>();
+    relevantLogs.forEach(log => {
+      const day = format(parseISO(log.timestamp as unknown as string), 'yyyy-MM-dd');
+      const currentSum = timeSeriesMap.get(day) || 0;
+      timeSeriesMap.set(day, currentSum + (log.portionSize || 0));
+    });
+    const timeSeriesData: TimeSeriesDataPoint[] = [];
+    let currentDate = new Date(start);
+    while (currentDate <= end) {
+        const dayKey = format(currentDate, 'yyyy-MM-dd');
+        const shortDayName = format(currentDate, 'dd/MM');
+        timeSeriesData.push({ name: shortDayName, fullDate: dayKey, valor: timeSeriesMap.get(dayKey) || 0 });
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const catPortionMap = new Map<string, number>();
+    relevantLogs.forEach(log => {
+      const cat = cats.find(c => String(c.id) === String(log.catId));
+      const catName = cat?.name || "Desconhecido";
+      const currentSum = catPortionMap.get(catName) || 0;
+      catPortionMap.set(catName, currentSum + (log.portionSize || 0));
+    });
+    const catPortionData: CatPortion[] = Array.from(catPortionMap.entries())
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value);
+
+    const timeDistributionMap = new Map<number, number>();
+    for (let i = 0; i < 24; i++) { timeDistributionMap.set(i, 0); } 
+    relevantLogs.forEach(log => {
+        if (!log.timestamp) return; 
+        try {
+           const hour = getHours(parseISO(log.timestamp as unknown as string));
+           timeDistributionMap.set(hour, (timeDistributionMap.get(hour) || 0) + 1); 
+        } catch (e) {
+             console.error(`[StatisticsPage] Error parsing timestamp for time distribution:`, log.timestamp, log, e);
+        }
+    });
+    const timeDistributionData: TimeSeriesDataPoint[] = Array.from(timeDistributionMap.entries())
+        .map(([hour, count]) => ({ name: `${hour.toString().padStart(2, '0')}:00`, valor: count }))
+        .sort((a, b) => parseInt(a.name) - parseInt(b.name)); 
+
+    const finalStats = {
+      totalFeedings,
+      averagePortionSize,
+      totalPortionSize,
+      timeSeriesData,
+      catPortionData,
+      timeDistributionData,
+    };
+
+    return finalStats;
+  }, [
+    currentUser, 
+    cats, 
+    feedingLogs, 
+    selectedPeriod, 
+    selectedCatId
+  ]);
+
+  if (isLoading) {
     return (
         <PageTransition>
-           <PageHeader title="Estatísticas" actionHref="/" />
-           <div className="container mx-auto p-4">
-               <Loading text="Carregando dados do usuário..." />
-           </div>
+            <PageHeader title="Estatísticas" description="Análise detalhada dos padrões de alimentação." icon={<BarChart3 />} />
+            <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                    <Card className="animate-pulse"><CardHeader><Skeleton className="h-5 w-24"/></CardHeader><CardContent><Skeleton className="h-8 w-16"/></CardContent></Card>
+                    <Card className="animate-pulse"><CardHeader><Skeleton className="h-5 w-32"/></CardHeader><CardContent><Skeleton className="h-8 w-16"/></CardContent></Card>
+                    <Card className="animate-pulse"><CardHeader><Skeleton className="h-5 w-28"/></CardHeader><CardContent><Skeleton className="h-8 w-16"/></CardContent></Card>
+                </div>
+                <Card className="animate-pulse"><CardHeader><Skeleton className="h-6 w-48"/></CardHeader><CardContent><Skeleton className="h-72 w-full"/></CardContent></Card>
+                 <Card className="animate-pulse"><CardHeader><Skeleton className="h-6 w-48"/></CardHeader><CardContent><Skeleton className="h-72 w-full"/></CardContent></Card>
+                  <Card className="animate-pulse"><CardHeader><Skeleton className="h-6 w-48"/></CardHeader><CardContent><Skeleton className="h-72 w-full"/></CardContent></Card>
+            </div>
         </PageTransition>
-     )
+    );
   }
 
-  if (!currentUser.householdId) {
-      return (
+  if (error) {
+     return (
         <PageTransition>
-          <PageHeader title="Estatísticas" actionHref="/" />
-          <div className="container mx-auto p-4">
-            <EmptyState
-              icon={Users}
-              title="Residência Necessária"
-              description="Associe ou crie uma residência para ver as estatísticas."
-              actionLabel="Ir para Configurações"
-              actionHref="/settings"
-              className="mt-6"
-            />
-          </div>
+            <PageHeader title="Estatísticas" description="Análise detalhada dos padrões de alimentação." icon={<BarChart3 />} />
+            <EmptyState icon={AlertTriangle} title="Erro ao carregar estatísticas" description={error} />
         </PageTransition>
-      )
+    );
   }
-  
+
   if (cats && cats.length === 0) {
      return (
        <PageTransition>
@@ -415,84 +371,48 @@ export default function StatisticsPage() {
      )
   }
 
-  if (isLoading) {
-      return (
-         <PageTransition>
-            <PageHeader title="Estatísticas" actionHref="/" />
-            <div className="container mx-auto p-4">
-               <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                  <Skeleton className="h-10 w-full sm:w-48" />
-                  <Skeleton className="h-10 w-full sm:w-48" />
-               </div>
-               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-                   <Skeleton className="h-24" />
-                   <Skeleton className="h-24" />
-                   <Skeleton className="h-24" />
-                   <Skeleton className="h-24" />
-               </div>
-               <Card>
-                 <CardHeader><Skeleton className="h-6 w-1/2" /></CardHeader>
-                 <CardContent>
-                   <Skeleton className="h-[300px] w-full" />
-                 </CardContent>
-               </Card>
-            </div>
-         </PageTransition>
-       )
-  }
-
-  if (error) {
+  if (!statisticsData || statisticsData.totalFeedings === 0) {
     return (
       <PageTransition>
-        <PageHeader title="Estatísticas" actionHref="/" />
-        <div className="container mx-auto p-4">
-           <div className="flex flex-col sm:flex-row gap-4 mb-6">
-             <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-               <SelectTrigger className="w-full sm:w-[180px]">
-                 <SelectValue placeholder="Período" />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="hoje">Hoje</SelectItem>
-                 <SelectItem value="7dias">Últimos 7 dias</SelectItem>
-                 <SelectItem value="30dias">Últimos 30 dias</SelectItem>
-                 <SelectItem value="mesAtual">Mês Atual</SelectItem>
-                 <SelectItem value="mesPassado">Mês Passado</SelectItem>
-               </SelectContent>
-             </Select>
-             <Select value={selectedCatId} onValueChange={setSelectedCatId}>
-               <SelectTrigger className="w-full sm:w-[180px]">
-                 <SelectValue placeholder="Gato" />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">Todos os Gatos</SelectItem>
-                 {cats.map(cat => (
-                   <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
-                 ))}
-               </SelectContent>
-             </Select>
-           </div>
-           <EmptyState
-             icon={AlertTriangle}
-             title="Sem Dados ou Erro"
-             description={error}
-             actionLabel="Limpar Filtros"
-             actionOnClick={() => { setSelectedPeriod("7dias"); setSelectedCatId("all"); }}
-             className="mt-6"
-           />
+        <PageHeader title="Estatísticas" description="Análise detalhada dos padrões de alimentação." icon={<BarChart3 />} />
+        <div className="mb-4 flex gap-2">
+            <Select value={selectedPeriod} onValueChange={handlePeriodChange}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Período" /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="7dias">Últimos 7 dias</SelectItem>
+                    <SelectItem value="30dias">Últimos 30 dias</SelectItem>
+                    <SelectItem value="mesAtual">Mês Atual</SelectItem>
+                    <SelectItem value="mesPassado">Mês Passado</SelectItem>
+                </SelectContent>
+            </Select>
+             <Select value={selectedCatId} onValueChange={handleCatChange}>
+                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Gato" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os Gatos</SelectItem>
+                   {householdCats.map(cat => (
+                       <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
+                   ))}
+                </SelectContent>
+            </Select>
         </div>
+        <EmptyState
+            icon={BarChart3}
+            title="Sem dados suficientes"
+            description="Não há dados de alimentação registrados para o período ou filtro selecionado."
+        />
       </PageTransition>
-    )
+    );
   }
-  
-  if (!processedData) {
-      return (
-          <PageTransition>
-             <PageHeader title="Estatísticas" actionHref="/" />
-             <div className="container mx-auto p-4">
-                 <Loading text="Preparando dados..." />
-             </div>
-          </PageTransition>
-       )
+
+  if (status === 'loading' || !currentUser) {
+    return (
+        <PageTransition>
+           <PageHeader title="Estatísticas" actionHref="/" />
+           <div className="container mx-auto p-4">
+               <Loading text="Carregando dados do usuário..." />
+           </div>
+        </PageTransition>
+     )
   }
 
   return (
@@ -520,7 +440,7 @@ export default function StatisticsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os Gatos</SelectItem>
-              {cats.map(cat => (
+              {householdCats.map(cat => (
                 <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
               ))}
             </SelectContent>
@@ -535,26 +455,26 @@ export default function StatisticsPage() {
          >
           <StatCard 
             title="Total de Alimentações" 
-            value={processedData.totalFeedings.toString()} 
+            value={statisticsData.totalFeedings.toString()} 
             icon={<Utensils className="h-4 w-4" />} 
             description={`No período selecionado`}
           />
           <StatCard 
             title="Média por Alimentação" 
-            value={`${processedData.averagePortionSize} g`} 
+            value={`${statisticsData.averagePortionSize} g`} 
             icon={<Scale className="h-4 w-4" />} 
             description={`Média de ração por vez`}
           />
-          <StatCard 
-            title="Gatos Ativos" 
-            value={selectedCatId === 'all' ? cats.length.toString() : '1'} 
-            icon={<Users className="h-4 w-4" />} 
+          <StatCard
+            title="Gatos Ativos"
+            value={selectedCatId === 'all' ? householdCats.length.toString() : '1'}
+            icon={<Users className="h-4 w-4" />}
             description={selectedCatId === 'all' ? `Gatos na residência` : `Gato selecionado`}
           />
-           <StatCard 
-            title="Período" 
+           <StatCard
+            title="Período"
             value={selectedPeriod.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-            icon={<Calendar className="h-4 w-4" />} 
+            icon={<Calendar className="h-4 w-4" />}
             description={`Dados referentes a este período`}
           />
         </motion.div>
@@ -571,7 +491,7 @@ export default function StatisticsPage() {
               <CardDescription>Total de ração consumida por dia no período.</CardDescription>
             </CardHeader>
             <CardContent className="pt-4 flex justify-center">
-              <LineChartComponent data={processedData.timeSeriesData} />
+              <LineChartComponent data={statisticsData.timeSeriesData || []} />
             </CardContent>
           </Card>
           <Card>
@@ -580,7 +500,7 @@ export default function StatisticsPage() {
               <CardDescription>Percentual do consumo total por gato.</CardDescription>
             </CardHeader>
             <CardContent className="pt-4 flex justify-center">
-              <PieChartComponent data={processedData.catPortionData} />
+              <PieChartComponent data={statisticsData.catPortionData || []} />
             </CardContent>
           </Card>
           <Card className="md:col-span-2">
@@ -600,27 +520,27 @@ export default function StatisticsPage() {
                   className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
                 >
                   <ResponsiveContainer>
-                    <RechartsBarChart 
-                      data={processedData.timeDistributionData}
+                    <RechartsBarChart
+                      data={statisticsData.timeDistributionData || []}
                       margin={{ top: 16, right: 16, left: 0, bottom: 16 }}
                     >
-                      <XAxis 
-                        dataKey="name" 
+                      <XAxis
+                        dataKey="name"
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                         tickMargin={12}
                       />
-                      <YAxis 
+                      <YAxis
                         axisLine={false}
                         tickLine={false}
                         tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-                        tickFormatter={(value) => `${value}g`}
+                        tickFormatter={(value) => `${value}x`}
                         width={45}
                         tickMargin={8}
                       />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent hideLabel />}
+                      <ChartTooltip
+                        content={<ChartTooltipContent hideLabel formatter={(value) => `${value} alimentações`}/>}
                         cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
                       />
                       <Bar
@@ -636,6 +556,7 @@ export default function StatisticsPage() {
             </CardContent>
           </Card>
         </motion.div>
+
       </div>
     </PageTransition>
   )

@@ -49,7 +49,7 @@ import Link from "next/link"
 import { toast } from "sonner"
 import { useHousehold } from "@/lib/context/HouseholdContext"
 import { useCats } from "@/lib/context/CatsContext"
-import { useUser } from "@/lib/context/UserContext"
+import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { CatType, Household as HouseholdType, HouseholdMember } from "@/lib/types"
 import {
@@ -84,7 +84,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { state: userState, dispatch: userDispatch } = useUser();
+  const { state: userState, dispatch: userDispatch } = useUserContext();
   const { state: catsState, dispatch: catsDispatch } = useCats();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { households } = householdState;

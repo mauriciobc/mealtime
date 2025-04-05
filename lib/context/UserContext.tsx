@@ -1,10 +1,11 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef } from "react";
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSession, update } from "next-auth/react";
 import { useLoading } from "./LoadingContext";
 import { toast } from "sonner";
 import { User as CurrentUserType } from "@/lib/types";
+import { useAppContext } from "./AppContext";
 
 interface UserState {
   currentUser: CurrentUserType | null;
@@ -47,58 +48,113 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(userReducer, initialState);
   const { data: session, status, update: updateSession } = useSession();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const hasAttemptedLoad = useRef(false);
+  const { dispatch: appDispatch } = useAppContext();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const loadingIdRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
 
   const userEmail = session?.user?.email;
 
+  // Set mounted ref
   useEffect(() => {
-    hasAttemptedLoad.current = false;
-  }, [userEmail]);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const cleanupLoading = useCallback((loadingId?: string) => {
+    const idToCleanup = loadingId || loadingIdRef.current;
+    if (idToCleanup && loadingIdRef.current === idToCleanup) {
+      try {
+        removeLoadingOperation(idToCleanup);
+        loadingIdRef.current = null;
+      } catch (error) {
+        console.error('[UserProvider] Error cleaning up loading:', error);
+      }
+    }
+  }, [removeLoadingOperation]);
+
+  const cleanupRequest = useCallback(() => {
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort();
+      } catch (error) {
+        console.error('[UserProvider] Error aborting request:', error);
+      } finally {
+        abortControllerRef.current = null;
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    let isMounted = true;
-    const controller = new AbortController();
+    let isEffectActive = true; // Flag to track effect cleanup
     const loadingId = "user-context-load";
 
     const loadUserData = async () => {
-      if (status !== "authenticated" || !userEmail || !isMounted) {
+      // Early return conditions check mount status AND effect active status
+      if (!mountedRef.current || !isEffectActive || status !== "authenticated" || !userEmail) {
         if (status === "unauthenticated" && state.currentUser) {
-          dispatch({ type: "CLEAR_USER" });
+          if (isEffectActive) {
+             dispatch({ type: "CLEAR_USER" });
+             appDispatch({ type: 'SET_CURRENT_USER', payload: null });
+          }
         }
         return;
       }
 
-      if (hasAttemptedLoad.current) return;
+      console.log("[UserProvider] Starting user data fetch (Effect active: " + isEffectActive + ")...");
 
-      dispatch({ type: "FETCH_START" });
-      addLoadingOperation({ id: loadingId, priority: 1, description: "Carregando dados do usuário..." });
-      hasAttemptedLoad.current = true;
+      cleanupRequest();
+      cleanupLoading(loadingId); 
+
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
 
       try {
+        if (!isEffectActive) return;
+        dispatch({ type: "FETCH_START" });
+        loadingIdRef.current = loadingId;
+        addLoadingOperation({ id: loadingId, priority: 1, description: "Carregando dados do usuário..." });
+
         const response = await fetch('/api/settings', {
           method: 'GET',
           headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
           credentials: 'include',
-          signal: controller.signal
+          signal: abortController.signal
         });
+        
+        if (!isEffectActive || !mountedRef.current) {
+            console.log("[UserProvider] Fetch completed but effect/component inactive.");
+            return;
+        }
 
-        if (!isMounted) return;
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+           const textResponse = await response.text();
+           if (!isEffectActive || !mountedRef.current) return;
+           console.error("[UserProvider] Received non-JSON response:", { status: response.status, contentType, body: textResponse });
+           throw new Error(`Resposta inesperada do servidor (tipo ${contentType || 'desconhecido'}).`);
+        }
 
         let userData;
         try {
           userData = await response.json();
         } catch (e) {
+          if (!isEffectActive || !mountedRef.current) return;
           const textResponse = await response.text();
           console.error("[UserProvider] Failed to parse JSON response:", textResponse, e);
-          throw new Error("Resposta inesperada do servidor ao carregar dados do usuário.");
+          throw new Error("Falha ao analisar a resposta JSON.");
         }
 
+        if (!isEffectActive || !mountedRef.current) return;
+
         if (!response.ok) {
-          throw new Error(userData.error || `Falha ao carregar dados do usuário (${response.status})`);
+          throw new Error(userData?.error || `Falha ao carregar dados (${response.status})`);
         }
 
         if (!session?.user) {
-          throw new Error('Sessão expirou durante o carregamento dos dados.');
+          throw new Error('Sessão inválida durante carregamento.');
         }
 
         const currentUser: CurrentUserType = {
@@ -121,7 +177,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           } : { timezone: "UTC", language: "pt-BR", notifications: { pushEnabled: true, emailEnabled: true, feedingReminders: true, missedFeedingAlerts: true, householdUpdates: true } }
         };
 
-        if (!isMounted) return;
+        if (!isEffectActive || !mountedRef.current) return;
 
         const currentSessionHouseholdId = session.user.householdId;
         if (currentUser.householdId !== currentSessionHouseholdId) {
@@ -129,30 +185,52 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           await updateSession({ user: { ...session.user, householdId: currentUser.householdId } });
         }
 
+        if (!isEffectActive || !mountedRef.current) return;
+
+        console.log("[UserProvider] Dispatching SET_CURRENT_USER");
         dispatch({ type: "SET_CURRENT_USER", payload: currentUser });
+        appDispatch({ type: 'SET_CURRENT_USER', payload: currentUser });
 
       } catch (error: any) {
+        if (!isEffectActive || !mountedRef.current) {
+            console.log("[UserProvider] Caught error but effect/component inactive:", error.name);
+            return;
+        }
+
+        console.log(`[UserProvider] Caught error name: ${error.name}`);
+
         if (error.name === 'AbortError') {
-          console.log("[UserProvider] Fetch aborted.");
-        } else if (isMounted) {
-          console.error("[UserProvider] Error loading user data:", error);
-          toast.error(`Erro ao carregar dados: ${error.message}`);
-          dispatch({ type: "FETCH_ERROR", payload: error.message });
+          console.log("[UserProvider] Handling AbortError...");
+          dispatch({ type: "FETCH_ERROR", payload: "Fetch aborted by client" });
+          console.log("[UserProvider] Dispatched FETCH_ERROR for AbortError.");
+        } else {
+          console.log("[UserProvider] Handling generic error...");
+          console.error("[UserProvider] Error loading user data:", error); 
+          const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+          toast.error(`Erro ao carregar dados: ${errorMessage}`);
+          dispatch({ type: "FETCH_ERROR", payload: errorMessage });
+          appDispatch({ type: 'SET_CURRENT_USER', payload: null });
+          console.log("[UserProvider] Dispatched FETCH_ERROR for generic error.");
         }
       } finally {
-        if (isMounted) {
-          removeLoadingOperation(loadingId);
+        if (isEffectActive && mountedRef.current) {
+          console.log(`[UserProvider] Finally block: Cleaning up loadingId ${loadingId}`);
+          cleanupLoading(loadingId);
+        } else {
+           console.log("[UserProvider] Finally block: Effect inactive or component unmounted, skipping cleanup.");
         }
+        abortControllerRef.current = null;
       }
     };
 
     loadUserData();
 
     return () => {
-      isMounted = false;
-      controller.abort();
+      console.log("[UserProvider] Effect cleanup running...");
+      isEffectActive = false;
+      cleanupRequest();
     };
-  }, [status, userEmail, addLoadingOperation, removeLoadingOperation, dispatch, updateSession, session]);
+  }, [status, userEmail, addLoadingOperation, removeLoadingOperation, cleanupLoading, cleanupRequest, dispatch, updateSession, session, appDispatch]);
 
   const contextValue = useMemo(() => ({ state, dispatch }), [state]);
 

@@ -6,46 +6,13 @@ import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { motion } from "framer-motion"
-import { getFeedingLogs } from "@/lib/data"
-
-interface FeedingLogType {
-  id: number;
-  catId: number;
-  userId: number;
-  timestamp: Date;
-  portionSize: number | null;
-  notes: string | null;
-  createdAt: Date;
-  cat: {
-    id: number;
-    name: string;
-    photoUrl: string | null;
-  };
-  user: {
-    id: number;
-    name: string;
-  };
-}
+import { useFeeding } from "@/lib/context/FeedingContext"
+import { FeedingLog } from "@/lib/types"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function EventsList() {
-  const [feedingLogs, setFeedingLogs] = useState<FeedingLogType[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadFeedingLogs() {
-      try {
-        setIsLoading(true)
-        const logs = await getFeedingLogs(undefined, 5) // Limitar a 5 registros
-        setFeedingLogs(logs)
-      } catch (error) {
-        console.error("Erro ao carregar registros de alimentação:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    
-    loadFeedingLogs()
-  }, [])
+  const { state: feedingState } = useFeeding()
+  const { feedingLogs, isLoading, error } = feedingState
 
   if (isLoading) {
     return (
@@ -54,10 +21,10 @@ export default function EventsList() {
           <Card key={i} className="animate-pulse">
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-muted"></div>
+                <Skeleton className="h-10 w-10 rounded-full" />
                 <div className="space-y-2 flex-1">
-                  <div className="h-4 w-1/3 bg-muted rounded"></div>
-                  <div className="h-3 w-1/2 bg-muted rounded"></div>
+                  <Skeleton className="h-4 w-2/4" />
+                  <Skeleton className="h-3 w-1/3" />
                 </div>
               </div>
             </CardContent>
@@ -67,7 +34,19 @@ export default function EventsList() {
     )
   }
 
-  if (feedingLogs.length === 0) {
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="p-4 text-center text-destructive">
+          Erro ao carregar eventos: {error}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const recentLogs = (feedingLogs || []).slice(0, 5)
+
+  if (recentLogs.length === 0) {
     return (
       <Card>
         <CardContent className="p-4 text-center">
@@ -86,7 +65,7 @@ export default function EventsList() {
       animate={{ opacity: 1 }}
       transition={{ staggerChildren: 0.1 }}
     >
-      {feedingLogs.map((log, index) => (
+      {recentLogs.map((log, index) => (
         <motion.div
           key={log.id}
           initial={{ opacity: 0, y: 10 }}
@@ -97,18 +76,20 @@ export default function EventsList() {
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarImage src={log.cat.photoUrl || ""} alt={log.cat.name} />
+                  <AvatarImage src={log.cat?.photoUrl || undefined} alt={log.cat?.name || "Gato"} />
                   <AvatarFallback>
-                    {log.cat.name.substring(0, 2).toUpperCase()}
+                    {(log.cat?.name || "G").substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium">{log.cat.name}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Alimentado por {log.user.name}
-                      </p>
+                      <h3 className="font-medium">{log.cat?.name || "Gato Desconhecido"}</h3>
+                      {log.user && (
+                        <p className="text-xs text-muted-foreground">
+                          Alimentado por {log.user?.name || "Usuário Desconhecido"}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-muted-foreground">
@@ -119,14 +100,14 @@ export default function EventsList() {
                       </p>
                     </div>
                   </div>
-                  {log.portionSize && (
+                  {log.portionSize != null && (
                     <p className="text-xs mt-1">
-                      <span className="font-medium">Quantidade:</span> {log.portionSize}
+                      <span className="font-medium">Quantidade:</span> {log.portionSize}g
                     </p>
                   )}
                   {log.notes && (
-                    <p className="text-xs mt-1">
-                      <span className="font-medium">Observações:</span> {log.notes}
+                    <p className="text-xs mt-1 text-muted-foreground">
+                      <span className="font-medium">Notas:</span> {log.notes}
                     </p>
                   )}
                 </div>

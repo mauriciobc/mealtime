@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useUserContext } from './UserContext'; // Need user/household context to know which cats to fetch
 import { useLoading } from './LoadingContext';
 import { toast } from 'sonner';
@@ -67,39 +67,70 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
   const { state: userState } = useUserContext();
   const { currentUser } = userState;
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const loadingIdRef = useRef<string | null>(null);
+  const hasAttemptedLoadRef = useRef(false);
+
+  const cleanupLoading = useCallback(() => {
+    if (loadingIdRef.current) {
+      try {
+        removeLoadingOperation(loadingIdRef.current);
+      } catch (error) {
+        console.error('[CatsProvider] Error cleaning up loading:', error);
+      } finally {
+        loadingIdRef.current = null;
+      }
+    }
+  }, [removeLoadingOperation]);
 
   useEffect(() => {
-    let isMounted = true;
+    hasAttemptedLoadRef.current = false;
+  }, [currentUser?.householdId]);
+
+  useEffect(() => {
     const loadingId = 'cats-data-load';
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    let isMounted = true;
 
     const loadCatsData = async () => {
       const householdId = currentUser?.householdId;
-      if (!householdId) {
-        // If no household, clear cats or do nothing?
-        dispatch({ type: 'FETCH_SUCCESS', payload: [] }); // Clear cats if no household
+      if (!householdId || !isMounted || hasAttemptedLoadRef.current) {
+        if (!householdId) {
+          dispatch({ type: 'FETCH_SUCCESS', payload: [] });
+        }
         return;
       }
 
-      dispatch({ type: 'FETCH_START' });
-      addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
+      hasAttemptedLoadRef.current = true;
 
       try {
+        loadingIdRef.current = loadingId;
+        dispatch({ type: 'FETCH_START' });
+        addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
+
         console.log("[CatsProvider] Loading cats for household:", householdId);
         const catsData: CatType[] = await getCatsByHouseholdId(householdId);
-        if (isMounted) {
-          console.log("[CatsProvider] Cats loaded:", catsData.length);
-          dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
-        }
+
+        if (!isMounted) return;
+
+        console.log("[CatsProvider] Cats loaded:", catsData.length);
+        dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
       } catch (error: any) {
-        console.error("[CatsProvider] Error loading cats data:", error);
-        if (isMounted) {
-          const errorMessage = error.message || 'Falha ao carregar dados dos gatos';
-          dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-          toast.error(errorMessage);
+        if (error.name === 'AbortError') {
+          console.log('[CatsProvider] Request aborted');
+          return;
         }
+
+        if (!isMounted) return;
+
+        console.error("[CatsProvider] Error loading cats data:", error);
+        const errorMessage = error.message || 'Falha ao carregar dados dos gatos';
+        dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
+        toast.error(errorMessage);
       } finally {
         if (isMounted) {
-          removeLoadingOperation(loadingId);
+          cleanupLoading();
         }
       }
     };
@@ -108,9 +139,13 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       isMounted = false;
-      removeLoadingOperation(loadingId);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      cleanupLoading();
     };
-  }, [currentUser?.householdId, addLoadingOperation, removeLoadingOperation, dispatch]); // Depend on householdId
+  }, [currentUser?.householdId, addLoadingOperation, cleanupLoading]);
 
   const contextValue = useMemo(() => ({ state, dispatch }), [state]);
 

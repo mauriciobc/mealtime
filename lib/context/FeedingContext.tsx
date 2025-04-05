@@ -1,12 +1,14 @@
-import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useUserContext } from './UserContext'; // Need householdId
 import { useLoading } from './LoadingContext';
 import { toast } from 'sonner';
 import { FeedingLog } from "@/lib/types"; // Use the existing detailed FeedingLog type
 import { CatType } from "@/lib/types";
 import { useCats } from './CatsContext'; // Needed for chart selector
-import { format, startOfDay, isEqual } from 'date-fns'; // Date helpers
+import { format, startOfDay, isEqual, addHours, isBefore, parseISO, compareAsc, endOfDay, subDays, compareDesc } from 'date-fns'; // Date helpers
 import { ptBR } from 'date-fns/locale'; // Date locale
+import { useScheduleContext } from './ScheduleContext'; // Fixed import name
+import { getUserTimezone } from "../utils/dateUtils"; // Import timezone utility
 
 // Remove the simple Feeding interface, use FeedingLog from types.ts
 // interface Feeding {
@@ -65,30 +67,78 @@ const FeedingContext = createContext<{
   dispatch: React.Dispatch<FeedingAction>;
 }>({ state: initialState, dispatch: () => null });
 
+// Helper function to calculate average portion size
+const selectAveragePortionSize = (logs: FeedingLog[] | null): number | null => {
+  if (!logs || logs.length === 0) {
+    return null;
+  }
+  const validPortionLogs = logs.filter(
+    (log) => typeof log.portionSize === 'number' && log.portionSize > 0
+  );
+  if (validPortionLogs.length === 0) {
+    return null;
+  }
+  const totalPortion = validPortionLogs.reduce(
+    (sum, log) => sum + log.portionSize!, // Non-null assertion safe due to filter
+    0
+  );
+  return totalPortion / validPortionLogs.length;
+};
+
 export const FeedingProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(feedingReducer, initialState);
   const { state: userState } = useUserContext();
   const { currentUser } = userState;
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const loadingIdRef = useRef<string | null>(null);
+  const hasAttemptedLoadRef = useRef(false);
+
+  const cleanupLoading = useCallback(() => {
+    if (loadingIdRef.current) {
+      try {
+        removeLoadingOperation(loadingIdRef.current);
+      } catch (error) {
+        console.error('[FeedingProvider] Error cleaning up loading:', error);
+      } finally {
+        loadingIdRef.current = null;
+      }
+    }
+  }, [removeLoadingOperation]);
 
   useEffect(() => {
-    let isMounted = true;
+    hasAttemptedLoadRef.current = false;
+  }, [currentUser?.householdId]);
+
+  useEffect(() => {
     const loadingId = 'feedings-data-load';
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    let isMounted = true;
 
     const loadFeedingsData = async () => {
       const householdId = currentUser?.householdId;
-      if (!householdId) {
-        dispatch({ type: 'FETCH_SUCCESS', payload: [] }); // Clear logs if no household
+      if (!householdId || !isMounted || hasAttemptedLoadRef.current) {
+        if (!householdId) {
+          dispatch({ type: 'FETCH_SUCCESS', payload: [] });
+        }
         return;
       }
 
-      dispatch({ type: 'FETCH_START' });
-      addLoadingOperation({ id: loadingId, priority: 4, description: 'Carregando histórico de alimentação...' });
+      hasAttemptedLoadRef.current = true;
 
       try {
+        loadingIdRef.current = loadingId;
+        dispatch({ type: 'FETCH_START' });
+        addLoadingOperation({ id: loadingId, priority: 4, description: 'Carregando histórico de alimentação...' });
+
         console.log("[FeedingProvider] Loading feedings for household:", householdId);
-        // Use the endpoint seen in DataProvider
-        const response = await fetch(`/api/feedings?householdId=${householdId}`);
+        const response = await fetch(`/api/feedings?householdId=${householdId}`, {
+          signal: abortController.signal
+        });
+
+        if (!isMounted) return;
+
         if (!response.ok) {
           const errorText = await response.text();
           console.error("[FeedingProvider] Feedings response error:", {
@@ -98,24 +148,29 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
           });
           throw new Error(`Erro ao carregar alimentações (${response.status}): ${errorText || 'Unknown error'}`);
         }
+
         const feedingsData: FeedingLog[] = await response.json();
 
-        if (isMounted) {
-          console.log("[FeedingProvider] Feedings loaded:", feedingsData.length);
-          // Optional: Sort feedings by date descending here before dispatching
-          const sortedData = feedingsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-          dispatch({ type: 'FETCH_SUCCESS', payload: sortedData });
-        }
+        if (!isMounted) return;
+
+        console.log("[FeedingProvider] Feedings loaded:", feedingsData.length);
+        const sortedData = feedingsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        dispatch({ type: 'FETCH_SUCCESS', payload: sortedData });
       } catch (error: any) {
-        console.error("[FeedingProvider] Error loading feedings data:", error);
-        if (isMounted) {
-          const errorMessage = error.message || 'Falha ao carregar histórico de alimentação';
-          dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-          toast.error(errorMessage);
+        if (error.name === 'AbortError') {
+          console.log('[FeedingProvider] Request aborted');
+          return;
         }
+
+        if (!isMounted) return;
+
+        console.error("[FeedingProvider] Error loading feedings data:", error);
+        const errorMessage = error.message || 'Falha ao carregar histórico de alimentação';
+        dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
+        toast.error(errorMessage);
       } finally {
         if (isMounted) {
-          removeLoadingOperation(loadingId);
+          cleanupLoading();
         }
       }
     };
@@ -124,9 +179,13 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       isMounted = false;
-      removeLoadingOperation(loadingId);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      cleanupLoading();
     };
-  }, [currentUser?.householdId, addLoadingOperation, removeLoadingOperation, dispatch]); // Depend on householdId
+  }, [currentUser?.householdId, addLoadingOperation, cleanupLoading]);
 
   const contextValue = useMemo(() => ({ state, dispatch }), [state]);
 
@@ -250,8 +309,157 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
   }, [feedingLogs, isLoadingFeedings, cats, isLoadingCats]);
 };
 
+// --- New Selector --- 
+
+interface UpcomingFeeding {
+  id: string; // Unique ID for list key
+  catId: ID;
+  catName: string;
+  catPhoto: string | null;
+  nextFeeding: Date;
+  isOverdue: boolean;
+}
+
+/**
+ * Selects the next 5 upcoming or overdue feeding times for the current household.
+ */
+export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] => {
+  const { state: catsState } = useCats();
+  const { state: feedingState } = useFeeding();
+  const { state: schedulesState } = useScheduleContext(); // Use assumed SchedulesContext
+  const { state: userState } = useUserContext();
+
+  const { cats, isLoading: isLoadingCats } = catsState;
+  const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
+  const { schedules, isLoading: isLoadingSchedules } = schedulesState;
+  const { currentUser, isLoading: isLoadingUser } = userState;
+  const timezone = useMemo(() => getUserTimezone(currentUser?.preferences?.timezone), [currentUser?.preferences?.timezone]);
+
+  return useMemo(() => {
+    // Ensure all required data is loaded and available
+    if (isLoadingCats || isLoadingFeedings || isLoadingSchedules || isLoadingUser || 
+        !currentUser?.householdId || !cats || !feedingLogs || !schedules) {
+      return []; // Return empty if still loading or data missing
+    }
+
+    try {
+      const now = toDate(new Date(), { timeZone: timezone });
+      const householdCats = cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));
+      
+      // Pre-filter logs and schedules for efficiency if datasets are large
+      const householdLogs = feedingLogs.filter(log => householdCats.some(cat => cat.id === log.catId));
+      const householdSchedules = schedules.filter(sch => householdCats.some(cat => cat.id === sch.catId));
+      
+      // Pre-compute last log for each cat
+      const lastLogMap = new Map<ID, FeedingLog>();
+      householdLogs.sort((a, b) => compareAsc(new Date(b.timestamp), new Date(a.timestamp))); // Sort once
+      householdLogs.forEach(log => {
+          if (!lastLogMap.has(log.catId)) {
+              lastLogMap.set(log.catId, log);
+          }
+      });
+
+      const calculatedFeedings: UpcomingFeeding[] = [];
+
+      householdCats.forEach((cat) => {
+        const catSchedules = householdSchedules.filter(sch => sch.catId === cat.id);
+        const lastFeedingLog = lastLogMap.get(cat.id);
+        const lastFeeding = lastFeedingLog ? new Date(lastFeedingLog.timestamp) : null;
+
+        let nextFeedingTime: Date | null = null;
+
+        // 1. Check Fixed Time Schedules
+        const fixedSchedules = catSchedules.filter(sch => sch.type === 'fixedTime' && sch.times && sch.times.length > 0);
+        if (fixedSchedules.length > 0) {
+          let earliestNextFixed: Date | null = null;
+          fixedSchedules.forEach(schedule => {
+            // Ensure schedule.times is treated as an array
+            const times = Array.isArray(schedule.times) ? schedule.times : schedule.times.split(',');
+            times.forEach(time => {
+              const [hours, minutes] = time.trim().split(':').map(Number);
+              if (isNaN(hours) || isNaN(minutes)) return;
+
+              const scheduledToday = toDate(new Date(now), { timeZone: timezone });
+              scheduledToday.setHours(hours, minutes, 0, 0);
+
+              let scheduledDateTime = scheduledToday;
+              // If the calculated time today is in the past, schedule for tomorrow
+              if (isBefore(scheduledDateTime, now)) {
+                scheduledDateTime = new Date(scheduledToday.setDate(scheduledToday.getDate() + 1));
+              }
+
+              // Keep the earliest upcoming fixed time
+              if (!earliestNextFixed || isBefore(scheduledDateTime, earliestNextFixed)) {
+                earliestNextFixed = scheduledDateTime;
+              }
+            });
+          });
+          nextFeedingTime = earliestNextFixed;
+        }
+
+        // 2. Check Interval Schedules (if no fixed time found yet)
+        if (!nextFeedingTime) {
+          const intervalSchedules = catSchedules.find(sch => sch.type === 'interval' && sch.interval && sch.interval > 0);
+          if (intervalSchedules && intervalSchedules.interval) {
+            if (lastFeeding) {
+              nextFeedingTime = calculateNextFeeding(lastFeeding, intervalSchedules.interval, timezone);
+            } else {
+              // If never fed, schedule based on now + interval (or base on a default time?)
+              nextFeedingTime = addHours(now, intervalSchedules.interval); 
+            }
+          }
+        }
+
+        // 3. Check Default Cat Interval (if no schedules found)
+        if (!nextFeedingTime && cat.feedingInterval && cat.feedingInterval > 0) {
+          if (lastFeeding) {
+            nextFeedingTime = calculateNextFeeding(lastFeeding, cat.feedingInterval, timezone);
+          } else {
+            // If never fed, schedule based on now + interval
+            nextFeedingTime = addHours(now, cat.feedingInterval);
+          }
+        }
+        
+        // Add to list if a valid time was calculated
+        if (nextFeedingTime) {
+          calculatedFeedings.push({
+            id: `cat-${cat.id}-next-${nextFeedingTime.toISOString()}`, // More unique key
+            catId: cat.id,
+            catName: cat.name,
+            catPhoto: cat.photoUrl || null,
+            nextFeeding: nextFeedingTime,
+            isOverdue: isBefore(nextFeedingTime, now) // Check if overdue compared to current time
+          });
+        }
+      });
+
+      // Sort all calculated times and take the top N
+      calculatedFeedings.sort((a, b) => compareAsc(a.nextFeeding, b.nextFeeding));
+      return calculatedFeedings.slice(0, limit);
+      
+    } catch (error) {
+      console.error("useSelectUpcomingFeedings: Error calculating feedings:", error);
+      return []; // Return empty array on error
+    }
+
+  }, [
+    cats, isLoadingCats, 
+    feedingLogs, isLoadingFeedings, 
+    schedules, isLoadingSchedules, 
+    currentUser, isLoadingUser, 
+    timezone, 
+    limit
+  ]);
+};
+
 // Selector hook remains useful
 export const useFeedingSelector = <T, >(selector: (state: FeedingState) => T): T => {
   const { state } = useFeeding();
   return selector(state);
+};
+
+// Selector hook for average portion size
+export const useSelectAveragePortionSize = (): number | null => {
+  const { state } = useFeeding();
+  return useMemo(() => selectAveragePortionSize(state.feedingLogs), [state.feedingLogs]);
 };

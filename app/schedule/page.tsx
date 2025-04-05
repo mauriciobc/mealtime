@@ -1,18 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PlusCircle, Search, Filter, Clock, Calendar, Repeat, AlarmClock, Edit, Trash2 } from "lucide-react"
+import { PlusCircle, Search, Filter, Clock, Calendar, Repeat, AlarmClock, Edit, Trash2, Users, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import PageTransition from "@/components/page-transition"
 import BottomNav from "@/components/bottom-nav"
 import { motion } from "framer-motion"
-import { getSchedules } from "@/lib/data"
 import { Badge } from "@/components/ui/badge"
 import { 
   DropdownMenu,
@@ -20,70 +19,60 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { toast } from "@/components/ui/use-toast"
-
-// Definindo a interface para o agendamento
-interface ScheduleType {
-  id: number
-  catId: number
-  type: string
-  interval: number
-  times: string
-  overrideUntil: Date | null
-  createdAt: Date
-  updatedAt: Date
-  cat: {
-    id: number
-    name: string
-    photoUrl: string | null
-  }
-}
+import { toast } from "sonner"
+import { Schedule as ScheduleType } from "@/lib/types"
+import { useScheduleContext } from "@/lib/context/ScheduleContext"
+import { useUserContext } from "@/lib/context/UserContext"
+import { useLoading } from "@/lib/context/LoadingContext"
+import { useSession } from "next-auth/react"
+import { PageHeader } from "@/components/page-header"
+import { Loading } from "@/components/ui/loading"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Input } from "@/components/ui/input"
 
 export default function SchedulePage() {
   const router = useRouter()
-  const [schedules, setSchedules] = useState<ScheduleType[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const { state: scheduleState, dispatch: scheduleDispatch } = useScheduleContext()
+  const { state: userState } = useUserContext()
+  const { addLoadingOperation, removeLoadingOperation } = useLoading()
+  const { data: session, status } = useSession()
+  const { schedules, isLoading, error } = scheduleState
+  const { currentUser } = userState
   
-  useEffect(() => {
-    async function loadSchedules() {
-      try {
-        setIsLoading(true)
-        const data = await getSchedules()
-        setSchedules(data)
-      } catch (error) {
-        console.error("Erro ao carregar agendamentos:", error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    
-    loadSchedules()
-  }, [])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [isDeleting, setIsDeleting] = useState(false)
   
-  const handleDeleteSchedule = async (id: number) => {
+  const handleDeleteSchedule = async (id: string) => {
+    const opId = `delete-schedule-${id}`; 
+    addLoadingOperation({ id: opId, priority: 1, description: "Excluindo agendamento..." });
+    setIsDeleting(true)
+    const previousSchedules = scheduleState.schedules
+
+    scheduleDispatch({ type: "DELETE_SCHEDULE", payload: id })
+
     try {
       const response = await fetch(`/api/schedules/${id}`, {
         method: "DELETE",
       })
       
       if (!response.ok) {
-        throw new Error("Falha ao excluir agendamento")
+        const errorData = await response.json().catch(() => ({}));
+        scheduleDispatch({ type: "SET_SCHEDULES", payload: previousSchedules });
+        throw new Error(errorData.error || "Falha ao excluir agendamento")
       }
       
-      // Atualizar a lista de agendamentos
-      setSchedules(schedules.filter(schedule => schedule.id !== id))
-      
-      toast({
-        title: "Agendamento excluído",
-        description: "O agendamento foi excluído com sucesso.",
-      })
-    } catch (error) {
+      toast.success("Agendamento excluído com sucesso.")
+    } catch (error: any) { 
       console.error("Erro ao excluir agendamento:", error)
-      toast({
-        title: "Erro",
-        description: "Ocorreu um erro ao excluir o agendamento.",
-        variant: "destructive",
-      })
+      toast.error(`Erro: ${error.message || "Ocorreu um erro ao excluir."}`)
+      if (previousSchedules) { 
+          scheduleDispatch({ type: "SET_SCHEDULES", payload: previousSchedules });
+      } else {
+          console.warn("Could not revert schedule deletion state: previous state unknown.");
+      }
+    } finally {
+      setIsDeleting(false)
+      removeLoadingOperation(opId);
     }
   }
   
@@ -105,18 +94,16 @@ export default function SchedulePage() {
     }
   }
   
-  // Função para formatar o texto do agendamento
   const formatScheduleText = (schedule: ScheduleType) => {
     if (schedule.type === 'interval') {
       return `A cada ${schedule.interval} horas`
     } else if (schedule.type === 'fixedTime') {
-      const times = schedule.times.split(',')
+      const times = Array.isArray(schedule.times) ? schedule.times : schedule.times?.split(',') || [];
       return `Horários fixos: ${times.join(', ')}`
     }
     return "Agendamento personalizado"
   }
   
-  // Função para obter o ícone do tipo de agendamento
   const getScheduleIcon = (type: string) => {
     if (type === 'interval') {
       return <Repeat className="h-4 w-4" />
@@ -126,58 +113,134 @@ export default function SchedulePage() {
     return <Calendar className="h-4 w-4" />
   }
 
+  const filteredSchedules = useMemo(() => {
+      if (!schedules) return [];
+      if (!searchTerm) return schedules;
+      
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      return schedules.filter(schedule => 
+           schedule.cat?.name?.toLowerCase().includes(lowerSearchTerm) ||
+           formatScheduleText(schedule).toLowerCase().includes(lowerSearchTerm)
+      );
+  }, [schedules, searchTerm]);
+
+  if (status === "loading" || (status === "authenticated" && (isLoading || !currentUser))) {
+    return (
+        <PageTransition>
+            <div className="flex flex-col min-h-screen bg-background">
+                <div className="p-4 pb-24">
+                    <PageHeader title="Agendamentos" description="Gerencie seus agendamentos" />
+                     <div className="space-y-4 mt-6">
+                      {[1, 2, 3].map((i) => (
+                        <Card key={i} className="animate-pulse">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              <Skeleton className="h-12 w-12 rounded-full" />
+                              <div className="space-y-2 flex-1">
+                                <Skeleton className="h-4 w-1/3" />
+                                <Skeleton className="h-3 w-1/2" />
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                </div>
+                <BottomNav />
+            </div>
+        </PageTransition>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    router.push("/login");
+    return <Loading text="Redirecionando para login..." />;
+  }
+  
+  if (error) {
+      return (
+         <PageTransition>
+            <div className="flex flex-col min-h-screen bg-background">
+               <div className="p-4 pb-24">
+                   <PageHeader title="Agendamentos" description="Erro ao carregar" />
+                   <EmptyState title="Erro" description={error} icon={AlertTriangle} />
+               </div>
+               <BottomNav />
+            </div>
+         </PageTransition>
+      );
+  }
+
+  if (status === "authenticated" && currentUser && !currentUser.householdId) {
+    return (
+        <PageTransition>
+            <div className="flex flex-col min-h-screen bg-background">
+                <div className="p-4 pb-24">
+                    <PageHeader title="Agendamentos" description="Gerencie seus agendamentos" />
+                    <EmptyState
+                      icon={Users}
+                      title="Sem Residência Associada"
+                      description="Você precisa criar ou juntar-se a uma residência para ver e criar agendamentos."
+                      actionLabel="Ir para Configurações"
+                      actionHref="/settings"
+                      className="mt-6"
+                    />
+                </div>
+                <BottomNav />
+            </div>
+        </PageTransition>
+    );
+  }
+
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
-        <div className="p-4">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold">Agendamentos de Alimentação</h1>
-            <Link href="/schedule/new">
-              <Button className="flex items-center gap-2">
-                <PlusCircle size={16} />
-                <span>Novo</span>
-              </Button>
-            </Link>
-          </div>
+        <div className="p-4 pb-24">
+           <PageHeader
+              title="Agendamentos"
+              description="Gerencie os horários de alimentação programados"
+              actionIcon={<PlusCircle className="h-4 w-4" />}
+              actionLabel="Novo Agendamento"
+              actionHref="/schedules/new"
+            />
           
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-6 mt-6">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <input
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
                 type="text"
-                placeholder="Buscar agendamentos..."
-                className="w-full rounded-md border border-input pl-10 py-2 text-sm"
+                placeholder="Buscar por gato ou tipo..."
+                className="w-full rounded-md border border-input bg-background pl-10 pr-4 py-2 text-sm h-9"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="outline" size="icon">
-              <Filter size={18} />
-            </Button>
           </div>
           
-          {isLoading ? (
+          {isLoading ? ( 
             <div className="space-y-4">
-              {[1, 2, 3].map((i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-muted"></div>
-                      <div className="space-y-2 flex-1">
-                        <div className="h-4 w-1/3 bg-muted rounded"></div>
-                        <div className="h-3 w-1/2 bg-muted rounded"></div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                 {[1, 2, 3].map((i) => (
+                    <Card key={i} className="animate-pulse">
+                        <CardContent className="p-4">
+                        <div className="flex items-center gap-4">
+                            <Skeleton className="h-12 w-12 rounded-full" />
+                            <div className="space-y-2 flex-1">
+                            <Skeleton className="h-4 w-1/3" />
+                            <Skeleton className="h-3 w-1/2" />
+                            </div>
+                        </div>
+                        </CardContent>
+                    </Card>
+                 ))}
             </div>
-          ) : schedules.length === 0 ? (
+          ) : filteredSchedules.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground mb-6">
-                Nenhum agendamento encontrado.
+                {searchTerm ? "Nenhum agendamento encontrado para sua busca." : "Nenhum agendamento configurado."} 
               </p>
-              <Link href="/schedule/new">
-                <Button>Criar primeiro agendamento</Button>
-              </Link>
+              <Button asChild>
+                  <Link href="/schedules/new">Criar Agendamento</Link>
+              </Button>
             </div>
           ) : (
             <motion.div 
@@ -186,45 +249,50 @@ export default function SchedulePage() {
               initial="hidden"
               animate="visible"
             >
-              {schedules.map((schedule) => (
+              {filteredSchedules.map((schedule) => (
                 <motion.div key={schedule.id} variants={itemVariants}>
                   <Card className="hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-4">
-                        <Avatar>
-                          <AvatarImage src={schedule.cat.photoUrl || ""} alt={schedule.cat.name} />
-                          <AvatarFallback>
-                            {schedule.cat.name.substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        {schedule.cat ? (
+                          <Avatar>
+                            <AvatarImage src={schedule.cat.photoUrl || ""} alt={schedule.cat.name} />
+                            <AvatarFallback>
+                              {schedule.cat.name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                         ) : (
+                           <Avatar><AvatarFallback>?</AvatarFallback></Avatar>
+                         )}
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="font-medium">{schedule.cat.name}</h3>
+                              <h3 className="font-medium">{schedule.cat?.name || "Gato Desconhecido"}</h3>
                               <div className="flex items-center gap-1 mt-1">
                                 <Badge variant="outline" className="flex items-center gap-1 text-xs">
                                   {getScheduleIcon(schedule.type)}
-                                  <span>{schedule.type === 'interval' ? 'Intervalo' : 'Horário Fixo'}</span>
+                                  <span>{schedule.type === 'interval' ? 'Intervalo' : schedule.type === 'fixedTime' ? 'Horário Fixo' : 'Personalizado'}</span>
                                 </Badge>
                               </div>
-                              <p className="text-sm mt-2">
+                              <p className="text-sm text-muted-foreground mt-2">
                                 {formatScheduleText(schedule)}
                               </p>
                             </div>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
                                   <Edit className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => router.push(`/schedule/${schedule.id}`)}>
+                                <DropdownMenuItem onClick={() => router.push(`/schedules/${schedule.id}`)}>
                                   <Edit className="h-4 w-4 mr-2" />
                                   Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuItem 
-                                  className="text-destructive"
-                                  onClick={() => handleDeleteSchedule(schedule.id)}
+                                  className="text-destructive focus:text-red-600 cursor-pointer"
+                                  onClick={() => handleDeleteSchedule(String(schedule.id))} 
+                                  disabled={isDeleting} 
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Excluir
@@ -234,7 +302,7 @@ export default function SchedulePage() {
                           </div>
                           {schedule.overrideUntil && (
                             <p className="text-xs text-amber-600 mt-1">
-                              Sobreposição ativa até {format(new Date(schedule.overrideUntil), "dd/MM/yyyy", { locale: ptBR })}
+                              Sobreposição ativa até {format(new Date(schedule.overrideUntil), "dd/MM/yyyy HH:mm", { locale: ptBR })}
                             </p>
                           )}
                         </div>
@@ -250,6 +318,6 @@ export default function SchedulePage() {
         <BottomNav />
       </div>
     </PageTransition>
-  )
+  );
 }
 

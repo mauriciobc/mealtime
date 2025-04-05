@@ -8,19 +8,22 @@ import { headers } from 'next/headers'
 export async function GET() {
   try {
     console.log("[Settings API] Request received");
-    const headersList = headers();
-    console.log("[Settings API] Request headers:", Object.fromEntries(headersList.entries()));
+    // const headersList = headers(); // Removed problematic headers access
+    // console.log("[Settings API] Request headers sample:", { 
+    //   'content-type': headersList.get('content-type'),
+    //   'user-agent': headersList.get('user-agent'),
+    //   'referer': headersList.get('referer')
+    // });
 
     console.log("[Settings API] Getting session");
     const session = await getServerSession(authOptions);
     
-    // Log full session object for debugging
     console.log("[Settings API] Full session object:", JSON.stringify(session, null, 2));
+    // Log session details safely, avoid iterating headers here too
     console.log("[Settings API] Session details:", { 
       authenticated: !!session, 
       hasUser: !!session?.user,
       email: session?.user?.email,
-      headers: headersList ? Object.fromEntries(headersList.entries()) : 'No headers'
     });
     
     if (!session) {
@@ -76,6 +79,12 @@ export async function GET() {
           },
         }
       );
+    }
+
+    if (user) {
+        console.log(`[Settings API] User found. ID: ${user.id}, Household ID from DB: ${user.householdId}`);
+    } else {
+        console.log("[Settings API] User object is null/undefined after Prisma query.");
     }
 
     if (!user) {

@@ -5,10 +5,9 @@ import { useLoading } from "@/lib/context/LoadingContext";
 import { Progress } from "@/components/ui/progress";
 
 export function GlobalLoading() {
-  const { state } = useLoading();
-  const { isGlobalLoading } = state;
+  const { isLoading } = useLoading();
 
-  if (!isGlobalLoading) return null;
+  if (!isLoading) return null;
 
   return (
     <AnimatePresence>

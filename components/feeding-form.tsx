@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useFeeding } from "@/hooks/use-feeding";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   amount: z.string()
@@ -34,15 +35,15 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface FeedingFormProps {
-  catId: number;
-  catPortionSize: number;
+  catId: string;
+  catPortionSize: number | null | undefined;
   onSuccess?: () => void;
 }
 
 export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { handleMarkAsFed, nextFeedingTime, formattedNextFeedingTime } = useFeeding(catId);
+  const { handleMarkAsFed, nextFeedingTime, formattedNextFeedingTime, isLoading, error: feedingHookError } = useFeeding(catId);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -53,30 +54,39 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
     },
   });
 
+  useEffect(() => {
+    form.reset({ 
+        ...form.getValues(), 
+        amount: catPortionSize ? catPortionSize.toString() : ""
+    });
+  }, [catPortionSize, form]);
+
   async function onSubmit(values: FormValues) {
-    try {
-      setIsSubmitting(true);
-      
-      // Check if feeding is before the next scheduled time
-      if (nextFeedingTime && values.timestamp < nextFeedingTime) {
-        const confirmEarly = window.confirm(
-          `Ainda não está na hora da próxima alimentação (${formattedNextFeedingTime}). Deseja registrar mesmo assim?`
-        );
-        if (!confirmEarly) {
-          setIsSubmitting(false);
-          return;
-        }
+    if (nextFeedingTime && values.timestamp < nextFeedingTime) {
+      const confirmEarly = window.confirm(
+        `Ainda não está na hora da próxima alimentação (${formattedNextFeedingTime}). Deseja registrar mesmo assim?`
+      );
+      if (!confirmEarly) {
+        return;
       }
-      
+    }
+
+    setIsSubmitting(true);
+    try {
       await handleMarkAsFed(values.amount, values.notes || undefined, values.timestamp);
       
-      form.reset();
       router.refresh();
       if (onSuccess) {
         onSuccess();
+      } else {
+        form.reset({
+            amount: catPortionSize ? catPortionSize.toString() : "",
+            notes: "",
+            timestamp: new Date(),
+        });
       }
-    } catch (error) {
-      console.error("Erro ao registrar alimentação:", error);
+    } catch (error: any) {
+      console.error("Erro ao registrar alimentação (FeedingForm):", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -99,8 +109,9 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
                   <DateTimePicker
                     date={field.value}
                     setDate={(date) => {
-                      field.onChange(date);
-                      field.onBlur();
+                      if (date) {
+                         field.onChange(date);
+                      }
                     }}
                   />
                 </FormControl>
@@ -114,12 +125,12 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
             name="amount"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Quantidade (porções)</FormLabel>
+                <FormLabel>Quantidade (g)</FormLabel>
                 <FormControl>
                   <Input 
                     type="number" 
-                    step="0.5" 
-                    placeholder="Ex: 1.5" 
+                    step="1"
+                    placeholder={`Sugestão: ${catPortionSize || '50'}g`}
                     {...field} 
                   />
                 </FormControl>
@@ -148,7 +159,7 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isSubmitting}
+            disabled={isSubmitting || isLoading}
           >
             {isSubmitting ? "Registrando..." : "Registrar Alimentação"}
           </Button>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { format, addHours, isBefore, parseISO, compareAsc } from "date-fns";
+import { format, addHours, isBefore, parseISO, compareAsc, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone, toDate } from "date-fns-tz";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,123 +10,28 @@ import { Button } from "@/components/ui/button";
 import { Check, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useAppContext } from "@/lib/context/AppContext";
 import { useUserContext } from "@/lib/context/UserContext";
+import { useCats } from "@/lib/context/CatsContext";
+import { useFeeding, useSelectUpcomingFeedings } from "@/lib/context/FeedingContext";
+import { useSchedules } from "@/lib/context/ScheduleContext";
 import { useSession } from "next-auth/react";
-import { getSchedules } from "@/lib/data";
-import { getUserTimezone, calculateNextFeeding, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
+import { getUserTimezone, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { CatType, FeedingLog, Schedule, ID } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
-interface UpcomingFeeding {
-  id: string;
-  catId: ID;
-  catName: string;
-  catPhoto: string | null;
-  nextFeeding: Date;
-  isOverdue: boolean;
-}
-
 export default function FeedingSchedule() {
-  const { state: appState } = useAppContext();
   const { state: userState } = useUserContext();
-  const { cats, feedingLogs, schedules } = appState;
+  const { state: catsState } = useCats();
+  const { state: feedingState } = useFeeding();
+  const { state: schedulesState } = useSchedules();
   const { currentUser } = userState;
-  const { data: session, status } = useSession();
-  const timezone = useMemo(() => getUserTimezone(session?.user?.timezone), [session?.user?.timezone]);
-  const [upcomingFeedings, setUpcomingFeedings] = useState<UpcomingFeeding[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const timezone = useMemo(() => getUserTimezone(currentUser?.preferences?.timezone), [currentUser?.preferences?.timezone]);
+  
+  const upcomingFeedings = useSelectUpcomingFeedings(5);
+  
+  const isLoading = catsState.isLoading || feedingState.isLoading || schedulesState.isLoading || userState.isLoading;
+  
   const router = useRouter();
-
-  useEffect(() => {
-    if (status !== 'authenticated' || !currentUser || !currentUser.householdId || !cats || !feedingLogs) {
-       setIsLoading(false);
-       return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-        const now = toDate(new Date(), { timeZone: timezone });
-        const householdCats = cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));
-        const householdLogs = feedingLogs.filter(log => householdCats.some(cat => cat.id === log.catId));
-        const householdSchedules = schedules.filter(sch => householdCats.some(cat => cat.id === sch.catId));
-        
-        const calculatedFeedings: UpcomingFeeding[] = [];
-
-        householdCats.forEach((cat) => {
-            const catSchedules = householdSchedules.filter(sch => sch.catId === cat.id);
-            const catLogs = householdLogs
-                .filter(log => log.catId === cat.id)
-                .sort((a, b) => compareAsc(new Date(b.timestamp), new Date(a.timestamp)));
-            const lastFeeding = catLogs[0] ? new Date(catLogs[0].timestamp) : null;
-
-            let nextFeedingTime: Date | null = null;
-
-            const fixedSchedules = catSchedules.filter(sch => sch.type === 'fixedTime' && sch.times);
-            if (fixedSchedules.length > 0) {
-                let earliestNextFixed = null;
-                fixedSchedules.forEach(schedule => {
-                    const times = schedule.times.split(',');
-                    times.forEach(time => {
-                        const [hours, minutes] = time.trim().split(':').map(Number);
-                        if (isNaN(hours) || isNaN(minutes)) return;
-
-                        const scheduledToday = toDate(new Date(now), { timeZone: timezone });
-                        scheduledToday.setHours(hours, minutes, 0, 0);
-
-                        let scheduledDateTime = scheduledToday;
-                        if (isBefore(scheduledDateTime, now)) {
-                             scheduledDateTime = new Date(scheduledToday.setDate(scheduledToday.getDate() + 1));
-                        }
-
-                        if (!earliestNextFixed || isBefore(scheduledDateTime, earliestNextFixed)) {
-                             earliestNextFixed = scheduledDateTime;
-                        }
-                    });
-                });
-                nextFeedingTime = earliestNextFixed;
-            }
-
-            const intervalSchedules = catSchedules.filter(sch => sch.type === 'interval' && sch.interval);
-            if (!nextFeedingTime && intervalSchedules.length > 0 && intervalSchedules[0].interval) {
-                 if (lastFeeding) {
-                    nextFeedingTime = calculateNextFeeding(lastFeeding, intervalSchedules[0].interval, timezone);
-                } else {
-                     nextFeedingTime = addHours(now, intervalSchedules[0].interval);
-                 }
-            }
-
-            if (!nextFeedingTime && cat.feedingInterval) {
-                 if (lastFeeding) {
-                    nextFeedingTime = calculateNextFeeding(lastFeeding, cat.feedingInterval, timezone);
-                } else {
-                     nextFeedingTime = addHours(now, cat.feedingInterval);
-                 }
-            }
-            
-            if (nextFeedingTime) {
-                 calculatedFeedings.push({
-                     id: `cat-${cat.id}-next`,
-                     catId: cat.id,
-                     catName: cat.name,
-                     catPhoto: cat.photoUrl || null,
-                     nextFeeding: nextFeedingTime,
-                     isOverdue: isBefore(nextFeedingTime, now)
-                 });
-            }
-        });
-
-        calculatedFeedings.sort((a, b) => compareAsc(a.nextFeeding, b.nextFeeding));
-        setUpcomingFeedings(calculatedFeedings.slice(0, 5));
-        
-    } catch (error) {
-        console.error("FeedingSchedule: Error calculating upcoming feedings:", error);
-    } finally {
-        setIsLoading(false);
-    }
-
-  }, [status, currentUser, cats, feedingLogs, schedules, timezone]);
 
   const handleFeedNow = (catId: ID) => {
     router.push(`/feedings/new?catId=${catId}`);

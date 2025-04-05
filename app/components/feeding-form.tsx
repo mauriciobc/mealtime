@@ -5,19 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FeedingFormProps } from "@/lib/types";
-import { useAppContext } from "@/lib/context/AppContext";
+import { useCats } from "@/lib/context/CatsContext";
 
 export function FeedingForm({ catId, onMarkAsFed }: FeedingFormProps) {
-  const { state: appState } = useAppContext();
-  const cat = appState.cats.find((cat) => cat.id === catId);
-  const [amount, setAmount] = useState(cat?.portion?.toString() || "");
+  const { state: catsState } = useCats();
+  const cat = catsState.cats.find((c) => String(c.id) === String(catId));
+  const [amount, setAmount] = useState(cat?.portion_size?.toString() || "");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (cat?.portion) {
-      setAmount(cat.portion.toString());
-      console.log("Pre-filling Porção field with:", cat.portion.toString());
+    if (cat?.portion_size) {
+      setAmount(cat.portion_size.toString());
+      console.log("Pre-filling Porção field with:", cat.portion_size.toString());
     }
   }, [cat]);
 

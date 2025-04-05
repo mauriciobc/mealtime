@@ -15,6 +15,7 @@ import { GlobalLoading } from "@/components/ui/global-loading"
 import { HouseholdProvider } from "@/lib/context/HouseholdContext"
 import { CatsProvider } from "@/lib/context/CatsContext"
 import { FeedingProvider } from "@/lib/context/FeedingContext"
+import { AppProvider } from "@/lib/context/AppContext"
 
 const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").then(mod => ({ default: mod.OnboardingTour })), {
   ssr: false,
@@ -24,29 +25,31 @@ const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").t
 export function RootClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
-      <LoadingProvider>
-        <GlobalLoading />
-        <UserProvider>
-          <HouseholdProvider>
-            <CatsProvider>
-              <ScheduleProvider>
-                <FeedingProvider>
-                  <NotificationProvider>
-                    <AnimationProvider>
-                      <ClientLayout>
-                        {children}
-                      </ClientLayout>
-                      <Toaster position="top-center" />
-                      <NotificationChecker />
-                      <OnboardingTour />
-                    </AnimationProvider>
-                  </NotificationProvider>
-                </FeedingProvider>
-              </ScheduleProvider>
-            </CatsProvider>
-          </HouseholdProvider>
-        </UserProvider>
-      </LoadingProvider>
+      <AppProvider>
+        <LoadingProvider>
+          <GlobalLoading />
+          <UserProvider>
+            <HouseholdProvider>
+              <CatsProvider>
+                <ScheduleProvider>
+                  <FeedingProvider>
+                    <NotificationProvider>
+                      <AnimationProvider>
+                        <ClientLayout>
+                          {children}
+                        </ClientLayout>
+                        <Toaster position="top-center" />
+                        <NotificationChecker />
+                        <OnboardingTour />
+                      </AnimationProvider>
+                    </NotificationProvider>
+                  </FeedingProvider>
+                </ScheduleProvider>
+              </CatsProvider>
+            </HouseholdProvider>
+          </UserProvider>
+        </LoadingProvider>
+      </AppProvider>
     </SessionProvider>
   )
 } 

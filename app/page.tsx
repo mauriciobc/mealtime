@@ -3,14 +3,17 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Cat, Clock, Utensils, BarChart3, Calendar, Users, PlusCircle } from "lucide-react";
+import { Cat, Clock, Utensils, BarChart3, Calendar, Users, PlusCircle, Gauge, ArrowRight } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useCats } from "@/lib/context/CatsContext";
 import {
   useFeeding,
   useSelectTodayFeedingCount,
   useSelectLastFeedingLog,
-  useSelectRecentFeedingsChartData
+  useSelectRecentFeedingsChartData,
+  useSelectAveragePortionSize
 } from "@/lib/context/FeedingContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +24,7 @@ import { useSession } from "next-auth/react";
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { FeedingLog, CatType } from "@/lib/types";
+import { NewFeedingSheet } from "@/components/new-feeding-sheet";
 
 export default function Home() {
   const { state: userState } = useUserContext();
@@ -34,6 +38,7 @@ export default function Home() {
   const todayFeedingCount = useSelectTodayFeedingCount();
   const recentFeedingsData = useSelectRecentFeedingsChartData();
   const lastFeedingLog = useSelectLastFeedingLog();
+  const averagePortionSize = useSelectAveragePortionSize();
 
   const [isNewFeedingSheetOpen, setIsNewFeedingSheetOpen] = useState(false);
 
@@ -127,11 +132,71 @@ export default function Home() {
 
   return (
     <motion.div
-      className="container px-4 py-6 md:py-8"
+      className="container px-4 py-6 md:py-8 pb-28"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
+      <motion.div variants={itemVariants} className="mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="shadow-sm text-center p-3 hover:shadow-md transition-shadow">
+            <CardHeader className="p-0 mb-1">
+              <CardDescription className="text-xs flex items-center justify-center">
+                <Cat className="mr-1 h-3 w-3" />
+                Total de Gatos
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <p className="text-lg font-semibold">{cats?.length || 0}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm text-center p-3 hover:shadow-md transition-shadow">
+            <CardHeader className="p-0 mb-1">
+              <CardDescription className="text-xs flex items-center justify-center">
+                <Utensils className="mr-1 h-3 w-3" />
+                Alimentações Hoje
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <p className="text-lg font-semibold">{todayFeedingCount}</p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm text-center p-3 hover:shadow-md transition-shadow">
+            <CardHeader className="p-0 mb-1">
+              <CardDescription className="text-xs flex items-center justify-center">
+                <Gauge className="mr-1 h-3 w-3" />
+                Porção Média
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <p className="text-lg font-semibold">
+                {averagePortionSize !== null
+                  ? `${averagePortionSize.toFixed(1)}g`
+                  : "N/A"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm text-center p-3 hover:shadow-md transition-shadow">
+            <CardHeader className="p-0 mb-1">
+              <CardDescription className="text-xs flex items-center justify-center">
+                <Clock className="mr-1 h-3 w-3" />
+                Última Vez
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <p className="text-lg font-semibold">
+                {lastFeedingLog
+                  ? format(new Date(lastFeedingLog.timestamp), "HH:mm", { locale: ptBR })
+                  : "N/A"}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </motion.div>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
         <div className="lg:col-span-2 space-y-6">
           <motion.div variants={itemVariants}>
@@ -139,24 +204,29 @@ export default function Home() {
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
                   <Clock className="mr-2 h-5 w-5 text-primary" />
-                  Última Alimentação Registrada
+                  Última Alimentação
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 {lastFeedingLog ? (
-                  <FeedingLogItem log={lastFeedingLog} showCatName={true} />
+                  <FeedingLogItem log={lastFeedingLog} />
                 ) : (
                   <EmptyState
                     title="Nenhuma alimentação encontrada"
                     description="Registre a primeira alimentação para vê-la aqui."
-                    size="sm"
                     icon={Utensils}
                   />
                 )}
               </CardContent>
-              <CardFooter className="flex justify-end">
-                <Button size="sm" onClick={() => setIsNewFeedingSheetOpen(true)} data-tour="log-feeding-button">
+              <CardFooter className="flex justify-between sm:justify-end items-center gap-2">
+                <Button size="sm" onClick={() => setIsNewFeedingSheetOpen(true)} data-tour="log-feeding-button" className="flex-grow sm:flex-grow-0">
                   <PlusCircle className="mr-2 h-4 w-4" /> Registrar Nova
+                </Button>
+                <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
+                  <Link href="/feedings" className="flex items-center">
+                    Ver todas
+                    <ArrowRight className="ml-1 h-4 w-4" />
+                  </Link>
                 </Button>
               </CardFooter>
             </Card>
@@ -192,7 +262,6 @@ export default function Home() {
                   <EmptyState
                     title="Sem dados suficientes"
                     description="Registre mais alimentações ou adicione gatos para gerar o gráfico."
-                    size="sm"
                     icon={BarChart3}
                   />
                 )}
@@ -202,17 +271,6 @@ export default function Home() {
         </div>
 
         <div className="space-y-6 lg:col-span-1">
-          <motion.div variants={itemVariants}>
-            <Card className="shadow-sm text-center hover:shadow-md transition-shadow" data-tour="today-feedings">
-              <CardHeader>
-                <CardTitle className="text-base font-medium text-muted-foreground">Alimentações Hoje</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-4xl font-bold text-primary">{todayFeedingCount}</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
           <motion.div variants={itemVariants}>
             <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="quick-actions">
               <CardHeader>
@@ -245,7 +303,9 @@ export default function Home() {
         </div>
       </div>
 
-      <NewFeedingSheet open={isNewFeedingSheetOpen} onOpenChange={setIsNewFeedingSheetOpen} />
+      <NewFeedingSheet isOpen={isNewFeedingSheetOpen} onOpenChange={setIsNewFeedingSheetOpen} />
+
+      <div className="h-28" />
 
     </motion.div>
   );

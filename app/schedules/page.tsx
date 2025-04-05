@@ -6,7 +6,7 @@ import { Clock, PlusCircle, Users } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
 import { useScheduleContext } from "@/lib/context/ScheduleContext";
-import { useAppContext } from "@/lib/context/AppContext";
+import { useCats } from "@/lib/context/CatsContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { Schedule } from "@/lib/types";
@@ -25,11 +25,11 @@ import BottomNav from "@/components/bottom-nav";
 export default function SchedulesPage() {
   const router = useRouter();
   const { state: scheduleState, dispatch: scheduleDispatch } = useScheduleContext();
-  const { state: appState } = useAppContext();
   const { state: userState } = useUserContext();
+  const { state: catsState } = useCats();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { data: session, status } = useSession();
-  const { cats } = appState;
+  const { cats } = catsState;
   const { schedules } = scheduleState;
   const { currentUser } = userState;
 
@@ -40,7 +40,7 @@ export default function SchedulesPage() {
          addLoadingOperation({ id: opId, priority: 1, description: "Loading schedules..." });
          scheduleDispatch({ type: "SET_LOADING", payload: true });
          try {
-           console.log("Schedules might need fetching here or in Provider"); 
+           console.log("SchedulesPage: useEffect - Ensure schedules are loaded by ScheduleProvider or implement fetch here."); 
          } catch (error: any) {
            scheduleDispatch({ type: "SET_ERROR", payload: error.message || "Failed to load schedules" });
            toast.error("Falha ao carregar agendamentos");
@@ -94,13 +94,31 @@ export default function SchedulesPage() {
     }
   };
 
-  if (status === "loading" || (status === "authenticated" && !currentUser)) {
-    return <Loading text="Carregando agendamentos..." />;
+  if (status === "loading" || (status === "authenticated" && !currentUser) || catsState.isLoading) {
+    return <Loading text="Carregando dados..." />;
   }
 
   if (status === "unauthenticated") {
     router.push("/login");
     return <Loading text="Redirecionando..." />;
+  }
+
+  if (scheduleState.error || catsState.error) {
+    return (
+      <PageTransition>
+        <div className="flex flex-col min-h-screen bg-background">
+          <div className="p-4 pb-24">
+            <PageHeader title="Agendamentos" description="Erro ao carregar dados" />
+            <EmptyState 
+              title="Erro"
+              description={scheduleState.error || catsState.error || "Ocorreu um erro inesperado."}
+              icon={Users}
+            />
+          </div>
+          <BottomNav />
+        </div>
+      </PageTransition>
+    );
   }
 
   if (status === "authenticated" && currentUser && !currentUser.householdId) {
@@ -132,7 +150,7 @@ export default function SchedulesPage() {
     .filter(schedule => schedule.enabled)
     .map(schedule => {
       const nextTime = getNextScheduledTime(schedule);
-      const cat = cats.find(c => c.id === schedule.catId);
+      const cat = cats.find(c => String(c.id) === String(schedule.catId));
       return {
         id: String(schedule.id),
         date: nextTime || new Date(),
@@ -160,7 +178,7 @@ export default function SchedulesPage() {
           />
 
           {scheduleState.isLoading && schedulesToDisplay.length === 0 && (
-             <Loading text="Carregando..." />
+             <Loading text="Carregando agendamentos..." />
           )}
 
           {!scheduleState.isLoading && schedulesToDisplay.length === 0 ? (
@@ -204,7 +222,7 @@ export default function SchedulesPage() {
                          <ScheduleItem
                            schedule={schedule}
                            onDelete={() => handleDeleteSchedule(String(schedule.id))}
-                           catName={cats.find(c => c.id === schedule.catId)?.name}
+                           catName={cats.find(c => String(c.id) === String(schedule.catId))?.name}
                          />
                        </motion.div>
                      ))}
