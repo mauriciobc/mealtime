@@ -13,12 +13,9 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { useAppContext } from "@/lib/context/AppContext";
 import { Notification } from "@/lib/types/notification";
 import { cn } from "@/lib/utils";
-// import { useVirtualizer } from '@tanstack/react-virtual'; // Comment out virtualizer import
 
-// Componente memoizado para o ícone de notificação
 const NotificationIcon = ({ type }: { type: string }) => {
   const icon = useMemo(() => {
     switch (type) {
@@ -36,7 +33,6 @@ const NotificationIcon = ({ type }: { type: string }) => {
   return icon;
 };
 
-// Componente memoizado para o item de notificação
 const NotificationCard = (({ 
   notification, 
   onMarkAsRead, 
@@ -122,16 +118,6 @@ export default function NotificationsPage() {
   const mountedRef = useRef(true);
   const router = useRouter();
 
-  // --- Remove Virtualizer --- 
-  // const parentRef = useRef<HTMLDivElement>(null);
-  // const rowVirtualizer = useVirtualizer({
-  //   count: notifications.length,
-  //   getScrollElement: () => parentRef.current,
-  //   estimateSize: () => 100, 
-  //   overscan: 5 
-  // });
-  // --------------------------
-
   useEffect(() => {
     console.log(`[NotificationsPage] Component mounted/updated, current notifications:`, {
       count: notifications.length,
@@ -139,17 +125,12 @@ export default function NotificationsPage() {
       isLoading,
       lastUpdated,
     });
-    // Optional: Refresh on mount if needed, but provider might handle initial load
-    // if (mountedRef.current) {
-    //   refreshNotifications();
-    // }
     return () => {
       mountedRef.current = false;
       console.log(`[NotificationsPage] Component unmounted`);
     };
   }, [refreshNotifications, unreadCount, isLoading, lastUpdated, notifications.length]); 
 
-  // Handlers memoizados
   const handleMarkAllAsRead = useCallback(async () => {
     if (!mountedRef.current) return;
     console.log(`[NotificationsPage] Marking all notifications as read`);
@@ -223,7 +204,6 @@ export default function NotificationsPage() {
     }
   }, [removeNotification]);
 
-  // Animações memoizadas
   const containerVariants = useMemo(() => ({
     hidden: { opacity: 0 },
     visible: {
@@ -242,7 +222,6 @@ export default function NotificationsPage() {
     }
   }), []);
 
-  // Loading skeleton memoizado
   const loadingSkeleton = useMemo(() => (
     <div className="space-y-4">
       {[1, 2, 3, 4, 5].map((i) => (
@@ -261,11 +240,9 @@ export default function NotificationsPage() {
     </div>
   ), []);
 
-  // --- Debug Button State --- 
   const shouldShowButton = notifications.filter(n => !n.isRead).length > 0;
   const buttonDisabled = isLoading || isMarkingAllRead;
   console.log('[NotificationsPage] Render - Button State Check:', { isLoading, isMarkingAllRead, shouldShowButton, buttonDisabled });
-  // --------------------------
 
   return (
     <PageTransition>
@@ -320,34 +297,24 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <motion.div 
-            className="space-y-4 overflow-y-auto h-[calc(100vh-200px)]" // Add scroll and height here
+            className="space-y-4 overflow-y-auto h-[calc(100vh-200px)]"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            {/* --- Render directly using map --- */} 
             {notifications.map((notification) => (
               <motion.div
                 key={notification.id}
                 variants={itemVariants}
-                layout // Keep layout animation if desired
+                layout
               >
-                {/* Use NotificationCard which includes actions */}
                 <NotificationCard
                   notification={notification}
                   onMarkAsRead={() => handleMarkAsRead(notification)}
                   onRemove={() => handleRemoveNotification(notification)}
                 />
-                 {/* Or use NotificationItem if that's the intended component 
-                 <NotificationItem
-                   notification={notification}
-                   onClick={() => {}} // Add necessary props if using NotificationItem
-                   showActions={true}
-                 />
-                 */}
               </motion.div>
             ))}
-            {/* ---------------------------------- */}
           </motion.div>
         )}
       </div>

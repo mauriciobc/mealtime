@@ -47,7 +47,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 import { toast } from "sonner"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useHousehold } from "@/lib/context/HouseholdContext"
+import { useCats } from "@/lib/context/CatsContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { CatType, Household as HouseholdType, HouseholdMember } from "@/lib/types"
@@ -82,11 +83,13 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
   const resolvedParams = use(params)
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { state: appState, dispatch: appDispatch } = useAppContext();
+  const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState, dispatch: userDispatch } = useUserContext();
+  const { state: catsState, dispatch: catsDispatch } = useCats();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { households, cats: allCats } = appState;
+  const { households } = householdState;
   const { currentUser } = userState;
+  const { cats: allCats } = catsState;
   const householdId = resolvedParams.id;
   
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -222,7 +225,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
          throw new Error(errorData.error || 'Falha ao sair da residência');
       }
 
-      appDispatch({ 
+      householdDispatch({ 
         type: "REMOVE_HOUSEHOLD_MEMBER", 
         payload: { 
           householdId: String(household.id), 
@@ -266,7 +269,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
          throw new Error(errorData.error || 'Falha ao remover membro');
       }
 
-      appDispatch({ 
+      householdDispatch({ 
         type: "REMOVE_HOUSEHOLD_MEMBER", 
         payload: { householdId: String(household.id), memberId: memberIdToRemove } 
       });
@@ -316,7 +319,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       
       const updatedMemberData = await response.json(); 
 
-      appDispatch({ 
+      householdDispatch({ 
         type: "UPDATE_HOUSEHOLD_MEMBER", 
         payload: { 
           householdId: String(household.id), 
@@ -352,7 +355,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     setIsProcessing(true);
     const previousCats = allCats;
     
-    appDispatch({ type: "DELETE_CAT", payload: catIdToDelete });
+    catsDispatch({ type: "DELETE_CAT", payload: catIdToDelete });
 
     try {
       const response = await fetch(`/api/cats/${catIdStr}`, {
@@ -369,7 +372,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     } catch (error: any) {
       console.error("Erro ao remover gato:", error);
       toast.error(`Erro ao remover gato: ${error.message}`);
-      appDispatch({ type: "SET_CATS", payload: previousCats });
+      catsDispatch({ type: "SET_CATS", payload: previousCats });
     } finally {
       setCatToDelete(null);
       setIsProcessing(false);
@@ -388,7 +391,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       const previousHouseholds = households;
       const previousUser = currentUser;
       
-      appDispatch({ type: "SET_HOUSEHOLDS", payload: households.filter(h => String(h.id) !== String(household.id)) });
+      householdDispatch({ type: "SET_HOUSEHOLDS", payload: households.filter(h => String(h.id) !== String(household.id)) });
       if (String(currentUser?.householdId) === String(household.id)) {
         userDispatch({
           type: "SET_CURRENT_USER",
@@ -410,7 +413,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       } catch (error: any) {
          console.error("Erro ao excluir residência:", error);
          toast.error(`Erro ao excluir: ${error.message}`);
-         appDispatch({ type: "SET_HOUSEHOLDS", payload: previousHouseholds });
+         householdDispatch({ type: "SET_HOUSEHOLDS", payload: previousHouseholds });
          if (String(previousUser?.householdId) === String(household.id)) {
              userDispatch({ type: "SET_CURRENT_USER", payload: previousUser });
          }

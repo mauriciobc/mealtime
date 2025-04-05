@@ -31,7 +31,7 @@ import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useCats } from "@/lib/context/CatsContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { CatCard } from "@/components/cat-card"
@@ -42,10 +42,10 @@ import { toast } from "sonner"
 
 export default function CatsPage() {
   const router = useRouter()
-  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { state: catsState, dispatch: catsDispatch } = useCats()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
-  const { cats } = appState
+  const { cats } = catsState
   const { currentUser } = userState
   const { data: session, status } = useSession()
   
@@ -65,7 +65,7 @@ export default function CatsPage() {
             }
         }
     }
-  }, [status, currentUser, cats.length, appDispatch, addLoadingOperation, removeLoadingOperation])
+  }, [status, currentUser, cats.length, catsDispatch, addLoadingOperation, removeLoadingOperation])
 
   const handleDeleteCat = async (catId: number) => {
     const catIdStr = String(catId)
@@ -74,7 +74,7 @@ export default function CatsPage() {
     addLoadingOperation({ id: opId, priority: 1, description: `Deleting cat ${catIdStr}...` })
     setIsDeleting(catIdStr)
     
-    appDispatch({ type: "DELETE_CAT", payload: catId })
+    catsDispatch({ type: "DELETE_CAT", payload: catId })
 
     try {
       const response = await fetch(`/api/cats/${catIdStr}`, { method: 'DELETE' })
@@ -86,7 +86,7 @@ export default function CatsPage() {
     } catch (error: any) {
       console.error("Erro ao excluir gato:", error)
       toast.error(`Erro ao excluir gato: ${error.message}`)
-      appDispatch({ type: "SET_CATS", payload: previousCats })
+      catsDispatch({ type: "SET_CATS", payload: previousCats })
     } finally {
       setIsDeleting(null)
       removeLoadingOperation(opId)

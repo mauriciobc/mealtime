@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Home, Save, ChevronLeft, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useHousehold } from "@/lib/context/HouseholdContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { Household as HouseholdType } from "@/lib/types"
@@ -27,11 +27,11 @@ export default function EditHouseholdPage({ params }: PageProps) {
   const householdId = resolvedParams.id;
   const router = useRouter();
   const { data: session, status } = useSession();
-  const { state: appState, dispatch: appDispatch } = useAppContext();
+  const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser } = userState;
-  const { households } = appState;
+  const { households } = householdState;
   
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -111,7 +111,7 @@ export default function EditHouseholdPage({ params }: PageProps) {
         throw new Error(result.error || "Falha ao atualizar a residência.");
       }
 
-      appDispatch({
+      householdDispatch({
         type: "UPDATE_HOUSEHOLD",
         payload: { ...household, name: trimmedName },
       });
@@ -250,4 +250,4 @@ export default function EditHouseholdPage({ params }: PageProps) {
       </div>
     </PageTransition>
   );
-} 
+}

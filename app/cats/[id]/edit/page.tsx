@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useCats } from "@/lib/context/CatsContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { toast } from "sonner"
@@ -55,10 +55,10 @@ interface PageProps {
 export default function EditCatPage({ params }: PageProps) {
   const resolvedParams = use(params)
   const router = useRouter()
-  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { state: catsState, dispatch: catsDispatch } = useCats()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
-  const { cats } = appState
+  const { cats } = catsState
   const { currentUser } = userState
   const { data: session, status } = useSession()
   const [cat, setCat] = useState<CatType | null>(null)
@@ -161,7 +161,7 @@ export default function EditCatPage({ params }: PageProps) {
     setIsDeleting(true)
     const previousCats = cats
     
-    appDispatch({ type: "DELETE_CAT", payload: cat.id })
+    catsDispatch({ type: "DELETE_CAT", payload: cat.id })
     
     try {
       const response = await fetch(`/api/cats/${cat.id}`, { method: 'DELETE' })
@@ -174,7 +174,7 @@ export default function EditCatPage({ params }: PageProps) {
     } catch (error: any) {
       console.error("Erro ao excluir gato:", error)
       toast.error(`Falha ao excluir gato: ${error.message}`)
-      appDispatch({ type: "SET_CATS", payload: previousCats })
+      catsDispatch({ type: "SET_CATS", payload: previousCats })
     } finally {
       setIsDeleting(false)
       removeLoadingOperation(opId)
@@ -232,7 +232,7 @@ export default function EditCatPage({ params }: PageProps) {
       
       console.log('Server response:', responseData)
       
-      appDispatch({
+      catsDispatch({
         type: "UPDATE_CAT",
         payload: responseData
       })

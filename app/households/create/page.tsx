@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useHousehold } from "@/lib/context/HouseholdContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { ArrowLeft } from "lucide-react"
@@ -16,7 +16,7 @@ import { useSession } from "next-auth/react"
 import { Loading } from "@/components/ui/loading"
 
 export default function CreateHouseholdPage() {
-  const { dispatch: appDispatch } = useAppContext()
+  const { dispatch: householdDispatch } = useHousehold()
   const { state: userState, dispatch: userDispatch } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { currentUser } = userState
@@ -61,7 +61,7 @@ export default function CreateHouseholdPage() {
           throw new Error("Resposta inválida do servidor ao criar residência.");
       }
 
-      appDispatch({ type: "ADD_HOUSEHOLD", payload: newHousehold });
+      householdDispatch({ type: "ADD_HOUSEHOLD", payload: newHousehold });
 
       if (!currentUser.householdId) {
           userDispatch({

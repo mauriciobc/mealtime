@@ -25,7 +25,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import PageTransition from "@/components/page-transition"
 import { format } from "date-fns"
-import { useAppContext } from "@/lib/context/AppContext"
+import { useCats } from "@/lib/context/CatsContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { useFeeding } from "@/hooks/use-feeding"
 import { getAgeString } from "@/lib/utils/dateUtils"
@@ -49,7 +49,7 @@ interface Schedule {
 
 export default function CatDetailsClient({ id }: { id: string }) {
   const router = useRouter()
-  const { state: appState, dispatch: appDispatch } = useAppContext()
+  const { state: catsState, dispatch: catsDispatch } = useCats()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { 
     cat, 
@@ -85,7 +85,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
     const opId = `delete-cat-${id}`;
     addLoadingOperation({ id: opId, description: `Excluindo ${cat?.name || 'gato'}...`, priority: 1 });
     setIsProcessingDelete(true);
-    const previousCats = appState.cats;
+    const previousCats = catsState.cats;
 
     // Optimistic update
     const catIdNumber = parseInt(id, 10);
@@ -95,7 +95,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
         removeLoadingOperation(opId);
         return;
     }
-    appDispatch({ type: "DELETE_CAT", payload: catIdNumber });
+    catsDispatch({ type: "DELETE_CAT", payload: catIdNumber });
 
     try {
       // Removed state.cats from service call, assuming it's not needed
@@ -113,7 +113,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
       console.error("Erro ao excluir gato:", error);
       toast.error(`Falha ao excluir o gato: ${error.message}`);
       // Rollback optimistic update on error
-      appDispatch({ type: "SET_CATS", payload: previousCats });
+      catsDispatch({ type: "SET_CATS", payload: previousCats });
     } finally {
       setIsProcessingDelete(false);
       setShowDeleteDialog(false);
@@ -402,4 +402,4 @@ export default function CatDetailsClient({ id }: { id: string }) {
       </div>
     </PageTransition>
   )
-} 
+}

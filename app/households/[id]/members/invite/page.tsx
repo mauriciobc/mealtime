@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Copy, Check, Share2, ChevronLeft, Mail, AlertTriangle, RefreshCw } from "lucide-react";
-import { useAppContext } from "@/lib/context/AppContext";
+import { useHousehold } from "@/lib/context/HouseholdContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -44,7 +44,7 @@ export default function HouseholdInvitePage({ params }: PageProps) {
   const resolvedParams = use(params);
   const householdId = resolvedParams.id;
   const router = useRouter();
-  const { state: appState, dispatch: appDispatch } = useAppContext();
+  const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { data: session, status } = useSession();
@@ -67,8 +67,8 @@ export default function HouseholdInvitePage({ params }: PageProps) {
     addLoadingOperation({ id: opId, priority: 1, description: "Loading household data..."});
     setIsLoadingData(true);
 
-    if (status === "authenticated" && userState.currentUser && appState.households.length > 0) {
-      const foundHousehold = appState.households.find(h => String(h.id) === String(householdId));
+    if (status === "authenticated" && userState.currentUser && householdState.households.length > 0) {
+      const foundHousehold = householdState.households.find(h => String(h.id) === String(householdId));
       setHousehold(foundHousehold || null);
 
       if (foundHousehold) {
@@ -83,7 +83,7 @@ export default function HouseholdInvitePage({ params }: PageProps) {
         }
       } else {
         setIsAuthorized(false);
-        if (appState.households.length > 0) { 
+        if (householdState.households.length > 0) { 
             toast.error("Residência não encontrada.");
             router.replace('/households');
         }
@@ -100,7 +100,7 @@ export default function HouseholdInvitePage({ params }: PageProps) {
     } else {
       setIsLoadingData(true);
     }
-  }, [status, userState.currentUser, appState.households, householdId, router, addLoadingOperation, removeLoadingOperation]);
+  }, [status, userState.currentUser, householdState.households, householdId, router, addLoadingOperation, removeLoadingOperation]);
   
   const handleSendInvite = async (data: EmailFormValues) => {
     if (!isAuthorized || !household) return;
@@ -195,7 +195,7 @@ export default function HouseholdInvitePage({ params }: PageProps) {
        const updatedHousehold = { ...household, inviteCode: newCode };
        setHousehold(updatedHousehold);
 
-       appDispatch({ type: "UPDATE_HOUSEHOLD", payload: updatedHousehold });
+       householdDispatch({ type: "UPDATE_HOUSEHOLD", payload: updatedHousehold });
 
        toast.success("Novo código de convite gerado!");
 
@@ -395,4 +395,4 @@ export default function HouseholdInvitePage({ params }: PageProps) {
       </div>
     </PageTransition>
   );
-} 
+}

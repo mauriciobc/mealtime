@@ -8,7 +8,7 @@ import * as z from "zod";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-import { useAppContext } from "@/lib/context/AppContext";
+import { useCats } from "@/lib/context/CatsContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 
@@ -66,7 +66,7 @@ export default function NewCatPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: session, status } = useSession();
-  const { dispatch: appDispatch } = useAppContext();
+  const { dispatch: catsDispatch } = useCats();
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser } = userState;
@@ -129,7 +129,7 @@ export default function NewCatPage() {
 
       const newCat = await response.json();
       
-      appDispatch({
+      catsDispatch({
         type: "ADD_CAT",
         payload: newCat,
       });
@@ -374,4 +374,4 @@ export default function NewCatPage() {
       </Form>
     </motion.div>
   );
-} 
+}
