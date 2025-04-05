@@ -1,94 +1,32 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-interface LoadingOperation {
-  id: string;
-  priority: number;
-  description: string;
+interface LoadingContextType {
+  isLoading: boolean;
+  startLoading: () => void;
+  stopLoading: () => void;
 }
 
-interface LoadingState {
-  operations: LoadingOperation[];
-  isGlobalLoading: boolean;
-}
+const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
-type LoadingAction =
-  | { type: 'ADD_OPERATION'; payload: LoadingOperation }
-  | { type: 'REMOVE_OPERATION'; payload: string }
-  | { type: 'CLEAR_OPERATIONS' };
+export const LoadingProvider = ({ children }: { children: ReactNode }) => {
+  const [isLoading, setIsLoading] = useState(false);
 
-const initialState: LoadingState = {
-  operations: [],
-  isGlobalLoading: false,
-};
-
-const LoadingContext = createContext<{
-  state: LoadingState;
-  addLoadingOperation: (operation: LoadingOperation) => void;
-  removeLoadingOperation: (id: string) => void;
-  clearLoadingOperations: () => void;
-} | undefined>(undefined);
-
-function loadingReducer(state: LoadingState, action: LoadingAction): LoadingState {
-  switch (action.type) {
-    case 'ADD_OPERATION':
-      return {
-        ...state,
-        operations: [...state.operations, action.payload].sort((a, b) => b.priority - a.priority),
-        isGlobalLoading: true,
-      };
-    case 'REMOVE_OPERATION':
-      const newOperations = state.operations.filter(op => op.id !== action.payload);
-      return {
-        ...state,
-        operations: newOperations,
-        isGlobalLoading: newOperations.length > 0,
-      };
-    case 'CLEAR_OPERATIONS':
-      return {
-        ...state,
-        operations: [],
-        isGlobalLoading: false,
-      };
-    default:
-      return state;
-  }
-}
-
-export function LoadingProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(loadingReducer, initialState);
-
-  const addLoadingOperation = useCallback((operation: LoadingOperation) => {
-    dispatch({ type: 'ADD_OPERATION', payload: operation });
-  }, []);
-
-  const removeLoadingOperation = useCallback((id: string) => {
-    dispatch({ type: 'REMOVE_OPERATION', payload: id });
-  }, []);
-
-  const clearLoadingOperations = useCallback(() => {
-    dispatch({ type: 'CLEAR_OPERATIONS' });
-  }, []);
+  const startLoading = () => setIsLoading(true);
+  const stopLoading = () => setIsLoading(false);
 
   return (
-    <LoadingContext.Provider
-      value={{
-        state,
-        addLoadingOperation,
-        removeLoadingOperation,
-        clearLoadingOperations,
-      }}
-    >
+    <LoadingContext.Provider value={{ isLoading, startLoading, stopLoading }}>
       {children}
     </LoadingContext.Provider>
   );
-}
+};
 
-export function useLoading() {
+export const useLoading = () => {
   const context = useContext(LoadingContext);
-  if (context === undefined) {
-    throw new Error('useLoading deve ser usado dentro de um LoadingProvider');
+  if (!context) {
+    throw new Error('useLoading must be used within a LoadingProvider');
   }
   return context;
-} 
+};

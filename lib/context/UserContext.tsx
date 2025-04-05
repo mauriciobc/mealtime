@@ -1,67 +1,55 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode } from "react";
-import { BaseUser } from "@/lib/types/common";
 
-// Define state type
-interface UserState {
-  currentUser: BaseUser | null;
-  error: string | null; // Keep error handling specific to user context if needed
+interface User {
+  id: string;
+  name: string;
+  email: string;
 }
 
-// Define action types
-type UserAction =
-  | { type: "SET_CURRENT_USER"; payload: BaseUser | null }
-  | { type: "SET_USER_ERROR"; payload: string | null };
+interface UserState {
+  user: User | null;
+  isAuthenticated: boolean;
+}
 
-// Initial state
 const initialState: UserState = {
-  currentUser: null,
-  error: null,
+  user: null,
+  isAuthenticated: false,
 };
 
-// Create reducer
-const userReducer = (state: UserState, action: UserAction): UserState => {
-  console.log("[UserContext] Processing action:", action.type, action.payload);
-  
+interface UserAction {
+  type: "LOGIN" | "LOGOUT";
+  payload?: User;
+}
+
+function userReducer(state: UserState, action: UserAction): UserState {
   switch (action.type) {
-    case "SET_CURRENT_USER":
-      console.log("[UserContext] Setting current user:", action.payload);
-      return { ...state, currentUser: action.payload, error: null }; // Clear error on success
-    case "SET_USER_ERROR":
-      console.log("[UserContext] Setting error:", action.payload);
-      return { ...state, error: action.payload };
+    case "LOGIN":
+      return {
+        user: action.payload || null,
+        isAuthenticated: true,
+      };
+    case "LOGOUT":
+      return initialState;
     default:
       return state;
   }
-};
+}
 
-// Create context
 const UserContext = createContext<{
   state: UserState;
   dispatch: React.Dispatch<UserAction>;
-} | undefined>(undefined);
+}>({ state: initialState, dispatch: () => null });
 
-// Create hook to use context
-export function useUserContext() {
-  const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error("useUserContext must be used within a UserProvider");
-  }
-  return context;
-}
-
-// Create provider
-export function UserProvider({ children }: { children: ReactNode }) {
+export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(userReducer, initialState);
-
-  console.log("[UserContext] Current state:", state);
-
-  // Potentially load user from storage or API here in a useEffect
 
   return (
     <UserContext.Provider value={{ state, dispatch }}>
       {children}
     </UserContext.Provider>
   );
-} 
+};
+
+export const useUser = () => useContext(UserContext);
