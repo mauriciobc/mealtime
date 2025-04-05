@@ -11,7 +11,7 @@ interface AppState {
   cats: BaseCat[];
   feedingLogs: FeedingLog[];
   households: Household[];
-  users: BaseUser[]; // Keep general users list if needed for relationships, or remove if unused
+  // Removed: users: BaseUser[]; 
   // Removed: notifications: Notification[];
   // Removed: currentUser: BaseUser | null;
   error: string | null; // Keep general error or move if specific context errors are preferred
@@ -31,7 +31,7 @@ type AppAction =
   | { type: "UPDATE_HOUSEHOLD"; payload: Household }
   | { type: "REMOVE_HOUSEHOLD_MEMBER"; payload: { householdId: string; memberId: string } }
   | { type: "UPDATE_HOUSEHOLD_MEMBER"; payload: { householdId: string; member: HouseholdMember } }
-  | { type: "SET_USERS"; payload: BaseUser[] } // Keep if general users list is needed
+  // Removed: | { type: "SET_USERS"; payload: BaseUser[] }
   // Removed: | { type: "SET_CURRENT_USER"; payload: BaseUser | null }
   | { type: "SET_ERROR"; payload: string | null };
   // Removed notification actions:
@@ -46,7 +46,7 @@ const initialState: AppState = {
   cats: [],
   feedingLogs: [],
   households: [],
-  users: [], // Keep if needed
+  // Removed: users: [],
   // Removed: notifications: [],
   // Removed: currentUser: null,
   error: null,
@@ -131,8 +131,9 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
           return household;
         })
       };
-    case "SET_USERS": // Keep if needed
-      return { ...state, users: action.payload };
+    // Removed: SET_USERS case
+    // case "SET_USERS":
+    //   return { ...state, users: action.payload };
     // Removed: SET_CURRENT_USER case
     // case "SET_CURRENT_USER":
     //   return { ...state, currentUser: action.payload };
@@ -179,7 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Save to localStorage when relevant state changes
   useEffect(() => {
     // Only save if we have data for these specific slices
-    if (state.cats.length === 0 && state.feedingLogs.length === 0 && state.households.length === 0 && state.users.length === 0) {
+    if (state.cats.length === 0 && state.feedingLogs.length === 0 && state.households.length === 0) {
         return;
     }
     
@@ -201,11 +202,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } else {
          localStorage.removeItem("households"); // Optional: remove if empty
       }
-      if (state.users.length > 0) { // Keep if users list is persisted
-        localStorage.setItem("users", JSON.stringify(state.users));
-      } else {
-        localStorage.removeItem("users"); // Optional: remove if empty
-      }
+      // Removed saving users
+      // if (state.users.length > 0) {
+      //   localStorage.setItem("users", JSON.stringify(state.users));
+      // } else {
+      //   localStorage.removeItem("users");
+      // }
       // Removed saving notifications
       // if (state.notifications.length > 0) {
       //   localStorage.setItem("notifications", JSON.stringify(state.notifications));
@@ -215,7 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Specify dependencies accurately. Only re-run if these specific parts of state change.
     return () => clearTimeout(timeoutId);
-  }, [state.cats, state.feedingLogs, state.households, state.users]); // Update dependencies
+  }, [state.cats, state.feedingLogs, state.households]); // Update dependencies
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

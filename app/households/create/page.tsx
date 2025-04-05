@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useHousehold } from "@/lib/context/HouseholdContext"
-import { useUserContext } from "@/lib/context/UserContext"
+import { useUser } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { ArrowLeft } from "lucide-react"
 import PageTransition from "@/components/page-transition"
@@ -17,7 +17,7 @@ import { Loading } from "@/components/ui/loading"
 
 export default function CreateHouseholdPage() {
   const { dispatch: householdDispatch } = useHousehold()
-  const { state: userState, dispatch: userDispatch } = useUserContext()
+  const { state: userState, dispatch: userDispatch } = useUser()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { currentUser } = userState
   const { data: session, status } = useSession()

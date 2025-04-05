@@ -914,10 +914,49 @@
 ## Phase 5: Migration & Cleanup (Week 5)
 
 1. **Component Migration:**
-   - [ ] Update all components to use new contexts
-   - [ ] Remove old context usage
-   - [ ] Add new prop types
-   - [ ] Update tests
+   - [x] Identify components using old `AppContext`
+   - [x] Refactor `DataProvider` / Move data loading to new Context Providers
+     - [x] Identify/Create `HouseholdProvider`, `CatsProvider`, `FeedingProvider` files
+     - [x] Implement data fetching in `HouseholdProvider`
+     - [x] Implement data fetching in `CatsProvider`
+     - [x] Implement data fetching in `FeedingProvider`
+     - [x] Remove data fetching from `DataProvider`
+   - [x] Update `RootClientLayout` provider structure
+     - [x] Remove `AppProvider`
+     - [x] Add new domain providers (`Household`, `Cats`, `Feeding`)
+     - [x] Remove `DataProvider` wrapper
+     - [x] Adjust provider nesting order
+     - [x] Remove/Refactor `UserDataLoader`
+   - [x] Refactor `app/page.tsx`
+     - [x] Replace `useAppContext` with new context hooks
+     - [x] Move data derivation logic to contexts/selectors
+   - [ ] Refactor `components/feeding-progress.tsx`
+   - [ ] Refactor `components/feeding-timeline.tsx`
+   - [ ] Refactor `components/cat-card.tsx`
+   - [ ] Refactor `components/feeding-drawer.tsx`
+   - [ ] Refactor `components/new-feeding-sheet.tsx`
+   - [ ] Refactor `components/app-header.tsx`
+   - [ ] Refactor `components/feeding-form.tsx`
+   - [ ] Refactor `components/feeding-schedule.tsx`
+   - [ ] Refactor `components/upcoming-feedings.tsx`
+   - [ ] Refactor `components/feeding-log-item.tsx`
+   - [ ] Refactor `components/cat-list.tsx`
+   - [ ] Refactor `components/bottom-nav.tsx`
+   - [ ] Refactor `components/events-list.tsx`
+   - [ ] Refactor `components/image-upload.tsx`
+   - [ ] Refactor `components/notification-badge.tsx`
+   - [ ] Refactor `components/schedule-item.tsx`
+   - [ ] Refactor `components/theme-selector.tsx`
+   - [ ] Refactor `app/statistics/page.tsx` (and sub-components)
+   - [ ] Refactor `app/login/page.tsx`
+   - [ ] Refactor `app/notifications/page.tsx`
+   - [ ] Refactor `app/schedules/page.tsx`
+   - [ ] Refactor `app/settings/page.tsx`
+   - [ ] Refactor `app/cats/**/page.tsx`
+   - [ ] Refactor `app/feedings/page.tsx`
+   - [ ] Refactor `app/households/page.tsx`
+   - [ ] Refactor `app/schedule/page.tsx`
+   - [ ] Refactor `app/history/page.tsx`
 
 2. **Validation & Testing:**
    - [ ] Run full test suite
@@ -926,10 +965,16 @@
    - [ ] Validate state management
 
 3. **Documentation & Training:**
-   - [ ] Update API documentation
-   - [ ] Create usage examples
-   - [ ] Write migration guide
-   - [ ] Create training materials
+   - [ ] Update API documentation (if contexts affect API interaction patterns)
+   - [ ] Create usage examples in migration guide
+   - [ ] Add examples to context architecture docs
+   - [ ] Write migration guide sections
+   - [ ] Create training materials (optional)
+
+4. **Cleanup:**
+   - [ ] Remove old `AppContext` definition
+   - [ ] Remove old `DataProvider` component (if fully replaced)
+   - [ ] Remove any other unused code related to the old context
 
 ## Success Criteria:
 - All contexts properly typed and documented

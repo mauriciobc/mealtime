@@ -8,9 +8,9 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   transform: {
-    '^.+\\.(ts|tsx)$': 'ts-jest',
+    '^.+\\.(ts|tsx|js|jsx)$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(some-esm-package)/)', // Add exceptions for ESM packages if needed
+    '/node_modules/(?!(module-to-transform|some-esm-package|@testing-library/react-hooks|next-auth|jose)/)', // Add exceptions for ESM packages
   ],
 };

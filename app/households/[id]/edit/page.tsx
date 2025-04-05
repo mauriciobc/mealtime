@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Home, Save, ChevronLeft, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 import { useHousehold } from "@/lib/context/HouseholdContext"
-import { useUserContext } from "@/lib/context/UserContext"
+import { useUser } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { Household as HouseholdType } from "@/lib/types"
 import { Loading } from "@/components/ui/loading"
@@ -28,7 +28,7 @@ export default function EditHouseholdPage({ params }: PageProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { state: userState } = useUserContext();
+  const { state: userState } = useUser();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser } = userState;
   const { households } = householdState;

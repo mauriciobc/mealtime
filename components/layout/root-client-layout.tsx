@@ -10,10 +10,11 @@ import { UserProvider } from "@/lib/context/UserContext"
 import { ScheduleProvider } from "@/lib/context/ScheduleContext"
 import { AnimationProvider } from "@/components/animation-provider"
 import { ClientLayout } from "@/components/layout/client-layout"
-import { DataProvider } from "@/components/data-provider"
-import { AppProvider } from "@/lib/context/AppContext"
 import { LoadingProvider } from "@/lib/context/LoadingContext"
-import { UserDataLoader } from "@/components/data/user-data-loader"
+import { GlobalLoading } from "@/components/ui/global-loading"
+import { HouseholdProvider } from "@/lib/context/HouseholdContext"
+import { CatsProvider } from "@/lib/context/CatsContext"
+import { FeedingProvider } from "@/lib/context/FeedingContext"
 
 const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").then(mod => ({ default: mod.OnboardingTour })), {
   ssr: false,
@@ -24,24 +25,26 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <LoadingProvider>
+        <GlobalLoading />
         <UserProvider>
-          <AppProvider>
-            <ScheduleProvider>
-              <NotificationProvider>
-                <AnimationProvider>
-                  <DataProvider>
-                    <ClientLayout>
-                      {children}
-                    </ClientLayout>
-                    <Toaster position="top-center" />
-                    <NotificationChecker />
-                    <OnboardingTour />
-                  </DataProvider>
-                  <UserDataLoader />
-                </AnimationProvider>
-              </NotificationProvider>
-            </ScheduleProvider>
-          </AppProvider>
+          <HouseholdProvider>
+            <CatsProvider>
+              <ScheduleProvider>
+                <FeedingProvider>
+                  <NotificationProvider>
+                    <AnimationProvider>
+                      <ClientLayout>
+                        {children}
+                      </ClientLayout>
+                      <Toaster position="top-center" />
+                      <NotificationChecker />
+                      <OnboardingTour />
+                    </AnimationProvider>
+                  </NotificationProvider>
+                </FeedingProvider>
+              </ScheduleProvider>
+            </CatsProvider>
+          </HouseholdProvider>
         </UserProvider>
       </LoadingProvider>
     </SessionProvider>

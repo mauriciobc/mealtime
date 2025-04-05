@@ -16,15 +16,15 @@ export interface BaseUser {
     id: number;
     name: string;
   } | null;
-  preferences: {
-    timezone: string;
-    language: string;
-    notifications: {
-      pushEnabled: boolean;
-      emailEnabled: boolean;
-      feedingReminders: boolean;
-      missedFeedingAlerts: boolean;
-      householdUpdates: boolean;
+  preferences?: {
+    timezone?: string;
+    language?: string;
+    notifications?: {
+      pushEnabled?: boolean;
+      emailEnabled?: boolean;
+      feedingReminders?: boolean;
+      missedFeedingAlerts?: boolean;
+      householdUpdates?: boolean;
     };
   };
   role: 'admin' | 'user';
@@ -42,8 +42,8 @@ export interface BaseCat {
   restrictions?: string;
   notes?: string;
   householdId: ID;
-  feedingInterval: number;
-  portion_size?: number;
+  feedingInterval: number; // Maps to feeding_interval in the database
+  portionSize?: number; // Maps to portion_size in the database
 }
 
 /**
@@ -54,9 +54,9 @@ export interface BaseFeedingLog {
   catId: ID;
   userId: ID;
   timestamp: Date;
-  portionSize?: number;
+  portionSize?: number; // Maps to portion_size in the database
   notes?: string;
-  status?: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro";
+  status?: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" | "completed"; // Maps to status in the database
   createdAt: Date;
 }
 
@@ -67,4 +67,4 @@ export interface BaseHousehold {
   id: number;
   name: string;
   ownerId: number;
-} 
+}

@@ -1,25 +1,45 @@
-# Migration Guide
+# Migration Guide for Context Refactor
 
 ## Overview
-This guide provides steps to migrate from the old context architecture to the new domain-specific context architecture.
+This guide provides steps to migrate to the new context structure introduced in the refactor. The refactor improves performance, modularity, and maintainability.
 
-## Steps
+## Key Changes
+1. **Context Splitting**: The `AppContext` has been split into domain-specific contexts:
+   - `HouseholdContext`
+   - `CatsContext`
+   - `FeedingContext`
+2. **Performance Optimizations**:
+   - Memoization of context values.
+   - Introduction of state selectors to minimize re-renders.
+3. **Testing Enhancements**:
+   - Added integration and performance tests for contexts.
 
-1. **Update Imports**
-   - Replace imports of `AppContext` with the new domain-specific contexts (`UserContext`, `CatsContext`, etc.).
+## Migration Steps
 
-2. **Refactor Components**
-   - Update components to use the new contexts.
-   - Remove dependencies on the old `AppContext`.
+### 1. Update Imports
+Replace old `AppContext` imports with the new domain-specific contexts. For example:
+```diff
+- import { useAppContext } from '@/lib/context/AppContext';
++ import { useHousehold } from '@/lib/context/HouseholdContext';
+```
 
-3. **Test Functionality**
-   - Run the full test suite to ensure all contexts are working as expected.
-   - Add new tests for components that were refactored.
+### 2. Update Component Usage
+Ensure components use the appropriate context. For example:
+```tsx
+const { household, setHousehold } = useHousehold();
+```
 
-4. **Update Documentation**
-   - Ensure all references to `AppContext` in the documentation are updated.
-   - Add examples of using the new contexts.
+### 3. Test Your Changes
+Run the test suite to ensure everything works as expected:
+```bash
+npm test
+```
 
-5. **Monitor Performance**
-   - Use the performance monitoring utilities to track improvements.
-   - Address any regressions identified during testing.
+### 4. Remove Deprecated Code
+Remove any references to the old `AppContext` to avoid confusion.
+
+## Additional Notes
+- Refer to the integration and performance tests in `__tests__/integration` and `__tests__/performance` for examples.
+- Documentation for each context is available in the `docs/` folder.
+
+For further assistance, contact the development team or refer to the architecture documentation.
