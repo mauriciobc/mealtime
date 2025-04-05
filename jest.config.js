@@ -7,10 +7,10 @@ module.exports = {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/$1',
   },
-  testMatch: ['**/*.test.ts'],
   transform: {
     '^.+\\.(ts|tsx)$': 'ts-jest',
   },
-  moduleDirectories: ['node_modules', 'src'],
-  roots: ['<rootDir>', '<rootDir>/src']
+  transformIgnorePatterns: [
+    'node_modules/(?!(some-esm-package)/)', // Add exceptions for ESM packages if needed
+  ],
 };
