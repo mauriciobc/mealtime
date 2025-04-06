@@ -45,10 +45,11 @@ import {
 import { format } from 'date-fns'; // For formatting dates
 
 // Define interfaces for fetched data
-interface CatData {
-  name: string;
-  currentWeight: number | null;
-  weightUnit?: string; // Assuming default 'kg' if not specified
+interface CatBasicInfo { // Updated interface name
+    id: number;
+    name: string;
+    currentWeight: number | null;
+    weightUnit: string | null;
 }
 
 interface GoalData {
@@ -100,7 +101,7 @@ export default function CatWeightTrackerPage({
   const { catId } = params;
 
   // State hooks
-  const [catData, setCatData] = useState<CatData | null>(null); // For name, current weight
+  const [catData, setCatData] = useState<CatBasicInfo | null>(null); // Use updated interface
   const [goalData, setGoalData] = useState<GoalData | null>(null); // For weight goal
   const [weightHistory, setWeightHistory] = useState<WeightMeasurement[]>([]); // For calculations
   const [feedingHistory, setFeedingHistory] = useState<FeedingLog[]>([]); // For calculations
@@ -120,77 +121,95 @@ export default function CatWeightTrackerPage({
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    try {
-      // (Existing fetch logic using Promise.all - Needs update for refetching)
-      // NOTE: For a real app, use SWR or React Query for better caching/refetching
+    let fetchedWeightHistory: WeightMeasurement[] = []; // Define here for broader scope
 
-      // TEMPORARY: Combine fetches again for simplicity in refetch
-      const [goalResponse, weightHistoryResponse, simulatedBasicInfoResponse, simulatedFeedingResponse] = await Promise.all([
+    try {
+      // --- Fetch required data in parallel ---
+      const [goalResponse, weightHistoryResponse, basicInfoResponse] = await Promise.all([
         fetch(`/api/cats/${catId}/goal`),
         fetch(`/api/cats/${catId}/weight`),
-        new Promise<any>((resolve) => setTimeout(() => resolve({ ok: true, json: async () => ({ name: catData?.name || 'Mittens', weight: catData?.currentWeight || 5.2, unit: catData?.weightUnit || 'kg' }) }), 100)), // Use existing name if available
-        new Promise<any>((resolve) => setTimeout(() => resolve({ ok: true, json: async () => feedingHistory }), 150)), // Return existing simulated feedings
+        fetch(`/api/cats/${catId}/basic-info`),
       ]);
 
-      // --- Process Responses ---
-       // Basic Info (Simulated)
-        if (!simulatedBasicInfoResponse.ok) throw new Error('Failed to fetch basic cat info');
-        const basicInfoData = await simulatedBasicInfoResponse.json();
-        setCatData({
-            name: basicInfoData.name,
-            currentWeight: basicInfoData.weight,
-            weightUnit: basicInfoData.unit || 'kg',
-        });
+      // --- Process Initial Responses ---
+      // Basic Info
+      if (!basicInfoResponse.ok) {
+        const errorData = await basicInfoResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch basic cat info: ${basicInfoResponse.statusText}`);
+      }
+      const basicInfoData: CatBasicInfo = await basicInfoResponse.json();
+      setCatData(basicInfoData);
 
-        // Goal
-        if (!goalResponse.ok) throw new Error(`Failed to fetch weight goal: ${goalResponse.statusText}`);
-        const fetchedGoalData: GoalData = await goalResponse.json();
-        setGoalData(fetchedGoalData);
+      // Goal
+      if (!goalResponse.ok) {
+        const errorData = await goalResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch weight goal: ${goalResponse.statusText}`);
+      }
+      const fetchedGoalData: GoalData = await goalResponse.json();
+      setGoalData(fetchedGoalData);
 
-        // Weight History
-        if (!weightHistoryResponse.ok) throw new Error(`Failed to fetch weight history: ${weightHistoryResponse.statusText}`);
-        const fetchedWeightHistory: WeightMeasurement[] = await weightHistoryResponse.json();
-        setWeightHistory(fetchedWeightHistory.sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime())); // Sort ASC for chart
+      // Weight History
+      if (!weightHistoryResponse.ok) {
+        const errorData = await weightHistoryResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch weight history: ${weightHistoryResponse.statusText}`);
+      }
+      fetchedWeightHistory = await weightHistoryResponse.json(); // Assign to scoped variable
+      // Sort ASC for chart
+      setWeightHistory(fetchedWeightHistory.sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime()));
 
-        // Feeding History (Simulated)
-        // Note: Keeping simulated feeding history for now
-        // const fetchedFeedingHistory: FeedingLog[] = await simulatedFeedingResponse.json();
-        // setFeedingHistory(fetchedFeedingHistory);
+      // --- Fetch Feeding History (conditionally based on weight history) ---
+      let fetchedFeedingHistory: FeedingLog[] = [];
+      const previousMeasurementTime = fetchedWeightHistory.length > 1
+          ? new Date(fetchedWeightHistory[1].measuredAt) // Use the already fetched history (unsorted)
+          : null;
 
-        // --- Perform Calculations ---
-        if (fetchedWeightHistory.length >= 1) {
-            const lastMeasurement = fetchedWeightHistory[0];
-            const lastMeasurementTime = new Date(lastMeasurement.measuredAt);
-            const previousMeasurementTime = fetchedWeightHistory.length > 1 ? new Date(fetchedWeightHistory[1].measuredAt) : null;
+      if (previousMeasurementTime) {
+          // Construct URL with 'since' parameter
+          const feedingApiUrl = `/api/cats/${catId}/feeding?since=${previousMeasurementTime.toISOString()}`;
+          const feedingResponse = await fetch(feedingApiUrl);
+          if (!feedingResponse.ok) {
+                const errorData = await feedingResponse.json().catch(() => ({}));
+                // Log error but don't necessarily block rendering calculations (might show 0)
+                console.error(`Failed to fetch feeding history: ${errorData.error || feedingResponse.statusText}`);
+                toast.error(`Could not load feeding data for calculations: ${errorData.error || feedingResponse.statusText}`);
+          } else {
+                fetchedFeedingHistory = await feedingResponse.json();
+          }
+      } // No need to fetch feedings if there's no previous measurement period
+      setFeedingHistory(fetchedFeedingHistory);
 
-            if (previousMeasurementTime) {
-                const feedingsSinceLast = feedingHistory.filter(log =>
-                    new Date(log.timestamp) > previousMeasurementTime && new Date(log.timestamp) <= lastMeasurementTime
+      // --- Perform Calculations (using fetchedFeedingHistory) ---
+      if (fetchedWeightHistory.length >= 1) {
+          const lastMeasurement = fetchedWeightHistory[0]; // Use unsorted history from fetch
+          const lastMeasurementTime = new Date(lastMeasurement.measuredAt);
+
+          if (previousMeasurementTime) {
+                // Filter the already fetched & filtered feeding history
+                const feedingsSinceLast = fetchedFeedingHistory.filter(log =>
+                    new Date(log.timestamp) <= lastMeasurementTime // Ensure logs are not *after* the last measurement
+                    // No need for > previousMeasurementTime check as API handled it with `since`
                 );
                 const totalPortions = feedingsSinceLast.reduce((sum, log) => sum + (log.portionSize || 0), 0);
                 const timeDiff = lastMeasurementTime.getTime() - previousMeasurementTime.getTime();
                 const daysDiff = Math.max(1, timeDiff / (1000 * 60 * 60 * 24));
                 const avgPortions = totalPortions / daysDiff;
                 setCalculatedData({ portionsSinceLast: totalPortions, avgPortionsPerDay: avgPortions });
-            } else {
-                 setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
-            }
-        } else {
-             setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
-        }
+          } else {
+               setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
+          }
+      } else {
+          setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
+      }
 
     } catch (err) {
-       console.error("Error fetching weight tracker data:", err);
-        const message = err instanceof Error ? err.message : 'An unknown error occurred';
-        setError(message);
-        // Avoid toast on initial load error, show card instead
-        // toast.error(`Failed to load data: ${message}`);
+      console.error("Error fetching weight tracker data:", err);
+      const message = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
-  // Include dependencies that trigger refetch; only catId for initial load
-  // For refetch after submit, call fetchData() directly
-  }, [catId, catData?.name, catData?.currentWeight, catData?.weightUnit, feedingHistory, weightHistory]); // Add dependencies used in simulation/calc
+  // Dependencies: Now only depends on catId as calculations use fetched data directly
+  }, [catId]);
 
   useEffect(() => {
     fetchData();

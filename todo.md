@@ -802,3 +802,58 @@
     *   Add more robust error handling and user feedback (e.g., using toasts consistently).
     *   Implement rate limiting on notification sending APIs if abuse is a concern.
     *   Consider the background job queue for sending notifications at scale. 
+
+# Plano de Desenvolvimento para a Funcionalidade "Weight Tracker" (Refinado)
+
+**Princípios:** Iteração, Simplicidade, Reuso (Shadcn UI, Prisma, NextAuth, Zod, Notificações Existentes), TDD.
+
+**1. Escopo do Projeto:**
+
+*   **Objetivo Principal:** Desenvolver e integrar a funcionalidade "Weight Tracker" ao aplicativo Mealtime.
+*   **Funcionalidades Chave (MVP):**
+    *   Registrar medição de peso para um gato.
+    *   Definir/Editar meta de peso para um gato.
+    *   Exibir peso atual, meta, porções desde a última medição, média de porção diária.
+    *   Exibir gráfico simples de linha do histórico de peso.
+    *   Exibir histórico de medições (lista simples).
+    *   Link para registro de alimentação (funcionalidade existente).
+    *   Notificação de lembrete para pesagem (reutilizando `lib/notifications.ts` + trigger).
+*   **Fora do Escopo (Inicial):** Gráficos complexos, filtros avançados de histórico, comparações detalhadas de ingestão vs. peso no gráfico, configurações avançadas de notificação.
+
+**2. Linha do Tempo (Iterativa - 4 Sprints ~ 8 Semanas):**
+
+| Sprint | Duração   | Foco Principal                                                                                                                               | Marcos Importantes                                                                                                                                                                                              |
+| :----- | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1**  | 2 semanas | **Fundação Backend & UI Básica:** Modelo de dados (Adicionar `weightGoal` a `Cat`, criar `WeightMeasurement`, migrar), APIs CRUD (Peso, Meta - com Zod, NextAuth), UI estática inicial (página, cards) | Schema Prisma atualizado e migrado (`WeightMeasurement` adicionado, `weightGoal` em `Cat`). APIs básicas (registrar/ler medição, definir/ler meta) funcionais com testes. Layout da página "Weight Tracker" com componentes Shadcn estáticos. |
+| **2**  | 2 semanas | **Integração Frontend & Cálculos:** Conectar UI aos dados (peso atual, meta, etc.), implementar cálculos (porções, média), adicionar registro de peso. | Página exibe dados reais do backend. Cards dinâmicos. Lógica de cálculo implementada e testada. Formulário de registro de peso funcional.                                                                    |
+| **3**  | 2 semanas | **Gráfico & Histórico (MVP):** Implementar gráfico de linha simples (e.g., Recharts), página de histórico (lista simples), API de histórico.       | Gráfico exibe histórico de peso. API de histórico funcional. Página de histórico exibe lista de medições. Botão "Ver Histórico" e link "Registrar Alimentação" funcionais. Testes de integração atualizados. |
+| **4**  | 2 semanas | **Notificações & Refinamento:** Implementar trigger para notificação de lembrete, testes E2E básicos, refatoração, documentação.           | Lembrete de pesagem via notificação funcional. Testes E2E cobrindo fluxo principal. Código revisado e documentado. Funcionalidade pronta para implantação.                                                  |
+| **Pós** | Contínuo  | **Melhorias:** Gráficos avançados, filtros de histórico, UI aprimorada, etc.                                                                  | Backlog atualizado com novas histórias de usuário.                                                                                                                                                              |
+
+**3. Alocação de Recursos:** (Mantida como no plano original, ajustar conforme necessidade)
+
+*   Product Owner (PO)
+*   Scrum Master
+*   Líder Técnico
+*   Desenvolvedores Frontend (2)
+*   Desenvolvedor Backend (1)
+*   Designer de UI/UX (Consultoria inicial/revisão)
+*   Testador de Qualidade (QA) (Integrado aos Sprints)
+
+**4. Fases de Desenvolvimento (Dentro de cada Sprint):**
+
+*   Planejamento (Refinamento das Histórias)
+*   Desenvolvimento (Backend/Frontend com TDD)
+*   Testes (Unitários, Integração, QA)
+*   Revisão/Refatoração
+
+**5. Riscos Potenciais (Reavaliados):**
+
+| Risco                                      | Probabilidade | Impacto | Estratégia de Mitigação                                                                                                                                                                                                                            |
+| :----------------------------------------- | :------------ | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Complexidade inesperada nos cálculos       | Baixa         | Médio   | Isolar lógica de cálculo, TDD rigoroso, validação com PO.                                                                                                                                                                                          |
+| Dificuldades na integração do gráfico   | Média         | Médio   | Iniciar com gráfico simples, escolher biblioteca familiar (e.g., Recharts), prototipagem rápida.                                                                                                                                                 |
+| Problemas de integração (API/UI)         | Média         | Alto    | Contratos de API claros (OpenAPI/ts-rest opcional), testes de integração contínuos.                                                                                                                                                            |
+| Trigger de notificação complexo          | Baixa         | Médio   | Pesquisar/Utilizar soluções de agendamento (e.g., cron jobs, Vercel Cron Jobs, ou serviço externo simples), começar com trigger manual/teste.                                                                                                        |
+
+**6. Plano de Comunicação:** (Mantido como no plano original) 

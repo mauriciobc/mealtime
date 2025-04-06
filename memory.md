@@ -35,7 +35,49 @@ This file tracks key decisions, findings, and potential points of interest durin
 
 ## Sprint 2 Milestones
 
-1.  [ ] Connect UI to Data (Fetch cat, goal, latest weight)
-2.  [ ] Implement Calculations (Portions since last, Avg. portions)
-3.  [ ] Implement Add Weight Form/Dialog
-4.  [ ] Commit Frontend Integration & Calculation changes 
+1.  [x] Connect UI to Data (Fetch cat, goal, latest weight)
+    *   Fetched goal via API `/api/cats/[catId]/goal`.
+    *   Simulated fetching basic cat info (name, current weight) - **Needs real API endpoint**. 
+    *   Used `useState`, `useEffect`, `fetch`.
+    *   Handled loading/error states.
+2.  [x] Implement Calculations (Portions since last, Avg. portions)
+    *   Fetched weight history `/api/cats/[catId]/weight`.
+    *   Simulated fetching feeding logs - **Needs real API endpoint with date filtering**.
+    *   Calculated portions and average daily portions between last two measurements.
+    *   Displayed calculated values or N/A.
+3.  [x] Implement Add Weight Form/Dialog
+    *   Used Shadcn Dialog, Input, Select, Label.
+    *   Added form state and submission logic (`handleWeightSubmit`).
+    *   Included API call (`POST /api/cats/[catId]/weight`), error handling, toast feedback, and data refetch.
+4.  [x] Commit Frontend Integration & Calculation changes
+
+## Sprint 3 Milestones
+
+1.  [x] Implement Graph (MVP - Line Chart)
+    *   Installed `recharts`.
+    *   Formatted fetched `weightHistory` for chart.
+    *   Rendered `LineChart` with axes, tooltip, legend.
+    *   Included optional line for `weightGoal`.
+2.  [x] Implement History Page (MVP - List View)
+    *   Created `app/cats/[catId]/weight/history/page.tsx`.
+    *   Fetched weight history `/api/cats/[catId]/weight`.
+    *   Displayed history using Shadcn `Table`.
+    *   Included loading/error states and back button.
+3.  [x] Link "View Full History" button.
+    *   Confirmed existing `Link` component was correct.
+4.  [x] Commit Graph & History changes
+
+## Sprint 4 Milestones
+
+1.  [x] Implement Notification Trigger (e.g., Cron job / Scheduled Task)
+    *   Created API endpoint `GET /api/cron/send-weight-reminders`.
+    *   Requires `CRON_SECRET` env var and `Authorization: Bearer` header.
+    *   Logic finds cats overdue for weighing (threshold: 14 days).
+    *   Groups by user and calls `sendNotification` (needs verification).
+    *   **Needs external trigger configuration (Vercel Cron, etc.).**
+    *   **Needs `sendNotification` lib verification/adaptation.**
+2.  [ ] Implement E2E Tests (Basic Flow)
+3.  [ ] Refactor & Document
+    *   **Pending:** Replace simulated fetches (cat info, feeding logs) in main page.
+    *   **Pending:** Fix deferred `bcrypt` seeding issue.
+4.  [ ] Commit Notification & Refinement changes 
