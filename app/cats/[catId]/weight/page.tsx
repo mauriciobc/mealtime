@@ -26,6 +26,33 @@ interface GoalData {
   weightGoal: number | null;
 }
 
+// Add interfaces for History and Feedings
+interface WeightMeasurement { // Assuming structure from API
+    id: number;
+    catId: number;
+    weight: number;
+    unit: string;
+    measuredAt: string; // ISO Date string
+    createdAt: string;
+    updatedAt: string;
+}
+
+interface FeedingLog { // Assuming structure from API
+    id: number;
+    catId: number;
+    userId: number;
+    timestamp: string; // ISO Date string
+    portionSize: number | null;
+    notes?: string | null;
+    status?: string | null;
+}
+
+// State for calculations
+interface CalculatedData {
+    portionsSinceLast: number | null;
+    avgPortionsPerDay: number | null;
+}
+
 // Placeholder data - REMOVED, will use state
 
 // TODO: Define data structure for chart data
@@ -46,6 +73,9 @@ export default function CatWeightTrackerPage({
   // State hooks
   const [catData, setCatData] = useState<CatData | null>(null); // For name, current weight
   const [goalData, setGoalData] = useState<GoalData | null>(null); // For weight goal
+  const [weightHistory, setWeightHistory] = useState<WeightMeasurement[]>([]); // For calculations
+  const [feedingHistory, setFeedingHistory] = useState<FeedingLog[]>([]); // For calculations
+  const [calculatedData, setCalculatedData] = useState<CalculatedData>({ portionsSinceLast: null, avgPortionsPerDay: null });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,27 +84,82 @@ export default function CatWeightTrackerPage({
       setIsLoading(true);
       setError(null);
       try {
-        // --- Fetch Cat Basic Info (Name, Current Weight) ---
-        // TODO: Create/use an API endpoint like /api/cats/[catId]/basic-info
-        // For now, simulate fetching basic cat info (replace later)
-        const simulatedCatResponse = await new Promise<{ name: string; weight: number | null }>((resolve) =>
-          setTimeout(() => resolve({ name: 'Mittens', weight: 5.2 }), 500)
-        );
+        // --- Fetch required data in parallel ---
+        const [goalResponse, weightHistoryResponse, /* basicInfoResponse */ /* feedingResponse */] = await Promise.all([
+          fetch(`/api/cats/${catId}/goal`),
+          fetch(`/api/cats/${catId}/weight`),
+          // TODO: Add fetch for basic cat info API
+          // TODO: Add fetch for feeding log API - simulating for now
+          new Promise<any>((resolve) => setTimeout(() => resolve({ // Simulate basic info
+                ok: true,
+                json: async () => ({ name: 'Mittens', weight: 5.2, unit: 'kg' }),
+             }), 500)),
+          new Promise<any>((resolve) => setTimeout(() => resolve({ // Simulate feeding logs
+                ok: true,
+                json: async () => [
+                    { id: 1, catId: parseInt(catId), userId: 1, timestamp: new Date(Date.now() - 2*24*60*60*1000).toISOString(), portionSize: 50 },
+                    { id: 2, catId: parseInt(catId), userId: 1, timestamp: new Date(Date.now() - 1*24*60*60*1000).toISOString(), portionSize: 60 },
+                    { id: 3, catId: parseInt(catId), userId: 1, timestamp: new Date().toISOString(), portionSize: 55 },
+                ]
+             }), 600)),
+        ]);
+
+        // --- Process Responses ---
+        // Basic Info (Simulated)
+        if (!simulatedBasicInfoResponse.ok) throw new Error('Failed to fetch basic cat info'); // Replace simulation later
+        const basicInfoData = await simulatedBasicInfoResponse.json();
         setCatData({
-          name: simulatedCatResponse.name,
-          currentWeight: simulatedCatResponse.weight,
-          weightUnit: 'kg', // Assuming default for now
+            name: basicInfoData.name,
+            currentWeight: basicInfoData.weight,
+            weightUnit: basicInfoData.unit || 'kg',
         });
 
-        // --- Fetch Weight Goal ---
-        const goalResponse = await fetch(`/api/cats/${catId}/goal`);
-        if (!goalResponse.ok) {
-          throw new Error(`Failed to fetch weight goal: ${goalResponse.statusText}`);
-        }
+        // Goal
+        if (!goalResponse.ok) throw new Error(`Failed to fetch weight goal: ${goalResponse.statusText}`);
         const fetchedGoalData: GoalData = await goalResponse.json();
         setGoalData(fetchedGoalData);
 
-        // TODO: Fetch weight history for calculations and graph
+        // Weight History
+        if (!weightHistoryResponse.ok) throw new Error(`Failed to fetch weight history: ${weightHistoryResponse.statusText}`);
+        const fetchedWeightHistory: WeightMeasurement[] = await weightHistoryResponse.json();
+        setWeightHistory(fetchedWeightHistory); // Assuming sorted desc by API
+
+        // Feeding History (Simulated)
+        if (!simulatedFeedingResponse.ok) throw new Error('Failed to fetch feeding history'); // Replace simulation later
+        const fetchedFeedingHistory: FeedingLog[] = await simulatedFeedingResponse.json();
+        setFeedingHistory(fetchedFeedingHistory);
+
+        // --- Perform Calculations ---
+        if (fetchedWeightHistory.length >= 1) {
+            const lastMeasurement = fetchedWeightHistory[0]; // Newest measurement
+            const lastMeasurementTime = new Date(lastMeasurement.measuredAt);
+
+            // Find timestamp of the measurement *before* the latest one for calculations
+            const previousMeasurementTime = fetchedWeightHistory.length > 1
+                ? new Date(fetchedWeightHistory[1].measuredAt)
+                : null; // No previous measurement
+
+            if (previousMeasurementTime) {
+                // Calculate Portions Since Last
+                const feedingsSinceLast = fetchedFeedingHistory.filter(log =>
+                    new Date(log.timestamp) > previousMeasurementTime && new Date(log.timestamp) <= lastMeasurementTime
+                );
+                const totalPortions = feedingsSinceLast.reduce((sum, log) => sum + (log.portionSize || 0), 0);
+                setCalculatedData(prev => ({ ...prev, portionsSinceLast: totalPortions }));
+
+                // Calculate Avg Daily Portions (since previous measurement)
+                const timeDiff = lastMeasurementTime.getTime() - previousMeasurementTime.getTime();
+                const daysDiff = Math.max(1, timeDiff / (1000 * 60 * 60 * 24)); // Avoid division by zero, minimum 1 day
+                const avgPortions = totalPortions / daysDiff;
+                setCalculatedData(prev => ({ ...prev, avgPortionsPerDay: avgPortions }));
+            } else {
+                // Not enough history for calculations
+                 setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
+            }
+        } else {
+            // No weight history yet
+             setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
+        }
 
       } catch (err) {
         console.error("Error fetching weight tracker data:", err);
@@ -157,14 +242,15 @@ export default function CatWeightTrackerPage({
         <Card>
           <CardHeader>
             <CardTitle>Portions Fed</CardTitle>
-            <CardDescription>Since last weigh-in</CardDescription>
+            <CardDescription>Between last two weigh-ins</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-10 w-1/2" />
+            ) : calculatedData.portionsSinceLast !== null ? (
+              <p className="text-2xl font-semibold">{calculatedData.portionsSinceLast}</p>
             ) : (
-              // <p className="text-2xl font-semibold">{placeholderData.portionsSinceLast}</p>
-              <p className="text-2xl font-semibold text-muted-foreground">TODO</p> // Placeholder for calculation
+              <p className="text-2xl font-semibold text-muted-foreground">N/A</p>
             )}
           </CardContent>
         </Card>
@@ -173,14 +259,15 @@ export default function CatWeightTrackerPage({
         <Card>
           <CardHeader>
             <CardTitle>Avg. Daily Portions</CardTitle>
-            <CardDescription>Calculated average</CardDescription>
+            <CardDescription>Between last two weigh-ins</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <Skeleton className="h-10 w-1/2" />
+            ) : calculatedData.avgPortionsPerDay !== null ? (
+              <p className="text-2xl font-semibold">{calculatedData.avgPortionsPerDay.toFixed(1)}</p>
             ) : (
-              // <p className="text-2xl font-semibold">{placeholderData.avgPortionsPerDay.toFixed(1)}</p>
-              <p className="text-2xl font-semibold text-muted-foreground">TODO</p> // Placeholder for calculation
+              <p className="text-2xl font-semibold text-muted-foreground">N/A</p>
             )}
           </CardContent>
         </Card>
