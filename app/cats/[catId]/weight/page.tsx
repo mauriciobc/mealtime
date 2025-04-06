@@ -1,6 +1,6 @@
 'use client'; // Required for hooks and event handlers
 
-import { useState, useEffect } from 'react'; // Import hooks
+import { useState, useEffect, useCallback, FormEvent } from 'react'; // Added useCallback, FormEvent
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -10,6 +10,25 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+    DialogClose,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { toast } from 'sonner'; // For error feedback
@@ -78,35 +97,34 @@ export default function CatWeightTrackerPage({
   const [calculatedData, setCalculatedData] = useState<CalculatedData>({ portionsSinceLast: null, avgPortionsPerDay: null });
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        // --- Fetch required data in parallel ---
-        const [goalResponse, weightHistoryResponse, /* basicInfoResponse */ /* feedingResponse */] = await Promise.all([
-          fetch(`/api/cats/${catId}/goal`),
-          fetch(`/api/cats/${catId}/weight`),
-          // TODO: Add fetch for basic cat info API
-          // TODO: Add fetch for feeding log API - simulating for now
-          new Promise<any>((resolve) => setTimeout(() => resolve({ // Simulate basic info
-                ok: true,
-                json: async () => ({ name: 'Mittens', weight: 5.2, unit: 'kg' }),
-             }), 500)),
-          new Promise<any>((resolve) => setTimeout(() => resolve({ // Simulate feeding logs
-                ok: true,
-                json: async () => [
-                    { id: 1, catId: parseInt(catId), userId: 1, timestamp: new Date(Date.now() - 2*24*60*60*1000).toISOString(), portionSize: 50 },
-                    { id: 2, catId: parseInt(catId), userId: 1, timestamp: new Date(Date.now() - 1*24*60*60*1000).toISOString(), portionSize: 60 },
-                    { id: 3, catId: parseInt(catId), userId: 1, timestamp: new Date().toISOString(), portionSize: 55 },
-                ]
-             }), 600)),
-        ]);
+  // Form state
+  const [weightInput, setWeightInput] = useState<string>("");
+  const [unitInput, setUnitInput] = useState<string>("kg");
+  const [dateInput, setDateInput] = useState<string>(""); // Store as string from datetime-local
 
-        // --- Process Responses ---
-        // Basic Info (Simulated)
-        if (!simulatedBasicInfoResponse.ok) throw new Error('Failed to fetch basic cat info'); // Replace simulation later
+  // --- Data Fetching Logic --- Trigger refetch on demand
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // (Existing fetch logic using Promise.all - Needs update for refetching)
+      // NOTE: For a real app, use SWR or React Query for better caching/refetching
+
+      // TEMPORARY: Combine fetches again for simplicity in refetch
+      const [goalResponse, weightHistoryResponse, simulatedBasicInfoResponse, simulatedFeedingResponse] = await Promise.all([
+        fetch(`/api/cats/${catId}/goal`),
+        fetch(`/api/cats/${catId}/weight`),
+        new Promise<any>((resolve) => setTimeout(() => resolve({ ok: true, json: async () => ({ name: catData?.name || 'Mittens', weight: catData?.currentWeight || 5.2, unit: catData?.weightUnit || 'kg' }) }), 100)), // Use existing name if available
+        new Promise<any>((resolve) => setTimeout(() => resolve({ ok: true, json: async () => feedingHistory }), 150)), // Return existing simulated feedings
+      ]);
+
+      // --- Process Responses ---
+       // Basic Info (Simulated)
+        if (!simulatedBasicInfoResponse.ok) throw new Error('Failed to fetch basic cat info');
         const basicInfoData = await simulatedBasicInfoResponse.json();
         setCatData({
             name: basicInfoData.name,
@@ -122,57 +140,103 @@ export default function CatWeightTrackerPage({
         // Weight History
         if (!weightHistoryResponse.ok) throw new Error(`Failed to fetch weight history: ${weightHistoryResponse.statusText}`);
         const fetchedWeightHistory: WeightMeasurement[] = await weightHistoryResponse.json();
-        setWeightHistory(fetchedWeightHistory); // Assuming sorted desc by API
+        setWeightHistory(fetchedWeightHistory);
 
         // Feeding History (Simulated)
-        if (!simulatedFeedingResponse.ok) throw new Error('Failed to fetch feeding history'); // Replace simulation later
-        const fetchedFeedingHistory: FeedingLog[] = await simulatedFeedingResponse.json();
-        setFeedingHistory(fetchedFeedingHistory);
+        // Note: Keeping simulated feeding history for now
+        // const fetchedFeedingHistory: FeedingLog[] = await simulatedFeedingResponse.json();
+        // setFeedingHistory(fetchedFeedingHistory);
 
         // --- Perform Calculations ---
         if (fetchedWeightHistory.length >= 1) {
-            const lastMeasurement = fetchedWeightHistory[0]; // Newest measurement
+            const lastMeasurement = fetchedWeightHistory[0];
             const lastMeasurementTime = new Date(lastMeasurement.measuredAt);
-
-            // Find timestamp of the measurement *before* the latest one for calculations
-            const previousMeasurementTime = fetchedWeightHistory.length > 1
-                ? new Date(fetchedWeightHistory[1].measuredAt)
-                : null; // No previous measurement
+            const previousMeasurementTime = fetchedWeightHistory.length > 1 ? new Date(fetchedWeightHistory[1].measuredAt) : null;
 
             if (previousMeasurementTime) {
-                // Calculate Portions Since Last
-                const feedingsSinceLast = fetchedFeedingHistory.filter(log =>
+                const feedingsSinceLast = feedingHistory.filter(log =>
                     new Date(log.timestamp) > previousMeasurementTime && new Date(log.timestamp) <= lastMeasurementTime
                 );
                 const totalPortions = feedingsSinceLast.reduce((sum, log) => sum + (log.portionSize || 0), 0);
-                setCalculatedData(prev => ({ ...prev, portionsSinceLast: totalPortions }));
-
-                // Calculate Avg Daily Portions (since previous measurement)
                 const timeDiff = lastMeasurementTime.getTime() - previousMeasurementTime.getTime();
-                const daysDiff = Math.max(1, timeDiff / (1000 * 60 * 60 * 24)); // Avoid division by zero, minimum 1 day
+                const daysDiff = Math.max(1, timeDiff / (1000 * 60 * 60 * 24));
                 const avgPortions = totalPortions / daysDiff;
-                setCalculatedData(prev => ({ ...prev, avgPortionsPerDay: avgPortions }));
+                setCalculatedData({ portionsSinceLast: totalPortions, avgPortionsPerDay: avgPortions });
             } else {
-                // Not enough history for calculations
                  setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
             }
         } else {
-            // No weight history yet
              setCalculatedData({ portionsSinceLast: 0, avgPortionsPerDay: null });
         }
 
-      } catch (err) {
-        console.error("Error fetching weight tracker data:", err);
+    } catch (err) {
+       console.error("Error fetching weight tracker data:", err);
         const message = err instanceof Error ? err.message : 'An unknown error occurred';
         setError(message);
-        toast.error(`Failed to load data: ${message}`);
-      } finally {
-        setIsLoading(false);
-      }
+        // Avoid toast on initial load error, show card instead
+        // toast.error(`Failed to load data: ${message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  // Include dependencies that trigger refetch; only catId for initial load
+  // For refetch after submit, call fetchData() directly
+  }, [catId, catData?.name, catData?.currentWeight, catData?.weightUnit, feedingHistory]); // Add dependencies used in simulation/calc
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]); // Run fetchData on mount and when fetchData definition changes (due to deps)
+
+  // --- Form Submission Handler ---
+  const handleWeightSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setFormError(null);
+
+    const weightValue = parseFloat(weightInput);
+    if (isNaN(weightValue) || weightValue <= 0) {
+        setFormError("Please enter a valid positive weight.");
+        setIsSubmitting(false);
+        return;
+    }
+
+    const payload: any = {
+        weight: weightValue,
+        unit: unitInput,
     };
 
-    fetchData();
-  }, [catId]); // Re-fetch if catId changes
+    // Only include measuredAt if dateInput is not empty
+    if (dateInput) {
+        payload.measuredAt = new Date(dateInput).toISOString();
+    }
+
+    try {
+        const response = await fetch(`/api/cats/${catId}/weight`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to add weight: ${response.statusText}`);
+        }
+
+        toast.success("Weight measurement added successfully!");
+        setIsDialogOpen(false); // Close dialog on success
+        setWeightInput(""); // Reset form
+        setUnitInput("kg");
+        setDateInput("");
+        await fetchData(); // Refetch data to update the UI
+
+    } catch (err) {
+        console.error("Error submitting weight:", err);
+        const message = err instanceof Error ? err.message : 'An unknown error occurred';
+        setFormError(message);
+        toast.error(`Failed to add weight: ${message}`);
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
 
   const displayWeight = (weight: number | null, unit: string = 'kg') => {
       return weight !== null ? `${weight} ${unit}` : 'N/A';
@@ -302,8 +366,84 @@ export default function CatWeightTrackerPage({
 
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-4">
-         {/* TODO: Implement Add Weight functionality (e.g., a Dialog) */}
-         <Button>Add New Weight Measurement</Button>
+         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+                <Button>Add New Weight Measurement</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>Add New Weight Measurement</DialogTitle>
+                    <DialogDescription>
+                        Enter the cat's weight and optionally the measurement date.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleWeightSubmit}>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="weight" className="text-right">
+                                Weight
+                            </Label>
+                            <Input
+                                id="weight"
+                                type="number"
+                                step="0.01" // Allow decimals
+                                value={weightInput}
+                                onChange={(e) => setWeightInput(e.target.value)}
+                                className="col-span-2" // Span 2 cols for input
+                                required
+                                disabled={isSubmitting}
+                            />
+                            {/* Unit Selector */}
+                            <Select
+                                value={unitInput}
+                                onValueChange={setUnitInput}
+                                required
+                                disabled={isSubmitting}
+                            >
+                                <SelectTrigger id="unit" className="col-span-1">
+                                    <SelectValue placeholder="Unit" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="kg">kg</SelectItem>
+                                    <SelectItem value="lb">lb</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="measuredAt" className="text-right">
+                                Date (Optional)
+                            </Label>
+                            <Input
+                                id="measuredAt"
+                                type="datetime-local"
+                                value={dateInput}
+                                onChange={(e) => setDateInput(e.target.value)}
+                                className="col-span-3"
+                                disabled={isSubmitting}
+                                // Optional: Add max property for current time
+                                max={new Date().toISOString().slice(0, 16)}
+                            />
+                        </div>
+                         {formError && (
+                            <p className="col-span-4 text-sm text-destructive text-center">
+                                {formError}
+                            </p>
+                        )}
+                    </div>
+                    <DialogFooter>
+                         <DialogClose asChild>
+                            <Button type="button" variant="outline" disabled={isSubmitting}>
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <Button type="submit" disabled={isSubmitting}>
+                            {isSubmitting ? "Saving..." : "Save Measurement"}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+
          {/* TODO: Determine correct link for feeding log */}
          <Link href={`/cats/${catId}/feeding`} passHref>
              <Button variant="secondary">Log Feeding</Button>
