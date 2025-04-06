@@ -1,5 +1,6 @@
 'use client'; // Required for hooks and event handlers
 
+import { useState, useEffect } from 'react'; // Import hooks
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,17 +12,21 @@ import {
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { toast } from 'sonner'; // For error feedback
 // import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Import later for graph
 
-// Placeholder data - replace with actual data fetching later
-const placeholderData = {
-  catName: 'Mittens',
-  currentWeight: 5.2,
-  weightUnit: 'kg',
-  weightGoal: 5.0,
-  portionsSinceLast: 15,
-  avgPortionsPerDay: 2.5,
-};
+// Define interfaces for fetched data
+interface CatData {
+  name: string;
+  currentWeight: number | null;
+  weightUnit?: string; // Assuming default 'kg' if not specified
+}
+
+interface GoalData {
+  weightGoal: number | null;
+}
+
+// Placeholder data - REMOVED, will use state
 
 // TODO: Define data structure for chart data
 const placeholderChartData = [
@@ -33,19 +38,81 @@ const placeholderChartData = [
 
 export default function CatWeightTrackerPage({
   params,
-}: { // Destructure params
+}: {
   params: { catId: string };
 }) {
   const { catId } = params;
-  const isLoading = false; // Placeholder for loading state
 
-  // TODO: Fetch actual cat data, weight history, goal etc. using catId
+  // State hooks
+  const [catData, setCatData] = useState<CatData | null>(null); // For name, current weight
+  const [goalData, setGoalData] = useState<GoalData | null>(null); // For weight goal
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        // --- Fetch Cat Basic Info (Name, Current Weight) ---
+        // TODO: Create/use an API endpoint like /api/cats/[catId]/basic-info
+        // For now, simulate fetching basic cat info (replace later)
+        const simulatedCatResponse = await new Promise<{ name: string; weight: number | null }>((resolve) =>
+          setTimeout(() => resolve({ name: 'Mittens', weight: 5.2 }), 500)
+        );
+        setCatData({
+          name: simulatedCatResponse.name,
+          currentWeight: simulatedCatResponse.weight,
+          weightUnit: 'kg', // Assuming default for now
+        });
+
+        // --- Fetch Weight Goal ---
+        const goalResponse = await fetch(`/api/cats/${catId}/goal`);
+        if (!goalResponse.ok) {
+          throw new Error(`Failed to fetch weight goal: ${goalResponse.statusText}`);
+        }
+        const fetchedGoalData: GoalData = await goalResponse.json();
+        setGoalData(fetchedGoalData);
+
+        // TODO: Fetch weight history for calculations and graph
+
+      } catch (err) {
+        console.error("Error fetching weight tracker data:", err);
+        const message = err instanceof Error ? err.message : 'An unknown error occurred';
+        setError(message);
+        toast.error(`Failed to load data: ${message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [catId]); // Re-fetch if catId changes
+
+  const displayWeight = (weight: number | null, unit: string = 'kg') => {
+      return weight !== null ? `${weight} ${unit}` : 'N/A';
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">
-        Weight Tracker for {isLoading ? <Skeleton className="h-8 w-32 inline-block" /> : placeholderData.catName} (ID: {catId})
+        Weight Tracker for {isLoading || !catData ? (
+            <Skeleton className="h-8 w-32 inline-block" />
+            ) : (
+            catData.name
+            )} (ID: {catId})
       </h1>
+
+      {error && (
+        <Card className="mb-6 bg-destructive/10 border-destructive">
+            <CardHeader>
+                <CardTitle className="text-destructive">Error Loading Data</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p>{error}</p>
+            </CardContent>
+        </Card>
+      )}
 
       {/* Top Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -56,11 +123,11 @@ export default function CatWeightTrackerPage({
             <CardDescription>Last measurement</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoading || !catData ? (
               <Skeleton className="h-10 w-3/4" />
             ) : (
               <p className="text-2xl font-semibold">
-                {placeholderData.currentWeight} {placeholderData.weightUnit}
+                {displayWeight(catData.currentWeight, catData.weightUnit)}
               </p>
             )}
           </CardContent>
@@ -73,11 +140,11 @@ export default function CatWeightTrackerPage({
             <CardDescription>Target weight</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
+            {isLoading || !goalData ? (
               <Skeleton className="h-10 w-3/4" />
-            ) : placeholderData.weightGoal ? (
+            ) : goalData.weightGoal !== null ? (
               <p className="text-2xl font-semibold">
-                {placeholderData.weightGoal} {placeholderData.weightUnit}
+                {displayWeight(goalData.weightGoal, catData?.weightUnit)}
               </p>
             ) : (
               <p className="text-muted-foreground italic">No goal set</p>
@@ -96,7 +163,8 @@ export default function CatWeightTrackerPage({
             {isLoading ? (
               <Skeleton className="h-10 w-1/2" />
             ) : (
-              <p className="text-2xl font-semibold">{placeholderData.portionsSinceLast}</p>
+              // <p className="text-2xl font-semibold">{placeholderData.portionsSinceLast}</p>
+              <p className="text-2xl font-semibold text-muted-foreground">TODO</p> // Placeholder for calculation
             )}
           </CardContent>
         </Card>
@@ -111,7 +179,8 @@ export default function CatWeightTrackerPage({
             {isLoading ? (
               <Skeleton className="h-10 w-1/2" />
             ) : (
-              <p className="text-2xl font-semibold">{placeholderData.avgPortionsPerDay.toFixed(1)}</p>
+              // <p className="text-2xl font-semibold">{placeholderData.avgPortionsPerDay.toFixed(1)}</p>
+              <p className="text-2xl font-semibold text-muted-foreground">TODO</p> // Placeholder for calculation
             )}
           </CardContent>
         </Card>
