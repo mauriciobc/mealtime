@@ -9,32 +9,39 @@ import { motion, AnimatePresence } from "framer-motion";
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { getUserTimezone, calculateNextFeeding, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { BaseFeedingLog, ID } from "@/lib/types/common";
+import { CatType } from "@/lib/types";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Clock, Bell, Cat as CatIcon, Users, Utensils, AlertTriangle, X, CheckCircle } from "lucide-react";
+import { Check, Clock, Bell, Cat as CatIcon, Users, Utensils, AlertTriangle, X, CheckCircle, ArrowLeft } from "lucide-react";
 import { toast } from "@/components/ui/use-toast";
 import { useAppContext } from "@/lib/context/AppContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
+import { useCats } from "@/lib/context/CatsContext";
+import { useFeeding } from "@/lib/context/FeedingContext";
 import Link from "next/link";
-import { CatType, FeedingLog as FeedingLogType, HouseholdType } from "@/lib/types";
 import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 
+// Define the FeedingStatus type
+type FeedingStatus = "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro";
+
 export default function NewFeedingPage() {
   const router = useRouter();
-  const { state: appState, dispatch: appDispatch } = useAppContext();
   const { state: userState } = useUserContext();
+  const { state: catsState } = useCats();
+  const { state: feedingState } = useFeeding();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { data: session, status } = useSession();
   const { currentUser } = userState;
-  const { cats, feedingLogs } = appState;
+  const { cats } = catsState;
+  const { feedingLogs } = feedingState;
 
   const [selectedCats, setSelectedCats] = useState<number[]>([]);
   const [portions, setPortions] = useState<{ [key: number]: string }>({});
@@ -60,7 +67,7 @@ export default function NewFeedingPage() {
         setError("Nenhuma residência associada. Crie ou junte-se a uma residência nas configurações.");
       }
       if (status !== 'loading') {
-          setIsLoadingPage(false);
+        setIsLoadingPage(false);
       }
       return;
     }
@@ -101,7 +108,7 @@ export default function NewFeedingPage() {
 
     loadPageData();
 
-  }, [status, currentUser, cats, appDispatch]);
+  }, [status, currentUser, cats]);
 
   const formatRelativeTime = useCallback((utcDateTime: Date | string | null | undefined) => {
     if (!utcDateTime) return "Nunca";
@@ -114,7 +121,7 @@ export default function NewFeedingPage() {
     }
   }, []);
 
-  const getLastFeedingLog = useCallback((catId: number): FeedingLogType | undefined => {
+  const getLastFeedingLog = useCallback((catId: number): BaseFeedingLog | undefined => {
     return feedingLogs
         .filter(log => log.catId === catId)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
@@ -189,7 +196,7 @@ export default function NewFeedingPage() {
     const currentUserId = currentUser.id;
     const timestamp = new Date();
 
-    const logsToCreate: Omit<FeedingLogType, 'id' | 'user' | 'cat'>[] = [];
+    const logsToCreate: Omit<BaseFeedingLog, 'id' | 'createdAt'>[] = [];
     let hasInvalidPortion = false;
 
     for (const catId of selectedCats) {
@@ -211,7 +218,7 @@ export default function NewFeedingPage() {
         userId: currentUserId,
         timestamp: timestamp,
         portionSize: portionNum,
-        status: feedingStatus[catId] || "Normal",
+        status: feedingStatus[catId] as BaseFeedingLog['status'] || "Normal",
         notes: notes[catId] || null,
       });
     }
@@ -234,9 +241,7 @@ export default function NewFeedingPage() {
         throw new Error(errorData.error || `Falha ao registrar alimentações (${response.status})`);
       }
 
-      const createdLogs: FeedingLogType[] = await response.json();
-
-      appDispatch({ type: "ADD_FEEDING_LOGS", payload: createdLogs });
+      const createdLogs: BaseFeedingLog[] = await response.json();
 
       toast({
         title: "Sucesso",
@@ -266,7 +271,13 @@ export default function NewFeedingPage() {
   if (isLoadingPage || status === 'loading' || (status === 'authenticated' && !currentUser)) {
     return (
       <div className="container max-w-lg mx-auto py-6 pb-28">
-        <PageHeader title="Registrar Alimentação" backHref="/feedings" />
+        <PageHeader 
+          title="Registrar Alimentação"
+          actionHref="/feedings"
+          actionLabel="Voltar"
+          actionVariant="ghost"
+          actionIcon={<ArrowLeft className="h-4 w-4" />}
+        />
         <Loading text="Carregando formulário..." />
       </div>
     );
@@ -275,15 +286,21 @@ export default function NewFeedingPage() {
   if (error) {
     return (
       <div className="container max-w-lg mx-auto py-6 pb-28">
-        <PageHeader title="Registrar Alimentação" backHref="/feedings" />
+        <PageHeader 
+          title="Registrar Alimentação"
+          actionHref="/feedings"
+          actionLabel="Voltar"
+          actionVariant="ghost"
+          actionIcon={<ArrowLeft className="h-4 w-4" />}
+        />
         <EmptyState
-           icon={AlertTriangle}
-           title="Erro"
-           description={error}
-           actionLabel={currentUser?.householdId ? "Tentar Novamente" : "Ir para Configurações"}
-           actionHref={currentUser?.householdId ? "/feedings/new" : "/settings"}
-           className="mt-6"
-         />
+          icon={AlertTriangle}
+          title="Erro"
+          description={error}
+          actionLabel={currentUser?.householdId ? "Tentar Novamente" : "Ir para Configurações"}
+          actionHref={currentUser?.householdId ? "/feedings/new" : "/settings"}
+          className="mt-6"
+        />
       </div>
     );
   }
@@ -291,7 +308,13 @@ export default function NewFeedingPage() {
   if (status === "authenticated" && currentUser && !currentUser.householdId) {
     return (
       <div className="container max-w-lg mx-auto py-6 pb-28">
-        <PageHeader title="Registrar Alimentação" backHref="/" />
+        <PageHeader 
+          title="Registrar Alimentação"
+          actionHref="/"
+          actionLabel="Voltar"
+          actionVariant="ghost"
+          actionIcon={<ArrowLeft className="h-4 w-4" />}
+        />
         <EmptyState
           icon={Users}
           title="Residência Necessária"
@@ -307,7 +330,13 @@ export default function NewFeedingPage() {
   if (cats.length === 0) {
     return (
       <div className="container max-w-lg mx-auto py-6 pb-28">
-        <PageHeader title="Registrar Alimentação" backHref="/" />
+        <PageHeader 
+          title="Registrar Alimentação"
+          actionHref="/"
+          actionLabel="Voltar"
+          actionVariant="ghost"
+          actionIcon={<ArrowLeft className="h-4 w-4" />}
+        />
         <EmptyState
           icon={CatIcon}
           title="Nenhum Gato Cadastrado"
@@ -322,7 +351,13 @@ export default function NewFeedingPage() {
 
   return (
     <div className="container max-w-lg mx-auto py-6 pb-28">
-      <PageHeader title="Registrar Alimentação" backHref="/feedings" />
+      <PageHeader 
+        title="Registrar Alimentação"
+        actionHref="/feedings"
+        actionLabel="Voltar"
+        actionVariant="ghost"
+        actionIcon={<ArrowLeft className="h-4 w-4" />}
+      />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -356,11 +391,12 @@ export default function NewFeedingPage() {
         <div className="space-y-4">
           {cats.map((cat) => {
             const lastLog = getLastFeedingLog(cat.id);
-            const nextFeedingTime = lastLog && cat.feeding_interval 
+            const nextFeedingTime = lastLog && cat.feedingInterval 
               ? calculateNextFeeding(
                   new Date(lastLog.timestamp), 
-                  cat.feeding_interval, 
-                  currentUser?.timezone || "America/Sao_Paulo"
+                  cat.feedingInterval,
+                  currentUser?.preferences?.timezone || "America/Sao_Paulo",
+                  'cat'
                 ) 
               : null;
             const isSelected = selectedCats.includes(cat.id);
@@ -401,7 +437,7 @@ export default function NewFeedingPage() {
                         {nextFeedingTime && (
                           <div className="text-sm text-muted-foreground flex items-center space-x-2">
                             <Bell className="h-4 w-4" />
-                            <span>Próxima: {formatDateTimeForDisplay(nextFeedingTime)}</span>
+                            <span>Próxima: {nextFeedingTime ? formatDateTimeForDisplay(nextFeedingTime, currentUser?.preferences?.timezone || "America/Sao_Paulo") : "Não definido"}</span>
                           </div>
                         )}
                       </div>

@@ -155,6 +155,7 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
 
         console.log("[FeedingProvider] Feedings loaded:", feedingsData.length);
         const sortedData = feedingsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        console.log("[FeedingProvider] Successfully fetched and sorted feeding logs:", sortedData);
         dispatch({ type: 'FETCH_SUCCESS', payload: sortedData });
       } catch (error: any) {
         if (error.name === 'AbortError') {
