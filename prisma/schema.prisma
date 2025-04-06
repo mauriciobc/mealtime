@@ -43,14 +43,15 @@ model Cat {
   name            String
   photoUrl        String?
   birthdate       DateTime?
-  weight          Float?
+  weight          Float?      // Stores the *latest* weight
+  weightGoal      Float?      // Target weight for the cat
   restrictions    String?
   notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   householdId     Int
   feedingInterval Int         @default(8)
-  portion_size    Float?       @default(0)
+  portion_size    Float?      @default(0)
   userId          Int
   owner           User        @relation("CatOwner", fields: [userId], references: [id])
   household       Household   @relation(fields: [householdId], references: [id])
@@ -58,6 +59,7 @@ model Cat {
   schedules       Schedule[]
   groups          CatGroup[]   @relation("CatToGroup")
   notifications   Notification[]
+  weightMeasurements WeightMeasurement[] // Relation to historical measurements
 
   @@index([userId])
 }
@@ -116,4 +118,20 @@ model Notification {
   @@index([userId])
   @@index([catId])
   @@index([householdId])
+}
+
+// Model for storing historical weight measurements
+model WeightMeasurement {
+  id          Int       @id @default(autoincrement())
+  catId       Int
+  weight      Float     // The weight measured
+  unit        String    @default("kg") // e.g., kg, lb - Consider making this an Enum if strict values are needed
+  measuredAt  DateTime  @default(now()) // Timestamp of the measurement
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  cat         Cat       @relation(fields: [catId], references: [id], onDelete: Cascade) // Cascade delete measurements if cat is deleted
+
+  @@index([catId])
+  @@index([measuredAt]) // Index for sorting/querying by date
 }
