@@ -23,6 +23,19 @@ This file tracks key decisions, findings, and potential points of interest durin
     *   _Note:_ Encountered and resolved schema drift by resetting the dev DB.
     *   _Note:_ Seeding failed due to `bcrypt` build issue (`invalid ELF header`). Deferred fix.
 3.  [x] Commit Schema Changes
-4.  [ ] Implement APIs (CRUD for Measurement, CRUD for Goal)
-5.  [ ] Implement Static UI (Page, Cards)
-6.  [ ] Commit API & UI changes 
+4.  [x] Implement APIs (CRUD for Measurement, CRUD for Goal)
+    *   Created `app/api/cats/[catId]/weight/route.ts` (POST, GET)
+    *   Created `app/api/cats/[catId]/goal/route.ts` (PUT, GET)
+    *   Includes Zod validation, Auth checks, Transaction for POST weight.
+5.  [x] Implement Static UI (Page, Cards)
+    *   Created `app/cats/[catId]/weight/page.tsx`
+    *   Used Shadcn Cards, Buttons, Skeleton.
+    *   Placeholders for data, graph, actions.
+6.  [x] Commit API & UI changes
+
+## Sprint 2 Milestones
+
+1.  [ ] Connect UI to Data (Fetch cat, goal, latest weight)
+2.  [ ] Implement Calculations (Portions since last, Avg. portions)
+3.  [ ] Implement Add Weight Form/Dialog
+4.  [ ] Commit Frontend Integration & Calculation changes 
