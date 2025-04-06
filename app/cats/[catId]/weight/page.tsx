@@ -32,7 +32,17 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { toast } from 'sonner'; // For error feedback
-// import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Import later for graph
+import {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    Legend
+} from 'recharts';
+import { format } from 'date-fns'; // For formatting dates
 
 // Define interfaces for fetched data
 interface CatData {
@@ -140,7 +150,7 @@ export default function CatWeightTrackerPage({
         // Weight History
         if (!weightHistoryResponse.ok) throw new Error(`Failed to fetch weight history: ${weightHistoryResponse.statusText}`);
         const fetchedWeightHistory: WeightMeasurement[] = await weightHistoryResponse.json();
-        setWeightHistory(fetchedWeightHistory);
+        setWeightHistory(fetchedWeightHistory.sort((a, b) => new Date(a.measuredAt).getTime() - new Date(b.measuredAt).getTime())); // Sort ASC for chart
 
         // Feeding History (Simulated)
         // Note: Keeping simulated feeding history for now
@@ -180,7 +190,7 @@ export default function CatWeightTrackerPage({
     }
   // Include dependencies that trigger refetch; only catId for initial load
   // For refetch after submit, call fetchData() directly
-  }, [catId, catData?.name, catData?.currentWeight, catData?.weightUnit, feedingHistory]); // Add dependencies used in simulation/calc
+  }, [catId, catData?.name, catData?.currentWeight, catData?.weightUnit, feedingHistory, weightHistory]); // Add dependencies used in simulation/calc
 
   useEffect(() => {
     fetchData();
@@ -241,6 +251,16 @@ export default function CatWeightTrackerPage({
   const displayWeight = (weight: number | null, unit: string = 'kg') => {
       return weight !== null ? `${weight} ${unit}` : 'N/A';
   };
+
+  // --- Chart Data Formatting ---
+  const formattedChartData = weightHistory.map(item => ({
+      // Format date for display on X-axis
+      measuredAtFormatted: format(new Date(item.measuredAt), 'MMM d'), // e.g., Apr 6
+      weight: item.weight,
+      // Include original date for tooltip
+      fullDate: format(new Date(item.measuredAt), 'PPpp'), // e.g., Apr 6, 2025 at 5:48 PM
+      unit: item.unit,
+  }));
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -346,19 +366,55 @@ export default function CatWeightTrackerPage({
         <CardContent className="h-64 md:h-96"> {/* Fixed height for chart container */}
           {isLoading ? (
             <Skeleton className="h-full w-full" />
-          ) : (
-            <div className="flex items-center justify-center h-full border rounded-md">
-              <p className="text-muted-foreground">Graph Placeholder</p>
-              {/* TODO: Implement actual chart using Recharts or similar */}
-              {/* <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={placeholderChartData}>
+          ) : weightHistory.length > 0 ? ( // Only render chart if data exists
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                  data={formattedChartData}
+                  margin={{
+                      top: 5,
+                      right: 30,
+                      left: 0, // Adjusted left margin
+                      bottom: 5,
+                  }}
+              >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="weight" stroke="#8884d8" activeDot={{ r: 8 }} />
-                </LineChart>
-              </ResponsiveContainer> */}
+                  <XAxis dataKey="measuredAtFormatted" />
+                  {/* Add domain to YAxis if needed, e.g., domain={['dataMin - 1', 'dataMax + 1']} */}
+                  <YAxis unit={catData?.weightUnit || 'kg'} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+                    formatter={(value: number, name: string, props) => [`${value} ${props.payload.unit}`, `Weight`]}
+                    labelFormatter={(label, payload) => payload?.[0]?.payload.fullDate || label}
+                  />
+                  <Legend />
+                  <Line
+                      type="monotone"
+                      dataKey="weight"
+                      stroke="hsl(var(--primary))" // Use theme primary color
+                      strokeWidth={2}
+                      activeDot={{ r: 8 }}
+                      dot={{ r: 4 }}
+                      name="Weight" // Name for Legend/Tooltip
+                      unit={catData?.weightUnit || 'kg'} // Pass unit for tooltip context
+                  />
+                  {/* Optional: Add Line for weightGoal if it exists */}
+                   {goalData?.weightGoal && (
+                      <Line
+                          type="monotone"
+                          dataKey={() => goalData.weightGoal} // Constant value line
+                          stroke="hsl(var(--destructive))" // Use theme destructive color
+                          strokeDasharray="5 5"
+                          dot={false}
+                          activeDot={false}
+                          name="Goal"
+                          strokeWidth={1}
+                      />
+                  )}
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+             <div className="flex items-center justify-center h-full border rounded-md">
+              <p className="text-muted-foreground">No weight history recorded yet.</p>
             </div>
           )}
         </CardContent>
