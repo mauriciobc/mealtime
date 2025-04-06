@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 
 /**
  * @swagger
- * /api/cats/{catId}/basic-info:
+ * /api/cats/{id}/basic-info:
  *   get:
  *     summary: Get basic information for a specific cat
  *     description: Retrieves the name and current weight for a specific cat, performing authorization checks.
@@ -13,7 +13,7 @@ import { authOptions } from '@/lib/auth';
  *       - Cats
  *     parameters:
  *       - in: path
- *         name: catId
+ *         name: id
  *         required: true
  *         schema:
  *           type: integer
@@ -49,7 +49,7 @@ import { authOptions } from '@/lib/auth';
  */
 export async function GET(
   request: Request,
-  { params }: { params: { catId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -58,13 +58,12 @@ export async function GET(
     }
     const userId = session.user.id;
 
-    const catIdInt = parseInt(params.catId, 10);
+    const catIdInt = parseInt(params.id, 10);
     if (isNaN(catIdInt)) {
       return NextResponse.json({ error: 'Invalid Cat ID' }, { status: 400 });
     }
 
     // --- Authorization & Data Fetch ---
-    // Fetch cat and check ownership/household in one go
     const cat = await prisma.cat.findUnique({
       where: { id: catIdInt },
       select: {
@@ -100,7 +99,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error(`Error fetching basic info for cat ${params.catId}:`, error);
+    console.error(`Error fetching basic info for cat ${params.id}:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

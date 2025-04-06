@@ -7,7 +7,7 @@ import { URLSearchParams } from 'url'; // To parse query parameters
 
 /**
  * @swagger
- * /api/cats/{catId}/feeding:
+ * /api/cats/{id}/feeding:
  *   get:
  *     summary: Get feeding logs for a specific cat
  *     description: Retrieves feeding logs for a specific cat, optionally filtering by a start date.
@@ -16,7 +16,7 @@ import { URLSearchParams } from 'url'; // To parse query parameters
  *       - Feeding
  *     parameters:
  *       - in: path
- *         name: catId
+ *         name: id
  *         required: true
  *         schema:
  *           type: integer
@@ -49,8 +49,8 @@ import { URLSearchParams } from 'url'; // To parse query parameters
  *         description: Internal server error.
  */
 export async function GET(
-  request: Request, // Use standard Request type
-  { params }: { params: { catId: string } }
+  request: Request,
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -59,23 +59,21 @@ export async function GET(
     }
     const userId = session.user.id;
 
-    const catIdInt = parseInt(params.catId, 10);
+    const catIdInt = parseInt(params.id, 10);
     if (isNaN(catIdInt)) {
       return NextResponse.json({ error: 'Invalid Cat ID' }, { status: 400 });
     }
 
     // --- Authorization Check ---
-    // Fetch the cat to verify ownership/household membership
     const cat = await prisma.cat.findUnique({
       where: { id: catIdInt },
-      select: { userId: true }, // Only need owner ID for this check
+      select: { userId: true },
     });
 
     if (!cat) {
       return NextResponse.json({ error: 'Cat not found' }, { status: 404 });
     }
 
-    // Basic owner check (replace with household check if needed)
     if (cat.userId !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -88,7 +86,7 @@ export async function GET(
 
     if (sinceParam) {
         sinceDate = new Date(sinceParam);
-        if (isNaN(sinceDate.getTime())) { // Check if the date is valid
+        if (isNaN(sinceDate.getTime())) {
              return NextResponse.json({ error: "Invalid 'since' date format. Please use ISO 8601 format." }, { status: 400 });
         }
     }
@@ -97,19 +95,17 @@ export async function GET(
     const feedingLogs = await prisma.feedingLog.findMany({
       where: {
         catId: catIdInt,
-        // Add timestamp filter only if sinceDate is valid
         ...(sinceDate && { timestamp: { gte: sinceDate } })
       },
       orderBy: {
-        timestamp: 'desc', // Show most recent logs first
+        timestamp: 'desc',
       },
-      // Optionally add include: { user: { select: { name: true } } } if needed
     });
 
     return NextResponse.json(feedingLogs);
 
   } catch (error) {
-    console.error(`Error fetching feeding logs for cat ${params.catId}:`, error);
+    console.error(`Error fetching feeding logs for cat ${params.id}:`, error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

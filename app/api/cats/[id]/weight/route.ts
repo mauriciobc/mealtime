@@ -13,7 +13,7 @@ const weightMeasurementSchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: { catId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -22,7 +22,7 @@ export async function POST(
     }
     const userId = session.user.id; // Assuming user ID is stored as number in session/db
 
-    const catIdInt = parseInt(params.catId, 10);
+    const catIdInt = parseInt(params.id, 10);
     if (isNaN(catIdInt)) {
       return NextResponse.json({ error: 'Invalid Cat ID' }, { status: 400 });
     }
@@ -102,7 +102,7 @@ export async function POST(
 // --- GET Handler ---
 export async function GET(
   request: Request, // Added type annotation
-  { params }: { params: { catId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -111,7 +111,7 @@ export async function GET(
     }
     const userId = session.user.id;
 
-    const catIdInt = parseInt(params.catId, 10);
+    const catIdInt = parseInt(params.id, 10);
     if (isNaN(catIdInt)) {
       return NextResponse.json({ error: 'Invalid Cat ID' }, { status: 400 });
     }

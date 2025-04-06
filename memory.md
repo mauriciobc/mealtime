@@ -77,7 +77,13 @@ This file tracks key decisions, findings, and potential points of interest durin
     *   **Needs external trigger configuration (Vercel Cron, etc.).**
     *   **Needs `sendNotification` lib verification/adaptation.**
 2.  [ ] Implement E2E Tests (Basic Flow)
-3.  [ ] Refactor & Document
-    *   **Pending:** Replace simulated fetches (cat info, feeding logs) in main page.
-    *   **Pending:** Fix deferred `bcrypt` seeding issue.
-4.  [ ] Commit Notification & Refinement changes 
+3.  [x] Refactor & Document
+    *   [x] Replaced simulated fetches (cat info, feeding logs) in main page.
+        *   Created `GET /api/cats/[catId]/basic-info`.
+        *   Created `GET /api/cats/[catId]/feeding` with `?since=` filter.
+        *   Updated frontend fetch logic.
+    *   [x] Fixed deferred `bcrypt` seeding issue.
+        *   Ran `npm rebuild bcrypt --build-from-source`.
+        *   Successfully ran `npx prisma db seed`.
+    *   Added basic JSDoc to new API routes.
+4.  [x] Commit Notification & Refinement changes 
