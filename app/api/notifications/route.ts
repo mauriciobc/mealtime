@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { unstable_cache, revalidateTag } from 'next/cache';
@@ -10,6 +10,9 @@ async function fetchNotificationsFromDB(userId: number, page: number, limit: num
   console.log(`[fetchNotificationsFromDB] Fetching notifications for userId=${userId}, page=${page}, limit=${limit} directly from DB`);
   const skip = (page - 1) * limit;
   
+  // Add log to check prisma instance
+  console.log("[fetchNotificationsFromDB] Checking prisma instance before query:", typeof prisma, prisma ? Object.keys(prisma) : 'undefined');
+
   const [notifications, total] = await Promise.all([
     prisma.notification.findMany({
       where: { userId },

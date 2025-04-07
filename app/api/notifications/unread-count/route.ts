@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
+import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
+import { prisma } from '@/lib/prisma';
 
 // Cache unread count for 30 seconds, tagged for revalidation
 const getCachedUnreadCount = unstable_cache(

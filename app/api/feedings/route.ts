@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { BaseFeedingLog } from '@/lib/types/common';
 import { FeedingLog } from '@/lib/types';
 

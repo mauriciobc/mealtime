@@ -51,6 +51,18 @@ export default function CatDetailsClient({ id }: { id: string }) {
   const router = useRouter()
   const { state: appState, dispatch: appDispatch } = useAppContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
+
+  // --- Parse ID and handle potential errors ---
+  const catIdNumber = parseInt(id, 10);
+  if (isNaN(catIdNumber)) {
+    // Handle invalid ID early, maybe show an error or redirect
+    // For now, we'll rely on useFeeding/subsequent logic to handle it, 
+    // but a dedicated error state here might be better.
+    console.error(`[CatDetailsClient] Invalid ID prop received: ${id}`);
+    // Optionally: notFound(); or return <ErrorComponent />
+  }
+  // --- End ID Parsing ---
+
   const { 
     cat, 
     logs, 
@@ -59,7 +71,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
     formattedTimeDistance, 
     isLoading: isFeedingLoading, 
     handleMarkAsFed 
-  } = useFeeding(id)
+  } = useFeeding(catIdNumber)
   const [isClient, setIsClient] = useState(false)
   const [isProcessingDelete, setIsProcessingDelete] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -88,7 +100,6 @@ export default function CatDetailsClient({ id }: { id: string }) {
     const previousCats = appState.cats;
 
     // Optimistic update
-    const catIdNumber = parseInt(id, 10);
     if (isNaN(catIdNumber)) {
         toast.error("ID do gato inválido.");
         setIsProcessingDelete(false);
@@ -126,7 +137,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
 
   return (
     <PageTransition>
-      <div className="bg-background min-h-screen pb-4">
+      <div className="bg-background min-h-screen">
         <div className="container max-w-md mx-auto p-4">
           {/* Status Bar Spacer */}
           <div className="h-6"></div>
@@ -272,7 +283,10 @@ export default function CatDetailsClient({ id }: { id: string }) {
                   <CardTitle>Registrar Alimentação</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <FeedingForm catId={cat.id} />
+                  <FeedingForm 
+                    catId={cat.id} 
+                    catPortionSize={cat?.portion_size ?? undefined}
+                  />
                 </CardContent>
               </Card>
               

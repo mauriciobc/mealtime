@@ -63,14 +63,15 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid Cat ID' }, { status: 400 });
     }
 
-    // --- Authorization & Data Fetch ---
+    // Fetch the cat to get the name and perform authorization
     const cat = await prisma.cat.findUnique({
       where: { id: catIdInt },
       select: {
         id: true,
         name: true,
-        weight: true, // The latest weight stored directly on the cat
-        userId: true, // For basic owner check
+        userId: true, // For authorization check
+        birthdate: true,
+        portion_size: true,
         // householdId: true, // Include if switching to household check
       },
     });
@@ -79,23 +80,25 @@ export async function GET(
       return NextResponse.json({ error: 'Cat not found' }, { status: 404 });
     }
 
-    // Basic owner check (replace with household check if needed)
-    // const user = await prisma.user.findUnique({ where: { id: userId }, select: { householdId: true }});
-    // if (!user || user.householdId !== cat.householdId) {
+    // --- Authorization Check (replace with proper household check eventually) ---
     if (cat.userId !== userId) { // Simple owner check for now
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
     // --- End Authorization Check ---
 
-    // Determine unit (simple approach: assume kg if weight exists, else null)
-    // More complex: query latest WeightMeasurement if needed
-    const weightUnit = cat.weight !== null ? 'kg' : null;
+    // Fetch the latest weight measurement
+    const latestMeasurement = await prisma.weightMeasurement.findFirst({
+        where: { catId: catIdInt },
+        orderBy: { measuredAt: 'desc' }
+    });
 
     return NextResponse.json({
         id: cat.id,
         name: cat.name,
-        currentWeight: cat.weight,
-        weightUnit: weightUnit
+        currentWeight: latestMeasurement?.weight ?? null,
+        weightUnit: latestMeasurement?.unit ?? null,
+        birthdate: cat.birthdate,
+        portion_size: cat.portion_size ?? null
     });
 
   } catch (error) {

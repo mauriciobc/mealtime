@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { BaseCat } from "@/lib/types/common";
@@ -132,7 +132,15 @@ export async function POST(
 
     const data = validationResult.data;
 
-    // Criar o gato no banco de dados
+    // Use userId directly from session as it's already a number
+    const userId = session.user.id;
+    // We might still need a check if id could potentially be missing or not a number
+    if (typeof userId !== 'number' || isNaN(userId)) {
+      console.error('[API Households Cats] Invalid user ID in session:', session.user.id);
+      return NextResponse.json({ error: 'Invalid user ID in session' }, { status: 400 });
+    }
+
+    // Criar o gato no banco de dados using connect for relations
     const cat = await prisma.cat.create({
       data: {
         name: data.name,
@@ -141,7 +149,12 @@ export async function POST(
         weight: data.weight,
         restrictions: data.restrictions,
         notes: data.notes,
-        householdId: householdId,
+        household: {
+          connect: { id: householdId }
+        },
+        owner: {
+          connect: { id: userId }
+        },
         feedingInterval: data.feedingInterval || 8 // Valor padrão
       }
     });

@@ -6,10 +6,13 @@ export const getParams = cache(async <T extends Record<string, string>>(params: 
 });
 
 // Função para obter um ID numérico de forma assíncrona
-export const getNumericId = cache(async (id: string): Promise<number> => {
-  const numericId = parseInt(await Promise.resolve(id));
+export const getNumericId = async (id: string): Promise<number> => {
+  console.log(`[getNumericId] Received ID: '${id}', Type: ${typeof id}`); // Log input
+  // Simplify parsing and add radix parameter
+  const numericId = parseInt(id, 10);
+  console.log(`[getNumericId] Parsed ID: ${numericId}, IsNaN: ${isNaN(numericId)}`); // Log result
   if (isNaN(numericId)) {
     throw new Error('ID inválido');
   }
   return numericId;
-}); 
+}; 

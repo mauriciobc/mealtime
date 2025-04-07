@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { BaseCat } from '@/lib/types/common';
 
 // GET /api/feedings/cats - Listar gatos para o formulário de alimentação

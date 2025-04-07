@@ -158,7 +158,13 @@ export const getNextFeedingTime = async (catId: number): Promise<Date | null> =>
   try {
     const response = await fetch(`/api/cats/${catId}/next-feeding`);
     if (!response.ok) {
-      console.error('Erro ao buscar via API, tentando cálculo local');
+      console.error(`Erro ao buscar próxima alimentação via API (Status: ${response.status}), tentando cálculo local`);
+      try {
+        const errorBody = await response.text();
+        console.error(`API Response Body: ${errorBody || '(empty)'}`);
+      } catch (parseError) {
+        console.error('Não foi possível ler o corpo da resposta de erro da API.', parseError);
+      }
       return calculateNextFeedingLocally(catId);
     }
     

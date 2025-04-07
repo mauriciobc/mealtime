@@ -1,16 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { getNumericId } from '@/lib/utils/api-utils';
+import { CatType } from '@/lib/types';
 
 // GET /api/cats/[catId] - Obter um gato pelo ID
 export async function GET(
   request: NextRequest,
-  context: { params: { catId: string } }
+  { params }: { params: { catId: string } }
 ) {
   try {
-    const params = await context.params;
-    // Obter e validar o ID
-    const id = await getNumericId(params.catId);
+    const { catId: catIdParam } = params;
+    console.log(`[API /cats/[id] GET] Received catId param: '${catIdParam}'`);
+
+    if (typeof catIdParam !== 'string' || !catIdParam) {
+      console.error('[API /cats/[id] GET] Invalid or missing catId parameter.');
+      return NextResponse.json({ error: 'ID do gato inválido ou ausente' }, { status: 400 });
+    }
+
+    const id = await getNumericId(catIdParam);
+    console.log(`[API /cats/[id] GET] Got numeric catId: ${id}`);
 
     const cat = await prisma.cat.findUnique({
       where: { id },
@@ -57,12 +65,19 @@ export async function GET(
 // PUT /api/cats/[catId] - Atualizar um gato
 export async function PUT(
   request: NextRequest,
-  context: { params: { catId: string } }
+  { params }: { params: { catId: string } }
 ) {
   try {
-    const params = await context.params;
-    // Obter e validar o ID
-    const id = await getNumericId(params.catId);
+    const { catId: catIdParam } = params;
+    console.log(`[API /cats/[id] PUT] Received catId param: '${catIdParam}'`);
+
+    if (typeof catIdParam !== 'string' || !catIdParam) {
+      console.error('[API /cats/[id] PUT] Invalid or missing catId parameter.');
+      return NextResponse.json({ error: 'ID do gato inválido ou ausente' }, { status: 400 });
+    }
+
+    const id = await getNumericId(catIdParam);
+    console.log(`[API /cats/[id] PUT] Got numeric catId: ${id}`);
     
     const {
       name,
@@ -116,7 +131,6 @@ export async function PUT(
         name: name || undefined,
         photoUrl: photoUrl === undefined ? undefined : photoUrl,
         birthdate: birthdate === undefined ? undefined : new Date(birthdate),
-        weight: weight === undefined ? undefined : parseFloat(weight),
         restrictions: restrictions === undefined ? undefined : restrictions,
         portion_size: portion_size === undefined ? undefined : parseFloat(portion_size),
         notes: notes === undefined ? undefined : notes,
@@ -172,11 +186,19 @@ export async function PUT(
 // DELETE /api/cats/[catId] - Excluir um gato
 export async function DELETE(
   request: NextRequest,
-  context: { params: { catId: string } }
+  { params }: { params: { catId: string } }
 ) {
   try {
-    // Obter e validar o ID
-    const id = await getNumericId(context.params.catId);
+    const { catId: catIdParam } = params;
+    console.log(`[API /cats/[id] DELETE] Received catId param: '${catIdParam}'`);
+
+    if (typeof catIdParam !== 'string' || !catIdParam) {
+      console.error('[API /cats/[id] DELETE] Invalid or missing catId parameter.');
+      return NextResponse.json({ error: 'ID do gato inválido ou ausente' }, { status: 400 });
+    }
+
+    const id = await getNumericId(catIdParam);
+    console.log(`[API /cats/[id] DELETE] Got numeric catId: ${id}`);
 
     // Verificar se o gato existe
     const existingCat = await prisma.cat.findUnique({

@@ -1,17 +1,24 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import { addHours, addMinutes, format, parse } from 'date-fns';
+import { getNumericId } from '@/lib/utils/api-utils';
 
 export async function GET(
   request: Request,
-  context: { params: { catId: string } }
+  { params }: { params: { catId: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    const params = await context.params;
-    
+    const { catId: catIdParam } = params;
+    console.log(`[API /cats/[id]/next-feeding] Received catId param: '${catIdParam}'`);
+
+    if (typeof catIdParam !== 'string' || !catIdParam) {
+      console.error('[API /cats/[id]/next-feeding] Invalid or missing catId parameter.');
+      return NextResponse.json({ error: 'ID do gato inválido ou ausente' }, { status: 400 });
+    }
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Não autorizado' },
@@ -19,13 +26,9 @@ export async function GET(
       );
     }
 
-    const catId = parseInt(params.catId);
-    if (isNaN(catId)) {
-      return NextResponse.json(
-        { error: 'ID do gato inválido' },
-        { status: 400 }
-      );
-    }
+    console.log(`[API /cats/[id]/next-feeding] Calling getNumericId with: '${catIdParam}'`);
+    const catId = await getNumericId(catIdParam);
+    console.log(`[API /cats/[id]/next-feeding] Got numeric catId: ${catId}`);
 
     // Verificar se o gato pertence ao usuário através do household
     const userHouseholds = await prisma.household.findMany({
