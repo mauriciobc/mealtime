@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useCats } from "@/lib/context/CatsContext";
-import { useUser } from "@/lib/context/UserContext";
+import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,7 @@ export default function NewCatPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { data: session, status } = useSession();
   const { dispatch: catsDispatch } = useCats();
-  const { state: userState } = useUser();
+  const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser } = userState;
 
