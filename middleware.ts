@@ -16,17 +16,17 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   console.log('[Middleware] Processing request for:', pathname);
 
-  // Verificar se é uma requisição para uma imagem de perfil
+  // Let Next.js handle static files in /public directory
   if (pathname.startsWith('/profiles/')) {
     try {
       // Normalize the path by removing leading slash for cache lookup
       const cachePath = pathname.startsWith('/') ? pathname.slice(1) : pathname;
       
-      // Tentar obter a imagem do cache
+      // Try to get image from cache
       const imageData = await imageCache.get(cachePath);
       
       if (imageData) {
-        // Se encontrada no cache, servir diretamente
+        // If found in cache, serve directly
         return new NextResponse(imageData, {
           status: 200,
           headers: {
@@ -34,19 +34,14 @@ export async function middleware(request: NextRequest) {
             'Cache-Control': 'public, max-age=31536000, immutable',
           },
         });
-      } else {
-        // Se não encontrada no cache, retornar 404
-        return new NextResponse(null, {
-          status: 404,
-          statusText: 'Image not found'
-        });
       }
+
+      // If not in cache, let Next.js handle the static file
+      return NextResponse.next();
     } catch (error) {
-      console.error('Erro ao servir imagem do cache:', error);
-      return new NextResponse(null, {
-        status: 500,
-        statusText: 'Internal Server Error'
-      });
+      console.error('Error serving image from cache:', error);
+      // On error, let Next.js try to handle the static file
+      return NextResponse.next();
     }
   }
 

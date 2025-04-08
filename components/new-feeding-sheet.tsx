@@ -207,13 +207,24 @@ export function NewFeedingSheet({
     let validationError = null;
 
     for (const catId of selectedCats) {
-      const portionStr = portions[catId] || "";
-      const portionNum = portionStr ? parseFloat(portionStr) : null;
-
-      if (portionStr && (isNaN(portionNum!) || portionNum! <= 0 || portionNum! > 1000)) {
-          const catName = householdCats.find(c => c.id === catId)?.name || `Gato ${catId}`;
-          validationError = `Porção inválida para ${catName}. Use um número positivo (até 1000) ou deixe em branco.`;
+      const cat = householdCats.find(c => c.id === catId);
+      if (!cat) {
+          validationError = `Gato selecionado com ID '${catId}' não encontrado na lista.`;
           break;
+      }
+
+      const portionStr = portions[catId] ?? "";
+      const status = feedingStatus[catId] ?? "Normal";
+      const note = notes[catId] ?? null;
+
+      let portionNum: number | null = null;
+      if (portionStr) {
+          const parsed = parseFloat(portionStr);
+          if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1000) {
+              validationError = `Porção inválida (${portionStr}) para ${cat.name}. Use um número não negativo (até 1000) ou deixe em branco.`;
+              break;
+          }
+          portionNum = parsed;
       }
 
       logsToCreate.push({
@@ -221,8 +232,8 @@ export function NewFeedingSheet({
         userId: currentUserId,
         timestamp: timestamp,
         portionSize: portionNum,
-        status: feedingStatus[catId] || "Normal",
-        notes: notes[catId]?.trim() || null,
+        status: status,
+        notes: note?.trim() || null,
       });
     }
 

@@ -1,20 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
   Edit, 
   Trash2, 
-  Eye,
   Calendar,
   Weight,
-  Info
 } from "lucide-react";
-import Image from 'next/image';
 import { CatType } from "@/lib/types";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -35,7 +31,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { getAgeString } from "@/lib/utils/dateUtils";
-import { getFallbackImageUrl } from "@/lib/image-errors";
+import { getFallbackImageUrl, isFallbackImage } from "@/lib/image-errors";
+import { SafeImage } from "./safe-image";
+import { cn } from "@/lib/utils";
 
 interface CatCardProps {
   cat: CatType;
@@ -46,7 +44,7 @@ interface CatCardProps {
 
 export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState(true);
 
   const ageString = cat.birthdate ? getAgeString(cat.birthdate) : "Idade desconhecida";
 
@@ -72,32 +70,24 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
     setShowDeleteDialog(false);
   };
 
-  const getImageUrl = (photoUrl: string | undefined): string => {
-    if (!photoUrl) {
-      const fallbackUrl = getFallbackImageUrl('cat');
-      // console.log(`[CatCard] Using fallback URL for ${cat.name}:`, fallbackUrl); // Keep console log commented unless debugging
-      return fallbackUrl;
+  const imageUrl = useMemo(() => {
+    if (!cat.photoUrl || cat.photoUrl.trim() === '') {
+      return getFallbackImageUrl('cat');
     }
 
-    let finalUrl: string;
-
-    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-      finalUrl = photoUrl.replace('http://', 'https://');
-    } else if (photoUrl.startsWith('/')) {
-      // If it starts with '/', assume it's a correct relative path from web root
-      finalUrl = photoUrl;
-    } else {
-      // Otherwise, assume it's a filename/key relative to the uploads directory
-      finalUrl = `/uploads/cat/${photoUrl}`;
+    const url = cat.photoUrl.trim();
+    if (url.startsWith('http') || url.startsWith('data:')) {
+      return url;
     }
 
-    // console.log(`[CatCard] Image URL for ${cat.name}:`, { // Keep console log commented unless debugging
-    //   originalUrl: photoUrl,
-    //   processedUrl: finalUrl
-    // });
+    // Ensure local images are in the correct path
+    return url.startsWith('/') ? url : `/profiles/cats/${url.replace(/^profiles\/cats\//, '')}`;
+  }, [cat.photoUrl]);
 
-    return finalUrl;
-  };
+  // Reset loading state when image URL changes
+  useEffect(() => {
+    setIsImageLoading(true);
+  }, [imageUrl]);
 
   return (
     <>
@@ -110,30 +100,32 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
         onClick={onView}
       >
         <Card className="h-full overflow-hidden flex flex-col">
-           <div className="relative w-full aspect-[3/1] bg-muted"> 
-              {!imageError ? (
-                 <Image 
-                    src={getImageUrl(cat.photoUrl)}
-                    alt={cat.name} 
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    className="object-cover absolute inset-0"
-                    priority={false}
-                    onError={(e) => {
-                      console.error(`[CatCard] Image load failed for ${cat.name}:`, {
-                        url: cat.photoUrl,
-                        error: e
-                      });
-                      setImageError(true);
-                    }}
-                 />
-              ) : (
-                 <Avatar className="absolute inset-0 flex items-center justify-center bg-purple-100 w-full h-full rounded-none"> 
-                   <AvatarFallback className="text-purple-500 text-4xl bg-transparent"> 
+           <div className="relative w-full aspect-[3/1] bg-muted overflow-hidden"> 
+             <SafeImage 
+               src={imageUrl}
+               alt={`Photo of ${cat.name}`} 
+               fill
+               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+               className={cn(
+                 "absolute inset-0 object-cover transition-all duration-300",
+                 isImageLoading ? "opacity-0" : "opacity-100"
+               )}
+               priority={true}
+               onError={() => setIsImageLoading(false)}
+               onLoad={() => setIsImageLoading(false)}
+               fallback={
+                 <div className="w-full h-full flex items-center justify-center bg-purple-100">
+                   <span className="text-purple-500 text-4xl">
                      {cat.name.substring(0, 2).toUpperCase()}
-                   </AvatarFallback>
-                 </Avatar>
-              )}
+                   </span>
+                 </div>
+               }
+             />
+             {isImageLoading && (
+               <div className="absolute inset-0 flex items-center justify-center bg-purple-50">
+                 <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin opacity-75"></div>
+               </div>
+             )}
            </div>
 
            <CardHeader className="pt-4 pb-2">

@@ -29,6 +29,25 @@ import { getDateRange, StatisticsData, TimeSeriesDataPoint, CatPortion } from "@
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
+// Helper function for safe parsing
+const safeParseISO = (timestamp: string | Date | unknown): Date | null => {
+  try {
+    const timestampStr = typeof timestamp === 'string'
+      ? timestamp
+      : timestamp instanceof Date
+        ? timestamp.toISOString()
+        : String(timestamp);
+
+    if (!timestampStr) return null;
+    const date = parseISO(timestampStr);
+    if (isNaN(date.getTime())) return null;
+    return date;
+  } catch (e) {
+    console.error(`[safeParseISO] Error processing timestamp:`, timestamp, e);
+    return null;
+  }
+};
+
 const LineChartComponent = ({ data }: { data: any[] }) => (
   <div className="relative w-full" style={{ minHeight: '300px' }}>
     <ChartContainer
@@ -234,20 +253,11 @@ export default function StatisticsPage() {
     const relevantLogs = feedingLogs.filter(log => {
       if (selectedCatId !== "all" && String(log.catId) !== String(selectedCatId)) return false;
 
-      try {
-        const timestampStr = typeof log.timestamp === 'string'
-          ? log.timestamp
-          : log.timestamp instanceof Date
-            ? log.timestamp.toISOString()
-            : String(log.timestamp);
-        if (!timestampStr) return false;
-        const logDate = parseISO(timestampStr);
-        if (isNaN(logDate.getTime())) return false;
-        return logDate >= start && logDate <= end;
-      } catch (e) {
-        console.error(`[StatisticsPage] Error processing timestamp:`, log.timestamp, log, e);
-        return false;
-      }
+      // Use helper function for filtering
+      const logDate = safeParseISO(log.timestamp);
+      if (!logDate) return false; // Skip if timestamp is invalid
+
+      return logDate >= start && logDate <= end;
     });
 
     if (relevantLogs.length === 0) {
@@ -269,7 +279,11 @@ export default function StatisticsPage() {
 
     const timeSeriesMap = new Map<string, number>();
     relevantLogs.forEach(log => {
-      const day = format(parseISO(log.timestamp as unknown as string), 'yyyy-MM-dd');
+      // Use helper function and check result
+      const logDate = safeParseISO(log.timestamp);
+      if (!logDate) return; // Skip if timestamp is invalid
+
+      const day = format(logDate, 'yyyy-MM-dd');
       const currentSum = timeSeriesMap.get(day) || 0;
       timeSeriesMap.set(day, currentSum + (log.portionSize || 0));
     });
@@ -294,14 +308,17 @@ export default function StatisticsPage() {
         .sort((a, b) => b.value - a.value);
 
     const timeDistributionMap = new Map<number, number>();
-    for (let i = 0; i < 24; i++) { timeDistributionMap.set(i, 0); } 
+    for (let i = 0; i < 24; i++) { timeDistributionMap.set(i, 0); }
     relevantLogs.forEach(log => {
-        if (!log.timestamp) return; 
-        try {
-           const hour = getHours(parseISO(log.timestamp as unknown as string));
-           timeDistributionMap.set(hour, (timeDistributionMap.get(hour) || 0) + 1); 
+        // Use helper function and check result
+        const logDate = safeParseISO(log.timestamp);
+        if (!logDate) return; // Skip if timestamp is invalid
+
+        try { // Keep try-catch for getHours specifically, though less critical now
+           const hour = getHours(logDate);
+           timeDistributionMap.set(hour, (timeDistributionMap.get(hour) || 0) + 1);
         } catch (e) {
-             console.error(`[StatisticsPage] Error parsing timestamp for time distribution:`, log.timestamp, log, e);
+             console.error(`[StatisticsPage] Error getting hours from date:`, logDate, log, e);
         }
     });
     const timeDistributionData: TimeSeriesDataPoint[] = Array.from(timeDistributionMap.entries())
