@@ -99,7 +99,7 @@ export default function Home() {
            title="Associe uma Residência"
            description="Você precisa criar ou juntar-se a uma residência para usar o painel."
            actionLabel="Ir para Configurações de Residência"
-           actionHref="/settings/household"
+           actionHref="/households"
            className="max-w-xl mx-auto my-12"
          />
        </div>

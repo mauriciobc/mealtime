@@ -26,8 +26,8 @@ const initialState: CatsState = {
 };
 
 interface CatsAction {
-  type: 'FETCH_START' | 'FETCH_SUCCESS' | 'FETCH_ERROR' | 'ADD_CAT' | 'REMOVE_CAT' | 'UPDATE_CAT'; // Removed SYNC_STATE
-  payload?: CatType[] | CatType | string; // Adjusted payload types
+  type: 'FETCH_START' | 'FETCH_SUCCESS' | 'FETCH_ERROR' | 'ADD_CAT' | 'REMOVE_CAT' | 'UPDATE_CAT';
+  payload?: CatType[] | CatType | string | number; // Added number for ID-only operations
 }
 
 function catsReducer(state: CatsState, action: CatsAction): CatsState {
@@ -39,10 +39,11 @@ function catsReducer(state: CatsState, action: CatsAction): CatsState {
     case 'FETCH_ERROR':
       return { ...state, isLoading: false, error: action.payload as string };
     case 'ADD_CAT':
-      // Check for duplicates before adding?
       return { ...state, cats: [...state.cats, action.payload as CatType] };
     case 'REMOVE_CAT':
-      return { ...state, cats: state.cats.filter(cat => cat.id !== (action.payload as CatType).id) };
+      const payload = action.payload;
+      const idToRemove = typeof payload === 'number' ? payload : (payload as CatType).id;
+      return { ...state, cats: state.cats.filter(cat => cat.id !== idToRemove) };
     case 'UPDATE_CAT':
       return {
         ...state,
@@ -50,8 +51,6 @@ function catsReducer(state: CatsState, action: CatsAction): CatsState {
           cat.id === (action.payload as CatType).id ? { ...cat, ...(action.payload as CatType) } : cat
         ),
       };
-    // case 'SYNC_STATE': // Replaced by fetch actions
-    //   return action.payload as CatsState;
     default:
       return state;
   }

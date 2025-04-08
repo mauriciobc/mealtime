@@ -226,11 +226,12 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       }
 
       householdDispatch({ 
-        type: "REMOVE_HOUSEHOLD_MEMBER", 
+        type: "REMOVE_MEMBER", 
         payload: { 
-          householdId: String(household.id), 
-          memberId: String(currentUser.id) 
-        } 
+          id: String(currentUser.id),
+          name: currentUser.name || '',
+          role: 'member'
+        }
       });
       
       userDispatch({ 
@@ -270,8 +271,12 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       }
 
       householdDispatch({ 
-        type: "REMOVE_HOUSEHOLD_MEMBER", 
-        payload: { householdId: String(household.id), memberId: memberIdToRemove } 
+        type: "REMOVE_MEMBER", 
+        payload: { 
+          id: memberIdToRemove,
+          name: memberToRemove?.name || '',
+          role: memberToRemove?.role?.toLowerCase() === 'admin' ? 'admin' : 'member'
+        }
       });
 
       toast.success("Membro removido com sucesso.");
@@ -320,14 +325,11 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       const updatedMemberData = await response.json(); 
 
       householdDispatch({ 
-        type: "UPDATE_HOUSEHOLD_MEMBER", 
+        type: "UPDATE_MEMBER", 
         payload: { 
-          householdId: String(household.id), 
-          member: { 
-             id: memberBeingChanged?.id,
-             userId: memberIdToChange, 
-             role: newRole 
-           } 
+          id: String(memberBeingChanged?.id || memberIdToChange),
+          name: memberBeingChanged?.name || '',
+          role: newRole.toLowerCase() === 'admin' ? 'admin' : 'member'
         } 
       });
 
@@ -355,7 +357,10 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     setIsProcessing(true);
     const previousCats = allCats;
     
-    catsDispatch({ type: "DELETE_CAT", payload: catIdToDelete });
+    catsDispatch({
+      type: 'REMOVE_CAT',
+      payload: Number(catIdStr)
+    });
 
     try {
       const response = await fetch(`/api/cats/${catIdStr}`, {
@@ -372,7 +377,10 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     } catch (error: any) {
       console.error("Erro ao remover gato:", error);
       toast.error(`Erro ao remover gato: ${error.message}`);
-      catsDispatch({ type: "SET_CATS", payload: previousCats });
+      catsDispatch({
+        type: 'FETCH_SUCCESS',
+        payload: previousCats
+      });
     } finally {
       setCatToDelete(null);
       setIsProcessing(false);
@@ -754,7 +762,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
                                onView={() => router.push(`/cats/${cat.id}`)}
                                onEdit={() => router.push(`/cats/${cat.id}/edit`)}
                                onDelete={() => setCatToDelete(cat)} 
-                               showAdminActions={isAdmin}
                              />
                            ))}
                          </div>
