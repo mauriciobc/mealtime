@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth"; // Assuming auth setup exists
-import prisma from "@/utils/prisma"; // Assuming prisma setup exists
+import { getServerSession } from "next-auth/next"; // Import getServerSession
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Import authOptions from the correct route file
+import prisma from "@/lib/prisma"; // Correct prisma import path
 import { withError } from "@/lib/utils/api-middleware"; // Corrected import path
 import { User } from "@/lib/types"; // Assuming User type definition
 
@@ -58,7 +59,7 @@ export const PUT = withError(
     request: Request,
     { params }: { params: Promise<{ userId: string }> } // Get userId from route params
   ) => {
-    const session = await auth();
+    const session = await getServerSession(authOptions); // Use getServerSession
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
