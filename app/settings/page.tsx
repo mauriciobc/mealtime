@@ -59,7 +59,7 @@ import {
 } from "lucide-react"
 
 // Tipos
-import { User as UserType } from "@/lib/types" // Assuming User type exists with potential settings
+import { User as UserType, Household } from "@/lib/types" // Assuming User type exists with potential settings
 
 type NotificationSettings = {
   pushEnabled: boolean
@@ -305,6 +305,10 @@ export default function SettingsPage() {
   const [isHouseholdModalOpen, setIsHouseholdModalOpen] = useState(false);
   const [isLeaveHouseholdConfirmOpen, setIsLeaveHouseholdConfirmOpen] = useState(false);
   
+  // State for household details (fetched separately)
+  const [householdDetails, setHouseholdDetails] = useState<Household | null>(null);
+  const [isHouseholdLoading, setIsHouseholdLoading] = useState(false);
+
   // Local state for editing values within modals
   const [editName, setEditName] = useState("");
   const [editAvatar, setEditAvatar] = useState("");
@@ -318,6 +322,40 @@ export default function SettingsPage() {
   const [modalError, setModalError] = useState<string | null>(null);
 
   const { currentUser, isLoading: isUserLoading, error: userError } = userState;
+
+  // Fetch household details when user data is available and they have a householdId
+  useEffect(() => {
+    const fetchHouseholdDetails = async () => {
+      if (currentUser?.householdId) {
+        setIsHouseholdLoading(true);
+        setModalError(null); // Clear previous errors
+        const opId = `fetch-household-${currentUser.householdId}`;
+        addLoadingOperation({ id: opId, priority: 2, description: "Carregando detalhes da residência..." });
+        try {
+          // Assume an API endpoint exists to fetch household by ID
+          const response = await fetch(`/api/households/${currentUser.householdId}`);
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Falha ao carregar detalhes da residência. Status: ${response.status}`);
+          }
+          const data = await response.json();
+          setHouseholdDetails(data.household); // Assuming API returns { household: Household }
+        } catch (error: any) {
+          console.error("Erro ao carregar detalhes da residência:", error);
+          toast.error(`Erro ao carregar residência: ${error.message}`);
+          // Don't set modalError here, it's not a modal operation error
+          setHouseholdDetails(null); // Clear potentially stale data
+        } finally {
+          setIsHouseholdLoading(false);
+          removeLoadingOperation(opId);
+        }
+      } else {
+        setHouseholdDetails(null); // Reset if user has no householdId
+      }
+    };
+
+    fetchHouseholdDetails();
+  }, [currentUser?.householdId, addLoadingOperation, removeLoadingOperation]);
 
   // Initialize edit states when modals open or user data loads
   useEffect(() => {
@@ -369,23 +407,41 @@ export default function SettingsPage() {
     setModalError(null);
     let success = false;
     try {
+      console.log(`[handleSave:${operation}] Initiating save...`, { endpoint, payload }); // LOG: Start
       const response = await fetch(endpoint, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
+      console.log(`[handleSave:${operation}] Response status: ${response.status}`, response); // LOG: Response Status
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Falha ao salvar ${operation}. Status: ${response.status}`);
+        let errorData = {};
+        try {
+          errorData = await response.json();
+          console.error(`[handleSave:${operation}] API Error Data:`, errorData); // LOG: API Error Body
+        } catch (jsonError) {
+            console.error(`[handleSave:${operation}] Failed to parse error JSON:`, jsonError); // LOG: JSON Parse Error
+            errorData = { error: await response.text() }; // Fallback to text
+        }
+        throw new Error((errorData as any).error || `Falha ao salvar ${operation}. Status: ${response.status}`);
       }
 
       const updatedUser = await response.json();
-      userDispatch({ type: "SET_USER", payload: updatedUser.user }); // Update context
+      console.log(`[handleSave:${operation}] Response JSON (updatedUser):`, updatedUser); // LOG: Response Body
+      
+      // Check if the expected structure is present
+      if (!updatedUser || !updatedUser.user) {
+        console.error(`[handleSave:${operation}] Error: API response missing 'user' key.`, updatedUser);
+        throw new Error(`Resposta inesperada da API ao salvar ${operation}.`);
+      }
+
+      userDispatch({ type: "SET_CURRENT_USER", payload: updatedUser.user }); // Update context
       toast.success(successMessage);
       success = true;
     } catch (error: any) {
-      console.error(`Erro ao salvar ${operation}:`, error);
+      console.error(`[handleSave:${operation}] Error caught:`, error); // LOG: Catch Block
       toast.error(`Erro: ${error.message}`);
       setModalError(error.message);
     } finally {
@@ -414,7 +470,7 @@ export default function SettingsPage() {
         throw new Error(errorData.error || `Falha ao entrar na residência. Status: ${response.status}`);
       }
       const updatedData = await response.json();
-      userDispatch({ type: "SET_USER", payload: updatedData.user }); // Update user with new householdId
+      userDispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Update user with new householdId
       // Potentially refresh other contexts if needed (cats, schedules, etc.)
       toast.success("Você entrou na residência com sucesso!");
       setIsHouseholdModalOpen(false);
@@ -446,7 +502,7 @@ export default function SettingsPage() {
               throw new Error(errorData.error || `Falha ao criar residência. Status: ${response.status}`);
           }
           const updatedData = await response.json();
-          userDispatch({ type: "SET_USER", payload: updatedData.user });
+          userDispatch({ type: "SET_CURRENT_USER", payload: updatedData.user });
           // Potentially refresh other contexts
           toast.success("Residência criada com sucesso!");
           setIsHouseholdModalOpen(false);
@@ -473,7 +529,7 @@ export default function SettingsPage() {
         throw new Error(errorData.error || `Falha ao sair da residência. Status: ${response.status}`);
       }
       const updatedData = await response.json();
-      userDispatch({ type: "SET_USER", payload: updatedData.user }); // User without householdId
+      userDispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // User without householdId
        // Clear other contexts tied to household (cats, schedules, etc.) - This needs robust implementation
        // Example: dispatch({ type: 'RESET_STATE' }) in relevant contexts
       toast.success("Você saiu da residência.");
@@ -606,8 +662,8 @@ export default function SettingsPage() {
       
       {/* Household Section */}
        <HouseholdSection 
-         householdId={currentUser.householdId} 
-         householdName={currentUser.household?.name} // Assuming household name is nested
+         householdId={currentUser.householdId ? String(currentUser.householdId) : null} 
+         householdName={householdDetails?.name} // Use fetched details
          onManageHousehold={handleManageHousehold}
        />
 
@@ -616,7 +672,7 @@ export default function SettingsPage() {
         variant="destructive"
         className="w-full mt-6"
         onClick={handleLogout}
-        disabled={status === 'loading'} // Disable while any loading is happening
+        disabled={isUserLoading} // Only disable if user data is loading
       >
         <LogOut className="mr-2 h-4 w-4" />
         Sair
@@ -750,7 +806,11 @@ export default function SettingsPage() {
                 <DialogTitle>{currentUser?.householdId ? "Gerenciar Residência" : "Entrar ou Criar Residência"}</DialogTitle>
                 <DialogDescription>
                     {currentUser?.householdId
-                        ? `Você está na residência: ${currentUser.household?.name || 'Desconhecido'}. Código de convite: ${currentUser.household?.inviteCode || 'N/A'}`
+                        ? isHouseholdLoading
+                          ? <span className="italic">Carregando detalhes...</span>
+                          : householdDetails
+                            ? `Você está na residência: ${householdDetails.name}. Código de convite: ${householdDetails.inviteCode || 'N/A'}`
+                            : <span className="text-destructive">Erro ao carregar detalhes da residência.</span>
                         : "Entre em uma residência existente usando um código de convite ou crie uma nova."
                     }
                 </DialogDescription>
@@ -819,7 +879,7 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle>Confirmar Saída</DialogTitle>
             <DialogDescription>
-                Tem certeza que deseja sair da residência "{currentUser?.household?.name || 'atual'}"? 
+                Tem certeza que deseja sair da residência "{isHouseholdLoading ? '...' : householdDetails?.name || 'atual'}"? 
                 Você perderá acesso aos gatos e agendamentos associados.
             </DialogDescription>
           </DialogHeader>
