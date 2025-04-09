@@ -4,8 +4,10 @@ import { authOptions } from "../auth/[...nextauth]/route"
 import prisma from "@/lib/prisma"
 import { validateSettings, validateName, validateTimezone, validateLanguage } from "@/lib/validations/settings"
 import { headers } from 'next/headers'
+import { withError } from "@/lib/utils/api-middleware"
 
-export async function GET() {
+// Wrap the GET handler with withError middleware
+export const GET = withError(async () => {
   try {
     console.log("[Settings API] Request received");
     // const headersList = headers(); // Removed problematic headers access
@@ -28,8 +30,8 @@ export async function GET() {
     
     if (!session) {
       console.log("[Settings API] No session found");
-      return new NextResponse(
-        JSON.stringify({ error: "Sessão não encontrada" }),
+      return NextResponse.json(
+        { error: "Sessão não encontrada" },
         {
           status: 401,
           headers: {
@@ -41,8 +43,8 @@ export async function GET() {
 
     if (!session.user?.email) {
       console.log("[Settings API] No user email in session");
-      return new NextResponse(
-        JSON.stringify({ error: "Email do usuário não encontrado na sessão" }),
+      return NextResponse.json(
+        { error: "Email do usuário não encontrado na sessão" },
         {
           status: 401,
           headers: {
@@ -70,8 +72,8 @@ export async function GET() {
       console.log("[Settings API] Prisma query result:", JSON.stringify(user, null, 2));
     } catch (dbError) {
       console.error("[Settings API] Database error:", dbError);
-      return new NextResponse(
-        JSON.stringify({ error: "Erro ao buscar dados do usuário no banco de dados" }),
+      return NextResponse.json(
+        { error: "Erro ao buscar dados do usuário no banco de dados" },
         {
           status: 500,
           headers: {
@@ -89,8 +91,8 @@ export async function GET() {
 
     if (!user) {
       console.log("[Settings API] User not found in database");
-      return new NextResponse(
-        JSON.stringify({ error: "Usuário não encontrado no banco de dados" }),
+      return NextResponse.json(
+        { error: "Usuário não encontrado no banco de dados" },
         {
           status: 404,
           headers: {
@@ -117,19 +119,16 @@ export async function GET() {
     };
 
     console.log('[Settings API] User data being returned:', JSON.stringify(response, null, 2));
-    return new NextResponse(
-      JSON.stringify(response),
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    return NextResponse.json(response, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
   } catch (error) {
     console.error("[Settings API] Unhandled error:", error);
-    return new NextResponse(
-      JSON.stringify({ error: "Erro interno do servidor" }),
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
       {
         status: 500,
         headers: {
@@ -138,7 +137,7 @@ export async function GET() {
       }
     );
   }
-}
+});
 
 export async function PUT(request: Request) {
   try {

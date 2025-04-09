@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef, useCallback } from "react";
-import { useSession, update } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useLoading } from "./LoadingContext";
 import { toast } from "sonner";
 import { User as CurrentUserType } from "@/lib/types";
@@ -119,7 +119,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
         const response = await fetch('/api/settings', {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache'
+          },
           credentials: 'include',
           signal: abortController.signal
         });
@@ -129,29 +133,34 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[UserProvider] API error response:", { 
+            status: response.status, 
+            statusText: response.statusText,
+            body: errorText
+          });
+          throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
+        }
+
         const contentType = response.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
-           const textResponse = await response.text();
-           if (!isEffectActive || !mountedRef.current) return;
-           console.error("[UserProvider] Received non-JSON response:", { status: response.status, contentType, body: textResponse });
-           throw new Error(`Resposta inesperada do servidor (tipo ${contentType || 'desconhecido'}).`);
+          console.error("[UserProvider] Non-JSON response:", { 
+            status: response.status, 
+            contentType,
+          });
+          throw new Error(`Resposta inesperada do servidor (tipo ${contentType || 'desconhecido'}).`);
         }
 
         let userData;
         try {
           userData = await response.json();
         } catch (e) {
-          if (!isEffectActive || !mountedRef.current) return;
-          const textResponse = await response.text();
-          console.error("[UserProvider] Failed to parse JSON response:", textResponse, e);
-          throw new Error("Falha ao analisar a resposta JSON.");
+          console.error("[UserProvider] JSON parse error:", e);
+          throw new Error("Falha ao analisar a resposta JSON do servidor.");
         }
 
         if (!isEffectActive || !mountedRef.current) return;
-
-        if (!response.ok) {
-          throw new Error(userData?.error || `Falha ao carregar dados (${response.status})`);
-        }
 
         if (!session?.user) {
           throw new Error('Sessão inválida durante carregamento.');
@@ -162,7 +171,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           name: userData.name || session.user.name || "",
           email: userData.email || session.user.email || "",
           avatar: userData.avatar || session.user.image || null,
-          householdId: userData.householdId || null,
+          householdId: userData.householdId ? Number(userData.householdId) : null,
           role: userData.role || "member",
           preferences: userData.preferences && typeof userData.preferences === 'object' ? {
             timezone: userData.preferences.timezone || "UTC",

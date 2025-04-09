@@ -12,9 +12,33 @@ const publicPaths = [
   '/favicon.ico',
 ];
 
+// API routes that should return JSON
+const apiRoutes = [
+  '/api/settings',
+  '/api/users',
+  '/api/households',
+  '/api/notifications',
+];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   console.log('[Middleware] Processing request for:', pathname);
+
+  // Handle API routes first
+  const isApiRoute = apiRoutes.some(route => pathname.startsWith(route));
+  if (isApiRoute) {
+    // Get the session token from the cookie
+    const token = request.cookies.get('next-auth.session-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    // Set JSON headers for API routes
+    const response = NextResponse.next();
+    response.headers.set('Content-Type', 'application/json');
+    return response;
+  }
 
   // Let Next.js handle static files in /public directory
   if (pathname.startsWith('/profiles/')) {
