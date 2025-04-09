@@ -140,6 +140,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             statusText: response.statusText,
             body: errorText
           });
+
+          // Se for erro de autenticação, limpa o estado do usuário
+          if (response.status === 401) {
+            console.log("[UserProvider] Authentication error, clearing user state");
+            dispatch({ type: "CLEAR_USER" });
+            appDispatch({ type: 'SET_CURRENT_USER', payload: null });
+            return;
+          }
+
           throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
         }
 

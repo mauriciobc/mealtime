@@ -27,11 +27,25 @@ export async function middleware(request: NextRequest) {
   // Handle API routes first
   const isApiRoute = apiRoutes.some(route => pathname.startsWith(route));
   if (isApiRoute) {
-    // Get the session token from the cookie
-    const token = request.cookies.get('next-auth.session-token')?.value;
+    // Get all possible session tokens
+    const token = 
+      request.cookies.get('next-auth.session-token')?.value ||
+      request.cookies.get('__Secure-next-auth.session-token')?.value ||
+      request.cookies.get('__Host-next-auth.session-token')?.value;
+    
+    console.log('[Middleware] API route token check:', { 
+      hasToken: !!token,
+      path: pathname,
+      cookies: request.cookies.getAll().map(c => c.name)
+    });
     
     if (!token) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: "Não autorizado" }, { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     // Set JSON headers for API routes

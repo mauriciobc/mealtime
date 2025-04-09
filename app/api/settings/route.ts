@@ -20,18 +20,17 @@ export const GET = withError(async () => {
     console.log("[Settings API] Getting session");
     const session = await getServerSession(authOptions);
     
-    console.log("[Settings API] Full session object:", JSON.stringify(session, null, 2));
-    // Log session details safely, avoid iterating headers here too
     console.log("[Settings API] Session details:", { 
       authenticated: !!session, 
       hasUser: !!session?.user,
       email: session?.user?.email,
+      expires: session?.expires
     });
     
-    if (!session) {
-      console.log("[Settings API] No session found");
+    if (!session || !session.user || new Date(session.expires) < new Date()) {
+      console.log("[Settings API] Invalid or expired session");
       return NextResponse.json(
-        { error: "Sessão não encontrada" },
+        { error: "Sessão inválida ou expirada" },
         {
           status: 401,
           headers: {
