@@ -45,8 +45,7 @@ function useAuth() {
     }
     
     if (status === "authenticated" && session?.user && !redirectingRef.current) {
-      console.log("[Auth] Usuário autenticado, redirecionando...");
-      redirectingRef.current = true;
+      console.log("[Auth] Usuário autenticado (via effect), redirecionando...");
       const callbackUrl = searchParams.get("callbackUrl");
       const targetUrl = callbackUrl || "/";
       console.log("[Auth] Redirecionando para:", targetUrl);
@@ -97,7 +96,9 @@ function useAuth() {
       console.log("[Auth] Credentials signin result:", result);
 
       if (result?.ok && !result?.error) {
-        console.log("[Auth] Login com credenciais bem-sucedido, aguardando atualização da sessão...");
+        console.log("[Auth] Login com credenciais bem-sucedido, redirecionando...");
+        redirectingRef.current = true;
+        router.replace(callbackUrl);
       } else {
         console.log("[Auth] Falha no login com credenciais:", result?.error);
         setError(result?.error === "CredentialsSignin" ? "Email ou senha inválidos." : "Ocorreu um erro no login.");
