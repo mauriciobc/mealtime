@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npm run prisma:generate && next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0 -p $PORT || next start -H 0.0.0.0 -p 10000",
     "lint": "next lint",
     "prisma:seed": "npx prisma db seed",
     "db:reset": "npx prisma migrate reset --force",
