@@ -77,15 +77,34 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users to login
   if (!token && !isPublicPath) {
     console.log('[Middleware] Unauthenticated user accessing protected path, redirecting to login');
-    const baseUrl = process.env.NEXTAUTH_URL || request.headers.get('x-forwarded-host') || request.headers.get('host');
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const loginUrl = new URL('/login', `${protocol}://${baseUrl}`);
+    
+    // Fix URL construction
+    let baseUrl = process.env.NEXTAUTH_URL;
+    if (!baseUrl) {
+      const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+      baseUrl = `${protocol}://${host}`;
+    }
+
+    // Ensure baseUrl doesn't have trailing slash
+    baseUrl = baseUrl.replace(/\/$/, '');
+    
+    console.log('[Middleware] Base URL:', baseUrl);
+    const loginUrl = new URL('/login', baseUrl);
     
     // Ensure callback URL is from the same domain
-    const callbackUrl = new URL(request.url);
-    if (callbackUrl.host === new URL(`${protocol}://${baseUrl}`).host) {
-      loginUrl.searchParams.set('callbackUrl', request.url);
-    } else {
+    try {
+      const requestUrl = request.url;
+      const callbackUrl = new URL(requestUrl);
+      const baseUrlObj = new URL(baseUrl);
+      
+      if (callbackUrl.host === baseUrlObj.host) {
+        loginUrl.searchParams.set('callbackUrl', requestUrl);
+      } else {
+        loginUrl.searchParams.set('callbackUrl', '/');
+      }
+    } catch (error) {
+      console.error('[Middleware] Error processing callback URL:', error);
       loginUrl.searchParams.set('callbackUrl', '/');
     }
     
