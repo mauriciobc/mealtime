@@ -77,8 +77,19 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users to login
   if (!token && !isPublicPath) {
     console.log('[Middleware] Unauthenticated user accessing protected path, redirecting to login');
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('callbackUrl', request.url);
+    const baseUrl = process.env.NEXTAUTH_URL || request.headers.get('x-forwarded-host') || request.headers.get('host');
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const loginUrl = new URL('/login', `${protocol}://${baseUrl}`);
+    
+    // Ensure callback URL is from the same domain
+    const callbackUrl = new URL(request.url);
+    if (callbackUrl.host === new URL(`${protocol}://${baseUrl}`).host) {
+      loginUrl.searchParams.set('callbackUrl', request.url);
+    } else {
+      loginUrl.searchParams.set('callbackUrl', '/');
+    }
+    
+    console.log('[Middleware] Redirecting to:', loginUrl.toString());
     return NextResponse.redirect(loginUrl);
   }
 
