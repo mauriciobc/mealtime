@@ -48,7 +48,22 @@ const safeParseISO = (timestamp: string | Date | unknown): Date | null => {
   }
 };
 
-const LineChartComponent = ({ data }: { data: any[] }) => (
+const useResponsive = () => {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return { isMobile };
+};
+
+const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => (
   <div className="relative w-full" style={{ minHeight: '300px' }}>
     <ChartContainer
       config={{
@@ -59,7 +74,7 @@ const LineChartComponent = ({ data }: { data: any[] }) => (
       }}
       className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
     >
-      <ResponsiveContainer>
+      <ResponsiveContainer width="100%" aspect={2}>
         <RechartsLineChart 
           data={data}
           margin={{ top: 16, right: 16, left: 0, bottom: 16 }}
@@ -80,18 +95,9 @@ const LineChartComponent = ({ data }: { data: any[] }) => (
             domain={[0, 'auto']}
             allowDecimals={false}
             fontSize={12}
-            tickFormatter={(value) => `${value}g`}
           />
           <ChartTooltip 
             cursor={{ stroke: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
-            content={<ChartTooltipContent 
-              indicator="line" 
-              labelFormatter={(value, payload) => { 
-                const dataPoint = payload?.[0]?.payload;
-                return dataPoint?.fullDate ? format(parseISO(dataPoint.fullDate), 'dd/MM/yyyy') : value;
-              }}
-              formatter={(value) => `${value}g`} 
-            />}
           />
           <Line 
             type="monotone" 
@@ -107,59 +113,69 @@ const LineChartComponent = ({ data }: { data: any[] }) => (
   </div>
 )
 
-const BarChartComponent = ({ data }: { data: any[] }) => (
-  <div className="relative w-full" style={{ minHeight: '300px' }}>
-    <ChartContainer
-      config={{
-        valor: {
-          label: "Quantidade",
-          color: "hsl(var(--primary))",
-        }
-      }}
-      className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
-    >
-      <ResponsiveContainer>
-        <RechartsBarChart 
-          data={data}
-          margin={{ top: 16, right: 16, left: 0, bottom: 16 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis 
-            dataKey="name" 
-            tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            tickLine={false}
-            axisLine={false}
-            fontSize={12}
-          />
-          <YAxis 
-            tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            tickLine={false}
-            axisLine={false}
-            domain={[0, 'auto']}
-            allowDecimals={false}
-            fontSize={12}
-          />
-          <ChartTooltip 
-            cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
-            content={<ChartTooltipContent formatter={(value) => `${value}x`} />}
-          />
-          <Bar 
-            dataKey="valor" 
-            radius={[4, 4, 0, 0]}
-            fill="hsl(var(--primary))" 
-          />
-        </RechartsBarChart>
-      </ResponsiveContainer>
-    </ChartContainer>
-  </div>
-)
+const BarChartComponent = ({ data }: { data: any[] }) => {
+  const { isMobile } = useResponsive();
+
+  return (
+    <div className="relative w-full" style={{ minHeight: isMobile ? '250px' : '300px' }}>
+      <ChartContainer
+        config={{
+          valor: {
+            label: "Quantidade",
+            color: "hsl(var(--primary))",
+          }
+        }}
+        className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
+      >
+        <ResponsiveContainer width="100%" aspect={16/9}>
+          <RechartsBarChart 
+            data={data}
+            margin={{
+              top: 16,
+              right: isMobile ? 8 : 16,
+              left: 0,
+              bottom: isMobile ? 8 : 16
+            }}
+          >
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis 
+              dataKey="name" 
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
+              tickLine={false}
+              axisLine={false}
+            />
+            <YAxis 
+              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
+              tickLine={false}
+              axisLine={false}
+              domain={[0, 'auto']}
+              allowDecimals={false}
+            />
+            <ChartTooltip 
+              cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
+              content={<ChartTooltipContent formatter={(value) => `${value}x`} />}
+            />
+            <Bar 
+              dataKey="valor" 
+              radius={[4, 4, 0, 0]}
+              fill="hsl(var(--primary))"
+              maxBarSize={isMobile ? 24 : 32}
+            />
+          </RechartsBarChart>
+        </ResponsiveContainer>
+      </ChartContainer>
+    </div>
+  );
+}
 
 const PieChartComponent = ({ data }: { data: any[] }) => {
+  const { isMobile } = useResponsive();
+
   if (!data || data.length === 0) {
     return (
-      <div className="relative w-full" style={{ minHeight: '300px' }}>
+      <div className="relative w-full" style={{ minHeight: isMobile ? '250px' : '300px' }}>
         <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-muted-foreground">Sem dados por gato</p>
+          <p className="text-muted-foreground text-sm">Sem dados por gato</p>
         </div>
       </div>
     );
@@ -178,21 +194,28 @@ const PieChartComponent = ({ data }: { data: any[] }) => {
   }), {});
 
   return (
-    <div className="relative w-full" style={{ minHeight: '300px' }}>
+    <div className="relative w-full" style={{ minHeight: isMobile ? '250px' : '300px' }}>
       <ChartContainer config={config} className="absolute inset-0">
-        <ResponsiveContainer>
+        <ResponsiveContainer width="100%" aspect={1}>
           <RechartsPieChart 
-            margin={{ top: 16, right: 16, left: 16, bottom: 30 }}
+            margin={{
+              top: 16,
+              right: isMobile ? 8 : 16,
+              left: isMobile ? 8 : 16,
+              bottom: isMobile ? 30 : 40
+            }}
           >
-            <ChartTooltip content={<ChartTooltipContent hideLabel nameKey="name" formatter={(value, name, entry) => `${value}g (${(entry.payload.percent * 100).toFixed(0)}%)`} />} />
+            <ChartTooltip 
+              content={<ChartTooltipContent hideLabel nameKey="name" formatter={(value, name, entry) => `${value}g (${(entry.payload.percent * 100).toFixed(0)}%)`} />} 
+            />
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
               cx="50%"
               cy="50%"
-              outerRadius="35%"
-              innerRadius="25%"
+              outerRadius={isMobile ? '30%' : '35%'}
+              innerRadius={isMobile ? '20%' : '25%'}
               paddingAngle={2}
             >
               {data.map((entry, index) => (
@@ -204,7 +227,10 @@ const PieChartComponent = ({ data }: { data: any[] }) => {
                 />
               ))}
             </Pie>
-            <ChartLegend content={<ChartLegendContent nameKey="name" />} className="[&_.recharts-legend-item]:basis-[calc(50%_-_8px)]" />
+            <ChartLegend 
+              content={<ChartLegendContent nameKey="name" />} 
+              className="[&_.recharts-legend-item]:text-xs [&_.recharts-legend-item]:basis-[calc(50%_-_8px)]"
+            />
           </RechartsPieChart>
         </ResponsiveContainer>
       </ChartContainer>
