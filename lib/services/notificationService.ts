@@ -22,6 +22,7 @@ export async function getUserNotifications(
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         credentials: 'include'
       }
@@ -29,24 +30,47 @@ export async function getUserNotifications(
     console.log(`[NotificationService] getUserNotifications response status: ${response.status}`);
 
     if (!response.ok) {
-      let errorBody = 'No error body available';
+      let errorMsg = `Falha ao buscar notificações (Status: ${response.status})`;
+      let errorBody = '';
       try {
+        // Try reading error body regardless of content type for logging
         errorBody = await response.text();
-      } catch (e) { /* ignore */ }
-      console.error(`[NotificationService] getUserNotifications failed: Status ${response.status}, Body: ${errorBody}`);
-      throw new Error(`Falha ao buscar notificações (Status: ${response.status})`);
+        console.error(`[NotificationService] getUserNotifications failed: Status ${response.status}, Body: ${errorBody}`);
+        // If it happens to be JSON, try to parse for a specific message
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            const errorData = JSON.parse(errorBody); // Use JSON.parse since we already read text
+            errorMsg = errorData.error || errorMsg;
+        }
+      } catch (e) {
+         console.error(`[NotificationService] Failed to read or parse error body:`, e);
+      }
+      throw new Error(errorMsg);
     }
 
-    const data = await response.json();
+    // Handle success case
+    const contentType = response.headers.get("content-type");
+    if (!(contentType && contentType.includes("application/json"))) {
+      const textResponse = await response.text();
+      console.error("[NotificationService] getUserNotifications - Server returned non-JSON success response:", textResponse);
+      throw new Error("Resposta inesperada do servidor ao buscar notificações.");
+    }
+
+    let data: any;
+    try {
+        data = await response.json();
+    } catch (parseError) {
+        console.error("[NotificationService] getUserNotifications - Failed to parse successful JSON response:", parseError);
+        throw new Error("Falha ao processar a resposta do servidor ao buscar notificações.");
+    }
+
     console.log("[NotificationService] getUserNotifications received data:", data);
 
-    // Explicit check for expected structure after successful response
+    // Existing validation remains important
     if (!data || typeof data !== 'object' || !Array.isArray(data.data)) {
       console.error('[NotificationService] Resposta inválida ao buscar notificações:', data);
       throw new Error('Resposta inválida do servidor ao buscar notificações (estrutura)');
     }
-    
-    // Ensure PaginatedResponse fields are present
     if (typeof data.totalPages !== 'number' || typeof data.hasMore !== 'boolean') {
        console.error('[NotificationService] Resposta inválida ao buscar notificações (campos faltando):', data);
        throw new Error('Resposta inválida do servidor ao buscar notificações (campos)');
@@ -56,7 +80,7 @@ export async function getUserNotifications(
     return data as PaginatedResponse<Notification>; // Ensure type safety
   } catch (error) {
     console.error('[NotificationService] Erro ao buscar notificações:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
@@ -70,34 +94,58 @@ export async function getUnreadNotificationsCount(userId: number | string): Prom
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       credentials: 'include'
     });
     console.log(`[NotificationService] getUnreadNotificationsCount response status: ${response.status}`);
 
     if (!response.ok) {
-       let errorBody = 'No error body available';
+       let errorMsg = `Falha ao buscar contagem de notificações não lidas (Status: ${response.status})`;
+       let errorBody = '';
        try {
          errorBody = await response.text();
-       } catch (e) { /* ignore */ }
-       console.error(`[NotificationService] getUnreadNotificationsCount failed: Status ${response.status}, Body: ${errorBody}`);
-      throw new Error(`Falha ao buscar contagem de notificações não lidas (Status: ${response.status})`);
+         console.error(`[NotificationService] getUnreadNotificationsCount failed: Status ${response.status}, Body: ${errorBody}`);
+         const contentType = response.headers.get("content-type");
+         if (contentType && contentType.includes("application/json")) {
+             const errorData = JSON.parse(errorBody);
+             errorMsg = errorData.error || errorMsg;
+         }
+       } catch (e) {
+          console.error(`[NotificationService] Failed to read or parse error body:`, e);
+       }
+      throw new Error(errorMsg);
     }
 
-    const data = await response.json();
+    // Handle success case
+    const contentType = response.headers.get("content-type");
+    if (!(contentType && contentType.includes("application/json"))) {
+      const textResponse = await response.text();
+      console.error("[NotificationService] getUnreadNotificationsCount - Server returned non-JSON success response:", textResponse);
+      throw new Error("Resposta inesperada do servidor ao buscar contagem.");
+    }
+
+    let data: any;
+    try {
+        data = await response.json();
+    } catch (parseError) {
+        console.error("[NotificationService] getUnreadNotificationsCount - Failed to parse successful JSON response:", parseError);
+        throw new Error("Falha ao processar a resposta do servidor ao buscar contagem.");
+    }
+
     console.log("[NotificationService] getUnreadNotificationsCount received data:", data);
 
-    // Explicit check for expected structure after successful response
+    // Existing validation remains important
     if (!data || typeof data.count !== 'number') {
       console.error('[NotificationService] Resposta inválida ao buscar contagem de notificações não lidas:', data);
       throw new Error('Resposta inválida do servidor ao buscar contagem de notificações (estrutura)');
     }
-    
+
     console.log(`[NotificationService] getUnreadNotificationsCount returning count: ${data.count}`);
     return data.count;
   } catch (error) {
     console.error('[NotificationService] Erro ao buscar contagem de notificações não lidas:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
@@ -105,39 +153,65 @@ export async function getUnreadNotificationsCount(userId: number | string): Prom
 export async function createNotification(payload: CreateNotificationPayload): Promise<Notification> {
   console.log("[NotificationService] createNotification called with payload:", payload);
   try {
-    // Validate required fields
+    // Existing validation for payload
     const requiredFields: (keyof CreateNotificationPayload)[] = ['title', 'message', 'type', 'userId'];
     const missingFields = requiredFields.filter(field => !payload[field]);
-    
     if (missingFields.length > 0) {
       console.error('[NotificationService] createNotification - Missing required fields:', missingFields);
       throw new Error(`Campos obrigatórios faltando: ${missingFields.join(', ')}`);
     }
-
     console.log('[NotificationService] createNotification - Payload validated, sending request...');
 
     const response = await fetch('/api/notifications', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       credentials: 'include',
       body: JSON.stringify(payload)
     });
     console.log(`[NotificationService] createNotification response status: ${response.status}`);
 
-    const data = await response.json();
+    if (!response.ok) {
+      let errorMsg = `Falha ao criar notificação (Status: ${response.status})`;
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+         console.error('[NotificationService] createNotification - Server error response:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody
+         });
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            const errorData = JSON.parse(errorBody);
+            errorMsg = errorData.error || errorMsg;
+        }
+      } catch (e) {
+        console.error(`[NotificationService] createNotification - Failed to read or parse error body:`, e);
+      }
+      throw new Error(errorMsg);
+    }
+
+    // Handle success case
+    const contentType = response.headers.get("content-type");
+     if (!(contentType && contentType.includes("application/json"))) {
+      const textResponse = await response.text();
+      console.error("[NotificationService] createNotification - Server returned non-JSON success response:", textResponse);
+      throw new Error("Resposta inesperada do servidor após criar notificação.");
+    }
+
+    let data: any;
+    try {
+        data = await response.json();
+    } catch (parseError) {
+        console.error("[NotificationService] createNotification - Failed to parse successful JSON response:", parseError);
+        throw new Error("Falha ao processar a resposta do servidor após criar notificação.");
+    }
+
     console.log("[NotificationService] createNotification received response data:", data);
 
-    if (!response.ok) {
-      console.error('[NotificationService] createNotification - Server error response:', {
-        status: response.status,
-        statusText: response.statusText,
-        data
-      });
-      throw new Error(data?.error || `Falha ao criar notificação (Status: ${response.status})`);
-    }
-    
     // Basic validation of the returned notification
     if (!data || typeof data.id !== 'number' || typeof data.title !== 'string') {
        console.error('[NotificationService] createNotification - Invalid notification structure in response:', data);
@@ -148,7 +222,7 @@ export async function createNotification(payload: CreateNotificationPayload): Pr
     return data as Notification;
   } catch (error) {
     console.error('[NotificationService] Error creating notification:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
@@ -162,23 +236,58 @@ export async function markNotificationAsRead(id: number): Promise<Notification> 
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       credentials: 'include'
     });
     console.log(`[NotificationService] markNotificationAsRead response status: ${response.status}`);
 
-    const data = await response.json();
+     if (!response.ok) {
+      let errorMsg = `Falha ao marcar notificação como lida (Status: ${response.status})`;
+      let errorBody = '';
+      try {
+        errorBody = await response.text();
+         console.error('[NotificationService] markNotificationAsRead - Server error response:', {
+            status: response.status,
+            statusText: response.statusText,
+            body: errorBody
+         });
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            const errorData = JSON.parse(errorBody);
+            errorMsg = errorData.error || errorMsg;
+        }
+      } catch (e) {
+        console.error(`[NotificationService] markNotificationAsRead - Failed to read or parse error body:`, e);
+      }
+      throw new Error(errorMsg);
+    }
+
+    // Handle success case
+    const contentType = response.headers.get("content-type");
+     if (!(contentType && contentType.includes("application/json"))) {
+        // If status is 204 No Content, this is expected, return mock or handle appropriately
+        if (response.status === 204) {
+            console.warn("[NotificationService] markNotificationAsRead - Received 204 No Content, cannot return notification data.");
+            // Decide what to return here. Maybe fetch the notification again? Or return a partial object?
+            // For now, let's throw, as the return type expects a full Notification object.
+             throw new Error("Servidor retornou sucesso sem conteúdo, incapaz de confirmar dados.");
+        }
+      const textResponse = await response.text();
+      console.error("[NotificationService] markNotificationAsRead - Server returned non-JSON success response:", textResponse);
+      throw new Error("Resposta inesperada do servidor após marcar como lida.");
+    }
+
+    let data: any;
+    try {
+        data = await response.json();
+    } catch (parseError) {
+        console.error("[NotificationService] markNotificationAsRead - Failed to parse successful JSON response:", parseError);
+        throw new Error("Falha ao processar a resposta do servidor após marcar como lida.");
+    }
+
     console.log("[NotificationService] markNotificationAsRead received response data:", data);
 
-    if (!response.ok) {
-      console.error(`[NotificationService] markNotificationAsRead - Server error response:`, {
-          status: response.status,
-          statusText: response.statusText,
-          data
-      });
-      throw new Error(data?.error || `Falha ao marcar notificação como lida (Status: ${response.status})`);
-    }
-    
     // Basic validation of the returned notification
     if (!data || typeof data.id !== 'number' || typeof data.isRead !== 'boolean') {
        console.error('[NotificationService] markNotificationAsRead - Invalid notification structure in response:', data);
@@ -189,7 +298,7 @@ export async function markNotificationAsRead(id: number): Promise<Notification> 
     return data as Notification;
   } catch (error) {
     console.error(`[NotificationService] Error marking notification ${id} as read:`, error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
@@ -202,7 +311,8 @@ export async function markAllNotificationsAsRead(userId: number | string): Promi
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', // Keep Content-Type even if body is empty
+         'Accept': 'application/json, text/plain, */*', // Accept anything, as 204 is common
       },
       credentials: 'include',
       // No body needed, endpoint likely uses session user ID
@@ -210,31 +320,52 @@ export async function markAllNotificationsAsRead(userId: number | string): Promi
      console.log(`[NotificationService] markAllNotificationsAsRead response status: ${response.status}`);
 
     if (!response.ok) {
-       let errorBody = 'No error body available';
+       let errorMsg = `Falha ao marcar todas as notificações como lidas (Status: ${response.status})`;
+       let errorBody = '';
        try {
          errorBody = await response.text();
-       } catch (e) { /* ignore */ }
-       console.error(`[NotificationService] markAllNotificationsAsRead failed: Status ${response.status}, Body: ${errorBody}`);
-      throw new Error(`Falha ao marcar todas as notificações como lidas (Status: ${response.status})`);
+         console.error(`[NotificationService] markAllNotificationsAsRead failed: Status ${response.status}, Body:`, errorBody);
+         const contentType = response.headers.get("content-type");
+         if (contentType && contentType.includes("application/json")) {
+             const errorData = JSON.parse(errorBody);
+             errorMsg = errorData.error || errorMsg;
+         }
+       } catch (e) {
+         console.error(`[NotificationService] markAllNotificationsAsRead - Failed to read or parse error body:`, e);
+       }
+      throw new Error(errorMsg);
     }
 
-    // Expecting 204 No Content or similar success status without a body usually
-    if (response.status !== 204) { 
-        try {
-            const data = await response.json();
-            console.log("[NotificationService] markAllNotificationsAsRead received unexpected JSON response:", data); 
-        } catch (e) {
-            // If it's not JSON, log as text
-            const textData = await response.text();
-            console.log("[NotificationService] markAllNotificationsAsRead received unexpected text response:", textData);
-        }
+    // Handle success case - usually 204 No Content for this type of operation
+    if (response.status === 204) {
+      console.log(`[NotificationService] Successfully marked all notifications as read (204 No Content) for userId: ${userId}`);
+      return; // Success without body
     }
-    
-    console.log(`[NotificationService] Successfully marked all notifications as read for userId: ${userId}`);
+
+    // If we got a 200 OK or other 2xx status with a body, try to process it but log warnings.
+    console.warn(`[NotificationService] markAllNotificationsAsRead received status ${response.status} instead of 204.`);
+    const contentType = response.headers.get("content-type");
+    let responseBody = '';
+     try {
+        responseBody = await response.text(); // Read as text first
+        if (contentType && contentType.includes("application/json")) {
+            const data = JSON.parse(responseBody);
+            console.log("[NotificationService] markAllNotificationsAsRead received unexpected JSON response:", data);
+        } else {
+            console.log("[NotificationService] markAllNotificationsAsRead received unexpected text response:", responseBody);
+        }
+    } catch (e) {
+        console.error("[NotificationService] markAllNotificationsAsRead - Failed to read or parse unexpected success body:", e);
+        // Don't necessarily throw here, as the operation might have succeeded on the server
+    }
+
+     // Continue considering it a success if response.ok was true
+     console.log(`[NotificationService] Operation markAllNotificationsAsRead considered successful for userId: ${userId}`);
+
 
   } catch (error) {
     console.error('[NotificationService] Erro ao marcar todas as notificações como lidas:', error);
-    throw error;
+    throw error; // Re-throw error
   }
 }
 
@@ -247,44 +378,59 @@ export async function deleteNotification(id: number): Promise<void> {
     const response = await fetch(url, {
       method: 'DELETE',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json', // Maybe not needed for DELETE, but doesn't hurt
+        'Accept': 'application/json, text/plain, */*',
       },
       credentials: 'include'
     });
     console.log(`[NotificationService] deleteNotification response status: ${response.status}`);
 
     if (!response.ok) {
-      let errorBody = 'No error body available';
-      let parsedError;
+      let errorMsg = `Falha ao deletar notificação (Status: ${response.status})`;
+      let errorBody = '';
       try {
-        parsedError = await response.json();
-        errorBody = JSON.stringify(parsedError);
+        errorBody = await response.text();
+        console.error(`[NotificationService] deleteNotification failed: Status ${response.status}, Body: ${errorBody}`);
+         const contentType = response.headers.get("content-type");
+         if (contentType && contentType.includes("application/json")) {
+             const errorData = JSON.parse(errorBody);
+             errorMsg = errorData.error || errorMsg;
+         }
       } catch (e) {
-         try {
-             errorBody = await response.text();
-         } catch (e2) { /* ignore */ }
+        console.error(`[NotificationService] deleteNotification - Failed to read or parse error body:`, e);
       }
-      console.error(`[NotificationService] deleteNotification failed: Status ${response.status}, Body: ${errorBody}`);
-      throw new Error(parsedError?.error || `Falha ao deletar notificação (Status: ${response.status})`);
+      throw new Error(errorMsg);
     }
-    
-    // Expecting 204 No Content or similar success status
-     if (response.status !== 204) { 
-        console.warn(`[NotificationService] deleteNotification received status ${response.status} instead of 204, but considered OK.`);
-         try {
-            const data = await response.json();
-            console.log("[NotificationService] deleteNotification received unexpected JSON response:", data); 
-        } catch (e) {
-            const textData = await response.text();
-            console.log("[NotificationService] deleteNotification received unexpected text response:", textData);
+
+    // Handle success case - Expect 204 No Content or maybe 200 OK with a success message
+     if (response.status === 204) {
+      console.log(`[NotificationService] Successfully deleted notification ${id} (204 No Content).`);
+      return; // Success without body
+    }
+
+     // If we got a 200 OK or other 2xx status with a body, try to process it but log warnings.
+    console.warn(`[NotificationService] deleteNotification received status ${response.status} instead of 204.`);
+    const contentType = response.headers.get("content-type");
+    let responseBody = '';
+     try {
+        responseBody = await response.text(); // Read as text first
+        if (contentType && contentType.includes("application/json")) {
+            const data = JSON.parse(responseBody);
+            console.log("[NotificationService] deleteNotification received unexpected JSON response:", data);
+        } else {
+            console.log("[NotificationService] deleteNotification received unexpected text response:", responseBody);
         }
-     }
-     
-     console.log(`[NotificationService] Successfully deleted notification ID: ${id}`);
+    } catch (e) {
+        console.error("[NotificationService] deleteNotification - Failed to read or parse unexpected success body:", e);
+    }
+
+     // Continue considering it a success if response.ok was true
+     console.log(`[NotificationService] Operation deleteNotification considered successful for ID: ${id}`);
+
 
   } catch (error) {
-    console.error(`[NotificationService] Erro ao deletar notificação ID ${id}:`, error);
-    throw error;
+    console.error(`[NotificationService] Error deleting notification ${id}:`, error);
+    throw error; // Re-throw error
   }
 }
 

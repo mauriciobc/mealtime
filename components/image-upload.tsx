@@ -49,14 +49,49 @@ export function ImageUpload({ value, onChange, className, type = 'user' }: Image
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Falha ao enviar imagem");
+        let errorMsg = `Falha ao enviar imagem (${response.status} ${response.statusText})`; // Default error with status
+        try {
+          // Check content type before assuming JSON
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+            const errorData = await response.json();
+            errorMsg = errorData.error || errorMsg;
+          } else {
+             // Attempt to read as text if not JSON
+            const textError = await response.text();
+            console.error("Server returned non-JSON error:", textError);
+             // You could try to parse HTML here if necessary, or just use the status text
+          }
+        } catch (parseOrReadError) {
+          // Catch errors during .json() or .text()
+          console.error("Failed to parse or read error response body:", parseOrReadError);
+        }
+        throw new Error(errorMsg);
       }
       
-      const data = await response.json();
+      // Success case: still need to handle potential non-JSON
+      let data: { url?: string } = {}; // Define expected structure
+      try {
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.includes("application/json")) {
+              data = await response.json();
+              if (!data.url) {
+                  console.error("Upload successful, but response JSON is missing 'url'", data);
+                  throw new Error("Resposta do servidor inválida após o upload.");
+              }
+          } else {
+              const textResponse = await response.text();
+              console.error("Server returned non-JSON success response:", textResponse);
+              throw new Error("Resposta inesperada do servidor após o upload.");
+          }
+      } catch (parseOrReadError) {
+           console.error("Failed to parse or read successful response body:", parseOrReadError);
+           throw new Error("Falha ao processar a resposta do servidor após o upload.");
+      }
       
       // Atualizar o valor com a URL retornada
-      onChange(data.url);
+      // Ensure data.url exists before using it (handled by check above)
+      onChange(data.url!);
       
       // Limpar o input para permitir selecionar o mesmo arquivo novamente
       e.target.value = "";

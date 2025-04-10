@@ -8,12 +8,43 @@ export async function getCats(householdId?: number) {
   try {
     const response = await fetch('/api/cats');
     if (!response.ok) {
-      throw new Error('Falha ao buscar gatos');
+      // Attempt to get a meaningful error message
+      let errorMsg = `Falha ao buscar gatos (${response.status} ${response.statusText})`;
+      try {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } else {
+          const textError = await response.text();
+          console.error("Server returned non-JSON error:", textError);
+        }
+      } catch (parseOrReadError) {
+        console.error("Failed to parse or read error response body:", parseOrReadError);
+      }
+      throw new Error(errorMsg);
     }
-    return await response.json();
+
+    // Handle potential non-JSON success response
+    const contentType = response.headers.get("content-type");
+    if (!(contentType && contentType.includes("application/json"))) {
+        const textResponse = await response.text();
+        console.error("Server returned non-JSON success response:", textResponse);
+        throw new Error("Resposta inesperada do servidor ao buscar gatos.");
+    }
+
+    try {
+        return await response.json();
+    } catch (parseError) {
+        console.error("Failed to parse successful JSON response:", parseError);
+        throw new Error("Falha ao processar a resposta do servidor ao buscar gatos.");
+    }
+
   } catch (error) {
     console.error("Erro ao buscar gatos:", error);
-    return [];
+    // Re-throw the error so the caller knows something failed
+    throw error;
+    // return []; // Avoid masking the error by returning empty array
   }
 }
 
@@ -102,11 +133,42 @@ export async function getSchedules(catId?: number) {
   try {
     const response = await fetch(`/api/schedules${catId ? `?catId=${catId}` : ''}`);
     if (!response.ok) {
-      throw new Error('Falha ao buscar agendamentos');
+       // Attempt to get a meaningful error message
+      let errorMsg = `Falha ao buscar agendamentos (${response.status} ${response.statusText})`;
+      try {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json();
+          errorMsg = errorData.error || errorMsg;
+        } else {
+          const textError = await response.text();
+          console.error("Server returned non-JSON error:", textError);
+        }
+      } catch (parseOrReadError) {
+        console.error("Failed to parse or read error response body:", parseOrReadError);
+      }
+      throw new Error(errorMsg);
     }
-    return await response.json();
+
+    // Handle potential non-JSON success response
+    const contentType = response.headers.get("content-type");
+    if (!(contentType && contentType.includes("application/json"))) {
+        const textResponse = await response.text();
+        console.error("Server returned non-JSON success response:", textResponse);
+        throw new Error("Resposta inesperada do servidor ao buscar agendamentos.");
+    }
+
+     try {
+        return await response.json();
+    } catch (parseError) {
+        console.error("Failed to parse successful JSON response:", parseError);
+        throw new Error("Falha ao processar a resposta do servidor ao buscar agendamentos.");
+    }
+
   } catch (error) {
     console.error("Erro ao buscar agendamentos:", error);
-    return [];
+    // Re-throw the error so the caller knows something failed
+    throw error;
+    // return []; // Avoid masking the error by returning empty array
   }
 }
