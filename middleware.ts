@@ -87,7 +87,7 @@ export async function middleware(request: NextRequest) {
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
   console.log('[Middleware] Path access check:', { pathname, isPublicPath });
 
-  // Allow all static files and API routes without token check
+  // Allow certain paths without token check
   if (
     pathname.startsWith('/_next') || // Next.js resources
     pathname.startsWith('/api/auth') || // Auth endpoints
@@ -97,10 +97,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get the session token from the cookie
-  const token = request.cookies.get('next-auth.session-token')?.value;
+  // Get the session token from the cookie (check all possible names)
+  const token =
+    request.cookies.get('next-auth.session-token')?.value ||
+    request.cookies.get('__Secure-next-auth.session-token')?.value ||
+    request.cookies.get('__Host-next-auth.session-token')?.value;
 
-  console.log('[Middleware] Token status:', { 
+  console.log('[Middleware] Token status:', {
     path: pathname,
     hasToken: !!token,
     isPublicPath
