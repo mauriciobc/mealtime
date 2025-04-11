@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
-import { unstable_cache, revalidateTag } from 'next/cache';
-import { Notification } from '@/lib/types/notification';
+import { revalidateTag } from 'next/cache';
 
 // Function to fetch notifications directly from DB (extracted logic)
 async function fetchNotificationsFromDB(userId: number, page: number, limit: number) {

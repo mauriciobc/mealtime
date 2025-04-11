@@ -3,7 +3,6 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "../auth/[...nextauth]/route"
 import prisma from "@/lib/prisma"
 import { validateSettings, validateName, validateTimezone, validateLanguage } from "@/lib/validations/settings"
-import { headers } from 'next/headers'
 import { withError } from "@/lib/utils/api-middleware"
 
 // Wrap the GET handler with withError middleware

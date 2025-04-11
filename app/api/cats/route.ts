@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
+interface PrismaError extends Error {
+  code?: string;
+}
 
 // GET /api/cats - Listar todos os gatos (filtragem opcional por householdId)
 export async function GET(request: NextRequest) {
@@ -126,7 +129,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(cat, { status: 201 });
-  } catch (error: any) {
+  } catch (error: PrismaError) {
     console.error('Erro ao criar perfil de gato:', error);
     
     // Verificar se é um erro do Prisma

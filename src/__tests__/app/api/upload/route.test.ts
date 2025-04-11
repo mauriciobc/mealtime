@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 // --- Mocks ---
 // Mock NextResponse first, define mockJsonResponse inline
 jest.mock('next/server', () => {
@@ -34,6 +38,7 @@ import { POST } from '@/app/api/upload/route';
 import { validateImage, processImage } from '@/lib/image-processing'; // Import real functions if needed for direct mocking later (less likely now)
 import { ImageProcessingError } from '@/lib/image-errors'; // Import error class for checking
 import path from 'path';
+import { NextRequest } from 'next/server';
 
 // --- Helper Functions ---
 // ... helpers ...

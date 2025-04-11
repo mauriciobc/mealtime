@@ -22,7 +22,7 @@ const getCachedUnreadCount = unstable_cache(
 );
 
 // GET /api/notifications/unread-count - Obter contagem de notificações não lidas
-export async function GET(request: NextRequest) {
+export async function GET() {
   console.log("\n--- [GET /api/notifications/unread-count] Start ---");
   try {
     const session = await getServerSession(authOptions);

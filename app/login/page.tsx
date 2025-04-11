@@ -43,14 +43,6 @@ function useAuth() {
       }
       return;
     }
-    
-    if (status === "authenticated" && session?.user && !redirectingRef.current) {
-      console.log("[Auth] Usuário autenticado (via effect), redirecionando...");
-      const callbackUrl = searchParams.get("callbackUrl");
-      const targetUrl = callbackUrl || "/";
-      console.log("[Auth] Redirecionando para:", targetUrl);
-      router.replace(targetUrl);
-    }
   }, [status, session, router, searchParams]);
 
   const loginWithGoogle = async () => {
@@ -97,7 +89,6 @@ function useAuth() {
 
       if (result?.ok && !result?.error) {
         console.log("[Auth] Login com credenciais bem-sucedido, redirecionando...");
-        redirectingRef.current = true;
         router.replace(callbackUrl);
       } else {
         console.log("[Auth] Falha no login com credenciais:", result?.error);

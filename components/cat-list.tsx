@@ -45,13 +45,13 @@ export function CatList() {
     if (isLoadingFeedings || !feedingLogs) return new Map<string, CatType["feedingLogs"][0]>()
     
     const map = new Map<string, CatType["feedingLogs"][0]>()
-    [...feedingLogs]
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .forEach(log => {
-            if (!map.has(log.catId)) {
-                map.set(log.catId, log)
-            }
-        })
+    ;[...feedingLogs]
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .forEach(log => {
+        if (!map.has(log.catId)) {
+          map.set(log.catId, log)
+        }
+      })
     return map
   }, [feedingLogs, isLoadingFeedings])
 

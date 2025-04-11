@@ -4,6 +4,10 @@ import prisma from '@/lib/prisma';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
+interface PrismaError extends Error {
+  code?: string;
+}
+
 // GET /api/households - Obter todos os domicílios do usuário
 export async function GET(request: NextRequest) {
   try {
@@ -61,7 +65,7 @@ export async function GET(request: NextRequest) {
     }));
     
     return NextResponse.json(formattedHouseholds);
-  } catch (error) {
+  } catch (error: PrismaError) {
     console.error('Erro ao buscar domicílios:', error);
     return NextResponse.json(
       { error: 'Ocorreu um erro ao buscar os domicílios' },
@@ -163,7 +167,7 @@ export async function POST(request: NextRequest) {
     };
     
     return NextResponse.json(formattedHousehold);
-  } catch (error: any) {
+  } catch (error: PrismaError) {
     console.error('Erro ao criar domicílio:', error);
     
     // Verificar se é um erro do Prisma para tratamento específico

@@ -3,6 +3,13 @@ import prisma from '@/lib/prisma';
 import { BaseFeedingLog } from '@/lib/types/common';
 import { FeedingLog } from '@/lib/types';
 
+interface WhereClause {
+  catId?: number;
+  cat?: {
+    householdId?: number | { not: null };
+  };
+}
+
 // GET /api/feedings - Listar registros de alimentação (filtragem opcional por catId ou householdId)
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +18,7 @@ export async function GET(request: NextRequest) {
     const householdId = searchParams.get('householdId');
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
 
-    let where: any = {};
+    const where: WhereClause = {};
     
     if (catId) {
       where.catId = parseInt(catId);

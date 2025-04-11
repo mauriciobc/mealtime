@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useHouseholdContext } from "@/lib/context/HouseholdContext";
+import { useHousehold } from "@/lib/context/HouseholdContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ export default function JoinPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status, update: updateSession } = useSession();
-  const { state: householdState, dispatch: householdDispatch } = useHouseholdContext();
+  const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState, dispatch: userDispatch } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser } = userState;

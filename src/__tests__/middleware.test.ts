@@ -52,7 +52,7 @@ jest.mock('next/server', () => ({
 
 // NOW mock the middleware module itself
 // Use relative path - alias mapping failed for direct module
-jest.mock('../middleware', () => {
+jest.mock('@/middleware', () => {
   // We need to require the *actual* implementation if the mock needs to call it
   // or access exports like `config`. If the mock completely replaces the original,
   // we don't necessarily need requireActual here.

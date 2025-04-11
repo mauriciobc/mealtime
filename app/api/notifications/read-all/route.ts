@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { revalidateTag } from 'next/cache';
 
 // POST /api/notifications/read-all - Marcar todas as notificações como lidas
-export async function POST(request: NextRequest) {
+export async function POST() {
   console.log("\n--- [POST /api/notifications/read-all] Start ---");
   try {
     const session = await getServerSession(authOptions);

@@ -4,6 +4,11 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { BaseCat } from '@/lib/types/common';
 
+interface PrismaError extends Error {
+  code?: string;
+  stack?: string;
+}
+
 // GET /api/households/[id]/cats/[catId] - Obter um gato específico
 export async function GET(
   request: NextRequest,
@@ -229,7 +234,7 @@ export async function PATCH(
     };
     
     return NextResponse.json(formattedCat);
-  } catch (error: any) {
+  } catch (error: PrismaError) {
     console.error('Erro ao atualizar gato:', error);
     console.error('Stack trace:', error.stack);
     

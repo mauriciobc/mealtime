@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getFeedingStatistics } from "@/lib/services/api/statistics-service";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { startOfDay, endOfDay, subDays, subMonths } from "date-fns";
 
 // GET /api/statistics - Obter estatísticas de alimentação
 export async function GET(request: Request) {

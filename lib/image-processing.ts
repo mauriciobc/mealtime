@@ -80,9 +80,13 @@ export const validateImage = async (filePath: string): Promise<void> => {
     throw new ImageValidationError('Formato de arquivo não suportado. Use JPG, PNG ou WebP');
   }
 
-  if (metadata.width && metadata.height) {
-    if (metadata.width < 150 || metadata.height < 150) {
-      throw new ImageValidationError('As dimensões da imagem devem ser pelo menos 150x150px');
-    }
+  // Check for missing dimensions first
+  if (!metadata.width || !metadata.height) {
+    throw new ImageValidationError('Não foi possível obter as dimensões da imagem.');
+  }
+
+  // Now check if dimensions are too small
+  if (metadata.width < 150 || metadata.height < 150) {
+    throw new ImageValidationError('As dimensões da imagem devem ser pelo menos 150x150px');
   }
 }; 

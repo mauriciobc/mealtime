@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Adicionar usuário ao domicílio como membro
-    const updatedUser = await prisma.user.update({
+    await prisma.user.update({
       where: { id: userId },
       data: {
         householdId: household.id,

@@ -1,5 +1,4 @@
 import NextAuth, { NextAuthOptions } from "next-auth"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import prisma from "@/lib/prisma"
 import GoogleProvider from "next-auth/providers/google"
 import CredentialsProvider from "next-auth/providers/credentials"
@@ -20,7 +19,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email", placeholder: "jsmith@example.com" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         console.log('[NextAuth] Authorize attempt with credentials:', credentials?.email);
         if (!credentials?.email || !credentials?.password) {
           console.log('[NextAuth] Missing credentials');

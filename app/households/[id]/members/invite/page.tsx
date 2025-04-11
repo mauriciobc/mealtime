@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserPlus, Copy, Check, Share2, ChevronLeft, Mail, AlertTriangle, RefreshCw } from "lucide-react";
 import { useHousehold } from "@/lib/context/HouseholdContext";
-import { useUser } from "@/lib/context/UserContext";
+import { useUserContext } from "@/lib/context/UserContext";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,7 +45,7 @@ export default function HouseholdInvitePage({ params }: PageProps) {
   const householdId = resolvedParams.id;
   const router = useRouter();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { state: userState } = useUser();
+  const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { data: session, status } = useSession();
   

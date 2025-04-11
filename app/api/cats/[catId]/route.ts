@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getNumericId } from '@/lib/utils/api-utils';
 
+interface CatSchedule {
+  type: 'interval' | 'fixedTime';
+  interval?: number;
+  times?: string;
+  overrideUntil?: string | null;
+  createdAt?: Date;
+}
+
+interface PrismaError extends Error {
+  code?: string;
+}
+
 // GET /api/cats/[catId] - Obter um gato pelo ID
 export async function GET(
   request: NextRequest,
@@ -124,7 +136,7 @@ export async function PUT(
         householdId: householdId || undefined,
         schedules: schedules ? {
           deleteMany: {}, // Remove schedules existentes
-          create: schedules.map((schedule: any) => ({
+          create: schedules.map((schedule: CatSchedule) => ({
             type: schedule.type,
             interval: schedule.interval,
             times: schedule.times || "[]", // Fornecer um valor padrão para times
@@ -145,7 +157,7 @@ export async function PUT(
     });
 
     return NextResponse.json(updatedCat);
-  } catch (error: any) {
+  } catch (error: PrismaError) {
     console.error('Erro ao atualizar gato:', error);
     
     if (error.message === 'ID inválido') {
