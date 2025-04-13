@@ -123,7 +123,8 @@ export async function middleware(request: NextRequest) {
     let baseUrl = process.env.NEXTAUTH_URL;
     if (!baseUrl) {
       const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
-      const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+      // Determine protocol more reliably
+      const protocol = process.env.NEXTAUTH_URL?.startsWith('https') ? 'https' : 'http'; 
       baseUrl = `${protocol}://${host}`;
     }
 

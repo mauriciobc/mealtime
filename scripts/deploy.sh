@@ -5,10 +5,29 @@ set -e
 
 # --- Configuration ---
 # !!! IMPORTANT: Replace these placeholders with your actual values !!!
-GIT_REPO_URL="YOUR_GIT_REPOSITORY_URL" # e.g., git@github.com:your_username/mealtime.git
-PROJECT_DIR="/home/ubuntu/mealtime"    # Directory where the app will live on the server
+GIT_REPO_URL="https://github.com/mauriciobc/mealtime" # e.g., git@github.com:your_username/mealtime.git
+PROJECT_DIR="/home/apps/mealtime"    # Directory where the app will live on the server
 APP_NAME="mealtime-app"                # Name for the PM2 process
 NODE_VERSION="20"                      # Specify the desired Node.js major version (e.g., 18, 20)
+
+# --- Permission Checks ---
+# Check if script is run as root
+if [ "$EUID" -eq 0 ]; then
+  echo "Please do not run this script as root"
+  exit 1
+fi
+
+# Check if sudo is available
+if ! command -v sudo &> /dev/null; then
+  echo "sudo is required but not installed. Please install sudo first."
+  exit 1
+fi
+
+# Ensure the user has sudo privileges
+if ! sudo -v &> /dev/null; then
+  echo "Current user does not have sudo privileges. Please add user to sudoers."
+  exit 1
+fi
 
 # --- Deployment Steps ---
 
@@ -44,6 +63,13 @@ echo "Deploying code..."
 if [ -d "$PROJECT_DIR" ]; then
   echo "Project directory exists. Pulling latest changes..."
   cd "$PROJECT_DIR"
+  
+  # Create backup
+  BACKUP_DIR="/home/apps/backups/mealtime-$(date +%Y%m%d_%H%M%S)"
+  echo "Creating backup at $BACKUP_DIR..."
+  mkdir -p "$BACKUP_DIR"
+  cp -r "$PROJECT_DIR"/* "$BACKUP_DIR/"
+  
   git checkout main # Or your deployment branch
   git pull origin main
 else
@@ -51,6 +77,12 @@ else
   git clone "$GIT_REPO_URL" "$PROJECT_DIR"
   cd "$PROJECT_DIR"
 fi
+
+# Ensure correct directory permissions
+echo "Setting up directory permissions..."
+sudo chown -R $(whoami):$(whoami) "$PROJECT_DIR"
+find "$PROJECT_DIR" -type d -exec chmod 755 {} \;
+find "$PROJECT_DIR" -type f -exec chmod 644 {} \;
 
 # 3. Install Dependencies
 echo "Installing project dependencies..."

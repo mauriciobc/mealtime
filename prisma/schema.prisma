@@ -1,119 +1,119 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DIRECT_URL")
+  schemas  = ["auth", "public"]
 }
 
-model Household {
-  id         Int      @id @default(autoincrement())
-  name       String
-  inviteCode String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  ownerId    Int
-  owner      User     @relation("OwnedHouseholds", fields: [ownerId], references: [id])
-  cats       Cat[]
-  users      User[]
-  notifications Notification[]
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cats {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  created_at   DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at   DateTime  @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  name         String
+  birth_date   DateTime? @db.Date
+  weight       Decimal?  @db.Decimal(5, 2)
+  household_id String    @db.Uuid
+  owner_id     String    @db.Uuid
+
+  @@schema("public")
 }
 
-model User {
-  id          Int          @id @default(autoincrement())
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model household_members {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  household_id String   @db.Uuid
+  user_id      String   @db.Uuid
+  role         String
+  created_at   DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+
+  @@unique([household_id, user_id])
+  @@schema("public")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model households {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  created_at  DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at  DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
   name        String
-  email       String       @unique
-  role        String
-  timezone    String?      @default("UTC")
-  language    String?      @default("pt-BR")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  householdId Int?
-  password    String?
-  feedingLogs FeedingLog[]
-  notifications Notification[]
-  household   Household?   @relation(fields: [householdId], references: [id])
-  ownedCats   Cat[]        @relation("CatOwner")
-  ownedHouseholds Household[] @relation("OwnedHouseholds")
+  description String?
+  owner_id    String   @db.Uuid
+
+  @@schema("public")
 }
 
-model Cat {
-  id              Int         @id @default(autoincrement())
-  name            String
-  photoUrl        String?
-  birthdate       DateTime?
-  weight          Float?
-  restrictions    String?
-  notes           String?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  householdId     Int
-  feedingInterval Int         @default(8)
-  portion_size    Float?       @default(0)
-  userId          Int
-  owner           User        @relation("CatOwner", fields: [userId], references: [id])
-  household       Household   @relation(fields: [householdId], references: [id])
-  feedingLogs     FeedingLog[]
-  schedules       Schedule[]
-  groups          CatGroup[]   @relation("CatToGroup")
-  notifications   Notification[]
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model meals {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  created_at   DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  updated_at   DateTime @default(dbgenerated("timezone('utc'::text, now())")) @db.Timestamptz(6)
+  cat_id       String   @db.Uuid
+  household_id String   @db.Uuid
+  meal_type    String
+  amount       Decimal  @db.Decimal(5, 2)
+  unit         String
+  notes        String?
+  fed_by       String?  @db.Uuid
+  fed_at       DateTime @db.Timestamptz(6)
 
-  @@index([userId])
+  @@schema("public")
 }
 
-model CatGroup {
-  id        Int      @id @default(autoincrement())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  cats      Cat[]    @relation("CatToGroup")
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model profiles {
+  id         String    @id @db.Uuid
+  updated_at DateTime? @db.Timestamptz(6)
+  username   String?   @unique
+  full_name  String?
+  avatar_url String?
+
+  @@schema("public")
 }
 
-model Schedule {
-  id            Int       @id @default(autoincrement())
-  catId         Int
-  type          String
-  interval      Int
-  times         String
-  overrideUntil DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  cat           Cat       @relation(fields: [catId], references: [id])
+enum aal_level {
+  aal1
+  aal2
+  aal3
+
+  @@schema("auth")
 }
 
-model FeedingLog {
-  id          Int      @id @default(autoincrement())
-  catId       Int
-  userId      Int
-  timestamp   DateTime
-  portionSize Float?
-  notes       String?
-  createdAt   DateTime @default(now())
-  status      String?  @default("completed")
-  user        User     @relation(fields: [userId], references: [id])
-  cat         Cat      @relation(fields: [catId], references: [id])
+enum code_challenge_method {
+  s256
+  plain
+
+  @@schema("auth")
 }
 
-model Notification {
-  id          Int       @id @default(autoincrement())
-  title       String
-  message     String
-  type        String
-  isRead      Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  userId      Int
-  catId       Int?
-  householdId Int?
-  actionUrl   String?
-  icon        String?
-  timestamp   DateTime?
-  data        String?   // JSON string para dados adicionais
-  user        User      @relation(fields: [userId], references: [id])
-  cat         Cat?      @relation(fields: [catId], references: [id])
-  household   Household? @relation(fields: [householdId], references: [id])
+enum factor_status {
+  unverified
+  verified
 
-  @@index([userId])
-  @@index([catId])
-  @@index([householdId])
+  @@schema("auth")
+}
+
+enum factor_type {
+  totp
+  webauthn
+  phone
+
+  @@schema("auth")
+}
+
+enum one_time_token_type {
+  confirmation_token
+  reauthentication_token
+  recovery_token
+  email_change_token_new
+  email_change_token_current
+  phone_change_token
+
+  @@schema("auth")
 }
