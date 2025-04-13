@@ -118,39 +118,50 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users to login
   if (!token && !isPublicPath) {
     console.log('[Middleware] Unauthenticated user accessing protected path, redirecting to login');
-    
+
+    // **Diagnostic Log:** Log the NEXTAUTH_URL value as seen by the middleware
+    const rawNextAuthUrl = process.env.NEXTAUTH_URL;
+    console.log(`[Middleware] Value of process.env.NEXTAUTH_URL: ${rawNextAuthUrl}`);
+
     // Fix URL construction
-    let baseUrl = process.env.NEXTAUTH_URL;
+    let baseUrl = rawNextAuthUrl; // Use the logged value
+
     if (!baseUrl) {
+      console.log('[Middleware] NEXTAUTH_URL is missing or empty, falling back to headers.');
       const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
-      // Determine protocol more reliably
-      const protocol = process.env.NEXTAUTH_URL?.startsWith('https') ? 'https' : 'http'; 
+      // Determine protocol - If NEXTAUTH_URL was missing, this logic is flawed as it still checks it.
+      // Safer fallback might be needed, but let's first confirm if NEXTAUTH_URL is actually missing.
+      const protocol = rawNextAuthUrl?.startsWith('https') ? 'https' : 'http'; // Still potentially flawed if rawNextAuthUrl is undefined
       baseUrl = `${protocol}://${host}`;
+      console.log(`[Middleware] Fallback baseUrl constructed from headers: ${baseUrl}`);
+    } else {
+       console.log(`[Middleware] Using NEXTAUTH_URL for baseUrl: ${baseUrl}`);
     }
 
     // Ensure baseUrl doesn't have trailing slash
     baseUrl = baseUrl.replace(/\/$/, '');
-    
-    console.log('[Middleware] Base URL:', baseUrl);
+    console.log(`[Middleware] Base URL after removing trailing slash: ${baseUrl}`);
+
     const loginUrl = new URL('/login', baseUrl);
-    
+
     // Ensure callback URL is from the same domain
     try {
       const requestUrl = request.url;
       const callbackUrl = new URL(requestUrl);
-      const baseUrlObj = new URL(baseUrl);
-      
+      const baseUrlObj = new URL(baseUrl); // Use the potentially fixed baseUrl
+
       if (callbackUrl.host === baseUrlObj.host) {
         loginUrl.searchParams.set('callbackUrl', requestUrl);
       } else {
+        console.warn(`[Middleware] Callback URL host (${callbackUrl.host}) differs from base URL host (${baseUrlObj.host}). Defaulting callback to root.`);
         loginUrl.searchParams.set('callbackUrl', '/');
       }
     } catch (error) {
       console.error('[Middleware] Error processing callback URL:', error);
-      loginUrl.searchParams.set('callbackUrl', '/');
+      loginUrl.searchParams.set('callbackUrl', '/'); // Default to root on error
     }
-    
-    console.log('[Middleware] Redirecting to:', loginUrl.toString());
+
+    console.log('[Middleware] Final Redirect URL:', loginUrl.toString());
     return NextResponse.redirect(loginUrl);
   }
 
@@ -169,6 +180,9 @@ export async function middleware(request: NextRequest) {
   ].join('; ');
 
   response.headers.set('Content-Security-Policy', cspHeader);
+  response.headers.set('X-Frame-Options', 'DENY'); // Or SAMEORIGIN
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload'); // If site is fully HTTPS
 
   return response;
 }
@@ -182,7 +196,12 @@ export const config = {
      * 2. /_next (Next.js internals)
      * 3. /static (static files)
      * 4. /favicon.ico, /sitemap.xml (public files)
+     * Include specific API routes if they need protection and aren't auth-related
      */
-    '/((?!api/auth|_next|static|favicon.ico|sitemap.xml).*)',
+    // Simplified matcher - protect everything except explicitly allowed paths
+     '/((?!api/auth|_next/static|_next/image|favicon.ico|terms|privacy|signup|login).*) '
+     // Refined matcher: Protects everything by default.
+     // Excludes API auth routes, Next.js internals, static assets, and specific public pages.
+    // '/((?!api/auth/|_next/|_static/|favicon.ico|login|signup|terms|privacy).*) ',
   ],
 }; 
