@@ -14,6 +14,7 @@ import PageTransition from "@/components/page-transition"; // Assuming this comp
 import { useNotifications } from "@/lib/context/NotificationContext";
 import { Notification } from "@/lib/types/notification";
 import { cn } from "@/lib/utils";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 // Re-usable Icon component
 const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
@@ -107,7 +108,7 @@ const NotificationItem = React.memo(({
                   aria-label="Marcar como lida"
                 >
                   {isMarkingRead ? (
-                    <Loader2 size={14} className="mr-1 animate-spin" />
+                    <GlobalLoading mode="spinner" size="sm" />
                   ) : (
                     <Check size={14} className="mr-1" />
                   )}
@@ -123,7 +124,7 @@ const NotificationItem = React.memo(({
                 aria-label="Remover notificação"
               >
                 {isRemoving ? (
-                     <Loader2 size={14} className="mr-1 animate-spin" />
+                    <GlobalLoading mode="spinner" size="sm" />
                 ) : (
                     <Trash2 size={14} className="mr-1" />
                 )}
@@ -208,7 +209,7 @@ export default function NotificationsPage() {
               className="flex-shrink-0"
             >
               {isMarkingAllRead ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <GlobalLoading mode="spinner" size="sm" />
               ) : (
                 <CheckCheck size={16} className="mr-2" />
               )}
@@ -227,7 +228,7 @@ export default function NotificationsPage() {
         {/* Loading State */}
         {isLoading && notifications.length === 0 && (
            <div className="flex justify-center items-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <GlobalLoading mode="spinner" size="lg" />
            </div>
         )}
 
@@ -260,7 +261,7 @@ export default function NotificationsPage() {
         {/* Optional: Add a subtle loading indicator when refreshing existing list */}
         {isLoading && notifications.length > 0 && (
            <div className="text-center py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <GlobalLoading mode="spinner" size="md" />
            </div>
         )}
       </div>

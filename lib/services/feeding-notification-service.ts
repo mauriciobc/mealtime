@@ -1,8 +1,8 @@
 import { Notification, NotificationType } from "@/lib/types/notification";
-import { v4 as uuidv4 } from "uuid";
 import { format, addHours, isBefore, isAfter, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BaseCat } from "@/lib/types/common";
+import { generateNumericUUID } from "@/lib/utils/uuid";
 
 // Constantes
 const REMINDER_THRESHOLD_MINUTES = 30; // Lembrar 30 minutos antes
@@ -69,7 +69,7 @@ export const createFeedingNotification = (
   }
 
   return {
-    id: parseInt(uuidv4().replace(/\D/g, '')),
+    id: parseInt(generateNumericUUID()),
     title,
     message,
     type,

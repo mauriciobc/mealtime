@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { withModel } from '@/lib/prisma/safe-access';
+import { logger } from '@/lib/monitoring/logger'; // Import the logger
+
+// Log Runtime
+logger.debug('[/api/cats] Runtime:', { runtime: process.env.NEXT_RUNTIME });
 
 interface PrismaError extends Error {
   code?: string;
@@ -9,20 +12,83 @@ interface PrismaError extends Error {
 
 // GET /api/cats - Listar todos os gatos (filtragem opcional por householdId)
 export async function GET(request: NextRequest) {
+  // Remove header dump log
+  /*
+  // --- Add Log for Received Headers ---
+  console.log(`[GET /api/cats] Received Headers: ${JSON.stringify(Object.fromEntries(request.headers.entries()))}`);
+  // --- End Log for Received Headers ---
+  */
+
+  // Read user ID from request header
+  const authUserId = request.headers.get('X-User-ID');
+  if (!authUserId) {
+    // Use logger.warn for auth failures
+    logger.warn('[GET /api/cats] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
+    return NextResponse.json({ error: 'Não autorizado - Cabeçalho de usuário ausente' }, { status: 401 });
+  }
+  logger.debug(`[GET /api/cats] Authenticated User ID from header: ${authUserId}`);
+
   try {
+    // Get user's households for authorization using profiles model (which works with shared client)
+    const userProfile = await prisma.profiles.findUnique({
+        where: { id: authUserId },
+        select: { household_members: { select: { household_id: true } } }
+    });
+
+    if (!userProfile) {
+        // Use logger.error for unexpected data inconsistencies
+        logger.error(`[GET /api/cats] Prisma profile not found for auth user ID: ${authUserId}`);
+        // Return 404 or 403 depending on desired behavior
+        return NextResponse.json({ error: 'Perfil de usuário não encontrado' }, { status: 404 });
+    }
+
+    const userHouseholdIds = userProfile.household_members.map(m => m.household_id);
+    if (userHouseholdIds.length === 0) {
+        logger.info(`[GET /api/cats] User ${authUserId} belongs to no households. Returning empty.`);
+        return NextResponse.json([]); // Return empty array if user has no households
+    }
+    logger.debug(`[GET /api/cats] User ${authUserId} authorized for households:`, { householdIds: userHouseholdIds });
+
     const searchParams = request.nextUrl.searchParams;
-    const householdId = searchParams.get('householdId');
+    const requestedHouseholdId = searchParams.get('householdId');
 
-    const where = householdId 
-      ? { householdId: parseInt(householdId) } 
-      : {};
+    let targetHouseholdIds: string[];
 
-    const cats = await prisma.cat.findMany({
+    if (requestedHouseholdId) {
+      // If a specific household is requested, check authorization
+      if (!userHouseholdIds.includes(requestedHouseholdId)) {
+        logger.warn(`[GET /api/cats] User ${authUserId} not authorized for requested household ${requestedHouseholdId}`);
+        return NextResponse.json({ error: 'Não autorizado para este domicílio' }, { status: 403 });
+      }
+      targetHouseholdIds = [requestedHouseholdId];
+      logger.debug(`[GET /api/cats] Filtering by requested household: ${requestedHouseholdId}`);
+    } else {
+      // If no specific household is requested, fetch for all user's households
+      targetHouseholdIds = userHouseholdIds;
+      logger.debug(`[GET /api/cats] Fetching for all authorized households.`);
+    }
+
+    // Define where clause based on authorized households
+    const where = { 
+      household_id: { 
+        in: targetHouseholdIds 
+      } 
+    };
+
+    logger.debug(`[GET /api/cats] Querying cats with where clause:`, { where: JSON.stringify(where) });
+    
+    // Use direct access to the cats model as it exists in the schema
+    const cats = await prisma.cats.findMany({
       where,
       select: {
         id: true,
         name: true,
-        photoUrl: true
+        // Update fields to match schema
+        // photo_url: true,  // Removed: Column does not exist in DB
+        birth_date: true,
+        weight: true,
+        household_id: true,
+        owner_id: true
       },
       orderBy: {
         name: 'asc'
@@ -30,8 +96,9 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(cats);
-  } catch (error) {
-    console.error('Erro ao buscar gatos:', error);
+  } catch (error: any) {
+    // Log the actual error object using logger.logError
+    logger.logError(error, { message: 'Erro ao buscar gatos', requestUrl: request.nextUrl.toString() });
     return NextResponse.json(
       { error: 'Ocorreu um erro ao buscar os gatos' },
       { status: 500 }
@@ -41,115 +108,93 @@ export async function GET(request: NextRequest) {
 
 // POST /api/cats - Criar um novo perfil de gato
 export async function POST(request: NextRequest) {
+  const authUserId = request.headers.get('X-User-ID');
+  if (!authUserId) {
+    logger.warn('[POST /api/cats] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
+    return NextResponse.json({ error: 'Não autorizado - Cabeçalho de usuário ausente' }, { status: 401 });
+  }
+  logger.debug(`[POST /api/cats] Authenticated User ID from header: ${authUserId}`);
+
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
-    }
+    const body = await request.json();
+    logger.debug('[POST /api/cats] Received request body:', body);
 
-    const {
-      name,
-      photoUrl,
-      birthdate,
-      weight,
-      restrictions,
-      notes,
-      householdId,
-      feeding_interval,
-      portion
-    } = await request.json();
-
-    if (!name || !householdId) {
+    // Validate required fields
+    if (!body.name || !body.householdId) {
+      logger.warn('[POST /api/cats] Missing required fields:', { body });
       return NextResponse.json(
         { error: 'Nome e ID do domicílio são obrigatórios' },
         { status: 400 }
       );
     }
 
-    // Verificar se o usuário pertence ao domicílio
-    const user = await prisma.user.findFirst({
-      where: {
-        id: parseInt(session.user.id),
-        householdId: householdId
+    // Validate feeding interval (if provided)
+    let feedingInterval = null;
+    if (body.feeding_interval) {
+      const hours = parseInt(String(body.feeding_interval));
+      if (isNaN(hours) || hours < 1 || hours > 24) {
+        logger.warn('[POST /api/cats] Invalid feeding interval:', body.feeding_interval);
+        return NextResponse.json(
+          { error: 'Intervalo de alimentação deve ser entre 1 e 24 horas' },
+          { status: 400 }
+        );
       }
+      feedingInterval = hours;
+    }
+
+    // Check if the user is a member of the target household
+    const householdMember = await prisma.household_members.findFirst({
+      where: {
+        user_id: authUserId,
+        household_id: body.householdId
+      },
+      select: { user_id: true }
     });
 
-    if (!user) {
+    if (!householdMember) {
+      logger.warn(`[POST /api/cats] User ${authUserId} not authorized for household ${body.householdId}`);
       return NextResponse.json(
-        { error: 'Você não pertence a este domicílio' },
+        { error: 'Usuário não autorizado para este domicílio' },
         { status: 403 }
       );
     }
 
-    // Verificar se o domicílio existe
-    const household = await prisma.household.findUnique({
-      where: { id: householdId }
-    });
-
-    if (!household) {
-      return NextResponse.json(
-        { error: 'Domicílio não encontrado' },
-        { status: 404 }
-      );
-    }
-
-    // Validar o intervalo de alimentação
-    let parsedInterval = 8; // Valor padrão
-    if (feeding_interval) {
-      const interval = parseInt(feeding_interval);
-      if (isNaN(interval) || interval < 1 || interval > 24) {
-        return NextResponse.json(
-          { error: 'O intervalo de alimentação deve estar entre 1 e 24 horas' },
-          { status: 400 }
-        );
+    // Create the cat using Prisma's create method
+    const newCat = await prisma.cats.create({
+      data: {
+        name: body.name.trim(),
+        photo_url: body.photoUrl || null,
+        birth_date: body.birthdate ? new Date(body.birthdate) : null,
+        weight: body.weight ? parseFloat(body.weight) : null,
+        household_id: body.householdId,
+        owner_id: authUserId,
+        restrictions: body.restrictions?.trim() || null,
+        notes: body.notes?.trim() || null,
+        feeding_interval: feedingInterval,
+        portion_size: body.portion_size || null
       }
-      parsedInterval = interval;
-    }
-
-    // Criar o perfil do gato
-    const catData = {
-      name,
-      photoUrl: photoUrl || null,
-      birthdate: birthdate ? new Date(birthdate) : null,
-      weight: weight ? parseFloat(String(weight)) : null,
-      restrictions: restrictions || null,
-      notes: notes || null,
-      householdId,
-      feedingInterval: parsedInterval,
-      portion_size: portion ? parseFloat(String(portion)) : null,
-      userId: parseInt(session.user.id)
-    };
-
-    const cat = await prisma.cat.create({
-      data: catData
     });
 
-    return NextResponse.json(cat, { status: 201 });
-  } catch (error: PrismaError) {
-    console.error('Erro ao criar perfil de gato:', error);
+    logger.debug(`[POST /api/cats] Cat created successfully:`, newCat);
+    return NextResponse.json(newCat, { status: 201 });
+  } catch (error: any) {
+    logger.error('[POST /api/cats] Error creating cat:', {
+      error: error,
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+      stack: error.stack
+    });
     
-    // Verificar se é um erro do Prisma
-    if (error.code) {
-      // Erros específicos do Prisma
-      if (error.code === 'P2002') {
-        return NextResponse.json(
-          { error: 'Já existe um gato com essas informações' },
-          { status: 400 }
-        );
-      } else if (error.code === 'P2003') {
-        return NextResponse.json(
-          { error: 'Referência inválida a outro registro' },
-          { status: 400 }
-        );
-      }
+    if (error.code === '22P02') {
+      return NextResponse.json(
+        { error: 'Formato inválido para um ou mais campos' },
+        { status: 400 }
+      );
     }
     
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao criar o perfil do gato' },
+      { error: `Erro ao criar o perfil do gato: ${error.message}` },
       { status: 500 }
     );
   }

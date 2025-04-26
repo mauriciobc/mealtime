@@ -1,87 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+// import { getServerSession } from 'next-auth/next';
+// import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { createClient } from '@/utils/supabase/server'; // Import Supabase client
+import { cookies } from 'next/headers'; // Import cookies
 import { BaseCat } from '@/lib/types/common';
+import { z } from 'zod'; // Import Zod for validation
 
 interface PrismaError extends Error {
   code?: string;
   stack?: string;
 }
 
+// Zod schema for route parameters
+const RouteParamsSchema = z.object({
+  id: z.string().refine(val => !isNaN(parseInt(val)), { message: "ID do domicílio inválido" }),
+  catId: z.string().refine(val => !isNaN(parseInt(val)), { message: "ID do gato inválido" }),
+});
+
+// Zod schema for PATCH request body
+const PatchBodySchema = z.object({
+  name: z.string().trim().min(1).optional(),
+  photoUrl: z.string().url().nullable().optional(),
+  birthdate: z.string().datetime().nullable().optional(),
+  weight: z.number().positive().nullable().optional(),
+  restrictions: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  feedingInterval: z.number().int().min(1).max(24).optional(),
+  portion_size: z.number().positive().optional(),
+}).strict(); // Ensure no extra fields
+
+
+// Helper function for authorization
+async function authorizeUser(supabaseUser: any, householdId: number): Promise<{ authorized: boolean; prismaUserId?: number; error?: NextResponse }> {
+  if (!supabaseUser) {
+    return { authorized: false, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
+  }
+
+  try {
+    // Fetch the Prisma user and check household membership using auth_id
+    const prismaUser = await prisma.user.findUnique({
+      where: { auth_id: supabaseUser.id },
+      select: { id: true, householdId: true },
+    });
+
+    if (!prismaUser) {
+      return { authorized: false, error: NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 }) };
+    }
+
+    if (prismaUser.householdId !== householdId) {
+      return { authorized: false, error: NextResponse.json({ error: 'Você não tem permissão para acessar este domicílio' }, { status: 403 }) };
+    }
+
+    return { authorized: true, prismaUserId: prismaUser.id };
+  } catch (error) {
+    console.error('Authorization error:', error);
+    return { authorized: false, error: NextResponse.json({ error: 'Erro interno do servidor durante autorização' }, { status: 500 }) };
+  }
+}
+
+
 // GET /api/households/[id]/cats/[catId] - Obter um gato específico
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string; catId: string } }
 ) {
+  // Validate route parameters
+  const paramsValidation = RouteParamsSchema.safeParse(params);
+  if (!paramsValidation.success) {
+    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+  }
+
+  const householdId = parseInt(paramsValidation.data.id);
+  const catId = parseInt(paramsValidation.data.catId);
+
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+  // Authorize user
+  const authResult = await authorizeUser(supabaseUser, householdId);
+  if (!authResult.authorized) {
+    return authResult.error!;
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const householdId = parseInt(params.id);
-    const catId = parseInt(params.catId);
-    
-    if (isNaN(householdId) || isNaN(catId)) {
-      return NextResponse.json(
-        { error: 'IDs inválidos' },
-        { status: 400 }
-      );
-    }
-    
-    // Verificar se o usuário pertence ao domicílio
-    const household = await prisma.household.findUnique({
-      where: { id: householdId },
-      include: {
-        users: true
-      }
-    });
-    
-    if (!household) {
-      return NextResponse.json(
-        { error: 'Domicílio não encontrado' },
-        { status: 404 }
-      );
-    }
-    
-    const userId = parseInt(session.user.id as string);
-    const userBelongsToHousehold = household.users.some(user => user.id === userId);
-    
-    if (!userBelongsToHousehold) {
-      return NextResponse.json(
-        { error: 'Você não tem permissão para acessar este domicílio' },
-        { status: 403 }
-      );
-    }
-    
-    // Buscar o gato
+    // Buscar o gato - já sabemos que o usuário pertence ao domicílio
     const cat = await prisma.cat.findUnique({
-      where: { id: catId },
+      where: {
+        id: catId,
+        householdId: householdId // Garante que o gato pertença ao domicílio correto
+      },
       include: {
         schedules: true
       }
     });
-    
+
     if (!cat) {
       return NextResponse.json(
-        { error: 'Gato não encontrado' },
+        { error: 'Gato não encontrado neste domicílio' },
         { status: 404 }
       );
     }
-    
-    // Verificar se o gato pertence ao domicílio
-    if (cat.householdId !== householdId) {
-      return NextResponse.json(
-        { error: 'Este gato não pertence ao domicílio especificado' },
-        { status: 400 }
-      );
-    }
-    
+
     // Formatar os dados para a resposta
     const formattedCat: BaseCat = {
       id: cat.id,
@@ -93,7 +114,7 @@ export async function GET(
       householdId: cat.householdId,
       feedingInterval: cat.feedingInterval || 8
     };
-    
+
     return NextResponse.json(formattedCat);
   } catch (error) {
     console.error('Erro ao buscar gato:', error);
@@ -109,119 +130,77 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string; catId: string } }
 ) {
+  // Validate route parameters
+  const paramsValidation = RouteParamsSchema.safeParse(params);
+  if (!paramsValidation.success) {
+    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+  }
+
+  const householdId = parseInt(paramsValidation.data.id);
+  const catId = parseInt(paramsValidation.data.catId);
+
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+  // Authorize user
+  const authResult = await authorizeUser(supabaseUser, householdId);
+  if (!authResult.authorized) {
+    return authResult.error!;
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const householdId = parseInt(params.id);
-    const catId = parseInt(params.catId);
-    
-    if (isNaN(householdId) || isNaN(catId)) {
-      return NextResponse.json(
-        { error: 'IDs inválidos' },
-        { status: 400 }
-      );
-    }
-    
-    // Verificar se o usuário pertence ao domicílio
-    const household = await prisma.household.findUnique({
-      where: { id: householdId },
-      include: {
-        users: true
-      }
+    // Fetch the cat first to ensure it exists and belongs to the household
+    const existingCat = await prisma.cat.findUnique({
+      where: { id: catId, householdId: householdId },
     });
-    
-    if (!household) {
+
+    if (!existingCat) {
       return NextResponse.json(
-        { error: 'Domicílio não encontrado' },
+        { error: 'Gato não encontrado neste domicílio' },
         { status: 404 }
       );
     }
-    
-    const userId = parseInt(session.user.id as string);
-    const userInHousehold = household.users.find(user => user.id === userId);
-    
-    if (!userInHousehold) {
-      return NextResponse.json(
-        { error: 'Você não pertence a este domicílio' },
-        { status: 403 }
-      );
-    }
-    
-    // Buscar o gato
-    const cat = await prisma.cat.findUnique({
-      where: { id: catId }
-    });
-    
-    if (!cat) {
-      return NextResponse.json(
-        { error: 'Gato não encontrado' },
-        { status: 404 }
-      );
-    }
-    
-    // Verificar se o gato pertence ao domicílio
-    if (cat.householdId !== householdId) {
-      return NextResponse.json(
-        { error: 'Este gato não pertence ao domicílio especificado' },
-        { status: 400 }
-      );
-    }
-    
+
     const body = await request.json();
-    console.log('Received update request with body:', body);
-    
-    // Validar dados
-    if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim() === '')) {
-      return NextResponse.json(
-        { error: 'Nome do gato inválido' },
-        { status: 400 }
-      );
+    const bodyValidation = PatchBodySchema.safeParse(body);
+
+    if (!bodyValidation.success) {
+      return NextResponse.json({ error: bodyValidation.error.errors }, { status: 400 });
     }
 
-    if (body.feedingInterval !== undefined) {
-      const interval = parseInt(String(body.feedingInterval));
-      if (isNaN(interval) || interval < 1 || interval > 24) {
-        return NextResponse.json(
-          { error: 'O intervalo de alimentação deve estar entre 1 e 24 horas' },
-          { status: 400 }
-        );
-      }
-    }
+    console.log('Received update request with validated body:', bodyValidation.data);
 
-    // Preparar dados para atualização
-    const updateData = {
-      name: body.name !== undefined ? body.name : undefined,
-      photoUrl: body.photoUrl !== undefined ? body.photoUrl : undefined,
-      birthdate: body.birthdate !== undefined 
-        ? (body.birthdate ? new Date(body.birthdate) : null) 
-        : undefined,
-      weight: body.weight !== undefined ? body.weight : undefined,
-      restrictions: body.restrictions !== undefined ? body.restrictions : undefined,
-      notes: body.notes !== undefined ? body.notes : undefined,
-      feedingInterval: body.feedingInterval !== undefined ? parseInt(String(body.feedingInterval)) : undefined,
-      portion_size: body.portion_size !== undefined ? parseFloat(String(body.portion_size)) : undefined
-    };
+    // Prepare update data, handling nullable fields correctly
+    const updateData: any = {};
+    if (bodyValidation.data.name !== undefined) updateData.name = bodyValidation.data.name;
+    if (bodyValidation.data.photoUrl !== undefined) updateData.photoUrl = bodyValidation.data.photoUrl; // Allow null
+    if (bodyValidation.data.birthdate !== undefined) {
+        updateData.birthdate = bodyValidation.data.birthdate ? new Date(bodyValidation.data.birthdate) : null;
+    }
+    if (bodyValidation.data.weight !== undefined) updateData.weight = bodyValidation.data.weight; // Allow null
+    if (bodyValidation.data.restrictions !== undefined) updateData.restrictions = bodyValidation.data.restrictions; // Allow null
+    if (bodyValidation.data.notes !== undefined) updateData.notes = bodyValidation.data.notes; // Allow null
+    if (bodyValidation.data.feedingInterval !== undefined) updateData.feedingInterval = bodyValidation.data.feedingInterval;
+    if (bodyValidation.data.portion_size !== undefined) updateData.portion_size = bodyValidation.data.portion_size;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ message: "Nenhum dado válido para atualizar" }, { status: 400 });
+    }
 
     console.log('Attempting to update cat with data:', updateData);
-    
+
     // Atualizar o gato
     const updatedCat = await prisma.cat.update({
-      where: { id: catId },
+      where: { id: catId }, // Already verified householdId
       data: updateData
     });
-    
+
     console.log('Cat updated successfully:', updatedCat);
-    
+
     // Formatar os dados para a resposta
     const formattedCat = {
-      id: updatedCat.id.toString(),
+      id: updatedCat.id, // Use number or string as needed by frontend
       name: updatedCat.name,
       photoUrl: updatedCat.photoUrl,
       birthdate: updatedCat.birthdate,
@@ -232,113 +211,91 @@ export async function PATCH(
       portion_size: updatedCat.portion_size,
       householdId: updatedCat.householdId
     };
-    
+
     return NextResponse.json(formattedCat);
-  } catch (error: PrismaError) {
+  } catch (error: any) { // Changed PrismaError to any for broader catch
     console.error('Erro ao atualizar gato:', error);
     console.error('Stack trace:', error.stack);
-    
-    if (error.code === 'P2002') {
+
+    if (error.code === 'P2002') { // Prisma specific error code for unique constraint violation
       return NextResponse.json(
         { error: 'Conflito ao atualizar dados do gato' },
         { status: 409 }
       );
     }
-    
-    if (error.code === 'P2025') {
-      return NextResponse.json(
-        { error: 'Gato não encontrado' },
-        { status: 404 }
-      );
-    }
-    
+
+    // P2025 indicates record to update not found, already handled by initial check
+    // if (error.code === 'P2025') {
+    //   return NextResponse.json(
+    //     { error: 'Gato não encontrado' },
+    //     { status: 404 }
+    //   );
+    // }
+
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao atualizar o gato: ' + error.message },
+      { error: 'Ocorreu um erro ao atualizar o gato' },
       { status: 500 }
     );
   }
 }
 
-// DELETE /api/households/[id]/cats/[catId] - Excluir um gato
+// DELETE /api/households/[id]/cats/[catId] - Deletar um gato
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string; catId: string } }
 ) {
+  // Validate route parameters
+  const paramsValidation = RouteParamsSchema.safeParse(params);
+  if (!paramsValidation.success) {
+    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+  }
+
+  const householdId = parseInt(paramsValidation.data.id);
+  const catId = parseInt(paramsValidation.data.catId);
+
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+  // Authorize user
+  const authResult = await authorizeUser(supabaseUser, householdId);
+  if (!authResult.authorized) {
+    return authResult.error!;
+  }
+
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
-    }
-    
-    const householdId = parseInt(params.id);
-    const catId = parseInt(params.catId);
-    
-    if (isNaN(householdId) || isNaN(catId)) {
-      return NextResponse.json(
-        { error: 'IDs inválidos' },
-        { status: 400 }
-      );
-    }
-    
-    // Verificar se o usuário pertence ao domicílio e é administrador
-    const household = await prisma.household.findUnique({
-      where: { id: householdId },
-      include: {
-        users: true
-      }
+     // Fetch the cat first to ensure it exists and belongs to the household
+    const existingCat = await prisma.cat.findUnique({
+      where: { id: catId, householdId: householdId },
     });
-    
-    if (!household) {
+
+    if (!existingCat) {
       return NextResponse.json(
-        { error: 'Domicílio não encontrado' },
+        { error: 'Gato não encontrado neste domicílio' },
         { status: 404 }
       );
     }
-    
-    const userId = parseInt(session.user.id as string);
-    const userInHousehold = household.users.find(user => user.id === userId);
-    
-    if (!userInHousehold) {
-      return NextResponse.json(
-        { error: 'Você não pertence a este domicílio' },
-        { status: 403 }
-      );
-    }
-    
-    // Buscar o gato
-    const cat = await prisma.cat.findUnique({
-      where: { id: catId }
-    });
-    
-    if (!cat) {
-      return NextResponse.json(
-        { error: 'Gato não encontrado' },
-        { status: 404 }
-      );
-    }
-    
-    // Verificar se o gato pertence ao domicílio
-    if (cat.householdId !== householdId) {
-      return NextResponse.json(
-        { error: 'Este gato não pertence ao domicílio especificado' },
-        { status: 400 }
-      );
-    }
-    
-    // Excluir o gato (isso também excluirá as programações associadas)
+
+    // Deletar o gato
     await prisma.cat.delete({
-      where: { id: catId }
+      where: { id: catId } // Already verified householdId
     });
+
+    return NextResponse.json({ message: 'Gato deletado com sucesso' });
+  } catch (error: any) {
+    console.error('Erro ao deletar gato:', error);
+    console.error('Stack trace:', error.stack);
+
+    // P2025 indicates record to delete not found, already handled by initial check
+    // if (error.code === 'P2025') {
+    //   return NextResponse.json(
+    //     { error: 'Gato não encontrado' },
+    //     { status: 404 }
+    //   );
+    // }
     
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Erro ao excluir gato:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao excluir o gato' },
+      { error: 'Ocorreu um erro ao deletar o gato' },
       { status: 500 }
     );
   }

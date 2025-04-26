@@ -29,10 +29,10 @@ export function NotificationItem({
   showActions = false 
 }: NotificationItemProps) {
   const { removeNotification, isLoading, error } = useNotifications();
-  const { id, title, message, type, isRead, createdAt, actionUrl } = notification;
+  const { id, title, message, type, is_read, created_at, metadata } = notification;
   
   // Format the time
-  const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: true });
+  const timeAgo = formatDistanceToNow(new Date(created_at), { addSuffix: true });
   
   // Get the icon based on type
   const getIcon = () => {
@@ -60,7 +60,7 @@ export function NotificationItem({
     console.log(`[NotificationItem] Delete button clicked for notification:`, {
       id,
       title,
-      isRead,
+      is_read,
       type
     });
     try {
@@ -73,43 +73,49 @@ export function NotificationItem({
   const content = (
     <div 
       className={cn(
-        "flex items-start gap-3 p-3 hover:bg-accent cursor-pointer rounded-lg transition-colors",
-        !isRead && "bg-accent/50",
-        isLoading && "opacity-50 pointer-events-none"
+        "flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/50 transition-colors",
+        !is_read && "bg-muted/30"
       )}
-      onClick={onClick}
+      onClick={() => {
+        if (metadata?.action_url) {
+          window.location.href = metadata.action_url;
+        }
+        onClick?.(notification);
+      }}
     >
-      <div className="mt-0.5">{getIcon()}</div>
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between items-start">
-          <h4 className={cn("text-sm font-medium", !isRead && "font-semibold")}>
+      <div className="mt-1">{getIcon()}</div>
+      <div className="flex-1 space-y-1">
+        <div className="flex items-center justify-between gap-4">
+          <p className={cn(
+            "text-sm font-medium leading-none",
+            !is_read && "font-semibold"
+          )}>
             {title}
-          </h4>
-          {showActions && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6 -mt-1 -mr-1 text-muted-foreground hover:text-destructive" 
-              onClick={handleDelete}
-              disabled={isLoading}
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="sr-only">Delete</span>
-            </Button>
-          )}
+          </p>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {timeAgo}
+          </span>
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-2">{message}</p>
-        <p className="text-xs text-muted-foreground mt-1">{timeAgo}</p>
+        <p className="text-sm text-muted-foreground">{message}</p>
       </div>
-      {!isRead && (
-        <div className="w-2 h-2 bg-primary rounded-full mt-1.5" />
+      {showActions && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={handleDelete}
+          disabled={isLoading}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="sr-only">Delete notification</span>
+        </Button>
       )}
     </div>
   );
   
-  if (actionUrl) {
+  if (metadata?.action_url) {
     return (
-      <Link href={actionUrl} className="block">
+      <Link href={metadata.action_url} className="block">
         {content}
       </Link>
     );

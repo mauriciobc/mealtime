@@ -1,16 +1,16 @@
 "use client"
 
 import { useState, useEffect, useCallback, memo, useRef } from "react"
-import { useRouter } from "next/navigation"
-// import { useAppContext } from "@/lib/context/AppContext"; // REMOVED
+import { useRouter, redirect } from "next/navigation"
 import { useTheme } from "next-themes"
-import { useSession, signOut } from "next-auth/react"
 import { toast } from "sonner"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { useUserContext } from "@/lib/context/UserContext"
+import { createClient } from "@/utils/supabase/client"
+import { useHousehold } from "@/lib/context/HouseholdContext"
 
 // Componentes
-import { AppHeader } from "@/components/app-header" // Likely unused here, consider removing if so
+import { AppHeader } from "@/components/app-header"
 import PageTransition from "@/components/page-transition"
 import BottomNav from "@/components/bottom-nav"
 import { AnimatedCard } from "@/components/ui/animated-card"
@@ -35,9 +35,9 @@ import {
   SelectItem, 
   SelectTrigger, 
   SelectValue 
-} from "@/components/ui/select" // Added for Language/Timezone modals
-import { Alert, AlertDescription } from "@/components/ui/alert" // Added for error display
-import { AlertCircle } from "lucide-react" // Added for error display
+} from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle } from "lucide-react"
 
 // Ícones
 import { 
@@ -51,23 +51,15 @@ import {
   Sun, 
   User,
   Mail,
-  Loader2, // Added for loading states
-  Home, // Added for household management
-  Users, // Added for household management
-  Settings2, // Added for household management
-  Trash2 // Added for leave household
+  Loader2,
+  Home,
+  Users,
+  Settings2,
+  Trash2
 } from "lucide-react"
 
 // Tipos
-import { User as UserType, Household } from "@/lib/types" // Assuming User type exists with potential settings
-
-type NotificationSettings = {
-  pushEnabled: boolean
-  emailEnabled: boolean
-  feedingReminders: boolean
-  missedFeedingAlerts: boolean
-  householdUpdates: boolean
-}
+import { User as UserType, Household, NotificationSettings } from "@/lib/types" 
 
 // Default settings (used if not present in user profile)
 const defaultNotificationSettings: NotificationSettings = {
@@ -137,13 +129,14 @@ const SettingsSkeleton = () => (
 
 // Componentes de Seção
 const ProfileSection = memo(({ user, onEditProfile }: { user: UserType | null, onEditProfile: () => void }) => {
-  const { data: session } = useSession();
-  
+  // Simplified: Rely solely on the user prop from UserContext
   const userData = {
-    name: user?.name || session?.user?.name || "Usuário",
-    email: user?.email || session?.user?.email || "email@exemplo.com",
-    avatar: user?.avatar || session?.user?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || session?.user?.name || 'U'}`,
-    role: user?.role || "user"
+    // Use email if name is not directly available on the UserType
+    name: user?.name || user?.email || "Usuário", 
+    email: user?.email || "email@exemplo.com",
+    // Use avatar if available, otherwise generate initials from name or email
+    avatar: user?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || user?.email || 'U'}`, 
+    // role: user?.app_metadata?.role || "user" // REMOVED - Assuming role is not on UserType
   };
 
   return (
@@ -167,11 +160,11 @@ const ProfileSection = memo(({ user, onEditProfile }: { user: UserType | null, o
             <div className="min-w-0 flex-1">
               <h3 className="font-medium truncate">{userData.name}</h3>
               <p className="text-xs text-muted-foreground truncate">{userData.email}</p>
-              {userData.role && (
-                <p className="text-xs text-primary mt-0.5">
-                  {userData.role === "admin" ? "Administrador" : "Usuário"}
+              {/* {userData.role && ( // REMOVED role display
+                <p className=\"text-xs text-primary mt-0.5\">
+                  {userData.role === \"admin\" ? \"Administrador\" : \"Usuário\"}
                 </p>
-              )}
+              )} */}
             </div>
           </div>
           <Button 
@@ -293,9 +286,13 @@ HouseholdSection.displayName = 'HouseholdSection';
 // Main Settings Page Component
 export default function SettingsPage() {
   const router = useRouter();
-  const { state: userState, dispatch: userDispatch } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { data: session, status } = useSession();
+  const userContext = useUserContext(); // Get the whole context object
+  const { state: userState, refetchUser: refetchUserViaContext } = userContext;
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
+  const { state: householdState, dispatch: householdDispatch } = useHousehold();
+  const { households, isLoading: isLoadingHouseholds, error: errorHousehold } = householdState; // Add household loading/error
+  const supabase = createClient(); // Get supabase client instance
   const { theme, setTheme } = useTheme(); // Theme is handled directly here
 
   // Local state for modals
@@ -321,50 +318,90 @@ export default function SettingsPage() {
   // Error state for modals
   const [modalError, setModalError] = useState<string | null>(null);
 
-  const { currentUser, isLoading: isUserLoading, error: userError } = userState;
+  // Use dispatch to update preferences
+  const updatePreferencesViaContext = (updatedPrefs: Partial<UserType['preferences']>) => {
+    if (currentUser) {
+      // Ensure the preferences object matches the required type by providing defaults
+      const currentPrefs = currentUser.preferences ?? { 
+          language: 'pt-BR', // Default language
+          timezone: 'America/Sao_Paulo', // Default timezone
+          notifications: defaultNotificationSettings // Default notifications
+      };
+      
+      const newPrefs: UserType['preferences'] = {
+          language: updatedPrefs.language ?? currentPrefs.language ?? 'pt-BR', // Moved to top level
+          timezone: updatedPrefs.timezone ?? currentPrefs.timezone ?? 'America/Sao_Paulo', // Moved to top level
+          notifications: { // Correctly nested notifications object
+              pushEnabled: updatedPrefs.notifications?.pushEnabled ?? currentPrefs.notifications?.pushEnabled ?? defaultNotificationSettings.pushEnabled,
+              emailEnabled: updatedPrefs.notifications?.emailEnabled ?? currentPrefs.notifications?.emailEnabled ?? defaultNotificationSettings.emailEnabled,
+              feedingReminders: updatedPrefs.notifications?.feedingReminders ?? currentPrefs.notifications?.feedingReminders ?? defaultNotificationSettings.feedingReminders,
+              missedFeedingAlerts: updatedPrefs.notifications?.missedFeedingAlerts ?? currentPrefs.notifications?.missedFeedingAlerts ?? defaultNotificationSettings.missedFeedingAlerts,
+              householdUpdates: updatedPrefs.notifications?.householdUpdates ?? currentPrefs.notifications?.householdUpdates ?? defaultNotificationSettings.householdUpdates,
+          }
+      };
+
+      const updatedUserPayload = { 
+        ...currentUser, 
+        preferences: newPrefs // Use the correctly typed preferences object
+      };    
+
+      userContext.dispatch({ 
+        type: "SET_CURRENT_USER", // Correct action type
+        payload: updatedUserPayload 
+      });
+    }
+  };
+
+  // Refresh user data (assuming this exists in context)
+  const refreshUserViaContext = () => {
+    // Re-setting the current user might be the way to trigger updates
+    // if no dedicated refresh action exists.
+    if (currentUser) {
+      userContext.dispatch({ type: "SET_CURRENT_USER", payload: currentUser }); // Correct action type
+    }
+  };
 
   // Fetch household details when user data is available and they have a householdId
   useEffect(() => {
     const fetchHouseholdDetails = async () => {
-      if (currentUser?.householdId) {
-        setIsHouseholdLoading(true);
-        setModalError(null); // Clear previous errors
-        const opId = `fetch-household-${currentUser.householdId}`;
-        addLoadingOperation({ id: opId, priority: 2, description: "Carregando detalhes da residência..." });
-        try {
-          // Assume an API endpoint exists to fetch household by ID
-          const response = await fetch(`/api/households/${currentUser.householdId}`);
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Falha ao carregar detalhes da residência. Status: ${response.status}`);
-          }
-          const data = await response.json();
-          setHouseholdDetails(data.household); // Assuming API returns { household: Household }
-        } catch (error: any) {
-          console.error("Erro ao carregar detalhes da residência:", error);
-          toast.error(`Erro ao carregar residência: ${error.message}`);
-          // Don't set modalError here, it's not a modal operation error
-          setHouseholdDetails(null); // Clear potentially stale data
-        } finally {
-          setIsHouseholdLoading(false);
-          removeLoadingOperation(opId);
+      if (!currentUser?.householdId) return;
+      setIsHouseholdLoading(true);
+      setModalError(null); 
+      const opId = `fetch-household-${currentUser.householdId}`;
+      addLoadingOperation({ id: opId, priority: 2, description: "Carregando detalhes da residência..." }); // Reverted
+      try {
+        const response = await fetch(`/api/households/${currentUser.householdId}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Falha ao carregar detalhes da residência. Status: ${response.status}`);
         }
-      } else {
-        setHouseholdDetails(null); // Reset if user has no householdId
+        const data = await response.json();
+        setHouseholdDetails(data.household); // Assuming API returns { household: Household }
+      } catch (error: any) {
+        console.error("Erro ao carregar detalhes da residência:", error);
+        toast.error(`Erro ao carregar residência: ${error.message}`);
+        // Don't set modalError here, it's not a modal operation error
+        setHouseholdDetails(null); // Clear potentially stale data
+      } finally {
+        setIsHouseholdLoading(false);
+        removeLoadingOperation(opId); // Reverted
       }
     };
 
     fetchHouseholdDetails();
-  }, [currentUser?.householdId, addLoadingOperation, removeLoadingOperation]);
+  }, [currentUser?.householdId, addLoadingOperation, removeLoadingOperation]); // Reverted
 
   // Initialize edit states when modals open or user data loads
   useEffect(() => {
     if (currentUser) {
       setEditName(currentUser.name || "");
       setEditAvatar(currentUser.avatar || "");
-      setEditLanguage(currentUser.preferences?.language || "pt-BR");
-      setEditTimezone(currentUser.preferences?.timezone || "America/Sao_Paulo");
-      setEditNotifications(currentUser.preferences?.notifications || defaultNotificationSettings);
+      // Use NonNullable to ensure preferences object exists before accessing its properties
+      // Provide default values if preferences or its properties are null/undefined
+      const prefs = currentUser.preferences ?? { language: 'pt-BR', timezone: 'America/Sao_Paulo', notifications: defaultNotificationSettings };
+      setEditLanguage(prefs.language || "pt-BR");
+      setEditTimezone(prefs.timezone || "America/Sao_Paulo");
+      setEditNotifications(prefs.notifications || defaultNotificationSettings);
     }
   }, [currentUser]);
 
@@ -407,42 +444,29 @@ export default function SettingsPage() {
     setModalError(null);
     let success = false;
     try {
-      console.log(`[handleSave:${operation}] Initiating save...`, { endpoint, payload }); // LOG: Start
       const response = await fetch(endpoint, {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      console.log(`[handleSave:${operation}] Response status: ${response.status}`, response); // LOG: Response Status
-
       if (!response.ok) {
-        let errorData = {};
-        try {
-          errorData = await response.json();
-          console.error(`[handleSave:${operation}] API Error Data:`, errorData); // LOG: API Error Body
-        } catch (jsonError) {
-            console.error(`[handleSave:${operation}] Failed to parse error JSON:`, jsonError); // LOG: JSON Parse Error
-            errorData = { error: await response.text() }; // Fallback to text
-        }
-        throw new Error((errorData as any).error || `Falha ao salvar ${operation}. Status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Falha ao salvar");
       }
 
       const updatedUser = await response.json();
-      console.log(`[handleSave:${operation}] Response JSON (updatedUser):`, updatedUser); // LOG: Response Body
-      
-      // Check if the expected structure is present
-      if (!updatedUser || !updatedUser.user) {
-        console.error(`[handleSave:${operation}] Error: API response missing 'user' key.`, updatedUser);
-        throw new Error(`Resposta inesperada da API ao salvar ${operation}.`);
+      if (updatedUser && updatedUser.user) {
+        // Use dispatch to update user state in context
+        userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedUser.user }); // Correct action type
+        toast.success(successMessage);
+        success = true;
+      } else {
+        throw new Error("Resposta inválida do servidor");
       }
-
-      userDispatch({ type: "SET_CURRENT_USER", payload: updatedUser.user }); // Update context
-      toast.success(successMessage);
-      success = true;
     } catch (error: any) {
-      console.error(`[handleSave:${operation}] Error caught:`, error); // LOG: Catch Block
-      toast.error(`Erro: ${error.message}`);
+      console.error(`Error saving ${operation}:`, error);
+      toast.error(`Erro ao salvar ${operation}: ${error.message}`);
       setModalError(error.message);
     } finally {
       removeLoadingOperation(opId);
@@ -452,12 +476,12 @@ export default function SettingsPage() {
   
    // Household Specific Actions
   const handleJoinHousehold = async () => {
-    if (!householdCode) {
-        setModalError("Por favor, insira o código da residência.");
-        return;
+    if (!householdCode.trim()) {
+      setModalError("Por favor, insira o código da residência.");
+      return;
     }
     const opId = `join-household-${Date.now()}`;
-    addLoadingOperation({ id: opId, priority: 1, description: "Entrando na residência..." });
+    addLoadingOperation({ id: opId, priority: 1, description: "Entrando na residência..." }); // Reverted
     setModalError(null);
     try {
       const response = await fetch('/api/households/join', {
@@ -470,7 +494,8 @@ export default function SettingsPage() {
         throw new Error(errorData.error || `Falha ao entrar na residência. Status: ${response.status}`);
       }
       const updatedData = await response.json();
-      userDispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Update user with new householdId
+      // userDispatch({ type: \"SET_CURRENT_USER\", payload: updatedData.user }); // Update user with new householdId
+      userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Use dispatch
       // Potentially refresh other contexts if needed (cats, schedules, etc.)
       toast.success("Você entrou na residência com sucesso!");
       setIsHouseholdModalOpen(false);
@@ -479,17 +504,17 @@ export default function SettingsPage() {
       toast.error(`Erro: ${error.message}`);
       setModalError(error.message);
     } finally {
-      removeLoadingOperation(opId);
+      removeLoadingOperation(opId); // Reverted
     }
   };
 
   const handleCreateHousehold = async () => {
-      if (!newHouseholdName) {
+      if (!newHouseholdName.trim()) {
           setModalError("Por favor, insira um nome para a nova residência.");
           return;
       }
       const opId = `create-household-${Date.now()}`;
-      addLoadingOperation({ id: opId, priority: 1, description: "Criando residência..." });
+      addLoadingOperation({ id: opId, priority: 1, description: "Criando residência..." }); // Reverted
       setModalError(null);
       try {
           const response = await fetch('/api/households', {
@@ -502,7 +527,8 @@ export default function SettingsPage() {
               throw new Error(errorData.error || `Falha ao criar residência. Status: ${response.status}`);
           }
           const updatedData = await response.json();
-          userDispatch({ type: "SET_CURRENT_USER", payload: updatedData.user });
+          // userDispatch({ type: \"SET_CURRENT_USER\", payload: updatedData.user });
+          userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Use dispatch
           // Potentially refresh other contexts
           toast.success("Residência criada com sucesso!");
           setIsHouseholdModalOpen(false);
@@ -511,14 +537,14 @@ export default function SettingsPage() {
           toast.error(`Erro: ${error.message}`);
           setModalError(error.message);
       } finally {
-          removeLoadingOperation(opId);
+          removeLoadingOperation(opId); // Reverted
       }
   };
   
   const handleLeaveHousehold = async () => {
     if (!currentUser?.householdId) return;
     const opId = `leave-household-${Date.now()}`;
-    addLoadingOperation({ id: opId, priority: 1, description: "Saindo da residência..." });
+    addLoadingOperation({ id: opId, priority: 1, description: "Saindo da residência..." }); // Reverted
     setModalError(null);
     try {
       const response = await fetch(`/api/households/${currentUser.householdId}/leave`, {
@@ -529,7 +555,8 @@ export default function SettingsPage() {
         throw new Error(errorData.error || `Falha ao sair da residência. Status: ${response.status}`);
       }
       const updatedData = await response.json();
-      userDispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // User without householdId
+      // userDispatch({ type: \"SET_CURRENT_USER\", payload: updatedData.user }); // User without householdId
+      userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Use dispatch
        // Clear other contexts tied to household (cats, schedules, etc.) - This needs robust implementation
        // Example: dispatch({ type: 'RESET_STATE' }) in relevant contexts
       toast.success("Você saiu da residência.");
@@ -540,7 +567,7 @@ export default function SettingsPage() {
       toast.error(`Erro: ${error.message}`);
       // Don't set modalError here as the confirm dialog closes on action
     } finally {
-      removeLoadingOperation(opId);
+      removeLoadingOperation(opId); // Reverted
     }
   };
 
@@ -581,67 +608,72 @@ export default function SettingsPage() {
   };
   
   const handleLogout = async () => {
-    const opId = "logout";
-    addLoadingOperation({ id: opId, priority: 1, description: "Saindo..." });
+    const opId = "logout-op"; // Give operation a unique ID
+    addLoadingOperation({ id: opId, priority: 1, description: "Logging out..." }); 
     try {
-      await signOut({ redirect: true, callbackUrl: "/login" });
-      toast.success("Logout realizado com sucesso!");
-      // Clear user context? NextAuth likely handles session clearance
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast.error("Erro ao fazer logout.");
+      const { error } = await supabase.auth.signOut(); // Use Supabase signout
+      if (error) {
+        throw error;
+      }
+      // Clear user context state after successful Supabase logout
+      userContext.dispatch({ type: 'CLEAR_USER' }); // Correct action type
+      
+      toast.success("Logout realizado com sucesso!"); 
+      router.push('/login'); // Redirect to login page
+    } catch (error: any) {
+      console.error("Error during logout:", error);
+      toast.error(`Erro ao fazer logout: ${error.message}`); 
     } finally {
-      removeLoadingOperation(opId);
+      removeLoadingOperation(opId); 
     }
   };
 
-  // Loading and Error States
-  if (status === "loading" || isUserLoading) {
+  // Derived state for easier checks
+  const isLoading = isLoadingUser || isLoadingHouseholds;
+  const combinedError = errorUser || errorHousehold;
+
+  // Main Render
+  if (isLoading) {
     return (
       <SettingsLayout>
         <SettingsSkeleton />
       </SettingsLayout>
     );
   }
-  
-   if (status === "unauthenticated") {
-    router.replace("/login?callbackUrl=/settings"); // Redirect to login
+
+  if (combinedError) {
     return (
-       <SettingsLayout>
-        <Loading text="Redirecionando para login..." />
-      </SettingsLayout>
-    );
-  }
-  
-  // Handle error from UserContext
-  if (userError) {
-     return (
       <SettingsLayout>
-        <div className="text-center p-6">
-           <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                  Erro ao carregar dados do usuário: {userError}
-              </AlertDescription>
-            </Alert>
+        <div className="text-center p-4">
+           <Alert variant="destructive" className="max-w-md mx-auto">
+             <AlertCircle className="h-4 w-4" />
+             <AlertDescription>
+                Erro ao carregar configurações: {combinedError}. Tente recarregar a página.
+             </AlertDescription>
+           </Alert>
+            <Button onClick={() => window.location.reload()} variant="outline" className="mt-4">Recarregar</Button>
         </div>
       </SettingsLayout>
     );
   }
   
-   if (!currentUser) {
-     // This case might indicate an issue if status is authenticated but user is null
-     console.error("SettingsPage: Authenticated status but currentUser is null.");
-     return (
-        <SettingsLayout>
-           <div className="text-center p-6">
-              <p>Não foi possível carregar os dados do usuário. Tente recarregar a página.</p>
-           </div>
-        </SettingsLayout>
-     );
-   }
+  if (!currentUser) {
+    console.log("[SettingsPage] No currentUser found. Redirecting...");
+    useEffect(() => {
+        toast.error("Autenticação necessária para acessar as configurações.");
+        router.replace("/login?callbackUrl=/settings");
+    }, [router]);
+    return <Loading text="Redirecionando para login..." />;
+  }
 
-  // Main Render
+  // Redirect if user is loaded but has no household
+  if (!isLoading && !combinedError && currentUser && !currentUser.householdId) {
+    console.log("[SettingsPage] User has no household. Redirecting to /households...");
+    redirect("/households"); 
+    // Although redirect should prevent rendering, returning null is a safeguard
+    return null;
+  }
+
   return (
     <SettingsLayout>
       {/* Profile Section */}
@@ -672,7 +704,7 @@ export default function SettingsPage() {
         variant="destructive"
         className="w-full mt-6"
         onClick={handleLogout}
-        disabled={isUserLoading} // Only disable if user data is loading
+        disabled={isLoading} // Only disable if user data is loading
       >
         <LogOut className="mr-2 h-4 w-4" />
         Sair

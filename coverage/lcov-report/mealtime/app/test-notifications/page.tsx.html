@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/78</span>
+                <span class='fraction'>0/72</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/50</span>
+                <span class='fraction'>0/45</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/77</span>
+                <span class='fraction'>0/71</span>
             </div>
         
             
@@ -371,23 +371,7 @@
 <a name='L306'></a><a href='#L306'>306</a>
 <a name='L307'></a><a href='#L307'>307</a>
 <a name='L308'></a><a href='#L308'>308</a>
-<a name='L309'></a><a href='#L309'>309</a>
-<a name='L310'></a><a href='#L310'>310</a>
-<a name='L311'></a><a href='#L311'>311</a>
-<a name='L312'></a><a href='#L312'>312</a>
-<a name='L313'></a><a href='#L313'>313</a>
-<a name='L314'></a><a href='#L314'>314</a>
-<a name='L315'></a><a href='#L315'>315</a>
-<a name='L316'></a><a href='#L316'>316</a>
-<a name='L317'></a><a href='#L317'>317</a>
-<a name='L318'></a><a href='#L318'>318</a>
-<a name='L319'></a><a href='#L319'>319</a>
-<a name='L320'></a><a href='#L320'>320</a>
-<a name='L321'></a><a href='#L321'>321</a>
-<a name='L322'></a><a href='#L322'>322</a>
-<a name='L323'></a><a href='#L323'>323</a>
-<a name='L324'></a><a href='#L324'>324</a>
-<a name='L325'></a><a href='#L325'>325</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L309'></a><a href='#L309'>309</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -491,27 +475,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -813,36 +781,20 @@ interface LogEntry {
 <span class="cstat-no" title="statement not covered" >      return;</span>
     }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!userState.currentUser?.householdId) {</span>
-      const errorMsg = <span class="cstat-no" title="statement not covered" >"Usuário não pertence a nenhuma casa";</span>
-<span class="cstat-no" title="statement not covered" >       console.error(`[TestNotificationsPage] Household check failed: ${errorMsg}`);</span>
-<span class="cstat-no" title="statement not covered" >      toast.error(errorMsg);</span>
-<span class="cstat-no" title="statement not covered" >      addLog({</span>
-        timestamp: new Date(),
-        type,
-        title,
-        message,
-        status: "error",
-        details: {
-          error: errorMsg,
-          context: { currentUser: userState.currentUser }
-        }
-      });
-<span class="cstat-no" title="statement not covered" >      return;</span>
-    }
-&nbsp;
 <span class="cstat-no" title="statement not covered" >    console.log("[TestNotificationsPage] Setting loading state to true");</span>
 <span class="cstat-no" title="statement not covered" >    setIsLoading(true);</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    try {</span>
-      const payload: CreateNotificationPayload = <span class="cstat-no" title="statement not covered" >{</span>
+      const payload: Omit&lt;CreateNotificationPayload, 'userId' | 'householdId'&gt; = <span class="cstat-no" title="statement not covered" >{</span>
         type,
         title,
         message,
-        userId: userState.currentUser.id,
-        householdId: userState.currentUser.householdId
+        metadata: { 
+            // Include any relevant metadata if needed, e.g., action_url
+            // icon: getIconForType(type) // Example if you have such a function
+        }
       };
-<span class="cstat-no" title="statement not covered" >      console.log("[TestNotificationsPage] Calling createNotification service with payload:", payload);</span>
+<span class="cstat-no" title="statement not covered" >      console.log("[TestNotificationsPage] Calling createNotification service with simplified payload:", payload);</span>
 &nbsp;
       const response = <span class="cstat-no" title="statement not covered" >await createNotification(payload);</span>
 <span class="cstat-no" title="statement not covered" >      console.log("[TestNotificationsPage] createNotification service responded:", response);</span>
@@ -876,10 +828,10 @@ interface LogEntry {
         status: "error",
         details: {
           error: errorMsg,
-          errorObject: error, // Log the full error object
+          errorObject: error,
           context: {
             currentUser: userState.currentUser,
-            payload: { type, title, message } // Log input payload on error
+            payload: { type, title, message }
           }
         }
       });
@@ -1042,7 +994,7 @@ interface LogEntry {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-10T22:37:47.696Z
+                at 2025-04-26T18:04:12.670Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import type { TimelineEventData, EventType } from "@/components/cat-timeline"
 import { cn } from "@/lib/utils"
+import Image from "next/image"
 
 interface TimelineEventProps {
   event: TimelineEventData
@@ -116,10 +117,12 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
                 whileHover={{ rotate: [0, -5, 5, -5, 0] }}
                 transition={{ duration: 0.5 }}
               >
-                <img
+                <Image
                   src={event.catAvatar || "/placeholder.svg"}
                   alt="Cat"
-                  className="w-10 h-10 rounded-full border-2 border-slate-200 dark:border-slate-700"
+                  width={40}
+                  height={40}
+                  className="rounded-full border-2 border-slate-200 dark:border-slate-700"
                 />
               </motion.div>
               <div className="flex-1">

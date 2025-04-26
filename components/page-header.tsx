@@ -31,27 +31,9 @@ export function PageHeader({
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6 pb-4 border-b"
+      className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6 pb-4 border-b"
     >
-      {actionLabel && (
-        <div className="sm:order-1">
-          {actionHref ? (
-            <Link href={actionHref} passHref>
-              <Button variant={actionVariant} size="icon" className="flex items-center justify-center w-10 h-10">
-                {actionIcon}
-                <span className="sr-only">{actionLabel}</span>
-              </Button>
-            </Link>
-          ) : (
-            <Button variant={actionVariant} size="icon" onClick={actionOnClick} className="flex items-center justify-center w-10 h-10">
-              {actionIcon}
-              <span className="sr-only">{actionLabel}</span>
-            </Button>
-          )}
-        </div>
-      )}
-
-      <div className="flex items-center gap-3 flex-1 sm:order-2">
+      <div className="flex items-center gap-3 flex-1">
         {icon && <div className="text-primary">{icon}</div>}
         <div>
           <h1 className="text-2xl font-bold">{title}</h1>
@@ -60,6 +42,24 @@ export function PageHeader({
           )}
         </div>
       </div>
+
+      {actionLabel && (
+        <div className="flex-shrink-0">
+          {actionHref ? (
+            <Link href={actionHref} passHref>
+              <Button variant={actionVariant} size="sm">
+                {actionIcon && <span className="mr-2">{actionIcon}</span>}
+                {actionLabel}
+              </Button>
+            </Link>
+          ) : (
+            <Button variant={actionVariant} size="sm" onClick={actionOnClick}>
+              {actionIcon && <span className="mr-2">{actionIcon}</span>}
+              {actionLabel}
+            </Button>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 } 

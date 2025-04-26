@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -32,6 +33,14 @@ export function EmptyState({
   className,
   variant = "default",
 }: EmptyStateProps) {
+  // Add a check for the Icon component
+  if (!Icon) {
+    console.error("EmptyState received an undefined icon prop. Title:", title);
+    // Optionally return null or a fallback UI
+    return null; 
+    // Or return <p>Error: Icon missing for '{title}'</p>;
+  }
+
   // Cores baseadas na variante
   const getVariantStyles = () => {
     switch (variant) {
@@ -96,9 +105,13 @@ export function EmptyState({
         {actionLabel && (
           <Button
             onClick={actionOnClick}
-            {...(actionHref && { asChild: true })}
+            asChild
           >
-            {actionHref ? <a href={actionHref}>{actionLabel}</a> : actionLabel}
+            {actionHref ? (
+              <Link href={actionHref}>{actionLabel}</Link>
+            ) : (
+              <span>{actionLabel}</span>
+            )}
           </Button>
         )}
 
@@ -106,12 +119,12 @@ export function EmptyState({
           <Button
             variant="outline"
             onClick={secondaryActionOnClick}
-            {...(secondaryActionHref && { asChild: true })}
+            asChild
           >
             {secondaryActionHref ? (
-              <a href={secondaryActionHref}>{secondaryActionLabel}</a>
+              <Link href={secondaryActionHref}>{secondaryActionLabel}</Link>
             ) : (
-              secondaryActionLabel
+              <span>{secondaryActionLabel}</span>
             )}
           </Button>
         )}

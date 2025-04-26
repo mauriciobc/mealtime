@@ -100,36 +100,20 @@ export default function TestNotificationsPage() {
       return;
     }
 
-    if (!userState.currentUser?.householdId) {
-      const errorMsg = "Usuário não pertence a nenhuma casa";
-       console.error(`[TestNotificationsPage] Household check failed: ${errorMsg}`);
-      toast.error(errorMsg);
-      addLog({
-        timestamp: new Date(),
-        type,
-        title,
-        message,
-        status: "error",
-        details: {
-          error: errorMsg,
-          context: { currentUser: userState.currentUser }
-        }
-      });
-      return;
-    }
-
     console.log("[TestNotificationsPage] Setting loading state to true");
     setIsLoading(true);
 
     try {
-      const payload: CreateNotificationPayload = {
+      const payload: Omit<CreateNotificationPayload, 'userId' | 'householdId'> = {
         type,
         title,
         message,
-        userId: userState.currentUser.id,
-        householdId: userState.currentUser.householdId
+        metadata: { 
+            // Include any relevant metadata if needed, e.g., action_url
+            // icon: getIconForType(type) // Example if you have such a function
+        }
       };
-      console.log("[TestNotificationsPage] Calling createNotification service with payload:", payload);
+      console.log("[TestNotificationsPage] Calling createNotification service with simplified payload:", payload);
 
       const response = await createNotification(payload);
       console.log("[TestNotificationsPage] createNotification service responded:", response);
@@ -163,10 +147,10 @@ export default function TestNotificationsPage() {
         status: "error",
         details: {
           error: errorMsg,
-          errorObject: error, // Log the full error object
+          errorObject: error,
           context: {
             currentUser: userState.currentUser,
-            payload: { type, title, message } // Log input payload on error
+            payload: { type, title, message }
           }
         }
       });

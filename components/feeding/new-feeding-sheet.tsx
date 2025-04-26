@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { format, addHours, isToday, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,8 +42,10 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Clock, Bell, Cat as CatIcon, Utensils, X, CheckCircle, Users } from "lucide-react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
 interface NewFeedingSheetProps {
   isOpen: boolean;
@@ -62,7 +63,6 @@ export function NewFeedingSheet({
   const { state: catsState } = useCats();
   const { state: feedingState, dispatch: feedingDispatch } = useFeeding();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { data: session, status } = useSession();
   const { currentUser } = userState;
   const { cats, isLoading: isLoadingCats } = catsState;
   const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
@@ -71,6 +71,7 @@ export function NewFeedingSheet({
   const [portions, setPortions] = useState<{ [key: string]: string }>({});
   const [notes, setNotes] = useState<{ [key: string]: string }>({});
   const [feedingStatus, setFeedingStatus] = useState<{ [key: string]: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }>({});
+  const [mealTypes, setMealTypes] = useState<{ [key: string]: "dry" | "wet" | "treat" | "medicine" | "water" }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -89,11 +90,45 @@ export function NewFeedingSheet({
     { value: "Outro", label: "Outro (ver notas)" },
   ];
 
+  const mealTypeOptions = [
+    { value: "dry", label: "Ração Seca" },
+    { value: "wet", label: "Ração Úmida" },
+    { value: "treat", label: "Petisco" },
+    { value: "medicine", label: "Medicamento" },
+    { value: "water", label: "Água" },
+  ];
+
   const householdCats = useMemo(() => {
     if (isLoadingCats || !cats || !currentUser?.householdId) {
+      // --- DEBUG --- 
+      console.log('[NewFeedingSheet useMemo] Guard clause triggered:', { isLoadingCats, hasCats: !!cats, currentUserHouseholdId: currentUser?.householdId });
+      // --- END DEBUG ---
       return [];
     }
-    return cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));
+
+    const userHouseholdIdStr = String(currentUser.householdId);
+
+    // --- DEBUG ---
+    console.log(`[NewFeedingSheet useMemo] User Household ID: '${userHouseholdIdStr}'`);
+    console.log('[NewFeedingSheet useMemo] Cats from context:', cats);
+    // --- END DEBUG ---
+
+    const filteredCats = cats.filter(cat => {
+      const catHouseholdIdStr = String(cat.householdId);
+      const match = catHouseholdIdStr === userHouseholdIdStr;
+      // --- DEBUG ---
+      if (!match) {
+        console.warn(`[NewFeedingSheet useMemo] Mismatch: Cat ID '${cat.id}' Household '${catHouseholdIdStr}' !== User Household '${userHouseholdIdStr}'`);
+      }
+      // --- END DEBUG ---
+      return match;
+    });
+
+    // --- DEBUG ---
+    console.log('[NewFeedingSheet useMemo] Filtered cats:', filteredCats);
+    // --- END DEBUG ---
+
+    return filteredCats;
   }, [cats, isLoadingCats, currentUser]);
 
   useEffect(() => {
@@ -110,9 +145,11 @@ export function NewFeedingSheet({
       if (initialCatIdStr && householdCats.some(cat => cat.id === initialCatIdStr)) {
           setSelectedCats([initialCatIdStr]);
           setFeedingStatus({ [initialCatIdStr]: "Normal" });
+          setMealTypes({ [initialCatIdStr]: "dry" }); // Default to dry food
       } else {
           setSelectedCats([]);
           setFeedingStatus({});
+          setMealTypes({});
       }
       
     } else {
@@ -120,10 +157,11 @@ export function NewFeedingSheet({
       setPortions({});
       setNotes({});
       setFeedingStatus({});
+      setMealTypes({});
       setIsSubmitting(false);
       setError(null);
     }
-  }, [isOpen, householdCats, initialCatId]);
+  }, [isOpen, householdCats, initialCatId, cats]);
 
   const formatRelativeTime = useCallback((utcDateTime: Date | string | null | undefined) => {
     if (!utcDateTime) return "Nunca";
@@ -186,69 +224,67 @@ export function NewFeedingSheet({
     setFeedingStatus(prev => ({ ...prev, [catId]: value as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }));
   }, []);
 
+  const handleMealTypeChange = (catId: string, value: "dry" | "wet" | "treat" | "medicine" | "water") => {
+    setMealTypes(prev => ({ ...prev, [catId]: value }));
+  };
+
   const handleSubmit = async () => {
-    if (!currentUser?.id || !currentUser?.householdId) {
-      toast.error("Erro: Usuário ou residência não identificados.");
-      return;
-    }
     if (selectedCats.length === 0) {
-      toast.info("Seleção Necessária", { description: "Selecione pelo menos um gato para registrar a alimentação." });
+      toast.error("Selecione pelo menos um gato");
       return;
     }
 
-    const opId = "submit-feeding-sheet";
-    addLoadingOperation({ id: opId, description: "Registrando...", priority: 1 });
+    const opId = "submit-feeding-logs";
     setIsSubmitting(true);
     setError(null);
-    const currentUserId = currentUser.id;
-    const timestamp = new Date();
+    addLoadingOperation({ id: opId, description: "Registrando alimentações..." });
 
-    const logsToCreate: Omit<FeedingLog, 'id' | 'user' | 'cat' | 'createdAt'>[] = [];
+    const timestamp = new Date();
+    const logsToCreate = [];
     let validationError = null;
 
     for (const catId of selectedCats) {
-      const cat = householdCats.find(c => c.id === catId);
-      if (!cat) {
-          validationError = `Gato selecionado com ID '${catId}' não encontrado na lista.`;
+      const portion = portions[catId];
+      const note = notes[catId] || "";
+      const status = feedingStatus[catId] || "Normal";
+      const mealType = mealTypes[catId] || "dry";
+      
+      // Validate portion size
+      let portionNum = null;
+      if (portion) {
+        portionNum = parseFloat(portion);
+        if (isNaN(portionNum) || portionNum < 0) {
+          validationError = `Porção inválida para ${householdCats.find(c => c.id === catId)?.name}`;
           break;
+        }
       }
 
-      const portionStr = portions[catId] ?? "";
-      const status = feedingStatus[catId] ?? "Normal";
-      const note = notes[catId] ?? null;
-
-      let portionNum: number | null = null;
-      if (portionStr) {
-          const parsed = parseFloat(portionStr);
-          if (!Number.isFinite(parsed) || parsed < 0 || parsed > 1000) {
-              validationError = `Porção inválida (${portionStr}) para ${cat.name}. Use um número não negativo (até 1000) ou deixe em branco.`;
-              break;
-          }
-          portionNum = parsed;
-      }
-
+      // Create payload matching FeedingBatchSchema
       logsToCreate.push({
-        catId: catId,
-        userId: currentUserId,
-        timestamp: timestamp,
-        portionSize: portionNum,
-        status: status,
-        notes: note?.trim() || null,
+        catId,
+        portionSize: portionNum || 0,
+        timestamp: timestamp.toISOString(),
+        notes: note,
+        status,
+        mealType,
+        unit: 'g'
       });
     }
 
     if (validationError) {
-        toast.error("Erro de Validação", { description: validationError });
-        setError(validationError);
-        setIsSubmitting(false);
-        removeLoadingOperation(opId);
-        return;
+      toast.error("Erro de Validação", { description: validationError });
+      setError(validationError);
+      setIsSubmitting(false);
+      removeLoadingOperation(opId);
+      return;
     }
 
     try {
       const response = await fetch("/api/feedings/batch", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({ logs: logsToCreate }),
       });
 
@@ -257,18 +293,14 @@ export function NewFeedingSheet({
         throw new Error(errorData.error || `Falha ao registrar (${response.status})`);
       }
 
-      const createdLogs: FeedingLog[] = await response.json();
+      const result = await response.json();
+      
+      // Trigger a refetch since we only get a count back
+      if (userState.refetchUser) {
+        await userState.refetchUser();
+      }
 
-      createdLogs.forEach(log => {
-        const logToDispatch = { 
-            ...log, 
-            timestamp: new Date(log.timestamp),
-            createdAt: new Date(log.createdAt || log.timestamp)
-        };
-        feedingDispatch({ type: "ADD_FEEDING", payload: logToDispatch });
-      });
-
-      toast.success(`Alimentação registrada para ${createdLogs.length} ${createdLogs.length === 1 ? 'gato' : 'gatos'}.`);
+      toast.success(`${result.count} ${result.count === 1 ? 'alimentação registrada' : 'alimentações registradas'} com sucesso!`);
       onOpenChange(false);
 
     } catch (err: any) {
@@ -282,103 +314,141 @@ export function NewFeedingSheet({
   };
 
   const catListItems = useMemo(() => {
-    if (isLoadingCats) {
-        return <Loading text="Carregando gatos..." />; 
+    if (isLoadingCats || !householdCats) {
+      return <Loading />;
     }
-    if (!householdCats || householdCats.length === 0) {
+
+    if (householdCats.length === 0) {
       return (
-        <EmptyState 
+        <EmptyState
+          icon={<Users className="h-12 w-12" />}
           title="Nenhum gato encontrado"
-          description="Cadastre um gato para poder registrar alimentações."
-          actionLabel="Cadastrar Gato"
-          actionHref="/cats/new"
-          size="sm"
+          description="Você ainda não tem gatos cadastrados."
+          action={
+            <Button asChild>
+              <Link href="/cats">Cadastrar Gato</Link>
+            </Button>
+          }
         />
       );
     }
-    
+
     return householdCats.map((cat) => {
-      const lastLog = getLastFeedingLog(cat.id);
-      const timeSinceLastFed = formatRelativeTime(lastLog?.timestamp);
       const isSelected = selectedCats.includes(cat.id);
+      const lastFeeding = getLastFeedingLog(cat.id);
+      const portion = portions[cat.id] || "";
+      const status = feedingStatus[cat.id] || "Normal";
+      const mealType = mealTypes[cat.id] || "dry";
+      const note = notes[cat.id] || "";
 
       return (
         <motion.div
           key={cat.id}
-          layout
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className={cn(
-            "flex items-center gap-4 p-3 rounded-lg border transition-colors cursor-pointer",
-            isSelected ? "bg-muted border-primary" : "border-transparent hover:bg-muted/50"
-          )}
-          onClick={() => toggleCatSelection(cat.id)}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.2 }}
         >
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => toggleCatSelection(cat.id)}
-            aria-label={`Selecionar ${cat.name}`}
-            className="flex-shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <Avatar className="h-10 w-10">
-            <AvatarImage src={cat.photoUrl || undefined} alt={cat.name} />
-            <AvatarFallback>{cat.name.substring(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div className="flex-grow min-w-0">
-            <p className="font-medium truncate">{cat.name}</p>
-            <p className="text-xs text-muted-foreground">
-              Última vez: {timeSinceLastFed}
-            </p>
-          </div>
-          {isSelected && (
-            <motion.div 
-              initial={{ opacity: 0, width: 0 }}
-              animate={{ opacity: 1, width: "auto" }}
-              exit={{ opacity: 0, width: 0 }}
-              className="flex items-center gap-2 pl-2 overflow-hidden flex-shrink-0"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Input
-                type="number"
-                placeholder="Grama(s)"
-                value={portions[cat.id] || ""}
-                onChange={(e) => handlePortionChange(cat.id, e.target.value)}
-                min="0"
-                step="1"
-                className="h-8 w-24 text-xs appearance-none m-0 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                aria-label={`Porção para ${cat.name}`}
-              />
-              <Select 
-                value={feedingStatus[cat.id] || "Normal"}
-                onValueChange={(value) => handleStatusChange(cat.id, value)}
-              >
-                <SelectTrigger className="h-8 w-[110px] text-xs">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value} className="text-xs">
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-               <Input
-                type="text"
-                placeholder="Notas..."
-                value={notes[cat.id] || ""}
-                onChange={(e) => handleNotesChange(cat.id, e.target.value)}
-                className="h-8 w-24 text-xs"
-                aria-label={`Notas para ${cat.name}`}
-              />
-            </motion.div>
-          )}
+          <Card className={cn(
+            "relative overflow-hidden transition-colors",
+            isSelected ? "border-primary" : "hover:border-muted-foreground/50"
+          )}>
+            <CardContent className="p-6">
+              <div className="flex items-start gap-4">
+                <Checkbox
+                  id={`cat-${cat.id}`}
+                  checked={isSelected}
+                  onCheckedChange={() => toggleCatSelection(cat.id)}
+                  className="mt-1"
+                />
+                <div className="flex-grow space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={cat.photoUrl || ""} alt={cat.name} />
+                        <AvatarFallback>
+                          <CatIcon className="h-6 w-6" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h3 className="font-medium leading-none">{cat.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Última refeição: {formatRelativeTime(lastFeeding?.timestamp)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="space-y-4"
+                    >
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <Label htmlFor={`portion-${cat.id}`}>Porção (g)</Label>
+                          <Input
+                            id={`portion-${cat.id}`}
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={portion}
+                            onChange={(e) => handlePortionChange(cat.id, e.target.value)}
+                            placeholder={cat.portion_size?.toString() || "0"}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor={`status-${cat.id}`}>Status</Label>
+                          <Select value={status} onValueChange={(value) => handleStatusChange(cat.id, value as any)}>
+                            <SelectTrigger id={`status-${cat.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statusOptions.map(option => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1">
+                          <Label htmlFor={`meal-type-${cat.id}`}>Tipo de Refeição</Label>
+                          <Select value={mealType} onValueChange={(value) => handleMealTypeChange(cat.id, value as any)}>
+                            <SelectTrigger id={`meal-type-${cat.id}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {mealTypeOptions.map(option => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor={`notes-${cat.id}`}>Observações</Label>
+                        <Input
+                          id={`notes-${cat.id}`}
+                          value={note}
+                          onChange={(e) => handleNotesChange(cat.id, e.target.value)}
+                          placeholder="Opcional"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       );
     });
-  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleNotesChange, formatRelativeTime]);
+  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, mealTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleMealTypeChange, handleNotesChange, formatRelativeTime]);
 
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>

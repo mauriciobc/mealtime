@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
 import { revalidateTag } from 'next/cache';
 
 // PATCH /api/notifications/[id]/read - Marcar notificação como lida
@@ -11,11 +11,12 @@ export async function PATCH(
 ) {
   console.log(`\n--- [PATCH /api/notifications/${params.id}/read] Start ---`);
   try {
-    const session = await getServerSession(authOptions);
-    console.log(`[PATCH /${params.id}/read] Session:`, session ? { user: session.user } : "null");
+    const supabase = createClient(cookies());
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    console.log(`[PATCH /${params.id}/read] User:`, user ? { id: user.id } : "null");
     
-    if (!session || !session.user) {
-      console.error(`[PATCH /${params.id}/read] Unauthorized: No session or user`);
+    if (!user || authError) {
+      console.error(`[PATCH /${params.id}/read] Unauthorized: No user or auth error`);
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
@@ -23,8 +24,7 @@ export async function PATCH(
     }
     
     const notificationId = parseInt(params.id);
-    const userId = typeof session.user.id === 'string' ? parseInt(session.user.id) : session.user.id;
-    console.log(`[PATCH /${params.id}/read] User ID: ${userId}, Notification ID: ${notificationId}`);
+    console.log(`[PATCH /${params.id}/read] User ID: ${user.id}, Notification ID: ${notificationId}`);
     
     if (isNaN(notificationId)) {
       console.error(`[PATCH /${params.id}/read] Invalid Notification ID format:`, params.id);
@@ -38,6 +38,7 @@ export async function PATCH(
     console.log(`[PATCH /${params.id}/read] Fetching notification to verify ownership`);
     const notification = await prisma.notification.findUnique({
       where: { id: notificationId },
+      include: { user: true }
     });
     
     if (!notification) {
@@ -48,8 +49,8 @@ export async function PATCH(
       );
     }
     
-    if (notification.userId !== userId) {
-      console.error(`[PATCH /${params.id}/read] Forbidden: User ${userId} does not own notification ${notificationId}`);
+    if (notification.user.authId !== user.id) {
+      console.error(`[PATCH /${params.id}/read] Forbidden: User ${user.id} does not own notification ${notificationId}`);
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }

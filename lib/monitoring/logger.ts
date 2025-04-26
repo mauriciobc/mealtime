@@ -1,4 +1,5 @@
 import { LogLevel } from '@/types/monitoring';
+import { Singleton } from '../utils/singleton';
 
 interface LogContext {
   [key: string]: unknown;
@@ -11,17 +12,11 @@ interface LogEntry {
   context?: LogContext;
 }
 
-class Logger {
-  private static instance: Logger;
+class Logger extends Singleton<Logger> {
   private logLevel: LogLevel = 'info';
 
-  private constructor() {}
-
-  static getInstance(): Logger {
-    if (!Logger.instance) {
-      Logger.instance = new Logger();
-    }
-    return Logger.instance;
+  protected constructor() {
+    super();
   }
 
   setLogLevel(level: LogLevel) {
@@ -94,4 +89,5 @@ class Logger {
   }
 }
 
+// Export a default instance
 export const logger = Logger.getInstance(); 

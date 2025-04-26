@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import BottomNav from "@/components/bottom-nav";
 import PageTransition from "@/components/page-transition";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +46,9 @@ export default function HouseholdInvitePage({ params }: PageProps) {
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { data: session, status } = useSession();
+  
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
+  const { households, isLoading: isLoadingHouseholds, error: errorHousehold } = householdState;
   
   const [household, setHousehold] = useState<HouseholdType | null | undefined>(undefined);
   const [isAuthorized, setIsAuthorized] = useState<boolean | undefined>(undefined);
@@ -62,45 +63,78 @@ export default function HouseholdInvitePage({ params }: PageProps) {
     defaultValues: { email: '' },
   });
 
+  if (isLoadingUser) {
+    return <Loading text="Verificando usuário..." />;
+  }
+
+  if (errorUser) {
+    return (
+      <PageTransition>
+        <div className="p-4 text-center">
+          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
+          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (!currentUser) {
+    console.log("[HouseholdInvitePage] No currentUser found. Redirecting to login.");
+    useEffect(() => {
+        toast.error("Autenticação necessária para convidar.");
+        router.replace(`/login?callbackUrl=/households/${householdId}/members/invite`);
+    }, [router, householdId]);
+    return <Loading text="Redirecionando para login..." />;
+  }
+  
+  if (errorHousehold) {
+     return (
+       <PageTransition>
+         <div className="p-4 text-center">
+            <p className="text-destructive">Erro ao carregar lista de residências: {errorHousehold}. Tente recarregar a página.</p>
+            <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+         </div>
+       </PageTransition>
+     );
+  }
+
   useEffect(() => {
     const opId = "household-invite-load";
     addLoadingOperation({ id: opId, priority: 1, description: "Loading household data..."});
     setIsLoadingData(true);
 
-    if (status === "authenticated" && userState.currentUser && householdState.households.length > 0) {
-      const foundHousehold = householdState.households.find(h => String(h.id) === String(householdId));
-      setHousehold(foundHousehold || null);
-
-      if (foundHousehold) {
-        const isOwner = foundHousehold.owner?.id === userState.currentUser!.id;
-        const isAdmin = isOwner || foundHousehold.members?.some(
-          member => String(member.userId) === String(userState.currentUser!.id) && member.role?.toLowerCase() === 'admin'
-        );
-        setIsAuthorized(isAdmin);
-        if (!isAdmin) {
-           toast.error("Apenas administradores podem convidar membros.");
-           router.replace(`/households/${householdId}`); 
-        }
-      } else {
-        setIsAuthorized(false);
-        if (householdState.households.length > 0) { 
-            toast.error("Residência não encontrada.");
-            router.replace('/households');
-        }
-      }
-      setIsLoadingData(false);
-      removeLoadingOperation(opId);
-    } else if (status === "unauthenticated") {
-       setIsLoadingData(false);
-       removeLoadingOperation(opId);
-       setIsAuthorized(false);
-       router.replace("/login");
-    } else if (status === "loading"){
-      setIsLoadingData(true);
-    } else {
-      setIsLoadingData(true);
+    if (isLoadingHouseholds) {
+        console.log("HouseholdInvitePage useEffect: HouseholdContext still loading, waiting...");
+        return;
     }
-  }, [status, userState.currentUser, householdState.households, householdId, router, addLoadingOperation, removeLoadingOperation]);
+
+    console.log(`HouseholdInvitePage useEffect: Attempting to find household ${householdId}`);
+    const foundHousehold = households.find(h => String(h.id) === String(householdId));
+    setHousehold(foundHousehold || null);
+
+    if (foundHousehold) {
+      console.log(`HouseholdInvitePage useEffect: Found household ${foundHousehold.id}. Checking authorization...`);
+      const isOwner = String(foundHousehold.owner?.id) === String(currentUser.id);
+      const isAdmin = isOwner || foundHousehold.members?.some(
+        member => String(member.userId) === String(currentUser.id) && member.role?.toLowerCase() === 'admin'
+      );
+      setIsAuthorized(isAdmin);
+      if (!isAdmin) {
+         console.warn(`HouseholdInvitePage useEffect: User ${currentUser.id} is not admin for household ${householdId}. Redirecting.`);
+         toast.error("Apenas administradores podem convidar membros.");
+         router.replace(`/households/${householdId}`); 
+      }
+    } else {
+      console.warn(`HouseholdInvitePage useEffect: Household ${householdId} not found in context. Redirecting.`);
+      setIsAuthorized(false);
+      if (!isLoadingHouseholds) {
+          toast.error("Residência não encontrada.");
+          router.replace('/households');
+      }
+    }
+    setIsLoadingData(false);
+    removeLoadingOperation(opId);
+  }, [currentUser, households, householdId, router, addLoadingOperation, removeLoadingOperation, isLoadingHouseholds]);
   
   const handleSendInvite = async (data: EmailFormValues) => {
     if (!isAuthorized || !household) return;
@@ -241,6 +275,8 @@ export default function HouseholdInvitePage({ params }: PageProps) {
   }
 
    if (!household || isAuthorized === false) {
+      const message = !household ? "Residência não encontrada." : "Acesso negado.";
+      console.log(`[HouseholdInvitePage] Render condition met: ${message}`);
       return (
          <PageTransition>
            <div className="flex min-h-screen flex-col bg-background">

@@ -1,4 +1,8 @@
+"use client";
+
+import { GlobalLoading } from "@/components/ui/global-loading";
+
 export default function Loading() {
-  return null
+  return <GlobalLoading mode="overlay" text="Carregando..." />;
 }
 

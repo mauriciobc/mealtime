@@ -1,131 +1,134 @@
 import { NextRequest, NextResponse } from 'next/server';
+// Use the shared Prisma client
 import prisma from '@/lib/prisma';
+import { withModel } from '@/lib/prisma/safe-access';
+// Add top-level logging
+console.log(`[API /feedings] Module loaded. typeof prisma: ${typeof prisma}. Keys:`, prisma ? Object.keys(prisma) : 'prisma is null/undefined');
+console.log(`[API /feedings] DATABASE_URL set: ${!!process.env.DATABASE_URL}`); // Check if DB URL env var exists
+// Remove direct PrismaClient import
+// import { PrismaClient } from '@prisma/client';
 import { BaseFeedingLog } from '@/lib/types/common';
 import { FeedingLog } from '@/lib/types';
+// Remove unused Supabase SSR imports related to client creation
+// import { ReadonlyRequestCookies, RequestCookies } from 'next/dist/server/web/spec-extension/cookies'; // Import types
+// import { createServerClient, type CookieOptions } from '@supabase/ssr';
+// import { cookies } from 'next/headers';
+import { headers } from 'next/headers';
+import { z } from "zod";
 
+// Log Runtime
+console.log('[/api/feedings] Runtime:', process.env.NEXT_RUNTIME);
+
+// Explicitly set runtime to Node.js
+export const runtime = 'nodejs';
+
+// Remove direct instantiation
+// const prisma = new PrismaClient();
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
+// Interface for where clause in queries
 interface WhereClause {
-  catId?: number;
-  cat?: {
-    householdId?: number | { not: null };
-  };
+  cat_id?: number; // Updated to match schema
+  // Remove cat property as we'll query directly
 }
 
-// GET /api/feedings - Listar registros de alimentação (filtragem opcional por catId ou householdId)
+// Define validation schema for POST request body
+// Remove userId from schema, it will come from header
+const createFeedingSchema = z.object({
+  catId: z.string().uuid({ message: "Invalid cat ID format" }),
+  // meal_type: z.enum(["dry", "wet", "treat", "medicine", "water"], { // Allow any type for now if sent via Feed Now
+  //   errorMap: () => ({ message: "Invalid meal type" }),
+  // }).optional(), // Make optional for Feed Now
+  amount: z.number().positive().nullable().optional(), // Allow optional amount
+  notes: z.string().max(255).optional(), // Allow optional notes
+});
+
+// Define validation schema for GET request query parameters
+const getFeedingsQuerySchema = z.object({
+  catId: z.string().uuid({ message: "Invalid cat ID format" }).optional(),
+  limit: z.string().regex(/^\d+$/).transform(Number).pipe(
+    z.number().int().positive().max(100)
+  ).optional().default("20"),
+  skip: z.string().regex(/^\d+$/).transform(Number).pipe(
+    z.number().int().nonnegative()
+  ).optional(),
+});
+
+// GET /api/feedings - Listar registros de alimentação
 export async function GET(request: NextRequest) {
+  const headersList = await headers();
+  const authUserId = headersList.get('X-User-ID');
+
+  if (!authUserId) {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
+  // Get householdId from query params
+  const { searchParams } = new URL(request.url);
+  console.log('[GET /api/feedings] Request URL:', request.url);
+  console.log('[GET /api/feedings] Search params:', Object.fromEntries(searchParams.entries()));
+  const householdId = searchParams.get('householdId');
+
+  if (!householdId) {
+    console.log('[GET /api/feedings] Missing householdId parameter');
+    return NextResponse.json({ error: 'Household ID is required' }, { status: 400 });
+  }
+
+  // 1. Verify user has access to this household
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const catId = searchParams.get('catId');
-    const householdId = searchParams.get('householdId');
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
+    const userAccess = await prisma.household_members.findFirst({
+      where: {
+        household_id: householdId,
+        user_id: authUserId
+      }
+    });
 
-    const where: WhereClause = {};
-    
-    if (catId) {
-      where.catId = parseInt(catId);
+    if (!userAccess) {
+      console.log(`[GET /api/feedings] User ${authUserId} denied access to household ${householdId}`);
+      return NextResponse.json({ error: 'Access denied to this household' }, { status: 403 });
     }
-    
-    // Always filter by householdId, either from query params or from cat's householdId
-    if (householdId) {
-      where.cat = {
-        householdId: parseInt(householdId)
-      };
-    } else {
-      // If no householdId provided, we still need to filter by cat's householdId
-      where.cat = {
-        householdId: {
-          not: null
-        }
-      };
-    }
+    console.log(`[GET /api/feedings] User ${authUserId} granted access to household ${householdId}`);
+  } catch (error) {
+    console.error(`[GET /api/feedings] Error verifying household access for user ${authUserId} and household ${householdId}:`, error);
+    return NextResponse.json(
+      { error: 'Failed to verify household access', details: (error instanceof Error) ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
 
-    const feedings = await prisma.feedingLog.findMany({
-      where,
+  // 2. Get all meals (feedings) for the household's cats
+  try {
+    const feedings = await prisma.feeding_logs.findMany({
+      where: {
+        household_id: householdId
+      },
       include: {
-        cat: {
+        feeder: {
           select: {
-            id: true,
-            name: true,
-            photoUrl: true,
-            portion_size: true,
-            feedingInterval: true,
-            birthdate: true,
-            weight: true,
-            restrictions: true,
-            notes: true,
-            householdId: true
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            householdId: true,
-            role: true
+            id: true, // Include feeder ID
+            full_name: true,
+            avatar_url: true
           }
         }
       },
       orderBy: {
-        timestamp: 'desc'
+        fed_at: 'desc'
       },
-      take: limit
+      take: 50 // Limit to last 50 feedings
     });
-
-    // Filter out logs that don't belong to the requested household
-    const filteredLogs = householdId 
-      ? feedings.filter(log => log.cat?.householdId === parseInt(householdId))
-      : feedings;
-
-    const formattedLogs: FeedingLog[] = filteredLogs.map(log => ({
-      id: log.id,
-      catId: log.catId,
-      userId: log.userId,
-      timestamp: log.timestamp,
-      portionSize: log.portionSize || undefined,
-      notes: log.notes || undefined,
-      status: log.status || undefined,
-      createdAt: log.createdAt,
-      cat: log.cat ? {
-        id: log.cat.id,
-        name: log.cat.name,
-        photoUrl: log.cat.photoUrl,
-        birthdate: log.cat.birthdate,
-        weight: log.cat.weight,
-        restrictions: log.cat.restrictions,
-        notes: log.cat.notes,
-        householdId: log.cat.householdId,
-        feedingInterval: log.cat.feedingInterval,
-        portion_size: log.cat.portion_size
-      } : undefined,
-      user: log.user ? {
-        id: log.user.id,
-        name: log.user.name,
-        email: log.user.email,
-        householdId: log.user.householdId,
-        role: log.user.role,
-        preferences: {
-          timezone: "UTC",
-          language: "pt-BR",
-          notifications: {
-            pushEnabled: true,
-            emailEnabled: true,
-            feedingReminders: true,
-            missedFeedingAlerts: true,
-            householdUpdates: true
-          }
-        }
-      } : undefined
-    }));
-
-    return NextResponse.json(formattedLogs);
+    console.log(`[GET /api/feedings] Found ${feedings.length} feedings for household ${householdId}`);
+    return NextResponse.json(feedings);
+    
   } catch (error) {
-    console.error('Erro ao buscar registros de alimentação:', error);
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
+    console.error(`[GET /api/feedings] Error fetching feedings for household ${householdId}:`, error);
+    // Provide more specific error details if possible
+    const errorMessage = (error instanceof Error) ? error.message : 'Unknown database error';
+    // Check for specific Prisma errors if needed
+    // if (error instanceof Prisma.PrismaClientKnownRequestError) { ... }
     return NextResponse.json(
-      { 
-        error: 'Ocorreu um erro ao buscar os registros de alimentação',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Failed to fetch feeding data', details: errorMessage },
       { status: 500 }
     );
   }
@@ -133,101 +136,93 @@ export async function GET(request: NextRequest) {
 
 // POST /api/feedings - Criar um novo registro de alimentação
 export async function POST(request: NextRequest) {
-  try {
-    const {
-      catId,
-      userId,
-      portionSize,
-      notes,
-      status,
-      timestamp
-    } = await request.json();
+  const headersList = await headers();
+  const authUserId = headersList.get('X-User-ID');
 
-    if (!catId || !userId) {
+  if (!authUserId) {
+    console.log("[POST /api/feedings] Failed: Missing X-User-ID header");
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    console.log("[POST /api/feedings] Received body:", body);
+
+    // Validate the request body against schema (userId removed)
+    const validationResult = createFeedingSchema.safeParse(body);
+    if (!validationResult.success) {
+      console.error("[POST /api/feedings] Invalid body:", validationResult.error.format());
       return NextResponse.json(
-        { error: 'ID do gato e ID do usuário são obrigatórios' },
+        { error: "Invalid request data", details: validationResult.error.format() },
         { status: 400 }
       );
     }
 
-    // Verificar se o gato existe
-    const cat = await prisma.cat.findUnique({
-      where: { id: catId },
-      select: {
-        id: true,
-        name: true,
-        photoUrl: true,
-        portion_size: true,
-        feedingInterval: true,
-        birthdate: true,
-        weight: true,
-        restrictions: true,
-        notes: true,
-        householdId: true
-      }
-    });
+    const { catId, amount, notes } = validationResult.data;
+    const mealType = body.meal_type || "manual"; // Default to 'manual' if not provided (e.g., Feed Now)
+
+    // --- Authorization & Validation --- 
+    // Fetch cat and user profile in parallel to verify ownership and get householdId
+    console.log(`[POST /api/feedings] Verifying access for user ${authUserId} and cat ${catId}`);
+    const [cat, userProfile] = await Promise.all([
+        prisma.cats.findUnique({ where: { id: catId }, select: { household_id: true } }),
+        // Fetch householdId directly from household_members table using user_id
+        prisma.household_members.findFirst({ 
+            where: { user_id: authUserId }, 
+            select: { household_id: true } 
+        })
+    ]);
+
+    const userHouseholdId = userProfile?.household_id; // Get householdId from the join table result
 
     if (!cat) {
-      return NextResponse.json(
-        { error: 'Gato não encontrado' },
-        { status: 404 }
-      );
+        console.log(`[POST /api/feedings] Cat not found: ${catId}`);
+        return NextResponse.json({ error: 'Cat not found' }, { status: 404 });
     }
-
-    // Verificar se o usuário existe
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        householdId: true,
-        preferences: true,
-        role: true
-      }
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Usuário não encontrado' },
-        { status: 404 }
-      );
+    if (!userHouseholdId) {
+        console.log(`[POST /api/feedings] User ${authUserId} not associated with any household.`);
+        // This case implies the user exists in auth but maybe not profiles/household_members
+        return NextResponse.json({ error: 'User household not found' }, { status: 403 }); 
     }
+    if (cat.household_id !== userHouseholdId) {
+        console.log(`[POST /api/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${authUserId} (household ${userHouseholdId})`);
+        return NextResponse.json({ error: 'Access denied: Cat does not belong to user\'s household' }, { status: 403 });
+    }
+    console.log(`[POST /api/feedings] Access granted for user ${authUserId} to cat ${catId} in household ${userHouseholdId}`);
+    // --- End Authorization & Validation --- 
 
-    // Garantir que o timestamp seja UTC
-    const utcTimestamp = timestamp ? new Date(timestamp) : new Date();
-    utcTimestamp.setMilliseconds(0); // Remover milissegundos para consistência
-
-    // Criar o registro de alimentação
-    const feedingLog = await prisma.feedingLog.create({
+    // Create the feeding record using derived IDs
+    console.log(`[POST /api/feedings] Creating feeding log...`);
+    const feedingLog = await prisma.feeding_logs.create({
       data: {
-        catId,
-        userId,
-        timestamp: utcTimestamp,
-        portionSize: portionSize ? parseFloat(String(portionSize)) : undefined,
-        notes,
-        status
+        cat_id: catId,
+        meal_type: mealType, 
+        amount: amount, // Use validated amount
+        notes: notes, // Use validated notes
+        fed_by: authUserId, // Use ID from header
+        household_id: userHouseholdId, // Use derived household ID
+        fed_at: new Date(), // Use current timestamp for feeding time
+      },
+      include: { // Include feeder details for the response, matching GET
+        feeder: {
+          select: {
+            id: true,
+            full_name: true,
+            avatar_url: true
+          }
+        }
       }
     });
+    console.log(`[POST /api/feedings] Feeding log created successfully: ${feedingLog.id}`);
 
-    const formattedLog: FeedingLog = {
-      id: feedingLog.id,
-      catId: feedingLog.catId,
-      userId: feedingLog.userId,
-      timestamp: feedingLog.timestamp,
-      portionSize: feedingLog.portionSize || undefined,
-      notes: feedingLog.notes || undefined,
-      status: feedingLog.status || undefined,
-      createdAt: feedingLog.createdAt,
-      cat,
-      user
-    };
+    // Return the created record in the format expected by the context
+    // (Matches GET response structure for consistency)
+    return NextResponse.json(feedingLog, { status: 201 }); 
 
-    return NextResponse.json(formattedLog, { status: 201 });
   } catch (error) {
-    console.error('Erro ao criar registro de alimentação:', error);
+    console.error("[POST /api/feedings] Error creating feeding log:", error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao criar o registro de alimentação' },
+      { error: "Failed to create feeding log", details: (error instanceof Error) ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

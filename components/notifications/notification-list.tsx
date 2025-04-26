@@ -3,7 +3,8 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useNotifications } from '@/lib/context/NotificationContext';
 import { NotificationItem } from './notification-item';
-import { Loader2 } from 'lucide-react';
+import { GlobalLoading } from '@/components/ui/global-loading';
+import { useLoadingState } from '@/lib/hooks/useLoadingState';
 
 export function NotificationList() {
   const { 
@@ -13,6 +14,13 @@ export function NotificationList() {
     hasMore, 
     loadMore 
   } = useNotifications();
+  
+  // Register loading state
+  useLoadingState(isLoading, {
+    description: 'Carregando notificações...',
+    priority: 3, // Lower priority than auth/critical operations
+  });
+
   const observer = useRef<IntersectionObserver>();
   const lastNotificationRef = useCallback((node: HTMLDivElement) => {
     if (isLoading) return;
@@ -56,7 +64,7 @@ export function NotificationList() {
       
       {isLoading && (
         <div className="flex justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
+          <GlobalLoading mode="spinner" size="md" text="Carregando mais..." />
         </div>
       )}
     </div>

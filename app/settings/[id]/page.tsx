@@ -1,29 +1,39 @@
-"use client"
+// "use client"
 
-import { useState, useEffect, use } from "react"
-import { useRouter, notFound } from "next/navigation"
+// import { useState, useEffect, use } from "react"
+// import { useRouter, notFound } from "next/navigation"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
+// import { Switch } from "@/components/ui/switch"
 import { ArrowLeft, Bell, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useToast } from "@/components/ui/use-toast"
-import { catProfiles, getCatById } from "@/lib/data"
+// import { useToast } from "@/components/ui/use-toast"
+// import { catProfiles, getCatById } from "@/lib/data"
+import { getCatByIdServer } from "@/lib/data/server"
 import BottomNav from "@/components/bottom-nav"
-import PageTransition from "@/components/page-transition"
-import { motion } from "framer-motion"
-import AnimatedIcon from "@/components/animated-icon"
-import LoadingSpinner from "@/components/loading-spinner"
+// import PageTransition from "@/components/page-transition"
+// import { motion } from "framer-motion"
+// import AnimatedIcon from "@/components/animated-icon"
+import { GlobalLoading } from "@/components/ui/global-loading"
 import { BaseCat, ID } from "@/lib/types/common"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { formatDistanceToNow } from "date-fns"
+// import { Badge } from "@/components/ui/badge"
+// import { ScrollArea } from "@/components/ui/scroll-area"
+// import { formatDistanceToNow } from "date-fns"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { createClient } from "@/utils/supabase/server"
+// import { cookies } from "next/headers"
+import prisma from "@/lib/prisma"
+import { notFound } from 'next/navigation';
 
+// TODO: Define SettingsClientPage component later
+// import SettingsClientPage from './settings-client-page'; 
+
+// Remove old interfaces if BaseCat/CatType cover needs
+/*
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -39,14 +49,50 @@ interface Cat extends BaseCat {
     amount: string;
   }[];
 }
+*/
 
 export default async function CatSettingsPage({ params }: { params: { id: string } }) {
-  const cat = await getCatById(parseInt(params.id))
+  // const cookieStore = cookies()
+  // const supabase = createClient(cookieStore)
+  const supabase = createClient()
+  const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !supabaseUser) {
+    console.error("CatSettingsPage: Unauthorized access attempt.")
+    notFound()
+  }
+
+  // const cat = await getCatById(parseInt(params.id))
+  const cat = await getCatByIdServer(parseInt(params.id))
 
   if (!cat) {
     notFound()
   }
 
+  const prismaUser = await prisma.user.findUnique({
+    where: { auth_id: supabaseUser.id },
+    select: { householdId: true }
+  })
+
+  if (!prismaUser || !prismaUser.householdId || prismaUser.householdId !== cat.householdId) {
+    console.error(`CatSettingsPage: User ${supabaseUser.id} (household ${prismaUser?.householdId}) unauthorized attempt to access cat ${cat.id} (household ${cat.householdId}).`)
+    notFound()
+  }
+
+  // --- UI Rendering will be moved to SettingsClientPage ---
+  // For now, return basic structure or placeholder
+  return (
+    <div>
+       <h1>Cat Settings Server Component (ID: {params.id})</h1>
+       <p>User: {supabaseUser.email}</p>
+       <p>Cat: {cat?.name}</p>
+       {/* <SettingsClientPage cat={cat} /> */}
+       <p>TODO: Implement SettingsClientPage component</p>
+       <BottomNav />
+    </div>
+  )
+  // --- Original rendering below (commented out for now) ---
+  /*
   return (
     <div className="container mx-auto py-8">
       <Card>
@@ -88,5 +134,6 @@ export default async function CatSettingsPage({ params }: { params: { id: string
       </Card>
     </div>
   )
+  */
 }
 

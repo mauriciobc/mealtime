@@ -7,7 +7,6 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { useSession } from "next-auth/react";
 import { useCats } from "@/lib/context/CatsContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
@@ -33,7 +32,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon, Clock, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ImageUpload } from "@/components/image-upload";
+import { ImageUpload } from "@/components/ui/image-upload";
 import { Loading } from "@/components/ui/loading";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -47,7 +46,7 @@ const formSchema = z.object({
   weight: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
     message: "Peso deve ser um número positivo.",
   }),
-  portion: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
+  portion_size: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
     message: "Porção deve ser um número positivo.",
   }),
   restrictions: z.string().optional(),
@@ -65,11 +64,10 @@ const formSchema = z.object({
 export default function NewCatPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { data: session, status } = useSession();
-  const { dispatch: catsDispatch } = useCats();
+  const { dispatch: catsDispatch, forceRefresh } = useCats();
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { currentUser } = userState;
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -78,7 +76,7 @@ export default function NewCatPage() {
       photoUrl: "",
       birthdate: undefined,
       weight: "",
-      portion: "",
+      portion_size: "",
       restrictions: "",
       notes: "",
       feedingInterval: "8",
@@ -86,11 +84,11 @@ export default function NewCatPage() {
   });
 
   useEffect(() => {
-    if (status === "unauthenticated") {
+    if (currentUser === null && !isLoadingUser) {
       toast.error("Você precisa estar conectado para adicionar um gato");
-      router.push("/login");
+      router.replace("/login?callbackUrl=/cats/new");
     }
-  }, [status, router]);
+  }, [currentUser, isLoadingUser, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!currentUser?.householdId) {
@@ -100,66 +98,119 @@ export default function NewCatPage() {
 
     const currentHouseholdId = currentUser.householdId;
     const opId = "create-cat";
-    addLoadingOperation({ id: opId, priority: 1, description: "Adding cat..." });
+    addLoadingOperation({ id: opId, priority: 1, description: "Criando perfil do gato..." });
     setIsSubmitting(true);
+    const finalPhotoUrl: string | null = values.photoUrl || null;
 
     try {
+      // Log the raw form values first
+      console.log('Raw form values:', values);
+
       const payload = {
-        ...values,
+        name: values.name.trim(),
+        photoUrl: finalPhotoUrl,
         birthdate: values.birthdate ? values.birthdate.toISOString() : null,
-        weight: values.weight ? parseFloat(values.weight) : null,
-        portion_size: values.portion ? parseFloat(values.portion) : null,
-        feedingInterval: parseInt(values.feedingInterval),
+        weight: values.weight || null,
+        portion_size: values.portion_size || null,
+        feeding_interval: values.feedingInterval ? parseInt(values.feedingInterval) : null,
         householdId: currentHouseholdId,
+        restrictions: values.restrictions?.trim() || null,
+        notes: values.notes?.trim() || null
       };
+
+      console.log('Sending payload to /api/cats:', payload);
+      console.log('Current user:', currentUser);
+      console.log('Headers:', {
+        "Content-Type": "application/json",
+        "X-User-ID": currentUser?.id
+      });
+
+      // Add X-User-ID header from currentUser context
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (currentUser?.id) {
+        headers["X-User-ID"] = currentUser.id;
+      } else {
+         console.error('No user ID found in currentUser:', currentUser);
+         toast.error("Erro de autenticação. Tente fazer login novamente.");
+         throw new Error("User ID not found for API request");
+      }
 
       const response = await fetch("/api/cats", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: headers,
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Erro do servidor:", errorData);
-        throw new Error(errorData.error || "Falha ao adicionar gato");
-      }
-
-      const newCat = await response.json();
-      
-      catsDispatch({
-        type: "ADD_CAT",
-        payload: newCat,
+      const responseData = await response.json();
+      console.log('Response from server:', {
+        status: response.status,
+        ok: response.ok,
+        data: responseData
       });
 
+      if (!response.ok) {
+        console.error("Server error response:", responseData);
+        throw new Error(responseData.error || "Falha ao adicionar gato");
+      }
+
+      console.log('Successfully created cat:', responseData);
+      
+      // Force a refresh of the cats data
+      forceRefresh();
+
+      // Wait a moment for the refresh to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       toast.success("Gato adicionado com sucesso!");
-      router.push("/cats");
-    } catch (error: any) {
-      console.error("Erro ao criar perfil de gato:", error);
-      toast.error(`Erro ao adicionar gato: ${error.message || "Tente novamente."}`);
+      
+      // Use replace instead of push to avoid back navigation issues
+      router.replace("/cats");
+    } catch (error) {
+      console.error("Error creating cat profile:", {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      toast.error(error instanceof Error ? error.message : "Ocorreu um erro ao criar o perfil do gato");
     } finally {
       setIsSubmitting(false);
       removeLoadingOperation(opId);
     }
   }
 
-  if (status === "loading" || (status === "authenticated" && !currentUser)) {
+  if (isLoadingUser) {
      return (
         <div className="container max-w-md py-6 pb-28 flex justify-center items-center min-h-[300px]">
-          <Loading text="Carregando..." />
+          <Loading text="Carregando dados do usuário..." />
         </div>
      );
   }
 
-   if (status === "authenticated" && currentUser && !currentUser.householdId) {
+  if (errorUser) {
+    return (
+      <div className="container max-w-md py-6 pb-28">
+        <PageHeader title="Adicionar Novo Gato" />
+        <div className="mt-6 text-center">
+          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
+          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (currentUser === null) {
+      return (
+        <div className="container max-w-md py-6 pb-28 flex justify-center items-center min-h-[300px]">
+            <Loading text="Redirecionando para login..." />
+        </div>
+      );
+  }
+
+   if (!currentUser.householdId) {
      return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="container max-w-md py-6 pb-28"
-        >
+        <div className="container max-w-md py-6 pb-28">
           <PageHeader title="Adicionar Novo Gato" />
           <div className="mt-6">
             <EmptyState 
@@ -170,7 +221,7 @@ export default function NewCatPage() {
               actionHref="/settings"
              />
           </div>
-        </motion.div>
+        </div>
      );
    }
 
@@ -201,19 +252,23 @@ export default function NewCatPage() {
           <FormField
             control={form.control}
             name="photoUrl"
-            render={({ field }) => (
+            render={({ field }) => {
+              return (
                 <FormItem>
                   <FormLabel>Foto</FormLabel>
                   <FormControl>
                     <ImageUpload
                       value={field.value || ""}
-                      onChange={field.onChange}
+                      onChange={(url: string) => field.onChange(url)}
                       type="cat"
+                      userId={currentUser.id}
+                      maxSizeMB={50}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
+              )
+            }}
             />
 
           <FormField
@@ -308,7 +363,7 @@ export default function NewCatPage() {
 
             <FormField
               control={form.control}
-              name="portion"
+              name="portion_size"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Porção Recomendada (gramas)</FormLabel>
@@ -318,7 +373,7 @@ export default function NewCatPage() {
                         step="1" 
                         placeholder="Ex: 50" 
                         {...field} 
-                        id="portion"
+                        id="portion_size"
                         disabled={isSubmitting}
                     />
                   </FormControl>

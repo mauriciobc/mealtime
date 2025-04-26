@@ -8,44 +8,47 @@ import {
   getFeedingLogs,
   getUserById
 } from '@/lib/services/apiService';
-import { BaseCat, BaseFeedingLog, BaseUser } from '@/lib/types/common';
+import { BaseCats, BaseFeedingLogs, BaseProfile } from '@/lib/types/common';
 
 // Mock data
-const mockCats: BaseCat[] = [
+const mockCats: BaseCats[] = [
   {
-    id: 1,
+    id: '1',
+    created_at: new Date(),
+    updated_at: new Date(),
     name: 'Whiskers',
-    householdId: 1,
-    feedingInterval: 8,
-  },
-  {
-    id: 2,
-    name: 'Mittens',
-    householdId: 1,
-    feedingInterval: 6,
-  },
+    birth_date: new Date('2020-01-01'),
+    weight: 4.5,
+    household_id: '1',
+    owner_id: '1'
+  }
 ];
 
-const mockFeedingLogs: BaseFeedingLog[] = [
+const mockFeedingLogs: BaseFeedingLogs[] = [
   {
-    id: 1,
-    catId: 1,
-    userId: 1,
-    portionSize: 100,
-    status: 'completed',
-    timestamp: new Date('2024-03-20T10:00:00.000Z'),
-    createdAt: new Date('2024-03-20T10:00:00.000Z'),
-  },
+    id: '1',
+    created_at: new Date(),
+    updated_at: new Date(),
+    cat_id: '1',
+    household_id: '1',
+    meal_type: 'Breakfast',
+    amount: 100,
+    unit: 'g',
+    notes: 'Ate well',
+    fed_by: '1',
+    fed_at: new Date()
+  }
 ];
 
-const mockUsers: BaseUser[] = [
+const mockProfiles: BaseProfile[] = [
   {
-    id: 1,
-    name: 'John Doe',
-    email: 'john@example.com',
-    role: 'user',
-    timezone: 'America/Sao_Paulo',
-  },
+    id: '1',
+    username: 'testuser',
+    full_name: 'Test User',
+    avatar_url: 'https://example.com/avatar.jpg',
+    email: 'test@example.com',
+    updated_at: new Date()
+  }
 ];
 
 // Mock fetch
@@ -59,8 +62,8 @@ const mockLocalStorage = {
         return JSON.stringify(mockCats);
       case 'feedingLogs':
         return JSON.stringify(mockFeedingLogs);
-      case 'users':
-        return JSON.stringify(mockUsers);
+      case 'profiles':
+        return JSON.stringify(mockProfiles);
       default:
         return null;
     }
@@ -89,7 +92,7 @@ describe('API Service', () => {
       expect(result.map(cat => ({
         id: cat.id,
         name: cat.name,
-        householdId: cat.householdId,
+        householdId: cat.household_id,
         feedingInterval: cat.feedingInterval,
       }))).toEqual(mockCats);
       expect(global.fetch).toHaveBeenCalledWith('/api/households/1/cats');
@@ -100,7 +103,7 @@ describe('API Service', () => {
       expect(result.map(cat => ({
         id: cat.id,
         name: cat.name,
-        householdId: cat.householdId,
+        householdId: cat.household_id,
         feedingInterval: cat.feedingInterval,
       }))).toEqual(mockCats);
       expect(global.fetch).toHaveBeenCalledWith('/api/households/1/cats');
@@ -148,16 +151,16 @@ describe('API Service', () => {
 
   describe('getUserById', () => {
     it('should return user by id', async () => {
-      const result = await getUserById(1, mockUsers);
-      expect(result).toEqual(mockUsers[0]);
-      expect(mockLocalStorage.getItem).toHaveBeenCalledWith('users');
+      const result = await getUserById(1, mockProfiles);
+      expect(result).toEqual(mockProfiles[0]);
+      expect(mockLocalStorage.getItem).toHaveBeenCalledWith('profiles');
     });
 
     it('should return null when user not found', async () => {
       mockLocalStorage.getItem.mockReturnValueOnce(null);
-      const result = await getUserById(999, mockUsers);
+      const result = await getUserById(999, mockProfiles);
       expect(result).toBeNull();
-      expect(mockLocalStorage.getItem).toHaveBeenCalledWith('users');
+      expect(mockLocalStorage.getItem).toHaveBeenCalledWith('profiles');
     });
   });
   */

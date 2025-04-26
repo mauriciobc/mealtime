@@ -1,35 +1,13 @@
-import { MetricType } from '@/types/monitoring';
+import { Singleton } from '../utils/singleton';
+import { NotificationMetrics } from '@/types/monitoring';
 
-interface NotificationMetrics {
-    totalChecks: number;
-    totalNotificationsCreated: number;
-    totalNotificationsFailed: number;
-    totalCatsProcessed: number;
-    skippedNoInterval: number;
-    skippedNoHousehold: number;
-    skippedNoLogs: number;
-    skippedDuplicate: number;
-    averageProcessingTime: number;
-    lastCheckTimestamp: Date;
-    errors: Array<{
-        timestamp: Date;
-        error: string;
-        context?: Record<string, any>;
-    }>;
-    timings: Array<{
-        operation: string;
-        duration: number;
-        timestamp: Date;
-    }>;
-}
-
-class FeedingNotificationMonitor {
-    private static instance: FeedingNotificationMonitor;
+class FeedingNotificationMonitor extends Singleton<FeedingNotificationMonitor> {
     private metrics: NotificationMetrics;
     private readonly MAX_ERROR_HISTORY = 100;
     private readonly MAX_TIMING_HISTORY = 1000;
 
-    private constructor() {
+    protected constructor() {
+        super();
         this.metrics = {
             totalChecks: 0,
             totalNotificationsCreated: 0,
@@ -44,13 +22,6 @@ class FeedingNotificationMonitor {
             errors: [],
             timings: [],
         };
-    }
-
-    public static getInstance(): FeedingNotificationMonitor {
-        if (!FeedingNotificationMonitor.instance) {
-            FeedingNotificationMonitor.instance = new FeedingNotificationMonitor();
-        }
-        return FeedingNotificationMonitor.instance;
     }
 
     public startCheck(): void {
@@ -175,5 +146,5 @@ Recent Errors: ${this.metrics.errors.length > 0 ? '\n' + this.getRecentErrors(3)
     }
 }
 
-// Export a singleton instance
+// Export a default instance
 export const feedingNotificationMonitor = FeedingNotificationMonitor.getInstance(); 

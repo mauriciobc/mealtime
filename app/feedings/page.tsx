@@ -22,7 +22,6 @@ import { useLoading } from "@/lib/context/LoadingContext"
 import { FeedingLog } from "@/lib/types"
 import { Timeline, TimelineItem } from "@/components/ui/timeline"
 import { Badge } from "@/components/ui/badge"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { groupLogsByDate } from "@/lib/utils/feedingUtils"
@@ -82,7 +81,6 @@ export default function FeedingsPage() {
   const { state: feedingState, dispatch: feedingDispatch } = useFeeding()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
-  const { data: session, status: sessionStatus } = useSession()
 
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState
   const { cats, isLoading: isLoadingCats, error: errorCats } = catsState
@@ -132,8 +130,8 @@ export default function FeedingsPage() {
      return groups
   }, [filteredAndSortedLogs])
 
-  // Delete handler
-  const handleDeleteFeedingLog = async (logId: number | undefined) => {
+  // Delete handler - Update to use string ID
+  const handleDeleteFeedingLog = async (logId: string | undefined) => {
      if (!logId) {
         toast.warning("ID do registro inválido para exclusão.")
         return
@@ -144,7 +142,8 @@ export default function FeedingsPage() {
      setIsDeleting(true)
      
      const previousLogs = feedingState.feedingLogs
-     const logToDeleteObject = previousLogs.find(log => Number(log.id) === logId)
+     // Find log using string comparison
+     const logToDeleteObject = previousLogs.find(log => log.id === logId)
 
      if (!logToDeleteObject) {
        toast.error("Erro: Registro não encontrado para exclusão.")
@@ -154,13 +153,24 @@ export default function FeedingsPage() {
        return
      }
      
-     // Optimistic UI update
+     // Optimistic UI update - Pass the full object
      feedingDispatch({ type: "REMOVE_FEEDING", payload: logToDeleteObject })
      setLogToDelete(null) // Close dialog immediately after optimistic update
 
      try {
+       // Add X-User-ID header
+       const headers: HeadersInit = {};
+       if (currentUser?.id) {
+           headers['X-User-ID'] = currentUser.id;
+       } else {
+           toast.error("Erro de autenticação ao excluir.");
+           throw new Error("User ID missing for delete request");
+       }
+       
+       // Use string ID in URL
        const response = await fetch(`/api/feedings/${logId}`, {
-         method: 'DELETE'
+         method: 'DELETE',
+         headers: headers // Add headers
        })
        if (!response.ok) {
          const errorData = await response.json().catch(() => ({}))
@@ -173,7 +183,7 @@ export default function FeedingsPage() {
        console.error("Erro ao deletar registro de alimentação:", error)
        toast.error(`Erro ao excluir: ${error.message || "Ocorreu um erro desconhecido"}`)
        // Ensure state is reverted if fetch fails
-       if(feedingState.feedingLogs.find(log => Number(log.id) === logId) === undefined) {
+       if(feedingState.feedingLogs.find(log => log.id === logId) === undefined) {
           feedingDispatch({ type: "FETCH_SUCCESS", payload: previousLogs })
        }
      } finally {
@@ -188,8 +198,8 @@ export default function FeedingsPage() {
 
   // --- Render Logic ---
 
-  // Loading state for session or initial data fetch
-  if (sessionStatus === "loading" || (sessionStatus === "authenticated" && isLoading)) {
+  // 1. Handle Combined Loading State
+  if (isLoading) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -203,13 +213,7 @@ export default function FeedingsPage() {
     )
   }
 
-  // Redirect if unauthenticated
-  if (sessionStatus === "unauthenticated") {
-    router.push("/login")
-    return <Loading text="Redirecionando..." /> // Show loading while redirecting
-  }
-
-  // Error state
+  // 2. Handle Combined Error State
   if (error) {
     return (
       <PageTransition>
@@ -224,8 +228,18 @@ export default function FeedingsPage() {
     )
   }
 
-  // Authenticated but no household associated
-  if (sessionStatus === "authenticated" && currentUser && !currentUser.householdId) {
+  // 3. Handle No Authenticated User Found (after loading/error checks)
+  if (!currentUser) {
+    console.log("[FeedingsPage] No currentUser found. Redirecting...");
+    useEffect(() => {
+        toast.error("Autenticação necessária para ver o histórico.");
+        router.replace("/login?callbackUrl=/feedings"); // Use replace
+    }, [router]);
+    return <Loading text="Redirecionando para login..." />;
+  }
+
+  // 4. Handle Authenticated but no household associated
+  if (!currentUser.householdId) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -388,7 +402,7 @@ export default function FeedingsPage() {
                                       <AlertDialogFooter>
                                         <AlertDialogCancel onClick={() => setLogToDelete(null)} disabled={isDeleting}>Cancelar</AlertDialogCancel>
                                         <AlertDialogAction
-                                          onClick={() => handleDeleteFeedingLog(log.id ? Number(log.id) : undefined)}
+                                          onClick={() => handleDeleteFeedingLog(log.id ? String(log.id) : undefined)}
                                           disabled={isDeleting || !logToDelete || logToDelete.id !== log.id}
                                           className="bg-destructive hover:bg-destructive/90 focus-visible:ring-destructive"
                                         >

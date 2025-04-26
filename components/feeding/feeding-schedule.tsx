@@ -14,7 +14,6 @@ import { useUserContext } from "@/lib/context/UserContext";
 import { useCats } from "@/lib/context/CatsContext";
 import { useFeeding, useSelectUpcomingFeedings } from "@/lib/context/FeedingContext";
 import { useSchedules } from "@/lib/context/ScheduleContext";
-import { useSession } from "next-auth/react";
 import { getUserTimezone, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { CatType, FeedingLog, Schedule, ID } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";

@@ -1,138 +1,110 @@
-import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
-import { addHours } from 'date-fns';
+import { calculateNextFeedingTime } from '@/lib/utils/dateUtils'; // Assuming this utility exists and works server-side
+
+export const dynamic = 'force-dynamic'; // Ensure fresh data
 
 export async function GET(
-  request: Request,
-  context: { params: { catId: string } }
+  request: NextRequest,
+  { params }: { params: { catId: string } }
 ) {
+  // Properly await and validate the dynamic parameter
+  const resolvedParams = await Promise.resolve(params);
+  const catId = resolvedParams.catId;
+
+  if (typeof catId !== 'string' || !catId) {
+    console.error(`[GET /api/cats/next-feeding] Invalid or missing catId parameter:`, catId);
+    return NextResponse.json({ error: 'Invalid cat ID' }, { status: 400 });
+  }
+
+  const headersList = await headers();
+  const authUserId = headersList.get('X-User-ID');
+
+  if (!authUserId) {
+    console.log(`[GET /api/cats/${catId}/next-feeding] Failed: Missing X-User-ID header`);
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  }
+
+  console.log(`[GET /api/cats/${catId}/next-feeding] Request from user ${authUserId}`);
+
   try {
-    const session = await getServerSession(authOptions);
-    const params = await context.params;
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
-    }
-
-    const catId = parseInt(params.catId);
-    if (isNaN(catId)) {
-      return NextResponse.json(
-        { error: 'ID do gato inválido' },
-        { status: 400 }
-      );
-    }
-
-    // Verificar se o gato pertence ao usuário através do household
-    const userHouseholds = await prisma.household.findMany({
-      where: {
-        users: {
-          some: {
-            id: Number(session.user.id)
-          }
-        }
-      },
+    // 1. Fetch Cat and Verify Ownership/Household Access
+    console.log(`[GET /api/cats/${catId}/next-feeding] Fetching cat and verifying access...`);
+    const cat = await prisma.cats.findUnique({
+      where: { id: catId },
       select: {
-        id: true
-      }
-    });
-
-    const householdIds = userHouseholds.map(h => h.id);
-
-    const cat = await prisma.cat.findFirst({
-      where: {
-        id: catId,
-        householdId: {
-          in: householdIds
-        }
-      },
-      include: {
-        schedules: true
+        household_id: true,
+        // Include schedules directly if relation exists and is needed by calculation logic
+        // schedules: { 
+        //    where: { enabled: true },
+        //    select: { type: true, interval: true, times: true }
+        // }
       }
     });
 
     if (!cat) {
-      return NextResponse.json(
-        { error: 'Gato não encontrado' },
-        { status: 404 }
-      );
+      console.log(`[GET /api/cats/${catId}/next-feeding] Failed: Cat not found`);
+      return NextResponse.json({ error: 'Cat not found' }, { status: 404 });
     }
 
-    // Buscar última alimentação
-    const lastFeeding = await prisma.feedingLog.findFirst({
+    const householdId = cat.household_id;
+    if (!householdId) {
+      console.error(`[GET /api/cats/${catId}/next-feeding] Failed: Cat ${catId} has no household ID.`);
+      return NextResponse.json({ error: 'Cat not linked to a household' }, { status: 500 });
+    }
+
+    const userAccess = await prisma.household_members.findFirst({
       where: {
-        catId
-      },
-      orderBy: {
-        timestamp: 'desc'
+        user_id: authUserId,
+        household_id: householdId
       }
     });
 
-    const now = new Date();
-    let nextFeedingTime: Date | null = null;
-    const lastFeedingTimestamp = lastFeeding?.timestamp ? new Date(lastFeeding.timestamp) : null;
-    const isValidLastFeeding = lastFeedingTimestamp && !isNaN(lastFeedingTimestamp.getTime());
+    if (!userAccess) {
+      console.log(`[GET /api/cats/${catId}/next-feeding] Failed: User ${authUserId} not member of household ${householdId}`);
+      return NextResponse.json({ error: 'Access denied to this cat\'s household' }, { status: 403 });
+    }
+    console.log(`[GET /api/cats/${catId}/next-feeding] Access verified.`);
 
-    // Se houver um agendamento
-    if (cat.schedules && cat.schedules.length > 0) {
-      const schedule = cat.schedules[0];
+    // 2. Fetch Required Data for Calculation
+    console.log(`[GET /api/cats/${catId}/next-feeding] Fetching schedules and last feeding log...`);
+    const [schedules, lastFeedingLog] = await Promise.all([
+      prisma.schedules.findMany({
+        where: {
+          cat_id: catId,
+          enabled: true
+        },
+        // Select only necessary fields
+        select: { type: true, interval: true, times: true }
+      }),
+      prisma.feeding_logs.findFirst({
+        where: { cat_id: catId },
+        orderBy: { fed_at: 'desc' },
+        select: { fed_at: true }
+      })
+    ]);
+    console.log(`[GET /api/cats/${catId}/next-feeding] Found ${schedules.length} enabled schedules.`);
+    console.log(`[GET /api/cats/${catId}/next-feeding] Last feeding log time: ${lastFeedingLog?.fed_at}`);
 
-      if (schedule.type === 'interval') {
-        // Se for baseado em intervalo
-        if (typeof schedule.interval === 'number' && !isNaN(schedule.interval)) {
-          if (isValidLastFeeding) {
-            nextFeedingTime = addHours(lastFeedingTimestamp, schedule.interval);
-          } else {
-            nextFeedingTime = addHours(now, schedule.interval);
-          }
-        }
-      } else if (schedule.type === 'fixedTime') {
-        // Se for horário fixo
-        const times = schedule.times.split(',');
-        const timesList = times.map(time => {
-          const [hours, minutes] = time.split(':').map(Number);
-          const date = new Date();
-          date.setHours(hours, minutes, 0, 0);
-          
-          // Se o horário já passou hoje, agendar para amanhã
-          if (date < now) {
-            date.setDate(date.getDate() + 1);
-          }
-          
-          return date;
-        });
-        
-        // Ordenar para encontrar o próximo horário
-        timesList.sort((a, b) => a.getTime() - b.getTime());
-        if (timesList.length > 0 && !isNaN(timesList[0].getTime())) {
-           nextFeedingTime = timesList[0];
-        }
-      }
+    // 3. Calculate Next Feeding Time
+    // Note: Ensure calculateNextFeedingTime handles null lastFeedingLog and empty schedules array
+    // It also needs access to the current time, implicitly uses server time here.
+    const nextFeedingDate = calculateNextFeedingTime(schedules, lastFeedingLog?.fed_at ?? null);
+
+    if (nextFeedingDate) {
+      console.log(`[GET /api/cats/${catId}/next-feeding] Calculated next feeding time: ${nextFeedingDate.toISOString()}`);
     } else {
-      // Se não houver agendamento, usar o intervalo padrão
-      if (typeof cat.feedingInterval === 'number' && !isNaN(cat.feedingInterval)) {
-        if (lastFeedingTimestamp) {
-          nextFeedingTime = addHours(lastFeedingTimestamp, cat.feedingInterval);
-        } else {
-          nextFeedingTime = addHours(now, cat.feedingInterval);
-        }
-      }
+      console.log(`[GET /api/cats/${catId}/next-feeding] No upcoming feeding could be calculated.`);
     }
 
-    // Only attempt toISOString if nextFeedingTime is a valid Date
-    const responseBody = nextFeedingTime instanceof Date && !isNaN(nextFeedingTime.getTime()) 
-      ? nextFeedingTime.toISOString() 
-      : null;
+    // 4. Return Result
+    return NextResponse.json({ nextFeeding: nextFeedingDate ? nextFeedingDate.toISOString() : null });
 
-    return NextResponse.json(responseBody);
   } catch (error) {
-    console.error('Erro ao buscar próxima alimentação:', error);
+    console.error(`[GET /api/cats/${catId}/next-feeding] Error:`, error);
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: 'Failed to calculate next feeding time', details: (error instanceof Error) ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

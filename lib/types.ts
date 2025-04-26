@@ -1,14 +1,15 @@
 import { BaseCat } from "./types/common";
+import { ID } from "./types/common"; // Assuming ID might be string | number
 
 // User & Household
 export interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatar?: string;
   households: string[]; // IDs of households
   primaryHousehold: string; // ID of primary household
-  householdId: number | null;
+  householdId: string | null;
   preferences: {
     timezone: string;
     language: string; // en-US, pt-BR, es-ES
@@ -20,8 +21,8 @@ export interface User {
 
 // Define HouseholdMember explicitly
 export interface HouseholdMember {
-  id?: number;
-  userId: number;
+  id?: string;
+  userId: string;
   role: 'Admin' | 'Member';
   joinedAt: Date;
   name?: string;
@@ -30,15 +31,15 @@ export interface HouseholdMember {
 }
 
 export interface Household {
-  id: number;
+  id: string;
   name: string;
   inviteCode: string;
   members: HouseholdMember[];
-  cats: number[];
+  cats: string[];
   catGroups: CatGroup[];
   createdAt: Date;
   owner?: {
-    id: number;
+    id: string;
     name: string;
     email: string;
   };
@@ -52,51 +53,45 @@ export interface CatGroup {
 
 // Cat Profiles
 export interface CatType {
-  id: number;
+  id: string; // UUID
   name: string;
-  photoUrl?: string;
-  birthdate?: Date;
-  weight?: number;
-  feedingInterval: number;
-  restrictions?: string;
-  portion_size?: number;
-  notes?: string;
-  householdId: number;
+  photo_url?: string | null;
+  birthdate?: Date | string | null;
+  weight?: Decimal | null;
+  feeding_interval: number | null;  // Hours between feedings (1-24)
+  portion_size?: string | null; // Text type
+  restrictions?: string | null;
+  notes?: string | null;
+  householdId: string; // UUID
   createdAt?: Date;
   updatedAt?: Date;
   schedules?: Schedule[];
 }
 
-// Feeding Logs
+// Define a simplified User type reflecting API GET /feedings response
+interface FeedingLogUser {
+  id: string; // User ID (UUID) from fed_by
+  name?: string | null; // From feeder.full_name
+  avatar?: string | null; // From feeder.avatar_url
+}
+
+// Updated FeedingLog interface
 export interface FeedingLog {
-  id: number;
-  catId: number;
-  userId: number;
-  timestamp: Date;
-  portionSize?: number;
-  notes?: string;
-  createdAt: Date;
-  status?: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro";
-  cat?: CatType;
-  user?: {
-    id: number;
-    name: string;
-    email: string;
-    avatar?: string;
-    householdId: number | null;
-    preferences: {
-      timezone: string;
-      language: string;
-      notifications: {
-        pushEnabled: boolean;
-        emailEnabled: boolean;
-        feedingReminders: boolean;
-        missedFeedingAlerts: boolean;
-        householdUpdates: boolean;
-      };
-    };
-    role: 'admin' | 'user';
-  };
+  id: string; // Meal ID (UUID) - Changed from number
+  catId: string; // Cat ID (UUID) - Changed from number
+  userId: string; // User ID (UUID) who fed - Was string, ensure it's UUID
+  timestamp: Date | string; // Timestamp of feeding (from fed_at) - Allow string for initial fetch
+  amount?: number | null; // From amount field in the database
+  portionSize?: number | null; // Alias for amount, for backward compatibility
+  notes?: string | null; // From notes - Kept optional string
+  createdAt?: Date | string; // This might not be directly available from /api/feedings GET
+  status?: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro"; // Keep for now, but API uses meal_type
+  mealType?: "dry" | "wet" | "treat" | "medicine" | "water"; // Added based on API `meal_type`
+  householdId?: string; // Added based on API `household_id`
+
+  // Updated relations based on API response
+  cat?: CatType; // Will be undefined from /api/feedings GET
+  user?: FeedingLogUser; // Simplified user based on 'feeder' relation
 }
 
 // Notifications
@@ -128,7 +123,7 @@ export interface LegacyCatProfile {
 export interface Schedule {
   id: number;
   catId: number;
-  userId: number;
+  userId: string;
   type: 'interval' | 'fixedTime';
   interval?: number; // Hours between feedings
   times?: string; // Specific times (e.g., "08:00")
@@ -161,8 +156,8 @@ export interface CatPortion {
 }
 
 export interface FeedingFormProps {
-  catId: number;
-  onMarkAsFed: (amount?: string, notes?: string, timestamp?: Date) => Promise<FeedingLog | undefined>;
+  catId: string;
+  onMarkAsFed: (amount?: string, notes?: string, timestamp?: Date) => Promise<FeedingLog>;
 }
 
 export interface FeedingHistoryProps {

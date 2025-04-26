@@ -1,247 +1,187 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { revalidateTag } from 'next/cache';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { CookieOptions } from '@supabase/ssr';
+import { logger } from '@/utils/logger';
+import { createRouteHandlerCookieStore } from '@/lib/supabase/cookie-store';
 
-// Function to fetch notifications directly from DB (extracted logic)
-async function fetchNotificationsFromDB(userId: number, page: number, limit: number) {
-  console.log(`[fetchNotificationsFromDB] Fetching notifications for userId=${userId}, page=${page}, limit=${limit} directly from DB`);
-  const skip = (page - 1) * limit;
-  
-  const [notifications, total] = await Promise.all([
-    prisma.notification.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-      select: {
-        id: true,
-        title: true,
-        message: true,
-        type: true,
-        isRead: true,
-        createdAt: true,
-        actionUrl: true,
-        data: true
-      }
-    }),
-    prisma.notification.count({
-      where: { userId }
-    })
-  ]);
-  console.log(`[fetchNotificationsFromDB] DB result for userId=${userId}, page=${page}: Found ${notifications.length} notifications, Total: ${total}`);
-
-  return {
-    notifications,
-    total,
-    page,
-    totalPages: Math.ceil(total / limit),
-    hasMore: skip + notifications.length < total
-  };
+// Helper function to create Supabase client with standardized cookie store
+async function createSupabaseRouteClient() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: await createRouteHandlerCookieStore()
+    }
+  );
 }
 
-/* // Temporarily disable caching for debugging
-// Cache de notificações por 30 segundos
-const getCachedNotifications = unstable_cache(
-  fetchNotificationsFromDB, // Use the extracted function
-  ['notifications'],
-  { revalidate: 30 }
-);
-*/
+// GET /api/notifications - Get all notifications for the user
+export const dynamic = 'force-dynamic';
 
-// GET /api/notifications - Obter notificações do usuário
-export async function GET(request: NextRequest) {
-  console.log("\n--- [GET /api/notifications] Start ---");
+export async function GET() {
+  const supabase = await createSupabaseRouteClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { data: notifications, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Return as an object with notifications property and pagination fields
+  return NextResponse.json({
+    notifications: notifications || [],
+    total: notifications ? notifications.length : 0,
+    page: 1,
+    totalPages: 1,
+    hasMore: false
+  });
+}
+
+// POST /api/notifications - Create a new notification
+export async function POST(request: Request) {
+  const supabase = await createSupabaseRouteClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { title, message, type, metadata = {} } = await request.json();
+
+  const { data: notification, error } = await supabase
+    .from('notifications')
+    .insert([
+      {
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        title,
+        message,
+        type,
+        metadata,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select()
+    .single();
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(notification);
+}
+
+// PATCH /api/notifications - Mark notifications as read
+export async function PATCH(request: NextRequest) {
+  console.log("\n--- [PATCH /api/notifications] Start ---");
+
   try {
-    const session = await getServerSession(authOptions);
-    console.log("[GET /api/notifications] Session:", session ? { user: session.user } : "null");
-    
-    if (!session || !session.user) {
-      console.error("[GET /api/notifications] Unauthorized: No session or user");
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
+    // Get authenticated user using getUser() for security
+    const supabase = await createSupabaseRouteClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      console.error('[PATCH /api/notifications] Authorization Error:', authError?.message);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    const userIdString = String(session.user.id);
-    const userId = parseInt(userIdString, 10);
-    console.log(`[GET /api/notifications] User ID parsed: ${userId}`);
-    
-    if (isNaN(userId)) {
-      console.error("[GET /api/notifications] Invalid User ID format after parsing:", userIdString);
+    const authUserId = user.id;
+    console.log(`[PATCH /api/notifications] Authenticated User ID: ${authUserId}`);
+
+    const { notificationIds, read } = await request.json();
+    console.log("[PATCH /api/notifications] Received payload:", { notificationIds, read });
+
+    if (!Array.isArray(notificationIds) || notificationIds.length === 0 || typeof read !== 'boolean') {
+      console.error('[PATCH /api/notifications] Invalid payload format');
       return NextResponse.json(
-        { error: 'Formato de ID de usuário inválido' },
+        { error: 'Invalid payload format. Expecting { notificationIds: string[], read: boolean }' },
         { status: 400 }
       );
     }
-    
-    const searchParams = request.nextUrl.searchParams;
-    console.log("[GET /api/notifications] Search Params:", searchParams.toString());
-    
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
-    console.log(`[GET /api/notifications] Pagination: Page=${page}, Limit=${limit}`);
-    
-    if (page < 1 || limit < 1 || limit > 50) {
-       console.error("[GET /api/notifications] Invalid pagination parameters:", { page, limit });
-      return NextResponse.json(
-        { error: 'Parâmetros de paginação inválidos' },
-        { status: 400 }
-      );
-    }
-    
-    // --- Temporarily fetch directly from DB --- 
-    console.log(`[GET /api/notifications] Fetching directly from DB for userId=${userId}, page=${page}, limit=${limit}`);
-    const result = await fetchNotificationsFromDB(userId, page, limit); 
-    // ------------------------------------------
-    
-    // Original call using cache:
-    // console.log(`[GET /api/notifications] Calling getCachedNotifications for userId=${userId}, page=${page}, limit=${limit}`);
-    // const result = await getCachedNotifications(userId, page, limit);
-    console.log("[GET /api/notifications] Result from DB fetch:", {
-        total: result.total,
-        page: result.page,
-        totalPages: result.totalPages,
-        hasMore: result.hasMore,
-        notificationCount: result.notifications.length
+
+    const updateResult = await prisma.notifications.updateMany({
+      where: {
+        id: { in: notificationIds },
+        user_id: authUserId
+      },
+      data: {
+        is_read: read,
+        updated_at: new Date()
+      }
     });
-    
-    // Format response to match PaginatedResponse interface
-    const responseData = {
-      data: result.notifications,
-      totalPages: result.totalPages,
-      hasMore: result.hasMore
-    };
-    
-    console.log("[GET /api/notifications] Sending response:", responseData);
-    console.log("--- [GET /api/notifications] End ---\n");
-    return NextResponse.json(responseData);
+
+    console.log(`[PATCH /api/notifications] Update result for user ${authUserId}:`, updateResult);
+
+    revalidateTag('notifications');
+    revalidateTag('unread-count');
+
+    return NextResponse.json(updateResult);
   } catch (error) {
-    console.error('[GET /api/notifications] Error:', error);
-    console.log("--- [GET /api/notifications] End with Error ---\n");
+    console.error('[PATCH /api/notifications] Error:', error);
     return NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar as notificações' },
+      { error: 'Failed to update notifications' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/notifications - Criar uma nova notificação
-export async function POST(request: NextRequest) {
-  console.log("\n--- [POST /api/notifications] Start ---");
+// DELETE /api/notifications - Delete notifications
+export async function DELETE(request: NextRequest) {
+  console.log("\n--- [DELETE /api/notifications] Start ---");
+
   try {
-    const session = await getServerSession(authOptions);
-    console.log("[POST /api/notifications] Session:", session ? { user: session.user } : "null");
-    
-    if (!session || !session.user) {
-      console.error('[POST /api/notifications] Unauthorized request: No session or user');
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
-    }
+    // Get authenticated user using getUser() for security
+    const supabase = await createSupabaseRouteClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    const payload = await request.json();
-    console.log("[POST /api/notifications] Received payload:", payload);
-    const notifications = Array.isArray(payload) ? payload : [payload];
-    
-    // Validar se todas as notificações pertencem ao usuário
-    const userId = typeof session.user.id === 'string' ? parseInt(session.user.id) : session.user.id;
-    console.log(`[POST /api/notifications] Authenticated User ID: ${userId}`);
-    const validNotifications = notifications.every(n => n.userId === userId);
-    
-    if (!validNotifications) {
-      console.error('[POST /api/notifications] Invalid notifications: User ID mismatch', {
-        authenticatedUserId: userId,
-        notificationUserIds: notifications.map(n => n.userId)
-      });
+    if (authError || !user) {
+      console.error('[DELETE /api/notifications] Authorization Error:', authError?.message);
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const authUserId = user.id;
+    console.log(`[DELETE /api/notifications] Authenticated User ID: ${authUserId}`);
+
+    const { notificationIds } = await request.json();
+    console.log("[DELETE /api/notifications] Received payload:", { notificationIds });
+
+    if (!Array.isArray(notificationIds) || notificationIds.length === 0) {
+      console.error('[DELETE /api/notifications] Invalid payload format');
       return NextResponse.json(
-        { error: 'Notificações inválidas (ID de usuário não corresponde)' },
+        { error: 'Invalid payload format. Expecting { notificationIds: string[] }' },
         { status: 400 }
       );
     }
 
-    // Validar campos obrigatórios
-    const requiredFields = ['title', 'message', 'type', 'userId'];
-    const missingFields = notifications.map((n, index) => 
-      requiredFields.filter(field => !n[field]).map(field => ({ index, field }))
-    ).flat();
-
-    if (missingFields.length > 0) {
-      console.error('[POST /api/notifications] Missing required fields:', missingFields);
-      return NextResponse.json(
-        { error: 'Campos obrigatórios faltando', details: missingFields },
-        { status: 400 }
-      );
-    }
-
-    // Validar tipos de notificação
-    const validTypes = ['feeding', 'reminder', 'household', 'system', 'info', 'warning', 'error'];
-    const invalidNotifications = notifications
-        .map((n, index) => ({ index, type: n.type, isValid: validTypes.includes(n.type) }))
-        .filter(n => !n.isValid);
-
-    if (invalidNotifications.length > 0) {
-      console.error('[POST /api/notifications] Invalid notification types:', invalidNotifications);
-      return NextResponse.json(
-        { error: 'Tipo de notificação inválido', details: invalidNotifications },
-        { status: 400 }
-      );
-    }
-
-    console.log('[POST /api/notifications] Payload validated. Preparing to save:', {
-      userId,
-      count: notifications.length,
-      types: notifications.map(n => n.type)
+    const deleteResult = await prisma.notifications.deleteMany({
+      where: {
+        id: { in: notificationIds },
+        user_id: authUserId
+      }
     });
 
-    // Salvar notificações no banco de dados
-    const savedNotifications = await Promise.all(
-      notifications.map(notification => {
-        const dataToSave = {
-          title: notification.title,
-          message: notification.message,
-          type: notification.type,
-          isRead: notification.isRead ?? false,
-          userId: notification.userId,
-          catId: notification.catId,
-          householdId: notification.householdId,
-          actionUrl: notification.actionUrl,
-          icon: notification.icon,
-          timestamp: notification.timestamp,
-          // Ensure data is stringified or null
-          data: notification.data ? (typeof notification.data === 'string' ? notification.data : JSON.stringify(notification.data)) : null
-        };
-        console.log('[POST /api/notifications] Saving notification data:', dataToSave);
-        return prisma.notification.create({
-          data: dataToSave
-        });
-      })
-    );
+    console.log(`[DELETE /api/notifications] Delete result for user ${authUserId}:`, deleteResult);
 
-    console.log('[POST /api/notifications] Successfully created notifications in DB:', {
-      count: savedNotifications.length,
-      ids: savedNotifications.map(n => n.id)
-    });
-
-    // --- Add Cache Invalidation --- 
-    console.log("[POST /api/notifications] Revalidating cache tag: 'notifications'");
     revalidateTag('notifications');
-    console.log("[POST /api/notifications] Revalidating cache tag: 'unread-count'");
     revalidateTag('unread-count');
-    // ------------------------------
 
-    const responseData = Array.isArray(payload) ? savedNotifications : savedNotifications[0];
-    console.log("[POST /api/notifications] Sending response:", responseData);
-    console.log("--- [POST /api/notifications] End ---\n");
-    return NextResponse.json(responseData);
+    return NextResponse.json(deleteResult);
   } catch (error) {
-    console.error('[POST /api/notifications] Error saving notifications:', error);
-    console.log("--- [POST /api/notifications] End with Error ---\n");
+    console.error('[DELETE /api/notifications] Error:', error);
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: 'Failed to delete notifications' },
       { status: 500 }
     );
   }

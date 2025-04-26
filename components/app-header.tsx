@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSession, signOut } from "next-auth/react";
-import { 
-  Menu, 
-  X, 
-  Moon, 
-  Sun, 
+import {
+  Menu,
+  X,
+  Moon,
+  Sun,
   Settings,
   User,
   LogOut,
@@ -38,6 +37,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Image from "next/image";
+import { useUserContext } from "@/lib/context/UserContext";
+import { toast } from "sonner";
 
 // Componente para exibir os links de navegação no menu
 const NavLinks = ({ className, onClick = () => {} }: { className?: string; onClick?: () => void }) => {
@@ -60,8 +61,8 @@ const NavLinks = ({ className, onClick = () => {} }: { className?: string; onCli
           onClick={onClick}
           className={cn(
             "px-4 py-2 rounded-lg transition-colors",
-            isActive(link.href) 
-              ? "bg-primary/10 text-primary font-medium" 
+            isActive(link.href)
+              ? "bg-primary/10 text-primary font-medium"
               : "hover:bg-muted text-muted-foreground hover:text-foreground"
           )}
         >
@@ -79,37 +80,61 @@ interface AppHeaderProps {
 
 export function AppHeader({ title, showBackButton }: AppHeaderProps) {
   const { theme, setTheme } = useTheme();
-  const { data: session, status } = useSession();
+  const { state: { currentUser }, authLoading, signOut } = useUserContext();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
-  }, []);
 
-  useEffect(() => {
+    // Scroll listener
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
-
     window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error("Error signing out:", error);
+      toast.error("Erro ao sair da conta");
+    }
   };
 
-  const handleSignOut = () => {
-    signOut({ callbackUrl: "/" });
-  };
-
-  // Não renderizar o tema até que o componente esteja montado
-  if (!mounted) {
-    return null;
+  // Early return if not mounted or still loading user data
+  if (!mounted || authLoading) {
+    return (
+      <header className={cn(
+        "sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
+        isScrolled && "shadow-sm"
+      )}>
+        <div className="container flex h-14 items-center">
+          <div className="flex flex-1 items-center justify-between">
+            {/* Placeholder for title/logo */}
+            <div className="h-7 w-28 bg-muted rounded animate-pulse"></div>
+            {/* Placeholder for icons */}
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 bg-muted rounded-full animate-pulse"></div>
+              <div className="h-8 w-8 bg-muted rounded-full animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+      </header>
+    );
   }
+
+  // Extract user details after loading is complete
+  const userName = currentUser?.name;
+  const userEmail = currentUser?.email;
 
   return (
     <header className={cn(
@@ -120,8 +145,8 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
         <div className="flex flex-1 items-center justify-between">
           <div className="flex items-center gap-2">
             {showBackButton && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => router.back()}
                 className="mr-2"
@@ -146,20 +171,22 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            {status === "authenticated" && (
+            {/* Only show user menu if authenticated */}
+            {currentUser && (
               <>
                 <NotificationBadge />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon">
-                      <User className="h-5 w-5" />
+                      {/* Use User icon as placeholder or integrate Avatar logic if needed */}
+                      <User className="h-5 w-5" /> 
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col space-y-1">
-                        <p className="font-medium">{session?.user?.name}</p>
-                        <p className="text-xs text-muted-foreground">{session?.user?.email}</p>
+                        <p className="font-medium">{userName || "Usuário"}</p>
+                        <p className="text-xs text-muted-foreground">{userEmail}</p>
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />

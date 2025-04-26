@@ -1,30 +1,28 @@
 // Notification Types
 export type NotificationType = 
-  | 'feeding'    // Notificações de alimentação
-  | 'reminder'   // Lembretes de alimentação
-  | 'household'  // Notificações relacionadas a membros da casa
-  | 'system'     // Notificações do sistema
-  | 'info'       // Informações gerais
-  | 'warning'    // Avisos
-  | 'error';
+  | 'feeding'    // Feeding notifications
+  | 'reminder'   // Feeding reminders
+  | 'household'  // Household member related notifications
+  | 'system'     // System notifications
+  | 'info'       // General information
+  | 'warning'    // Warnings
+  | 'error';     // Errors
 
 export interface Notification {
-  id: number;
+  id: string;  // UUID
   title: string;
   message: string;
   type: NotificationType;
-  isRead: boolean;
-  createdAt: Date;
-  userId: number;
-  catId?: number;
-  householdId?: number;
-  actionUrl?: string;
-  icon?: string;
-  timestamp?: Date;
-  data?: {
-    catId?: number;
-    userId?: number;
-    scheduledTime?: string;
+  is_read: boolean;
+  created_at: Date;
+  updated_at: Date;
+  user_id: string;  // UUID
+  metadata?: {
+    cat_id?: string;  // UUID
+    household_id?: string;  // UUID
+    action_url?: string;
+    icon?: string;
+    scheduled_time?: string;
     [key: string]: any;
   };
 }
@@ -33,16 +31,14 @@ export interface CreateNotificationPayload {
   title: string;
   message: string;
   type: NotificationType;
-  userId: number;
-  catId?: number;
-  householdId?: number;
-  actionUrl?: string;
-  icon?: string;
-  data?: {
-    scheduleId?: number;
-    catId?: number;
-    userId?: number;
-    scheduledTime?: string;
+  // userId and householdId are now handled by the API route via headers
+  // user_id: string;  // UUID - REMOVED
+  metadata?: {
+    cat_id?: string;  // UUID
+    // household_id?: string;  // UUID - REMOVED (API should associate with user's household)
+    action_url?: string;
+    icon?: string;
+    scheduled_time?: string;
     [key: string]: any;
   };
 }

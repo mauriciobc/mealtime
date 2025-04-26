@@ -133,8 +133,19 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
         addLoadingOperation({ id: loadingId, priority: 4, description: 'Carregando histórico de alimentação...' });
 
         console.log("[FeedingProvider] Loading feedings for household:", householdId);
+        // Ensure the user ID is included for the API route's auth check
+        const headers: HeadersInit = {};
+        if (currentUser?.id) {
+          headers['X-User-ID'] = currentUser.id;
+        } else {
+           // Handle case where user ID might not be available yet?
+           // For now, proceed without it, API should return 401 if needed.
+           console.warn("[FeedingProvider] User ID not available when fetching feedings.");
+        }
+
         const response = await fetch(`/api/feedings?householdId=${householdId}`, {
-          signal: abortController.signal
+          signal: abortController.signal,
+          headers: headers // Add the headers here
         });
 
         if (!isMounted) return;
@@ -149,14 +160,58 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
           throw new Error(`Erro ao carregar alimentações (${response.status}): ${errorText || 'Unknown error'}`);
         }
 
-        const feedingsData: FeedingLog[] = await response.json();
+        const rawFeedingsData: any[] = await response.json(); // Get raw data
 
         if (!isMounted) return;
 
-        console.log("[FeedingProvider] Feedings loaded:", feedingsData.length);
-        const sortedData = feedingsData.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        console.log("[FeedingProvider] Successfully fetched and sorted feeding logs:", sortedData);
+        console.log("[FeedingProvider] Raw feedings loaded:", rawFeedingsData.length);
+
+        // Add debug logging for data conversion
+        console.log("[FeedingProvider] Sample raw feeding data:", rawFeedingsData[0]);
+
+        // --- Mapping Logic ---
+        const mappedFeedingsData: FeedingLog[] = rawFeedingsData.map(meal => {
+          const convertedAmount = typeof meal.amount === 'string' ? parseFloat(meal.amount) : meal.amount;
+          console.log("[FeedingProvider] Amount conversion:", {
+            original: meal.amount,
+            converted: convertedAmount,
+            type: typeof convertedAmount
+          });
+
+          return {
+            id: meal.id, // Already string UUID
+            catId: meal.cat_id, // Map cat_id (string UUID)
+            userId: meal.fed_by, // Map fed_by (string UUID)
+            timestamp: new Date(meal.fed_at), // Map fed_at to Date object
+            amount: convertedAmount, // Use converted amount
+            portionSize: convertedAmount, // Also use converted amount for portionSize
+            notes: meal.notes, // Map notes
+            mealType: meal.meal_type, // Map meal_type
+            householdId: meal.household_id, // Map household_id
+            // Set relations based on API response
+            user: {
+              id: meal.fed_by,
+              name: meal.feeder?.full_name ?? null, // Use optional chaining and nullish coalescing
+              avatar: meal.feeder?.avatar_url ?? null,
+            },
+            cat: undefined, // Explicitly set cat as undefined
+            // Set status and createdAt to undefined or handle differently if needed
+            status: undefined, // Map meal_type to status if required later
+            createdAt: undefined, // Not provided by this endpoint
+          };
+        });
+
+        console.log("[FeedingProvider] First mapped feeding data:", mappedFeedingsData[0]);
+
+        // Sort the *mapped* data
+        const sortedData = mappedFeedingsData.sort((a, b) =>
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+
+        console.log("[FeedingProvider] Successfully fetched, mapped, and sorted feeding logs:", sortedData);
+        // Dispatch the mapped data
         dispatch({ type: 'FETCH_SUCCESS', payload: sortedData });
+
       } catch (error: any) {
         if (error.name === 'AbortError') {
           console.log('[FeedingProvider] Request aborted');
@@ -227,41 +282,33 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
 
   const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
   const { cats, isLoading: isLoadingCats } = catsState;
-  const { currentUser } = userState;
+  const { currentUser } = userState; // Get the full currentUser for potential enrichment
 
   return useMemo(() => {
     if (isLoadingFeedings || isLoadingCats || !feedingLogs || feedingLogs.length === 0 || !cats) {
       return null;
     }
     // Logs are already sorted descending by timestamp in the provider fetch
-    const lastLog = feedingLogs[0];
+    const lastLog = feedingLogs[0]; // This log already has the simplified user: { id, name, avatar }
     if (!lastLog) return null;
 
+    // Find the corresponding cat from the CatsContext state
     const cat = cats.find(c => c.id === lastLog.catId);
-    if (!cat) return null; // Or return log without cat?
+    // If we can't find the cat, return null to show loading state
+    if (!cat) return null;
 
-    // Enrich the log object (similar to logic in app/page.tsx)
+    // Enrich the log object by adding the found cat.
+    // The user object from the initial mapping is sufficient.
     const enrichedLog: FeedingLog = {
-      ...lastLog,
-      timestamp: new Date(lastLog.timestamp), // Ensure Date objects
-      createdAt: new Date(lastLog.createdAt || lastLog.timestamp),
-      cat: {
-        // Map all required fields from CatType
-        id: cat.id,
-        name: cat.name,
-        photoUrl: cat.photoUrl,
-        birthdate: cat.birthdate ? new Date(cat.birthdate) : undefined,
-        weight: cat.weight,
-        restrictions: cat.restrictions,
-        notes: cat.notes,
-        householdId: cat.householdId,
-        feedingInterval: cat.feedingInterval,
-        portion_size: cat.portion_size
-      },
-      // Use currentUser if userId matches, otherwise user might be null/undefined
-      // Or if API provides user details on the log, use that.
-      user: lastLog.userId === currentUser?.id ? currentUser : undefined 
+      ...lastLog, // Contains the log with simplified user { id, name, avatar }
+      timestamp: new Date(lastLog.timestamp), // Ensure Date object
+      // createdAt might be undefined from the API, handle appropriately
+      createdAt: lastLog.createdAt ? new Date(lastLog.createdAt) : undefined, 
+      cat: cat, // Add the full cat object found in CatsContext state
+      // No need to overwrite the user object here, the one from mapping is fine.
+      user: lastLog.user // Ensure the user field is present (guaranteed by mapping)
     };
+    
     return enrichedLog;
 
   }, [feedingLogs, isLoadingFeedings, cats, isLoadingCats, currentUser]);
@@ -296,7 +343,7 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
         const totalFood = catLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0);
         return {
           ...acc,
-          [cat.name]: totalFood // Use cat name as key for the chart
+          [cat.id]: totalFood // Use cat id as key for the chart
         };
       }, {} as Record<string, number>);
 
@@ -314,7 +361,7 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
 
 interface UpcomingFeeding {
   id: string; // Unique ID for list key
-  catId: ID;
+  catId: string; // Changed from ID
   catName: string;
   catPhoto: string | null;
   nextFeeding: Date;

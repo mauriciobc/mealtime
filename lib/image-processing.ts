@@ -70,8 +70,8 @@ export const validateImage = async (filePath: string): Promise<void> => {
   const stats = fs.statSync(filePath);
   const fileSizeInMB = stats.size / (1024 * 1024);
 
-  if (fileSizeInMB > 10) {
-    throw new ImageValidationError('O tamanho do arquivo deve ser menor que 10MB');
+  if (fileSizeInMB > 50) {
+    throw new ImageValidationError('O tamanho do arquivo deve ser menor que 50MB');
   }
 
   const metadata = await sharp(filePath).metadata();

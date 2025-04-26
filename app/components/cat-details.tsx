@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useRouter, notFound } from "next/navigation"
+import { useUserContext } from "@/lib/context/UserContext"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
   Edit, 
@@ -58,17 +58,44 @@ import { CatType, FeedingLog, Schedule } from "@/lib/types"
 import { FeedingHistory } from "./feeding-history"
 import { Loading } from "@/components/ui/loading"
 import { EmptyState } from "@/components/ui/empty-state"
+import { redirectionLogger } from "@/lib/monitoring/redirection-logger"
+import { headers } from 'next/headers'
 
 interface CatDetailsProps {
-  params: { id: number };
+  params: { id: string };
 }
 
+let redirectionCount = 0;
+
 export default function CatDetails({ params }: CatDetailsProps) {
-  const { data: session, status } = useSession()
+  // Component mount/unmount logging
+  useEffect(() => {
+    const startTime = performance.now();
+    console.log("[CatDetails] Mount", { 
+      catId: params.id,
+      timestamp: new Date().toISOString()
+    });
+
+    return () => {
+      const duration = performance.now() - startTime;
+      console.log("[CatDetails] Unmount", { 
+        catId: params.id,
+        duration,
+        timestamp: new Date().toISOString()
+      });
+    };
+  }, [params.id]);
+
+  const { currentUser, loading: userLoading } = useUserContext()
   const router = useRouter()
   const { state: catsState, dispatch: catsDispatch } = useCats()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
-  const { 
+  const [isHydrated, setIsHydrated] = useState(false)
+  
+  // ID is guaranteed to be a string by the guard above
+  const catId = params.id;
+  
+  const {
     cat, 
     logs, 
     nextFeedingTime, 
@@ -77,45 +104,95 @@ export default function CatDetails({ params }: CatDetailsProps) {
     isLoading: isFeedingLoading, 
     error: feedingHookError,
     handleMarkAsFed 
-  } = useFeeding(String(params.id))
+  } = useFeeding(catId)
+  
   const [isClient, setIsClient] = useState(false)
   const [isProcessingDelete, setIsProcessingDelete] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [redirectTriggered, setRedirectTriggered] = useState(false);
   
   useEffect(() => {
     setIsClient(true)
   }, [])
 
+  // Set hydration state
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
+
   // Handle authentication with useEffect to avoid setState during render
   useEffect(() => {
-    if (status === "unauthenticated") {
-      router.push("/login")
-    }
-  }, [status, router])
+    // Only check auth after hydration to prevent flash redirects
+    if (!isHydrated) return;
+    
+    // REMOVED REDIRECT LOGIC: Middleware handles this
+    // if (!userLoading && !currentUser) {
+    //   console.log("[CatDetails] Auth redirect", {
+    //     catId: params.id,
+    //     timestamp: new Date().toISOString(),
+    //     hydrated: isHydrated,
+    //     redirectionCount: ++redirectionCount
+    //   });
+    //   redirectionLogger.logAuthRedirection(`/cats/${params.id}`, undefined);
+    //   router.push("/login")
+    // }
+  }, [userLoading, currentUser, router, params.id, isHydrated])
 
-  // Handle authentication states
-  if (status === "loading" || status === "unauthenticated") {
-    return <Loading text="Carregando..." />
-  }
-  
-  if (isFeedingLoading) {
+  // --- REVISED Error Handling & Early Return Logic ---
+  useEffect(() => {
+    if (redirectTriggered) {
+      console.log("[CatDetails] Skipping error check - redirect already triggered", {
+        catId,
+        timestamp: new Date().toISOString(),
+        redirectionCount
+      });
+      return;
+    }
+
+    console.log("[CatDetails] Error check running", {
+      catId,
+      feedingHookError: feedingHookError ? "present" : "none",
+      catLoaded: !!cat,
+      isLoading: isFeedingLoading,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!isFeedingLoading && (feedingHookError || !cat)) {
+      const errorMessage = feedingHookError 
+        ? `Erro ao carregar dados: ${feedingHookError}`
+        : "Gato não encontrado ou você não tem permissão para vê-lo.";
+
+      console.error("[CatDetails] Error detected", {
+        catId,
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      });
+
+      throw new Error(errorMessage);
+    }
+  }, [isFeedingLoading, feedingHookError, cat, catId]);
+
+  // Loading state depends only on user and feeding hook
+  const isLoading = userLoading || isFeedingLoading;
+
+  // If still loading user/feeding data
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loading text="Carregando perfil do gato..." />
+        <Loading text="Carregando..." />
       </div>
-    )
+    );
   }
-  
-  if (feedingHookError || !cat) {
+
+  // Final check: After all loading and initial effects, ensure 'cat' is available before rendering.
+  // If 'cat' is null here, it implies an issue the useEffect should handle, so show loading while it does.
+  if (!cat) {
+    console.warn("[CatDetails] Render guard: 'cat' is null after loading checks. Waiting for error effect.");
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-center p-4">
-        <Ban className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Gato Não Encontrado</h2>
-        <p className="text-muted-foreground mb-4">Não foi possível encontrar um gato com este ID ({params.id}) ou você não tem permissão para vê-lo.</p>
-        <p className="text-xs text-destructive mb-4">{feedingHookError}</p> 
-        <Button onClick={() => router.push("/cats")} variant="outline">Voltar para Gatos</Button>
+      <div className="min-h-screen flex items-center justify-center">
+        <Loading text="Verificando dados do gato..." />
       </div>
-    )
+    );
   }
 
   // Função para excluir o gato
@@ -126,7 +203,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
     setIsProcessingDelete(true);
     const previousCats = catsState.cats;
 
-    catsDispatch({ type: "DELETE_CAT", payload: params.id });
+    catsDispatch({ type: "REMOVE_CAT", payload: String(params.id) });
 
     try {
       const response = await fetch(`/api/cats/${catIdStr}`, { method: 'DELETE' });
@@ -137,16 +214,15 @@ export default function CatDetails({ params }: CatDetailsProps) {
       }
 
       toast.success(`${cat.name} foi excluído`);
-      router.push("/cats");
+      throw new Error('DELETE_SUCCESS');
 
     } catch (error: any) {
+      if (error.message === 'DELETE_SUCCESS') {
+        throw error; // Re-throw the success "error" to trigger navigation
+      }
       console.error("Erro ao excluir gato:", error);
       toast.error(`Falha ao excluir o gato: ${error.message}`);
-      if (previousCats) {
-          catsDispatch({ type: "SET_CATS", payload: previousCats });
-      } else {
-          console.warn("Could not revert cat deletion state: previous state unknown.")
-      }
+      throw error;
     } finally {
       setIsProcessingDelete(false);
       setShowDeleteDialog(false);

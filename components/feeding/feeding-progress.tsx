@@ -5,14 +5,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { calculateNextFeeding, formatDateTimeForDisplay, getUserTimezone } from '@/lib/utils/dateUtils';
-import { useSession } from 'next-auth/react';
+import { useUserContext } from "@/lib/context/UserContext";
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { addHours, differenceInHours } from 'date-fns';
 import { motion } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface FeedingProgressProps {
-  lastFed: Date
+  lastFed: Date | null | undefined;
   interval: number
   size?: number
   strokeWidth?: number
@@ -30,24 +31,15 @@ export default function FeedingProgress({
 }: FeedingProgressProps) {
   const { shouldAnimate } = useAnimation()
   const [progress, setProgress] = useState(0)
-  const { data: session, status } = useSession();
-  const timezone = getUserTimezone(session?.user?.timezone);
-
-  console.log('[Debug FeedingProgress] Status da sessão:', status);
-  console.log('[Debug FeedingProgress] Dados iniciais:', {
-    lastFed: lastFed ? formatDateTimeForDisplay(lastFed, timezone) : null,
-    interval,
-    timezone,
-    sessionStatus: status,
-    isAuthenticated: !!session
-  });
+  const { currentUser, loading: userLoading } = useUserContext();
+  const timezone = getUserTimezone(currentUser?.preferences?.timezone);
 
   const [nextFeedingTime, setNextFeedingTime] = useState<Date | null>(null);
 
   // Memoize the calculation function to prevent unnecessary recreations
   const calculateProgress = useCallback(() => {
-    if (!lastFed) {
-      console.log('[Debug FeedingProgress] Última alimentação não definida');
+    if (!lastFed || !timezone) {
+      console.log('[Debug FeedingProgress] Última alimentação ou timezone não definidos');
       return;
     }
 
@@ -96,17 +88,44 @@ export default function FeedingProgress({
 
   useEffect(() => {
     console.log('[Debug FeedingProgress] useEffect iniciado');
-    // Initial calculation
-    calculateProgress()
+    // Initial calculation only if timezone is loaded
+    if (timezone) {
+        calculateProgress()
+    }
     
-    // Update every minute
-    const timer = setInterval(calculateProgress, 60000)
+    // Update every minute if timezone is loaded
+    let timer: NodeJS.Timeout | null = null;
+    if (timezone) {
+      timer = setInterval(calculateProgress, 60000)
+    }
 
     return () => {
       console.log('[Debug FeedingProgress] useEffect cleanup');
-      clearInterval(timer)
+      if (timer) clearInterval(timer)
     }
-  }, [calculateProgress])
+  }, [calculateProgress, timezone])
+
+  // Handle loading state for user/timezone
+  if (userLoading) {
+    return (
+      <div className="relative w-full space-y-2">
+        <Skeleton className="h-2 w-full" />
+        <div className="flex justify-between text-sm text-gray-500">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+      </div>
+    );
+  }
+
+  // Handle case where lastFed is not provided
+  if (!lastFed) {
+    return (
+      <div className="relative w-full text-center text-sm text-gray-500 py-2">
+        Sem registro de alimentação.
+      </div>
+    )
+  }
 
   // Calculate circle properties
   const radius = (size - strokeWidth) / 2

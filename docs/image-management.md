@@ -29,7 +29,7 @@ tmp/
 - **Thumbnails**: 150x150px
 
 ### Limites
-- Tamanho máximo: 5MB
+- Tamanho máximo: 50MB
 - Formatos suportados: JPG, PNG, WebP
 - Dimensões mínimas: 150x150px
 

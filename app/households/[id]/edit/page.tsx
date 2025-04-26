@@ -2,7 +2,6 @@
 
 import { useState, useEffect, use, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { useSession } from "next-auth/react"
 import BottomNav from "@/components/bottom-nav"
 import PageTransition from "@/components/page-transition"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,12 +25,11 @@ export default function EditHouseholdPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const householdId = resolvedParams.id;
   const router = useRouter();
-  const { data: session, status } = useSession();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { currentUser } = userState;
-  const { households } = householdState;
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
+  const { households, isLoading: isLoadingHouseholds, error: errorHousehold } = householdState;
   
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -39,42 +37,72 @@ export default function EditHouseholdPage({ params }: PageProps) {
   const [householdName, setHouseholdName] = useState("");
   const [isAuthorized, setIsAuthorized] = useState<boolean | undefined>(undefined);
 
+  if (isLoadingUser) {
+    return <Loading text="Verificando usuário..." />;
+  }
+
+  if (errorUser) {
+    return (
+      <PageTransition>
+        <div className="p-4 text-center">
+          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
+          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (!currentUser) {
+    console.log("[EditHouseholdPage] No currentUser found. Redirecting to login.");
+    useEffect(() => {
+        toast.error("Autenticação necessária para editar.");
+        router.replace(`/login?callbackUrl=/households/${householdId}/edit`);
+    }, [router, householdId]);
+    return <Loading text="Redirecionando para login..." />;
+  }
+
+  if (errorHousehold) {
+     return (
+       <PageTransition>
+         <div className="p-4 text-center">
+            <p className="text-destructive">Erro ao carregar lista de residências: {errorHousehold}. Tente recarregar a página.</p>
+            <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+         </div>
+       </PageTransition>
+     );
+  }
+  
   useEffect(() => {
     const opId = "load-edit-household";
     addLoadingOperation({ id: opId, priority: 1, description: "Loading household data..."});
     setIsLoadingData(true);
 
-    if (status === "authenticated" && currentUser && households.length > 0) {
-      const foundHousehold = households.find(h => String(h.id) === String(householdId));
-      setHousehold(foundHousehold || null);
-
-      if (foundHousehold) {
-        setHouseholdName(foundHousehold.name);
-        const isOwner = foundHousehold.owner?.id === currentUser.id;
-        const isAdmin = isOwner || foundHousehold.members?.some(
-          member => String(member.userId) === String(currentUser.id) && member.role?.toLowerCase() === 'admin'
-        );
-        setIsAuthorized(isAdmin);
-      } else {
-        setIsAuthorized(false);
-        if (households.length > 0) {
-            toast.error("Residência não encontrada.");
-            router.replace("/households");
-        }
-      }
-      setIsLoadingData(false);
-      removeLoadingOperation(opId);
-    } else if (status === "unauthenticated") {
-       setIsLoadingData(false);
-       removeLoadingOperation(opId);
-       setIsAuthorized(false);
-       router.replace("/login");
-    } else if (status === "loading") {
-       setIsLoadingData(true);
-    } else {
-       setIsLoadingData(true);
+    if (isLoadingHouseholds) {
+        console.log("EditHouseholdPage useEffect: HouseholdContext still loading, waiting...");
+        return;
     }
-  }, [status, currentUser, households, householdId, router, addLoadingOperation, removeLoadingOperation]);
+    
+    console.log(`EditHouseholdPage useEffect: Attempting to find household ${householdId}`);
+    console.log(`EditHouseholdPage useEffect: Households available in context: ${households.length}`);
+    const foundHousehold = households.find(h => String(h.id) === String(householdId));
+    setHousehold(foundHousehold || null);
+
+    if (foundHousehold) {
+      console.log(`EditHouseholdPage useEffect: Found household ${foundHousehold.id}`);
+      setHouseholdName(foundHousehold.name);
+      const isOwner = String(foundHousehold.owner?.id) === String(currentUser.id);
+      const isAdmin = isOwner || foundHousehold.members?.some(
+        member => String(member.userId) === String(currentUser.id) && member.role?.toLowerCase() === 'admin'
+      );
+      console.log(`EditHouseholdPage useEffect: Is owner? ${isOwner}, Is admin member? ${isAdmin}`);
+      setIsAuthorized(isAdmin);
+    } else {
+      console.warn(`EditHouseholdPage useEffect: Household ${householdId} not found in context.`);
+      setIsAuthorized(false);
+    }
+    setIsLoadingData(false);
+    removeLoadingOperation(opId);
+  }, [currentUser, households, householdId, isLoadingHouseholds, addLoadingOperation, removeLoadingOperation]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,33 +157,7 @@ export default function EditHouseholdPage({ params }: PageProps) {
   };
 
   if (isLoadingData) {
-    return (
-      <PageTransition>
-        <div className="flex min-h-screen flex-col bg-background">
-          <main className="flex-1 pb-20 pt-4">
-            <div className="container max-w-md">
-              <div className="mb-6 flex items-center">
-                <Skeleton className="h-9 w-9 mr-2 rounded-full" />
-                <Skeleton className="h-7 w-48" />
-              </div>
-              <Card>
-                <CardHeader>
-                  <Skeleton className="h-6 w-3/4" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-24 mb-2" />
-                  <Skeleton className="h-10 w-full mb-4" />
-                </CardContent>
-                <CardFooter>
-                  <Skeleton className="h-10 w-full" />
-                </CardFooter>
-              </Card>
-            </div>
-          </main>
-          <BottomNav />
-        </div>
-      </PageTransition>
-    );
+    return <Loading text="Carregando dados da residência..." />;
   }
 
   if (!household || isAuthorized === false) {

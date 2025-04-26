@@ -8,14 +8,12 @@ import { ArrowLeft, Edit, Trash2, Utensils, AlertTriangle, Ban, Users } from "lu
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useAppContext } from "@/lib/context/AppContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { Loading } from "@/components/ui/loading"
 import { EmptyState } from "@/components/ui/empty-state"
 import PageTransition from "@/components/page-transition"
 import BottomNav from "@/components/bottom-nav"
-import { useSession } from "next-auth/react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { FeedingLog } from "@/lib/types"
@@ -31,11 +29,9 @@ export default function FeedingDetailsPage({
 }) {
   const resolvedParams = use(params)
   const router = useRouter()
-  const { dispatch: appDispatch } = useAppContext()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
-  const { data: session, status } = useSession()
-  const { currentUser } = userState
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState
 
   const [isLoadingPage, setIsLoadingPage] = useState(true)
   const [feedingLog, setFeedingLog] = useState<FeedingLogDetails | null>(null)
@@ -44,24 +40,62 @@ export default function FeedingDetailsPage({
 
   const logId = resolvedParams.id
 
-  useEffect(() => {
-    if (status !== "authenticated" || !currentUser?.id || !currentUser?.householdId) {
-      if (status === "authenticated" && currentUser && !currentUser.householdId) {
-        setIsLoadingPage(false)
-        setError("Nenhuma residência associada.")
-      } else if (status !== 'loading') {
-        setIsLoadingPage(false)
-      }
-      return
-    }
+  if (isLoadingUser) {
+    return <Loading text="Carregando sessão..." />
+  }
+  
+  if (errorUser) {
+     return (
+       <PageTransition>
+         <div className="flex flex-col min-h-screen bg-background">
+            <div className="p-4 pb-24 text-center">
+               <PageHeader title="Detalhes da Alimentação" />
+               <p className="text-destructive mt-6">Erro ao carregar dados do usuário: {errorUser}</p>
+               <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
+            </div>
+            <BottomNav />
+         </div>
+       </PageTransition>
+     );
+  }
+  
+  if (!currentUser) {
+    console.log("[FeedingDetailsPage] No currentUser found. Redirecting...");
+    useEffect(() => {
+        toast.error("Autenticação necessária.");
+        router.replace(`/login?callbackUrl=/feedings/${logId}`);
+    }, [router, logId]);
+    return <Loading text="Redirecionando para login..." />;
+  }
+  
+  if (!currentUser.householdId) {
+     return (
+       <PageTransition>
+         <div className="flex flex-col min-h-screen bg-background">
+            <div className="p-4 pb-24">
+               <PageHeader title="Detalhes da Alimentação" />
+               <EmptyState
+                 icon={Users}
+                 title="Sem Residência Associada"
+                 description="Associe-se a uma residência para ver detalhes."
+                 actionLabel="Ir para Configurações"
+                 actionHref="/settings"
+                 className="mt-8"
+               />
+            </div>
+            <BottomNav />
+         </div>
+       </PageTransition>
+     );
+  }
 
-    if (!logId || isNaN(parseInt(logId))) {
+  useEffect(() => {
+    if (!logId || typeof logId !== 'string' || logId.length < 10) {
       setIsLoadingPage(false)
       setError("ID do registro inválido.")
       return
     }
 
-    const currentHouseholdId = currentUser.householdId
     setIsLoadingPage(true)
     setError(null)
 
@@ -69,7 +103,14 @@ export default function FeedingDetailsPage({
       const opId = `load-feeding-${logId}`
       addLoadingOperation({ id: opId, description: "Carregando registro..." })
       try {
-        const response = await fetch(`/api/feedings/${logId}`)
+        const headers: HeadersInit = {};
+        if (currentUser?.id) {
+            headers['X-User-ID'] = currentUser.id;
+        } else {
+            throw new Error("Usuário não autenticado para buscar registro.");
+        }
+        
+        const response = await fetch(`/api/feedings/${logId}`, { headers });
         if (!response.ok) {
           if (response.status === 404) {
             throw new Error("Registro de alimentação não encontrado.")
@@ -81,11 +122,6 @@ export default function FeedingDetailsPage({
           }
         }
         const data: FeedingLogDetails = await response.json()
-
-        const logHousehold = data.householdId ?? data.cat?.householdId
-        if (logHousehold && String(logHousehold) !== String(currentHouseholdId)) {
-          throw new Error("Este registro não pertence à sua residência atual.")
-        }
 
         setFeedingLog(data)
       } catch (err: any) {
@@ -99,17 +135,11 @@ export default function FeedingDetailsPage({
     }
 
     fetchFeedingLog()
-  }, [logId, status, currentUser, addLoadingOperation, removeLoadingOperation])
+  }, [logId, currentUser?.id, currentUser?.householdId, addLoadingOperation, removeLoadingOperation])
 
   const handleDelete = async () => {
     if (!feedingLog || !currentUser?.householdId) {
       toast.error("Não é possível excluir: Dados ausentes ou inválidos.")
-      return
-    }
-
-    const logHousehold = feedingLog.householdId ?? feedingLog.cat?.householdId
-    if (logHousehold && String(logHousehold) !== String(currentUser.householdId)) {
-      toast.error("Não é possível excluir: Registro não pertence à sua residência.")
       return
     }
 
@@ -118,10 +148,19 @@ export default function FeedingDetailsPage({
     setIsDeleting(true)
     const previousLogId = feedingLog.id
 
-    appDispatch({ type: "DELETE_FEEDING_LOG", payload: { id: String(feedingLog.id) } })
-
     try {
-      const response = await fetch(`/api/feedings/${feedingLog.id}`, { method: "DELETE" })
+      const headers: HeadersInit = {};
+      if (currentUser?.id) {
+          headers['X-User-ID'] = currentUser.id;
+      } else {
+          toast.error("Erro de autenticação ao excluir.");
+          throw new Error("User ID missing for delete request");
+      }
+      
+      const response = await fetch(`/api/feedings/${feedingLog.id}`, {
+         method: "DELETE",
+         headers: headers
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -139,15 +178,6 @@ export default function FeedingDetailsPage({
     }
   }
 
-  if (status === "loading" || (status === "authenticated" && !currentUser)) {
-    return <Loading text="Carregando sessão..." />
-  }
-
-  if (status === "unauthenticated") {
-    router.push("/login")
-    return <Loading text="Redirecionando para login..." />
-  }
-
   let content
   if (isLoadingPage) {
     content = <Loading text="Carregando detalhes do registro..." />
@@ -159,7 +189,7 @@ export default function FeedingDetailsPage({
         description={error}
         actionLabel="Voltar para Histórico"
         actionHref="/feedings"
-        variant="destructive"
+        variant="default"
       />
     )
   } else if (!feedingLog) {
@@ -170,6 +200,7 @@ export default function FeedingDetailsPage({
         description="O registro de alimentação não foi encontrado ou você não tem permissão para vê-lo."
         actionLabel="Voltar para Histórico"
         actionHref="/feedings"
+        variant="default"
       />
     )
   } else {
@@ -227,7 +258,13 @@ export default function FeedingDetailsPage({
 
             <div>
               <h4 className="text-sm font-medium text-muted-foreground mb-1">Registrado por</h4>
-              <p className="text-base">{feedingLog.user?.name || <span className="text-muted-foreground italic">Usuário desconhecido</span>}</p>
+              <p className="text-base">
+                {feedingLog.user ? (
+                  feedingLog.user.name || <span className="text-muted-foreground italic">Nome não disponível</span>
+                ) : (
+                  <span className="text-muted-foreground italic">Usuário não encontrado</span>
+                )}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -239,7 +276,11 @@ export default function FeedingDetailsPage({
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">
         <div className="p-4 pb-24">
-          <PageHeader title="Detalhes da Alimentação" backHref="/feedings" showBackArrow={true} />
+          <Button variant="ghost" size="sm" onClick={() => router.back()} className="mb-4">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Voltar
+          </Button>
+          <PageHeader title="Detalhes da Alimentação" />
           <div className="mt-6">
             {content}
           </div>

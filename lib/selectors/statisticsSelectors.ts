@@ -31,29 +31,70 @@ export interface CatPortion {
 
 // Helper function to calculate date range
 export const getDateRange = (period: string): { start: Date; end: Date } => {
-  const now = new Date();
-  switch (period) {
-    case "7dias":
-      return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
-    case "30dias":
-      return { start: startOfDay(subDays(now, 29)), end: endOfDay(now) };
-    case "mesAtual":
-      return { start: startOfMonth(now), end: endOfMonth(now) };
-    case "mesPassado":
-      const lastMonth = subMonths(now, 1);
-      return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
-    default: // Default to last 7 days
-      return { start: startOfDay(subDays(now, 6)), end: endOfDay(now) };
+  try {
+    const now = new Date();
+    
+    // Validate period
+    if (!period) {
+      console.warn('No period provided, defaulting to 7 days');
+      return { 
+        start: startOfDay(subDays(now, 6)), 
+        end: endOfDay(now) 
+      };
+    }
+
+    switch (period) {
+      case "hoje":
+        return { 
+          start: startOfDay(now), 
+          end: endOfDay(now) 
+        };
+      case "7dias":
+        return { 
+          start: startOfDay(subDays(now, 6)), 
+          end: endOfDay(now) 
+        };
+      case "30dias":
+        return { 
+          start: startOfDay(subDays(now, 29)), 
+          end: endOfDay(now) 
+        };
+      case "mesAtual":
+        return { 
+          start: startOfMonth(now), 
+          end: endOfMonth(now) 
+        };
+      case "mesPassado": {
+        const lastMonth = subMonths(now, 1);
+        return { 
+          start: startOfMonth(lastMonth), 
+          end: endOfMonth(lastMonth) 
+        };
+      }
+      default:
+        console.warn(`Invalid period "${period}", defaulting to 7 days`);
+        return { 
+          start: startOfDay(subDays(now, 6)), 
+          end: endOfDay(now) 
+        };
+    }
+  } catch (error) {
+    console.error('Error calculating date range:', error);
+    // Return a safe fallback
+    const now = new Date();
+    return {
+      start: startOfDay(subDays(now, 6)),
+      end: endOfDay(now)
+    };
   }
 }
 
 // --- Main Selector Hook ---
 
 export function useSelectFeedingStatistics(): {
-  // Return values adjusted
   currentUser: CurrentUserType | null;
-  cats: CatType[] | null;
-  feedingLogs: FeedingLog[] | null;
+  cats: CatType[];
+  feedingLogs: FeedingLog[];
   isLoading: boolean;
   error: string | null;
 } {
@@ -69,14 +110,11 @@ export function useSelectFeedingStatistics(): {
   const isLoading = isLoadingUser || isLoadingCats || isLoadingFeedings;
   const error = errorCats || errorFeedings || errorUser;
 
-  // Remove the entire useMemo calculation block
-  /* useMemo block removed */
-
-  // Return the raw data and combined states
+  // Return the raw data and combined states, with proper null handling
   return { 
     currentUser, 
-    cats, 
-    feedingLogs, 
+    cats: cats || [], 
+    feedingLogs: feedingLogs || [], 
     isLoading, 
     error 
   };

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { BaseCat } from '@/lib/types/common';
+import { BaseCats } from "@/lib/types/common";
 
 // GET /api/feedings/cats - Listar gatos para o formulário de alimentação
 export async function GET(request: NextRequest) {
@@ -25,16 +25,16 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Converter para o formato BaseCat
-    const formattedCats: BaseCat[] = cats.map(cat => ({
+    // Converter para o formato BaseCats
+    const formattedCats: BaseCats[] = cats.map(cat => ({
       id: cat.id,
+      created_at: cat.created_at,
+      updated_at: cat.updated_at,
       name: cat.name,
-      photoUrl: cat.photoUrl || undefined,
-      birthdate: cat.birthdate || undefined,
-      weight: cat.weight || undefined,
-      restrictions: cat.restrictions || undefined,
-      householdId: cat.householdId,
-      feeding_interval: cat.feeding_interval || 8
+      birth_date: cat.birth_date,
+      weight: cat.weight,
+      household_id: cat.household_id,
+      owner_id: cat.owner_id
     }));
 
     console.log(`Encontrados ${formattedCats.length} gatos para a residência ${householdId}`);

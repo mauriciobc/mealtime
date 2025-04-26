@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
+import prisma from '@/lib/prisma'; // Assuming UserRepository uses prisma indirectly or we need it here
 import { UserRepository } from '@/lib/repositories';
 import { BaseUser, ID } from '@/lib/types/common';
 
@@ -10,30 +11,42 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
+    const cookieStore = cookies();
+    const supabase = await createClient(cookieStore);
+    const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
     
-    // Verificar se o usuário está autenticado
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
+    if (authError || !supabaseUser) {
+      console.error('GET /api/users/[id] Auth Error:', authError);
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
     
-    // Aguardar a resolução dos parâmetros
-    const { id } = await Promise.resolve(params);
-    const userId = parseInt(id, 10) as ID;
+    const requestedUserId = parseInt(params.id, 10);
+    if (isNaN(requestedUserId)) {
+       return NextResponse.json({ error: 'ID de usuário inválido' }, { status: 400 });
+    }
     
-    // Verificar se o usuário está tentando acessar seus próprios dados
-    if (session.user.id !== userId) {
+    // Fetch the Prisma User corresponding to the authenticated Supabase user
+    const authenticatedPrismaUser = await prisma.user.findUnique({
+        where: { auth_id: supabaseUser.id }, // Assumes unique constraint on auth_id
+        select: { id: true } // Select the Prisma User primary key
+    });
+    
+    if (!authenticatedPrismaUser) {
+        console.error('Authenticated Supabase user not found in Prisma table:', supabaseUser.id);
+        // This case might indicate a data inconsistency, but for the API, treat as unauthorized/not found
+        return NextResponse.json({ error: 'Usuário autenticado não encontrado' }, { status: 404 });
+    }
+    
+    // Check if the authenticated user is trying to access their own data
+    if (authenticatedPrismaUser.id !== requestedUserId) {
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }
       );
     }
     
-    // Buscar os dados do usuário
-    const user = await UserRepository.getById(userId);
+    // Fetch the user data using the validated Prisma User ID
+    const user = await UserRepository.getById(requestedUserId as ID);
     
     if (!user) {
       return NextResponse.json(

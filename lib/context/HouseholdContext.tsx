@@ -121,9 +121,21 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
         if (!response.ok) {
           let errorMsg = `Erro ao carregar residências (${response.status})`;
           try {
-            const errorData = await response.json();
-            errorMsg = errorData.error || errorMsg;
-          } catch (e) { /* Ignore parsing error, use status code message */ }
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+              const errorData = await response.json();
+              errorMsg = errorData.error || errorMsg;
+            } else {
+              // Attempt to read as text if not JSON
+              const errorText = await response.text();
+              // Prevent logging the entire HTML page if it's long
+              errorMsg = errorText.length > 200 ? errorText.substring(0, 200) + "..." : errorText || errorMsg;
+              console.error("[HouseholdProvider] Non-JSON error response:", errorText);
+            }
+          } catch (e) {
+            console.error("[HouseholdProvider] Failed to parse error response:", e);
+            // Keep the original status code message if parsing fails
+          }
           throw new Error(errorMsg);
         }
 

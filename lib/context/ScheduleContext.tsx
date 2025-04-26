@@ -1,10 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode, Dispatch, useCallback } from "react";
+import React, { createContext, useContext, useReducer, ReactNode, Dispatch, useCallback, useEffect, useRef, useMemo } from "react";
 import { Schedule } from "@/lib/types"; // Assuming Schedule type is defined here
 // Import API service functions if needed for fetching/mutating schedules
 // import { getSchedules, addSchedule, updateSchedule, deleteSchedule } from "@/lib/services/scheduleService";
 import { useLoading } from "./LoadingContext"; // If schedule operations should trigger loading indicators
+import { useUserContext } from "./UserContext"; // Need user/household context
+import { toast } from "sonner"; // For error feedback
 
 // Define state type
 interface ScheduleState {
@@ -15,23 +17,25 @@ interface ScheduleState {
 
 // Define action types
 type ScheduleAction =
+  | { type: "FETCH_START" }
   | { type: "SET_SCHEDULES"; payload: Schedule[] }
   | { type: "ADD_SCHEDULE"; payload: Schedule }
   | { type: "UPDATE_SCHEDULE"; payload: Schedule }
-  | { type: "DELETE_SCHEDULE"; payload: string } // Assuming ID is string
-  | { type: "SET_LOADING"; payload: boolean }
-  | { type: "SET_ERROR"; payload: string | null };
+  | { type: "DELETE_SCHEDULE"; payload: string } // Assuming ID is string UUID
+  | { type: "FETCH_ERROR"; payload: string | null }; // Renamed from SET_ERROR, payload is error message
 
 // Initial state
 const initialState: ScheduleState = {
   schedules: [],
-  isLoading: false,
+  isLoading: false, // Start as false, FETCH_START will set it
   error: null,
 };
 
 // Create reducer
 const scheduleReducer = (state: ScheduleState, action: ScheduleAction): ScheduleState => {
   switch (action.type) {
+    case "FETCH_START":
+      return { ...state, isLoading: true, error: null };
     case "SET_SCHEDULES":
       return { ...state, schedules: action.payload, isLoading: false, error: null };
     case "ADD_SCHEDULE":
@@ -50,9 +54,7 @@ const scheduleReducer = (state: ScheduleState, action: ScheduleAction): Schedule
         ...state,
         schedules: state.schedules.filter((schedule) => schedule.id !== action.payload),
       };
-    case "SET_LOADING":
-      return { ...state, isLoading: action.payload };
-    case "SET_ERROR":
+    case "FETCH_ERROR": // Renamed from SET_ERROR
       return { ...state, isLoading: false, error: action.payload }; // Stop loading on error
     default:
       return state;
@@ -84,42 +86,154 @@ export function useScheduleContext() {
 // Create provider
 export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(scheduleReducer, initialState);
-  // const { addLoadingOperation, removeLoadingOperation } = useLoading(); // Uncomment if using loading context
+  const { state: userState } = useUserContext();
+  const { currentUser } = userState;
+  const { addLoadingOperation, removeLoadingOperation } = useLoading();
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const loadingIdRef = useRef<string | null>(null);
+  const hasAttemptedLoadRef = useRef(false);
 
-  // Example: Fetch initial schedules
-  // useEffect(() => {
-  //   const loadSchedules = async () => {
-  //     const opId = "schedule-load";
-  //     dispatch({ type: "SET_LOADING", payload: true });
-  //     // addLoadingOperation({ id: opId, priority: 1, description: "Loading schedules..."});
-  //     try {
-  //       // const schedules = await getSchedules(); // Replace with actual API call
-  //       // dispatch({ type: "SET_SCHEDULES", payload: schedules });
-  //     } catch (error: any) {
-  //       dispatch({ type: "SET_ERROR", payload: error.message || "Failed to load schedules" });
-  //     } finally {
-  //       // removeLoadingOperation(opId);
-  //       // dispatch({ type: "SET_LOADING", payload: false }); // Handled by SET_SCHEDULES/SET_ERROR
-  //     }
-  //   };
-  //   loadSchedules();
-  // }, [/* dependencies like user ID? */]);
+  const cleanupLoading = useCallback(() => {
+    if (loadingIdRef.current) {
+      try {
+        removeLoadingOperation(loadingIdRef.current);
+      } catch (error) {
+        console.error('[ScheduleProvider] Error cleaning up loading:', error);
+      } finally {
+        loadingIdRef.current = null;
+      }
+    }
+  }, [removeLoadingOperation]);
 
-  // Example action wrappers (optional)
-  // const fetchSchedules = useCallback(async () => { ... }, []);
-  // const addSchedule = useCallback(async (scheduleData) => { ... }, []);
-  // const updateSchedule = useCallback(async (scheduleData) => { ... }, []);
-  // const deleteSchedule = useCallback(async (id) => { ... }, []);
+  // Reset load attempt flag when household changes
+  useEffect(() => {
+    hasAttemptedLoadRef.current = false;
+  }, [currentUser?.householdId]);
 
-  // Provide state and dispatch (or action wrappers)
-  const value = {
-    state,
-    dispatch,
-    // fetchSchedules, // Uncomment if using action wrappers
-    // addSchedule,
-    // updateSchedule,
-    // deleteSchedule,
-  };
+  // Fetch initial schedules based on household ID
+  useEffect(() => {
+    const loadingId = "schedule-load";
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    let isMounted = true;
+
+    const loadSchedules = async () => {
+      const householdId = currentUser?.householdId;
+      const userId = currentUser?.id;
+
+      if (!householdId || !isMounted || hasAttemptedLoadRef.current) {
+        if (!householdId) {
+          // If no household, ensure schedules are empty - defer dispatch
+          queueMicrotask(() => {
+             if (isMounted) { // Check mount status again inside microtask
+               dispatch({ type: "SET_SCHEDULES", payload: [] });
+             }
+          });
+        }
+        return;
+      }
+
+      hasAttemptedLoadRef.current = true;
+
+      try {
+        loadingIdRef.current = loadingId;
+        dispatch({ type: "FETCH_START" });
+        addLoadingOperation({ id: loadingId, priority: 5, description: "Carregando agendamentos..."});
+
+        console.log("[ScheduleProvider] Loading schedules for household:", householdId);
+        const headers: HeadersInit = {};
+        if (userId) {
+          headers['X-User-ID'] = userId;
+        } else {
+           console.warn("[ScheduleProvider] User ID not available when fetching schedules.");
+        }
+
+        const response = await fetch(`/api/schedules?householdId=${householdId}`, {
+          signal: abortController.signal,
+          headers: headers
+        });
+
+        if (!isMounted) return;
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("[ScheduleProvider] Schedules response error:", { status: response.status, text: errorText });
+          throw new Error(`Erro ${response.status}: ${errorText || 'Failed to load schedules'}`);
+        }
+
+        const rawSchedulesData: any[] = await response.json();
+
+        if (!isMounted) return;
+        console.log(`[ScheduleProvider] Raw schedules fetched: ${rawSchedulesData.length}`);
+
+        // --- Mapping Logic (adjust based on actual API response) ---
+        const mappedSchedules: Schedule[] = rawSchedulesData.map(s => ({
+          id: s.id, 
+          catId: s.cat_id,
+          householdId: s.household_id,
+          userId: s.user_id,
+          type: s.type, // 'interval' or 'fixedTime'
+          interval: s.interval, // number (hours) or null
+          // Ensure 'times' is treated as an array, even if null/undefined from DB
+          times: Array.isArray(s.times) ? s.times : [], // Expecting string[] or handle DB format
+          enabled: s.enabled, // boolean
+          createdAt: s.created_at ? new Date(s.created_at) : new Date(),
+          updatedAt: s.updated_at ? new Date(s.updated_at) : undefined,
+          // Map the nested cat object from the API response
+          cat: s.cat ? { 
+              id: s.cat.id,
+              name: s.cat.name,
+              // Initialize other required CatType fields as undefined/null if not provided by API
+              birthdate: undefined,
+              weight: null,
+              householdId: s.household_id, // Can reuse householdId from schedule
+              photoUrl: null, // Not included in API response
+              restrictions: null, 
+              notes: null, 
+              feedingInterval: undefined, 
+              portion_size: undefined, 
+              createdAt: undefined, // Not relevant for this nested object usually
+              updatedAt: undefined, 
+             } : undefined, 
+        }));
+        // --- End Mapping Logic ---
+        
+        console.log("[ScheduleProvider] Schedules mapped successfully:", mappedSchedules);
+        dispatch({ type: "SET_SCHEDULES", payload: mappedSchedules });
+
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          console.log('[ScheduleProvider] Request aborted');
+          return;
+        }
+        if (!isMounted) return;
+
+        console.error("[ScheduleProvider] Error loading schedules:", error);
+        const errorMessage = error.message || "Failed to load schedules";
+        dispatch({ type: "FETCH_ERROR", payload: errorMessage });
+        toast.error(errorMessage);
+      } finally {
+        if (isMounted) {
+          cleanupLoading();
+        }
+      }
+    };
+    
+    loadSchedules();
+
+    // Cleanup function
+    return () => {
+      isMounted = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      cleanupLoading();
+    };
+    // Depend on householdId and userId to refetch when they change
+  }, [currentUser?.householdId, currentUser?.id]); 
+
+  const value = useMemo(() => ({ state, dispatch }), [state, dispatch]);
 
   return (
     <ScheduleContext.Provider value={value}>

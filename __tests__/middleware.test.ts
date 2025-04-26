@@ -235,7 +235,7 @@ describe('Middleware', () => {
     });
 
     it('should call rewrite() to /login for protected paths without auth', async () => {
-       const pathname = '/dashboard'; // Example protected path
+       const pathname = '/cats'; // Example protected path - UPDATED
        const request = createMockReq(pathname);
        mockedGetToken.mockResolvedValue(null); // Not authenticated
       // Mock the middleware to call rewrite()
@@ -255,9 +255,9 @@ describe('Middleware', () => {
     });
 
     it('should call next() for protected paths with auth', async () => {
-       const pathname = '/dashboard'; // Example protected path
+       const pathname = '/cats'; // Example protected path - UPDATED
        const request = createMockReq(pathname);
-       mockedGetToken.mockResolvedValue({ id: 'user1', email: 'test@example.com' }); // Authenticated
+       mockedGetToken.mockResolvedValue({ id: 'user123' }); // Authenticated
        // Mock the middleware to call next()
        mockedMiddleware.mockImplementation(async () => NextResponse.next()); 
 

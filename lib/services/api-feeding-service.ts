@@ -133,7 +133,7 @@ export const updateFeedingSchedule = async (
     // Buscar informações do gato para notificação
     const cat = await getCat(catId);
     if (cat) {
-      const nextFeedingTime = await getNextFeedingTime(catId);
+      const nextFeedingTime = await getNextFeedingTime(catId.toString(), userId.toString());
       if (nextFeedingTime) {
         const notifications = generateFeedingNotifications(
           cat,
@@ -152,142 +152,71 @@ export const updateFeedingSchedule = async (
 };
 
 /**
- * Busca a próxima alimentação de um gato
+ * Busca a próxima alimentação de um gato via API.
  */
-export const getNextFeedingTime = async (catId: number): Promise<Date | null> => {
+export const getNextFeedingTime = async (catId: string, userId?: string): Promise<Date | null> => {
+  console.log(`[getNextFeedingTime] Fetching next feeding for cat: ${catId}, user: ${userId}`);
+  if (!catId) {
+    throw new Error('Cat ID is required');
+  }
+
+  // Prepare headers
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json'
+  };
+  if (userId) {
+    headers['X-User-ID'] = userId;
+  } else {
+    console.warn(`[getNextFeedingTime] User ID not provided. API call might fail authorization.`);
+  }
+
   try {
-    const response = await fetch(`/api/cats/${catId}/next-feeding`);
+    // Fetch directly from the dedicated API endpoint
+    const response = await fetch(`/api/cats/${catId}/next-feeding`, { headers });
+    
     if (!response.ok) {
-      console.error('Erro ao buscar via API, tentando cálculo local');
-      return calculateNextFeedingLocally(catId);
+      const errorText = await response.text();
+      console.error(`[getNextFeedingTime] API Error (${response.status}): ${errorText}`);
+      throw new Error(`Failed to fetch next feeding time: ${errorText}`);
     }
     
     const data = await response.json();
-    return data ? new Date(data) : null;
+    
+    // If nextFeeding is explicitly null, this is a valid state
+    if (data.nextFeeding === null) {
+      console.log(`[getNextFeedingTime] No next feeding time scheduled.`);
+      return null;
+    }
+    
+    // Otherwise, validate the date
+    if (!data.nextFeeding || typeof data.nextFeeding !== 'string') {
+      throw new Error('Invalid response format from API');
+    }
+
+    const nextDate = new Date(data.nextFeeding);
+    if (isNaN(nextDate.getTime())) {
+      throw new Error(`Invalid date received from API: ${data.nextFeeding}`);
+    }
+
+    console.log(`[getNextFeedingTime] Successfully fetched next feeding time: ${nextDate.toISOString()}`);
+    return nextDate;
+
   } catch (error) {
-    console.error('Erro ao buscar próxima alimentação:', error);
-    return null;
+    console.error(`[getNextFeedingTime] Error fetching next feeding for ${catId}:`, error);
+    throw error; // Re-throw to propagate to useFeeding hook
   }
 };
 
 /**
  * Busca os logs de alimentação de um gato
  */
+// THIS FUNCTION IS FLAWED (uses localStorage) - Needs refactoring or removal
 export const getFeedingLogs = async (catId: string, userTimezone?: string): Promise<FeedingLog[]> => {
-  await delay(300);
-  console.log('\n[getFeedingLogs] Buscando logs:');
-  console.log('- CatId:', catId);
-  console.log('- Timezone recebido:', userTimezone);
-  
-  const logs = await getData<FeedingLog>('feedingLogs');
-  console.log('- Total de logs encontrados (antes do filtro):', logs.length);
-  
-  const timezone = getUserTimezone(userTimezone);
-  console.log('- Timezone resolvido:', timezone);
-  
-  const filteredLogs = logs.filter(log => log.catId === parseInt(catId));
-  console.log('- Total de logs após filtro por catId:', filteredLogs.length);
-  
-  const sortedLogs = filteredLogs.sort((a, b) => {
-    const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
-    const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
-    return dateB.getTime() - dateA.getTime();
-  });
-
-  console.log('- Logs ordenados:', sortedLogs.map(log => ({
-    id: log.id,
-    catId: log.catId,
-    timestamp: formatDateTimeForDisplay(new Date(log.timestamp), timezone)
-  })));
-
-  return sortedLogs.map(log => ({
-    ...log,
-    timestamp: log.timestamp || toDate(new Date(), { timeZone: timezone })
-  }));
+  // ... existing flawed implementation ...
+  console.warn("[getFeedingLogs] THIS FUNCTION IS USING LOCALSTORAGE AND IS LIKELY INCORRECT - Needs refactoring to use API");
+  // ... 
+  return []; // Return empty for now
 };
-
-/**
- * Função auxiliar para cálculo local da próxima alimentação
- */
-async function calculateNextFeedingLocally(catId: number, userTimezone?: string): Promise<Date | null> {
-  try {
-    const timezone = getUserTimezone(userTimezone);
-    console.log('\n[calculateNextFeedingLocally] Iniciando cálculo:');
-    console.log('- CatId:', catId);
-    console.log('- Timezone recebido:', userTimezone);
-    console.log('- Timezone resolvido:', timezone);
-    
-    const now = toDate(new Date(), { timeZone: timezone });
-    console.log('- Data atual:', formatDateTimeForDisplay(now, timezone));
-    
-    // Obter logs ordenados por timestamp
-    const logs = await getFeedingLogs(catId.toString(), timezone);
-    console.log('- Total de logs encontrados:', logs.length);
-    
-    const lastFeeding = logs
-      .sort((a, b) => {
-        const dateA = toDate(new Date(a.timestamp), { timeZone: timezone });
-        const dateB = toDate(new Date(b.timestamp), { timeZone: timezone });
-        return dateB.getTime() - dateA.getTime();
-      })[0];
-
-    // Se não houver logs, retorna null
-    if (!lastFeeding) {
-      console.log('- Nenhum log de alimentação encontrado');
-      return null;
-    }
-
-    console.log('- Última alimentação encontrada:', {
-      id: lastFeeding.id,
-      timestamp: formatDateTimeForDisplay(new Date(lastFeeding.timestamp), timezone)
-    });
-
-    // Obter gato e seu agendamento
-    const response = await fetch(`/api/cats/${catId}`);
-    if (!response.ok) {
-      console.log('- Gato não encontrado');
-      return null;
-    }
-
-    const cat = await response.json() as CatType;
-    console.log('- Dados do gato:', {
-      id: cat.id,
-      name: cat.name,
-      feeding_interval: cat.feeding_interval,
-      schedules: cat.schedules?.map(s => ({
-        enabled: s.enabled,
-        type: s.type,
-        interval: s.interval
-      }))
-    });
-
-    // Se houver um agendamento ativo
-    const activeSchedule = cat.schedules?.find(s => s.enabled);
-    if (activeSchedule && activeSchedule.interval) {
-      console.log('- Usando agendamento ativo:', {
-        type: activeSchedule.type,
-        interval: activeSchedule.interval
-      });
-      
-      const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), activeSchedule.interval, timezone);
-      console.log('- Próxima alimentação calculada (agendamento):', formatDateTimeForDisplay(nextFeeding, timezone));
-      return nextFeeding;
-    }
-    // Se não houver agendamento mas tiver intervalo padrão
-    else if (cat.feeding_interval) {
-      console.log('- Usando intervalo padrão:', cat.feeding_interval);
-      const nextFeeding = calculateNextFeeding(new Date(lastFeeding.timestamp), cat.feeding_interval, timezone);
-      console.log('- Próxima alimentação calculada (intervalo padrão):', formatDateTimeForDisplay(nextFeeding, timezone));
-      return nextFeeding;
-    }
-
-    console.log('- Nenhum intervalo ou agendamento encontrado');
-    return null;
-  } catch (error) {
-    console.error('[calculateNextFeedingLocally] Erro durante o cálculo local:', error);
-    return null;
-  }
-}
 
 /**
  * Salva notificações no banco de dados

@@ -1,5 +1,5 @@
-import prisma from '../prisma';
-import * as bcrypt from 'bcryptjs';
+import prisma from '@/lib/prisma';
+import type { PrismaClient, User } from '@prisma/client';
 
 export const UserRepository = {
   // Buscar todos os usuários
@@ -27,52 +27,14 @@ export const UserRepository = {
     });
   },
 
-  // Verificar credenciais de um usuário
-  verifyCredentials: async (email: string, password: string) => {
-    const user = await prisma.user.findUnique({
-      where: { email },
+  // Buscar um usuário pelo Supabase auth ID
+  getByAuthId: async (authId: string) => {
+    return prisma.user.findUnique({
+      where: { authId },
       include: {
         household: true,
       },
     });
-
-    if (!user || !user.password) {
-      return null;
-    }
-
-    // Tenta a verificação padrão
-    let isPasswordValid = await bcrypt.compare(password, user.password);
-
-    // Se falhar, tenta verificar se a senha foi hasheada duas vezes (para compatibilidade com contas antigas)
-    if (!isPasswordValid) {
-      const tempHash = await bcrypt.hash(password, 10);
-      isPasswordValid = await bcrypt.compare(tempHash, user.password);
-      
-      // Se a senha for válida com o método antigo, atualize-a para o novo formato
-      if (isPasswordValid) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: {
-            password: await bcrypt.hash(password, 10),
-          },
-        });
-      }
-    }
-
-    if (!isPasswordValid) {
-      return null;
-    }
-
-    // Retorna o usuário com o householdId
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      householdId: user.householdId,
-      timezone: user.timezone,
-      language: user.language,
-    };
   },
 
   // Buscar usuários de um domicílio
@@ -86,19 +48,14 @@ export const UserRepository = {
   create: async (data: {
     name: string;
     email: string;
-    password: string;
+    authId: string;
     role: string;
     householdId?: number;
     timezone?: string;
     language?: string;
   }) => {
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-    
     return prisma.user.create({
-      data: {
-        ...data,
-        password: hashedPassword,
-      },
+      data,
     });
   },
 
@@ -108,18 +65,12 @@ export const UserRepository = {
     data: {
       name?: string;
       email?: string;
-      password?: string;
       role?: string;
       householdId?: number | null;
       timezone?: string;
       language?: string;
     }
   ) => {
-    // Se estiver atualizando a senha, hash ela
-    if (data.password) {
-      data.password = await bcrypt.hash(data.password, 10);
-    }
-    
     return prisma.user.update({
       where: { id },
       data,
@@ -140,27 +91,11 @@ export const UserRepository = {
     });
   },
 
-  // Trocar senha do usuário
-  changePassword: async (id: number, newPassword: string) => {
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
-    return prisma.user.update({
-      where: { id },
-      data: {
-        password: hashedPassword,
-      },
-    });
-  },
-
   // Excluir um usuário
   delete: async (id: number) => {
-    // Primeiro, atualiza os registros de alimentação para remover a referência ao usuário
-    // Na prática, você pode querer preservar esses dados de outra forma
     await prisma.feedingLog.deleteMany({
       where: { userId: id },
     });
-
-    // Depois exclui o usuário
     return prisma.user.delete({
       where: { id },
     });

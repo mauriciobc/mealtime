@@ -6,8 +6,9 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  productionBrowserSourceMaps: true,
   images: {
-    domains: ['localhost', 'mealtime.local'],
+    domains: ['localhost', 'mealtime.local', 'zzvmyzyszsqptgyqwqwt.supabase.co'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -28,15 +29,25 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb'
-    }
+      bodySizeLimit: '50mb'
+    },
+    serverSourceMaps: true,
   },
-  webpack: (config) => {
+  webpack: (config, { dev, isServer }) => {
+    if (!isServer) {
+      config.devtool = dev ? 'eval-source-map' : 'source-map';
+      
+      config.output = {
+        ...config.output,
+        devtoolModuleFilenameTemplate: (info) =>
+          `webpack:///${info.resourcePath}?${info.loaders}`,
+      };
+    }
+
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': '.',
     }
-    // Increase the timeout for chunk loading
     config.watchOptions = {
       ...config.watchOptions,
       aggregateTimeout: 300,

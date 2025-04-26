@@ -1,19 +1,13 @@
 import { MetricType, MetricValue, MetricDefinition } from '@/types/monitoring';
+import { Singleton } from '../utils/singleton';
 import { logger } from './logger';
 
-class MetricsMonitor {
-  private static instance: MetricsMonitor;
+class MetricsMonitor extends Singleton<MetricsMonitor> {
   private metrics: Map<string, MetricDefinition>;
 
-  private constructor() {
+  protected constructor() {
+    super();
     this.metrics = new Map();
-  }
-
-  static getInstance(): MetricsMonitor {
-    if (!MetricsMonitor.instance) {
-      MetricsMonitor.instance = new MetricsMonitor();
-    }
-    return MetricsMonitor.instance;
   }
 
   registerMetric(name: string, description: string, type: MetricType): void {
@@ -118,4 +112,5 @@ class MetricsMonitor {
   }
 }
 
-export const metrics = MetricsMonitor.getInstance(); 
+// Export a default instance
+export const metricsMonitor = MetricsMonitor.getInstance(); 

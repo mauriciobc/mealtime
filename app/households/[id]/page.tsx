@@ -1,8 +1,9 @@
+// For better development experience, install React DevTools:
+// https://react.dev/learn/react-developer-tools
 "use client"
 
-import { useState, useEffect, use, useCallback } from "react"
-import { useRouter, useParams } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useState, useEffect, use } from "react"
+import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import BottomNav from "@/components/bottom-nav"
@@ -14,11 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
-  Home, 
   Users, 
   Cat, 
-  CalendarClock,
-  UserPlus, 
   Settings,
   Pencil,
   Trash2,
@@ -28,14 +26,13 @@ import {
   ChevronLeft,
   CopyCheck,
   UserMinus,
-  Crown,
-  ArrowUpDown,
-  X,
-  UserCheck,
+  UserPlus,
   AlertTriangle,
   Plus,
   Lock,
-  MoreVertical
+  MoreVertical,
+  UserCheck,
+  ShieldAlert
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -45,13 +42,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import Link from "next/link"
 import { toast } from "sonner"
 import { useHousehold } from "@/lib/context/HouseholdContext"
 import { useCats } from "@/lib/context/CatsContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
-import { CatType, Household as HouseholdType, HouseholdMember } from "@/lib/types"
+import { CatType, Household, HouseholdMember } from "@/lib/types"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,13 +61,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import React from "react"
 import { Loading } from "@/components/ui/loading"
-import { Label } from "@/components/ui/label"
-import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/ui/empty-state"
-import { CatCard } from "@/components/cat-card"
+import { CatCard } from "@/components/cat/cat-card"
 
 interface PageProps {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }
 
 const formatMemberRole = (role?: string) => {
@@ -80,21 +74,20 @@ const formatMemberRole = (role?: string) => {
 };
 
 export default function HouseholdDetailsPage({ params }: PageProps) {
-  const resolvedParams = use(params)
   const router = useRouter();
-  const { data: session, status } = useSession();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { state: userState, dispatch: userDispatch } = useUserContext();
-  const { state: catsState, dispatch: catsDispatch } = useCats();
+  const { state: userState, dispatch: _userDispatch } = useUserContext();
+  const { state: catsState, dispatch: _catsDispatch } = useCats();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { households } = householdState;
-  const { currentUser } = userState;
-  const { cats: allCats } = catsState;
-  const householdId = resolvedParams.id;
+  const { households, error: errorHousehold } = householdState;
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
+  const { cats: allCats, isLoading: isLoadingCats, error: errorCats } = catsState;
+  
+  const householdId = use(params).id;
   
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [household, setHousehold] = useState<HouseholdType | null | undefined>(undefined);
+  const [household, setHousehold] = useState<Household | null | undefined>(undefined);
   const [cats, setCats] = useState<CatType[]>([])
   const [activeTab, setActiveTab] = useState('members')
   
@@ -102,113 +95,17 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
   const [memberToPromote, setMemberToPromote] = useState<HouseholdMember | null>(null)
   const [memberToDemote, setMemberToDemote] = useState<HouseholdMember | null>(null)
   const [catToDelete, setCatToDelete] = useState<CatType | null>(null)
-  const [showLeaveDialog, setShowLeaveDialog] = useState(false)
-  const [showDeleteHouseholdDialog, setShowDeleteHouseholdDialog] = useState(false)
+  const [_showLeaveDialog, setShowLeaveDialog] = useState(false)
+  const [_showDeleteHouseholdDialog, setShowDeleteHouseholdDialog] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Handle authentication and redirection
   useEffect(() => {
-    const opId = `load-household-${householdId}`;
-    addLoadingOperation({ id: opId, priority: 1, description: "Loading household details..." });
-    setIsLoadingData(true);
-    setLoadError(null);
-    setHousehold(undefined); // Reset household state while loading
-
-    const checkAccess = () => {
-      // 1. Handle unauthenticated state - redirect immediately
-      if (status === "unauthenticated") {
-        router.replace("/login");
-        removeLoadingOperation(opId);
-        return; 
-      }
-
-      // 2. Wait until authenticated AND user data is loaded AND households list is populated
-      if (status === "loading" || !currentUser || households.length === 0) {
-        // Still waiting for necessary data
-        return; 
-      }
-
-      // --- At this point, status is 'authenticated', currentUser exists, and households list is ready ---
-
-      const foundHousehold = households.find(h => String(h.id) === String(householdId));
-
-      // 3. Handle household not found
-      if (!foundHousehold) {
-        setLoadError("Residência não encontrada.");
-        setHousehold(null);
-        setCats([]);
-        toast.error("Residência não encontrada."); // Keep toast for immediate feedback
-        setIsLoadingData(false); // Stop loading indicator
-        removeLoadingOperation(opId); // Remove loading operation
-        router.replace("/households"); // Redirect back to households list
-        return;
-      }
-
-      // 4. Check membership/ownership
-      const isOwner = String(foundHousehold.owner?.id) === String(currentUser.id);
-      const isMember = foundHousehold.members?.some(m => String(m.userId) === String(currentUser.id));
-
-      // 5. Handle unauthorized access
-      if (!isOwner && !isMember) {
-        setLoadError("Você não é membro desta residência.");
-        setHousehold(null);
-        setCats([]);
-        toast.error("Você não é membro desta residência."); // Keep toast
-        setIsLoadingData(false); // Stop loading indicator
-        removeLoadingOperation(opId); // Remove loading operation
-        router.replace("/households"); // Redirect back to households list
-        return;
-      }
-
-      // 6. Access granted!
-      setHousehold(foundHousehold);
-      const householdCats = allCats.filter(cat => String(cat.householdId) === String(householdId));
-      setCats(householdCats);
-      setLoadError(null); // Clear potential previous errors
-      setIsLoadingData(false); // Stop loading indicator
-      removeLoadingOperation(opId); // Remove loading operation
-    };
-
-    // Initial check
-    checkAccess();
-
-    // Set up an interval to retry if data isn't ready
-    const retryInterval = setInterval(() => {
-      if (isLoadingData && status === "authenticated" && currentUser) {
-        checkAccess();
-      }
-    }, 500);
-
-    // Cleanup function
-    return () => {
-      clearInterval(retryInterval);
-      removeLoadingOperation(opId);
-    };
-
-  }, [status, currentUser, households, householdId, allCats, router, addLoadingOperation, removeLoadingOperation, isLoadingData]);
-
-  const isCurrentUserAdmin = useCallback(() => {
-    if (!household || !currentUser) return false;
-    
-    // Check if user is the owner
-    if (household.owner?.id === currentUser.id) return true;
-    
-    // Check if user is an admin member
-    const currentUserMember = household.members?.find(
-      member => String(member.userId) === String(currentUser.id)
-    );
-    return currentUserMember?.role?.toLowerCase() === 'admin';
-  }, [household, currentUser]);
-
-  const copyInviteCode = async () => {
-    if (!household?.inviteCode) return;
-    try {
-      await navigator.clipboard.writeText(household.inviteCode);
-      toast.success("Código de convite copiado!");
-    } catch (error) {
-      console.error("Erro ao copiar código:", error);
-      toast.error("Não foi possível copiar o código.");
+    if (!isLoadingUser && !currentUser) {
+      toast.error("Autenticação necessária para ver a residência.");
+      router.replace(`/login?callbackUrl=/households/${householdId}`);
     }
-  };
+  }, [isLoadingUser, currentUser, router, householdId]);
 
   const leaveHousehold = async () => {
     if (!household || !currentUser) return;
@@ -234,7 +131,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         }
       });
       
-      userDispatch({ 
+      _userDispatch({ 
            type: "SET_CURRENT_USER", 
            payload: currentUser ? { ...currentUser, householdId: null } : null
       });
@@ -252,35 +149,92 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     }
   };
 
-  const removeMember = async (memberIdToRemove: string) => {
-    if (!household || !memberIdToRemove || !isCurrentUserAdmin()) {
-        toast.error("Ação inválida ou não permitida.");
-        return;
-    }
-    const opId = `remove-member-${memberIdToRemove}`;
-    addLoadingOperation({ id: opId, priority: 1, description: `Removing member...` });
+  const deleteHousehold = async () => {
+    if (!household || !currentUser || !isCurrentUserAdmin()) return;
+    const opId = "delete-household";
+    addLoadingOperation({ id: opId, priority: 1, description: "Deleting household..." });
     setIsProcessing(true);
     try {
-      const response = await fetch(`/api/households/${household.id}/members/${memberIdToRemove}`, {
-        method: "DELETE"
-      });
-
-      if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}));
-         throw new Error(errorData.error || 'Falha ao remover membro');
-      }
-
-      householdDispatch({ 
-        type: "REMOVE_MEMBER", 
-        payload: { 
-          id: memberIdToRemove,
-          name: memberToRemove?.name || '',
-          role: memberToRemove?.role?.toLowerCase() === 'admin' ? 'admin' : 'member'
+      const response = await fetch(`/api/households/${household.id}`, {
+        method: "DELETE",
+        headers: {
+          'X-User-ID': currentUser.id
         }
       });
 
-      toast.success("Membro removido com sucesso.");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao excluir residência');
+      }
 
+      householdDispatch({ type: "DELETE_HOUSEHOLD", payload: household.id });
+      toast.success("Residência excluída com sucesso.");
+      router.push("/households");
+    } catch (error: any) {
+      console.error("Erro ao excluir residência:", error);
+      toast.error(`Erro ao excluir: ${error.message}`);
+    } finally {
+      setShowDeleteHouseholdDialog(false);
+      setIsProcessing(false);
+      removeLoadingOperation(opId);
+    }
+  };
+
+  const changeMemberRole = async (memberId: string, newRole: 'Admin' | 'Member') => {
+    if (!household || !currentUser || !isCurrentUserAdmin()) return;
+    const opId = `change-member-role-${memberId}`;
+    addLoadingOperation({ id: opId, priority: 1, description: "Updating member role..." });
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
+        method: "PATCH",
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': currentUser.id
+        },
+        body: JSON.stringify({ role: newRole.toLowerCase() })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao atualizar função do membro');
+      }
+
+      const updatedHousehold = await response.json();
+      householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
+      toast.success(`Membro ${newRole === 'Admin' ? 'promovido' : 'rebaixado'} com sucesso.`);
+    } catch (error: any) {
+      console.error("Erro ao atualizar função do membro:", error);
+      toast.error(`Erro ao atualizar: ${error.message}`);
+    } finally {
+      setMemberToPromote(null);
+      setMemberToDemote(null);
+      setIsProcessing(false);
+      removeLoadingOperation(opId);
+    }
+  };
+
+  const removeMember = async (memberId: string) => {
+    if (!household || !currentUser || !isCurrentUserAdmin()) return;
+    const opId = `remove-member-${memberId}`;
+    addLoadingOperation({ id: opId, priority: 1, description: "Removing member..." });
+    setIsProcessing(true);
+    try {
+      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
+        method: "DELETE",
+        headers: {
+          'X-User-ID': currentUser.id
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao remover membro');
+      }
+
+      const updatedHousehold = await response.json();
+      householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
+      toast.success("Membro removido com sucesso.");
     } catch (error: any) {
       console.error("Erro ao remover membro:", error);
       toast.error(`Erro ao remover: ${error.message}`);
@@ -291,96 +245,30 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     }
   };
 
-  const changeMemberRole = async (memberIdToChange: string, newRole: 'Admin' | 'Member') => {
-    if (!household || !memberIdToChange || !isCurrentUserAdmin()) {
-       toast.error("Ação inválida ou não permitida.");
-       return;
-    }
-    
-    const admins = household.members?.filter(m => m.role?.toLowerCase() === 'admin');
-    const memberBeingChanged = household.members?.find(m => String(m.userId) === memberIdToChange);
-    const memberIsAdmin = memberBeingChanged?.role?.toLowerCase() === 'admin';
-
-    if (memberIsAdmin && admins?.length === 1 && newRole === 'Member') {
-       toast.error("Não é possível rebaixar o último administrador.");
-       setMemberToDemote(null);
-       return;
-    }
-    
-    const opId = `change-role-${memberIdToChange}`;
-    addLoadingOperation({ id: opId, priority: 1, description: `Updating role...` });
+  const deleteCat = async (catId: string) => {
+    if (!household || !currentUser || !isCurrentUserAdmin()) return;
+    const opId = `delete-cat-${catId}`;
+    addLoadingOperation({ id: opId, priority: 1, description: "Deleting cat..." });
     setIsProcessing(true);
     try {
-      const response = await fetch(`/api/households/${household.id}/members/${memberIdToChange}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole })
+      const response = await fetch(`/api/cats/${catId}`, {
+        method: "DELETE",
+        headers: {
+          'X-User-ID': currentUser.id
+        }
       });
 
       if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}));
-         throw new Error(errorData.error || 'Falha ao alterar cargo do membro');
-      }
-      
-      const updatedMemberData = await response.json(); 
-
-      householdDispatch({ 
-        type: "UPDATE_MEMBER", 
-        payload: { 
-          id: String(memberBeingChanged?.id || memberIdToChange),
-          name: memberBeingChanged?.name || '',
-          role: newRole.toLowerCase() === 'admin' ? 'admin' : 'member'
-        } 
-      });
-
-      toast.success(`Cargo do membro atualizado para ${newRole}.`);
-
-    } catch (error: any) {
-      console.error(`Erro ao alterar cargo:`, error);
-      toast.error(`Erro ao alterar cargo: ${error.message}`);
-    } finally {
-      setMemberToPromote(null);
-      setMemberToDemote(null);
-      setIsProcessing(false);
-      removeLoadingOperation(opId);
-    }
-  };
-
-  const deleteCat = async (catIdToDelete: number) => {
-    if (!household || !catIdToDelete || !isCurrentUserAdmin()) {
-       toast.error("Ação inválida ou não permitida.");
-       return;
-    }
-    const catIdStr = String(catIdToDelete);
-    const opId = `delete-cat-from-household-${catIdStr}`;
-    addLoadingOperation({ id: opId, priority: 1, description: `Removing cat...` });
-    setIsProcessing(true);
-    const previousCats = allCats;
-    
-    catsDispatch({
-      type: 'REMOVE_CAT',
-      payload: Number(catIdStr)
-    });
-
-    try {
-      const response = await fetch(`/api/cats/${catIdStr}`, {
-        method: "DELETE"
-      });
-
-      if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}));
-         throw new Error(errorData.error || 'Falha ao remover gato');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao excluir gato');
       }
 
+      // Update local state
+      setCats(prevCats => prevCats.filter(cat => cat.id !== catId));
       toast.success("Gato removido com sucesso.");
-
     } catch (error: any) {
-      console.error("Erro ao remover gato:", error);
-      toast.error(`Erro ao remover gato: ${error.message}`);
-      catsDispatch({
-        type: 'FETCH_SUCCESS',
-        payload: previousCats
-      });
+      console.error("Erro ao excluir gato:", error);
+      toast.error(`Erro ao excluir: ${error.message}`);
     } finally {
       setCatToDelete(null);
       setIsProcessing(false);
@@ -388,116 +276,194 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     }
   };
 
-   const deleteHousehold = async () => {
-      if (!household || !isCurrentUserAdmin()) {
-         toast.error("Ação inválida ou não permitida.");
-         return;
-      }
-      const opId = `delete-household-${household.id}`;
-      addLoadingOperation({ id: opId, priority: 1, description: `Deleting household...` });
-      setIsProcessing(true);
-      const previousHouseholds = households;
-      const previousUser = currentUser;
-      
-      householdDispatch({ type: "SET_HOUSEHOLDS", payload: households.filter(h => String(h.id) !== String(household.id)) });
-      if (String(currentUser?.householdId) === String(household.id)) {
-        userDispatch({
-          type: "SET_CURRENT_USER",
-          payload: currentUser ? { ...currentUser, householdId: null } : null
-        });
-      }
+  // Load household data
+  useEffect(() => {
+    const loadHouseholdData = async () => {
+      if (!currentUser?.id || !householdId) return;
+
+      const opId = `load-household-${householdId}`;
+      addLoadingOperation({ id: opId, priority: 1, description: "Loading household details..." });
+      setIsLoadingData(true);
+      setLoadError(null);
+      setHousehold(undefined);
 
       try {
-         const response = await fetch(`/api/households/${household.id}`, { method: 'DELETE' });
+        const response = await fetch(`/api/households/${householdId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'X-User-ID': currentUser.id
+          }
+        });
 
-         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Erro ao excluir residência no servidor');
-         }
+        const data = await response.json();
+        
+        if (!response.ok) {
+          let errorMessage = 'Failed to load household';
+          
+          if (response.status === 400 && data.error) {
+            if (Array.isArray(data.error)) {
+              errorMessage = data.error.map((err: any) => err.message).join(', ');
+            } else if (typeof data.error === 'object') {
+              errorMessage = Object.values(data.error).join(', ');
+            } else {
+              errorMessage = data.error;
+            }
+          } else {
+            errorMessage = data.error || data.message || `Failed to load household (${response.status})`;
+          }
+          throw new Error(errorMessage);
+        }
 
-         toast.success("Residência excluída com sucesso");
-         router.push("/households"); 
+        setHousehold(data);
+        householdDispatch({ type: 'SET_HOUSEHOLD', payload: data });
+        
+        const isOwner = String(data.owner?.id) === String(currentUser.id);
+        const isMember = data.members?.some(m => String(m.userId) === String(currentUser.id));
 
-      } catch (error: any) {
-         console.error("Erro ao excluir residência:", error);
-         toast.error(`Erro ao excluir: ${error.message}`);
-         householdDispatch({ type: "SET_HOUSEHOLDS", payload: previousHouseholds });
-         if (String(previousUser?.householdId) === String(household.id)) {
-             userDispatch({ type: "SET_CURRENT_USER", payload: previousUser });
-         }
+        if (!isOwner && !isMember) {
+          throw new Error('You do not have access to this household');
+        }
+
+        const householdCats = allCats.filter(cat => String(cat.householdId) === String(data.id));
+        setCats(householdCats);
+        
+      } catch (error) {
+        console.error('Error loading household:', error);
+        const errorMessage = (error as Error).message || 'Failed to load household';
+        setLoadError(errorMessage);
+        setHousehold(null);
+        setCats([]);
+        toast.error(errorMessage);
+        
+        if (errorMessage.toLowerCase().includes('access') || errorMessage.toLowerCase().includes('permission')) {
+          router.push('/households');
+        }
       } finally {
-         setShowDeleteHouseholdDialog(false);
-         setIsProcessing(false);
-         removeLoadingOperation(opId);
+        setIsLoadingData(false);
+        removeLoadingOperation(opId);
       }
-   };
+    };
 
-  if (isLoadingData) {
+    loadHouseholdData();
+  }, [currentUser?.id, householdId, router, allCats, householdDispatch, addLoadingOperation, removeLoadingOperation]);
+
+  const isCurrentUserAdmin = () => {
+    if (!household || !currentUser) return false;
+    
+    // Check if user is the owner
+    if (String(household.owner?.id) === String(currentUser.id)) return true;
+    
+    // Check if user is an admin member
+    const currentUserMember = household.members?.find(
+      member => String(member.userId) === String(currentUser.id)
+    );
+    return currentUserMember?.role?.toLowerCase() === 'admin';
+  };
+
+  const copyInviteCode = async () => {
+    if (!household?.inviteCode) return;
+    try {
+      await navigator.clipboard.writeText(household.inviteCode);
+      toast.success("Código de convite copiado!");
+    } catch (error) {
+      console.error("Erro ao copiar código:", error);
+      toast.error("Não foi possível copiar o código.");
+    }
+  };
+
+  // Loading states
+  if (isLoadingUser) {
+    return <Loading text="Verificando usuário..." />;
+  }
+
+  // Error states
+  if (errorUser) {
     return (
       <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <main className="flex-1 p-4 pb-24">
-            <div className="mb-6 flex items-center">
-               <Skeleton className="h-8 w-8 mr-2 rounded-md" />
-               <Skeleton className="h-7 w-48" />
-            </div>
-            <div className="mb-4">
-               <Skeleton className="h-10 w-full rounded-md" />
-            </div>
-            <Card>
-               <CardHeader><Skeleton className="h-5 w-24" /></CardHeader>
-               <CardContent className="space-y-4">
-                   <Skeleton className="h-10 w-full" />
-                   <Skeleton className="h-10 w-full" />
-                   <Skeleton className="h-10 w-full" />
-               </CardContent>
-            </Card>
-          </main>
-          <BottomNav />
+        <div className="p-4 text-center">
+          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
+          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
         </div>
       </PageTransition>
     );
   }
-  
+
+  if (!currentUser) {
+    return <Loading text="Redirecionando para login..." />;
+  }
+
+  if (isLoadingData) {
+    return <Loading text="Carregando dados da residência..." />;
+  }
+
   if (loadError) {
     return (
       <PageTransition>
-        <div className="flex flex-col min-h-screen bg-background">
-          <main className="flex-1 p-4 pb-24 flex items-center justify-center">
-             <EmptyState 
-                icon={AlertTriangle}
-                title="Erro ao Carregar Residência"
-                description={loadError || "Não foi possível carregar os dados desta residência."}
-                actionLabel="Voltar para Residências"
-                actionHref="/households"
-              />
-          </main>
-          <BottomNav />
+        <div className="p-4 text-center">
+          <EmptyState 
+            icon={AlertTriangle}
+            title="Erro ao Carregar Residência"
+            description={loadError || "Não foi possível carregar os dados desta residência."}
+            actionLabel="Voltar para Residências"
+            actionHref="/households"
+          />
         </div>
       </PageTransition>
     );
   }
 
-  if (!household) {
-      return (
-          <PageTransition>
-              <div className="flex flex-col min-h-screen bg-background">
-                  <main className="flex-1 p-4 pb-24 flex items-center justify-center">
-                      <EmptyState 
-                          icon={AlertTriangle}
-                          title="Erro Inesperado"
-                          description="Não foi possível exibir os detalhes da residência."
-                          actionLabel="Voltar para Residências"
-                          actionHref="/households"
-                      />
-                  </main>
-                  <BottomNav />
-              </div>
-          </PageTransition>
-      );
+  if (household === null) {
+    return (
+      <PageTransition>
+        <div className="p-4 text-center">
+          <EmptyState 
+            icon={ShieldAlert}
+            title="Residência Não Encontrada"
+            description="A residência que você está tentando acessar não foi encontrada ou você não tem permissão."
+            actionLabel="Voltar para Residências"
+            actionHref="/households"
+          />
+        </div>
+      </PageTransition>
+    );
   }
-  
+
+  if (household === undefined) {
+    return <Loading text="Inicializando..." />;
+  }
+
   const isAdmin = isCurrentUserAdmin();
+
+  if ((householdState.isLoading || catsState.isLoading) && !loadError) {
+    return <Loading text="Carregando dados da residência..." />;
+  }
+
+  // Redirect if household not found or user is not authorized
+  if (!household || !isAdmin) {
+    // Added check for loading states to prevent premature redirect
+    if (!householdState.isLoading && !userState.isLoading) {
+        toast.error("Residência não encontrada ou acesso não autorizado.");
+        router.push("/households");
+        return <Loading text="Redirecionando..." />;
+    }
+    // If still loading, let the loading spinner show
+    return <Loading text="Carregando dados..." />;
+  }
+
+  if (loadError && !household) {
+    // This case handles errors specifically, maybe keep EmptyState?
+    // For now, let the redirect above handle it if household is null.
+    // If we want a specific error page/state here, we can adjust.
+    return (
+      <EmptyState
+        icon={AlertTriangle}
+        title="Erro"
+        description={loadError}
+        actionLabel="Voltar para Residências"
+        actionHref="/households"
+      />
+    );
+  }
 
   return (
     <PageTransition>
@@ -800,7 +766,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                    <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
-                   <AlertDialogAction onClick={() => deleteCat(catToDelete.id)} disabled={isProcessing} className="bg-destructive hover:bg-destructive/90">
+                   <AlertDialogAction onClick={() => deleteCat(String(catToDelete.id))} disabled={isProcessing} className="bg-destructive hover:bg-destructive/90">
                      {isProcessing ? <Loading text="Removendo..." size="sm"/> : "Remover Gato"}
                    </AlertDialogAction>
                 </AlertDialogFooter>

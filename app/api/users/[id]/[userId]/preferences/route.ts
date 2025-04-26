@@ -1,15 +1,15 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next"; // Import getServerSession
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"; // Import authOptions from the correct route file
-import prisma from "@/lib/prisma"; // Correct prisma import path
-import { withError } from "@/lib/utils/api-middleware"; // Corrected import path
-import { User } from "@/lib/types"; // Assuming User type definition
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import prisma from "@/lib/prisma";
+import { withError } from "@/lib/utils/api-middleware";
+import { User } from "@/lib/types";
 
 // Define the expected request body structure and validation
 const updateUserPreferencesBody = z.object({
-  language: z.string().min(1, "Language is required"), // Example validation
-  timezone: z.string().min(1, "Timezone is required"), // Example validation
+  language: z.string().min(1, "Language is required"),
+  timezone: z.string().min(1, "Timezone is required"),
 });
 export type UpdateUserPreferencesBody = z.infer<typeof updateUserPreferencesBody>;
 
@@ -18,6 +18,45 @@ export type UpdateUserPreferencesResponse = {
   user: User;
 };
 
+// Helper function to create Supabase client in API routes using async cookie store
+function createSupabaseRouteClient() {
+  const cookieStore = cookies();
+
+  // Define the async cookie store based on utils/supabase/server.ts pattern
+  const asyncCookieStore = {
+    async get(name: string) {
+      // Always use await with cookies()
+      return (await cookieStore).get(name)?.value;
+    },
+    async set(name: string, value: string, options: CookieOptions) {
+      try {
+        // Always use await with cookies()
+        (await cookieStore).set({ name, value, ...options });
+      } catch (error) {
+        // Handle potential errors during cookie setting in API routes
+        console.error(`[Supabase Route Client] Error setting cookie ${name}:`, error);
+      }
+    },
+    async remove(name: string, options: CookieOptions) {
+      try {
+        // Always use await with cookies()
+        (await cookieStore).set({ name, value: '', ...options });
+      } catch (error) {
+        // Handle potential errors during cookie removal in API routes
+        console.error(`[Supabase Route Client] Error removing cookie ${name}:`, error);
+      }
+    },
+  };
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: asyncCookieStore, // Use the async store
+    }
+  );
+}
+
 // Business logic function to update preferences
 async function updateUserPreferences(
   userId: string,
@@ -25,12 +64,12 @@ async function updateUserPreferences(
 ): Promise<User> {
   // Find the existing user to get their current preferences
   const user = await prisma.user.findUnique({
-    where: { id: Number(userId) }, // Convert userId from param to number
-    select: { preferences: true }, // Only select preferences initially
+    where: { id: Number(userId) },
+    select: { preferences: true },
   });
 
   if (!user) {
-    throw new Error("User not found"); // Or handle appropriately
+    throw new Error("User not found");
   }
 
   // Update the user's preferences
@@ -40,47 +79,52 @@ async function updateUserPreferences(
     },
     data: {
       preferences: {
-        // Merge existing preferences with new ones
-        ...(user.preferences as Record<string, any>), // Cast to allow merge
+        ...(user.preferences as Record<string, any>),
         language: body.language,
         timezone: body.timezone,
       },
     },
   });
 
-  // Ensure the returned object matches the User type structure if necessary
-  // Prisma might already return the full updated user object
-  return updatedUser as User; 
+  return updatedUser as User;
 }
 
 // PUT route handler
 export const PUT = withError(
   async (
     request: Request,
-    { params }: { params: Promise<{ userId: string }> } // Get userId from route params
+    { params }: { params: Promise<{ id: string; userId: string }> }
   ) => {
-    const session = await getServerSession(authOptions); // Use getServerSession
-    if (!session?.user?.id) {
+    const supabase = createSupabaseRouteClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (!user || authError) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const { userId } = await params; // Extract userId
+    const { userId } = await params;
+
+    // Get the Prisma user ID from the auth ID
+    const prismaUser = await prisma.user.findUnique({
+      where: { authId: user.id }
+    });
+
+    if (!prismaUser) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     // Security Check: Ensure the logged-in user matches the userId param
-    if (String(session.user.id) !== userId) {
+    if (String(prismaUser.id) !== userId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Check if body has been used before attempting to read
     console.log('[API PREFERENCES PUT] Request bodyUsed before json():', request.bodyUsed);
     
     const json = await request.json();
-    const body = updateUserPreferencesBody.parse(json); // Validate request body
+    const body = updateUserPreferencesBody.parse(json);
 
-    // Call the business logic function
     const updatedUser = await updateUserPreferences(userId, body);
 
-    // Return the successful response with the updated user
     const result: UpdateUserPreferencesResponse = { user: updatedUser };
     return NextResponse.json(result);
   }

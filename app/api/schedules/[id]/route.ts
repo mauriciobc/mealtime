@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
+import { handleApiError, handleValidationError } from '@/lib/utils/api-error-handling';
+import { headers } from 'next/headers';
 
-// GET /api/schedules/[id] - Obter um agendamento específico
+// GET /api/schedules/[id] - Get a specific schedule
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -10,10 +12,7 @@ export async function GET(
     const id = parseInt(params.id);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID inválido' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid ID', 'GET /api/schedules/[id]');
     }
 
     const schedule = await prisma.schedule.findUnique({
@@ -30,23 +29,16 @@ export async function GET(
     });
 
     if (!schedule) {
-      return NextResponse.json(
-        { error: 'Agendamento não encontrado' },
-        { status: 404 }
-      );
+      return handleValidationError('Schedule not found', 'GET /api/schedules/[id]');
     }
 
     return NextResponse.json(schedule);
   } catch (error) {
-    console.error('Erro ao buscar agendamento:', error);
-    return NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar o agendamento' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'GET /api/schedules/[id]');
   }
 }
 
-// PATCH /api/schedules/[id] - Atualizar um agendamento
+// PATCH /api/schedules/[id] - Update a schedule
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -55,10 +47,7 @@ export async function PATCH(
     const id = parseInt(params.id);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID inválido' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid ID', 'PATCH /api/schedules/[id]');
     }
 
     const {
@@ -68,42 +57,30 @@ export async function PATCH(
       overrideUntil
     } = await request.json();
 
-    // Verificar se o agendamento existe
+    // Check if schedule exists
     const existingSchedule = await prisma.schedule.findUnique({
       where: { id }
     });
 
     if (!existingSchedule) {
-      return NextResponse.json(
-        { error: 'Agendamento não encontrado' },
-        { status: 404 }
-      );
+      return handleValidationError('Schedule not found', 'PATCH /api/schedules/[id]');
     }
 
-    // Validar o tipo de agendamento, se fornecido
+    // Validate schedule type if provided
     if (type && type !== 'interval' && type !== 'fixedTime') {
-      return NextResponse.json(
-        { error: 'Tipo de agendamento inválido' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid schedule type', 'PATCH /api/schedules/[id]');
     }
 
-    // Validar os dados específicos do tipo
+    // Validate type-specific data
     if (type === 'interval' && interval !== undefined && interval <= 0) {
-      return NextResponse.json(
-        { error: 'Intervalo deve ser maior que zero' },
-        { status: 400 }
-      );
+      return handleValidationError('Interval must be greater than zero', 'PATCH /api/schedules/[id]');
     }
 
     if (type === 'fixedTime' && times !== undefined && times.trim() === '') {
-      return NextResponse.json(
-        { error: 'Horários são obrigatórios para agendamentos de horário fixo' },
-        { status: 400 }
-      );
+      return handleValidationError('Times are required for fixed time schedules', 'PATCH /api/schedules/[id]');
     }
 
-    // Preparar os dados para atualização
+    // Prepare update data
     const updateData: any = {};
 
     if (type !== undefined) updateData.type = type;
@@ -115,7 +92,7 @@ export async function PATCH(
       updateData.times = times;
       updateData.interval = 0;
     } else {
-      // Se apenas o intervalo ou os horários forem atualizados, sem mudar o tipo
+      // If only interval or times are updated without changing type
       if (interval !== undefined && existingSchedule.type === 'interval') {
         updateData.interval = interval;
       }
@@ -128,7 +105,7 @@ export async function PATCH(
       updateData.overrideUntil = overrideUntil ? new Date(overrideUntil) : null;
     }
 
-    // Atualizar o agendamento
+    // Update schedule
     const schedule = await prisma.schedule.update({
       where: { id },
       data: updateData
@@ -136,15 +113,11 @@ export async function PATCH(
 
     return NextResponse.json(schedule);
   } catch (error) {
-    console.error('Erro ao atualizar agendamento:', error);
-    return NextResponse.json(
-      { error: 'Ocorreu um erro ao atualizar o agendamento' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'PATCH /api/schedules/[id]');
   }
 }
 
-// DELETE /api/schedules/[id] - Excluir um agendamento
+// DELETE /api/schedules/[id] - Delete a schedule
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -153,38 +126,28 @@ export async function DELETE(
     const id = parseInt(params.id);
 
     if (isNaN(id)) {
-      return NextResponse.json(
-        { error: 'ID inválido' },
-        { status: 400 }
-      );
+      return handleValidationError('Invalid ID', 'DELETE /api/schedules/[id]');
     }
 
-    // Verificar se o agendamento existe
+    // Check if schedule exists
     const existingSchedule = await prisma.schedule.findUnique({
       where: { id }
     });
 
     if (!existingSchedule) {
-      return NextResponse.json(
-        { error: 'Agendamento não encontrado' },
-        { status: 404 }
-      );
+      return handleValidationError('Schedule not found', 'DELETE /api/schedules/[id]');
     }
 
-    // Excluir o agendamento
+    // Delete schedule
     await prisma.schedule.delete({
       where: { id }
     });
 
     return NextResponse.json(
-      { message: 'Agendamento excluído com sucesso' },
+      { message: 'Schedule deleted successfully' },
       { status: 200 }
     );
   } catch (error) {
-    console.error('Erro ao excluir agendamento:', error);
-    return NextResponse.json(
-      { error: 'Ocorreu um erro ao excluir o agendamento' },
-      { status: 500 }
-    );
+    return handleApiError(error, 'DELETE /api/schedules/[id]');
   }
 } 

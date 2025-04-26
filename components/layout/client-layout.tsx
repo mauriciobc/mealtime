@@ -1,19 +1,15 @@
 "use client"
 
-import React from "react"
+import React, { useEffect } from "react"
 import dynamic from 'next/dynamic'
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import BottomNav from "@/components/bottom-nav"
-import { NotificationProvider } from "@/lib/context/NotificationContext"
-import { Toaster } from "sonner"
 import NotificationChecker from "@/components/notifications/notification-checker"
-import { UserProvider } from "@/lib/context/UserContext"
-import { ScheduleProvider } from "@/lib/context/ScheduleContext"
 import { AnimationProvider } from "@/components/animation-provider"
-import { HouseholdProvider } from "@/lib/context/HouseholdContext"
-import { CatsProvider } from "@/lib/context/CatsContext"
-import { FeedingProvider } from "@/lib/context/FeedingContext"
+import { useUserContext } from "@/lib/context/UserContext"
+import { NotificationProvider } from "@/lib/context/NotificationContext"
+import { GlobalLoading } from "@/components/ui/global-loading"
 
 interface AppHeaderProps {
   title?: string;
@@ -27,7 +23,30 @@ const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").t
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const isAuthPage = pathname === "/login" || pathname === "/signup"
+
+  const { state: { isLoading: profileLoading, currentUser }, authLoading } = useUserContext();
+
+  // Redirect authenticated users away from login/signup
+  // useEffect(() => {
+  //   if (!authLoading && !profileLoading && currentUser && isAuthPage) {
+  //     console.log("[ClientLayout] Authenticated user on auth page, redirecting to /");
+  //     router.replace("/");
+  //   }
+  // }, [authLoading, profileLoading, currentUser, isAuthPage, router]);
+
+  // TEMP LOGGING
+  if (typeof window !== "undefined") {
+    console.log("[ClientLayout] pathname:", pathname, "authLoading:", authLoading, "profileLoading:", profileLoading, "currentUser:", currentUser);
+  }
+
+  if (authLoading || profileLoading) {
+    if (typeof window !== "undefined") {
+      console.log("[ClientLayout] Showing GlobalLoading spinner (authLoading or profileLoading is true)");
+    }
+    return <GlobalLoading mode="fullscreen" />;
+  }
 
   const getHeaderProps = (): AppHeaderProps => {
     if (pathname === "/notifications") {
@@ -39,34 +58,35 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     return {}
   }
 
-  const AuthenticatedLayout = ({ children }: { children: React.ReactNode }) => (
-    <UserProvider>
-      <HouseholdProvider>
-        <CatsProvider>
-          <ScheduleProvider>
-            <FeedingProvider>
-              <NotificationProvider>
-                <AnimationProvider>
-                  <div className="relative flex min-h-screen flex-col">
-                    <AppHeader {...getHeaderProps()} />
-                    <main className="flex-1 pb-16">
-                      {children}
-                    </main>
-                    <BottomNav />
-                    <Toaster position="top-center" />
-                    <NotificationChecker />
-                    <OnboardingTour />
-                  </div>
-                </AnimationProvider>
-              </NotificationProvider>
-            </FeedingProvider>
-          </ScheduleProvider>
-        </CatsProvider>
-      </HouseholdProvider>
-    </UserProvider>
-  );
+  const AuthenticatedLayout = ({ children }: { children: React.ReactNode }) => {
+    const { state } = useUserContext();
+    const currentUser = state.currentUser;
+
+    if (typeof window !== "undefined") {
+      console.log("[ClientLayout] Rendering AuthenticatedLayout. currentUser:", currentUser);
+    }
+
+    return (
+      <NotificationProvider>
+        <AnimationProvider>
+          <div className="relative flex min-h-screen flex-col">
+            <AppHeader {...getHeaderProps()} />
+            <main className="flex-1 pb-16">
+              {children}
+            </main>
+            <BottomNav />
+            {currentUser && <NotificationChecker />}
+            <OnboardingTour />
+          </div>
+        </AnimationProvider>
+      </NotificationProvider>
+    );
+  };
 
   if (isAuthPage) {
+    if (typeof window !== "undefined") {
+      console.log("[ClientLayout] Rendering AuthPage layout (login/signup)");
+    }
     return (
        <div className="relative flex min-h-screen flex-col">
          <main className="flex-1">
@@ -75,6 +95,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
        </div>
      );
   } else {
+    if (typeof window !== "undefined") {
+      console.log("[ClientLayout] Rendering AuthenticatedLayout wrapper");
+    }
     return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
   }
 } 

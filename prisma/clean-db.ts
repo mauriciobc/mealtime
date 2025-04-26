@@ -1,63 +1,56 @@
+import 'dotenv/config';
 // @ts-nocheck
 import { PrismaClient } from '@prisma/client';
+import { logger } from '@/lib/monitoring/logger';
 
 const prisma = new PrismaClient();
 
-async function clean() {
-  console.log('🧹 Starting database cleanup...');
-
+async function main() {
   try {
-    // Delete in order to respect foreign key constraints
-    console.log('📝 Removing feeding logs...');
-    await prisma.feedingLog.deleteMany();
-    
-    console.log('🔔 Removing notifications...');
-    await prisma.notification.deleteMany();
-    
-    console.log('📅 Removing schedules...');
-    await prisma.schedule.deleteMany();
-    
-    console.log('👥 Removing cat group associations...');
-    // This will remove the associations in the many-to-many relationship table
-    const cats = await prisma.cat.findMany();
-    for (const cat of cats) {
-      await prisma.cat.update({
-        where: { id: cat.id },
-        data: { groups: { set: [] } }
-      });
-    }
-    
-    console.log('🐱 Removing cats...');
-    await prisma.cat.deleteMany();
-    
-    console.log('👥 Removing cat groups...');
-    await prisma.catGroup.deleteMany();
-    
-    // First remove user associations with households (except ownership)
-    console.log('🏠 Removing user-household associations...');
-    await prisma.user.updateMany({
-      where: { householdId: { not: null } },
-      data: { householdId: null }
-    });
+    logger.info('Starting database cleanup...');
 
-    // Now remove households first since they depend on users as owners
-    console.log('🏠 Removing households...');
-    await prisma.household.deleteMany();
-    
-    console.log('👤 Removing users...');
-    await prisma.user.deleteMany();
+    // Delete in order respecting foreign key constraints
+    logger.info('Deleting weight goal milestones...');
+    await prisma.weight_goal_milestones.deleteMany();
 
-    console.log('✅ Database cleaned successfully!');
+    logger.info('Deleting weight goals...');
+    await prisma.weight_goals.deleteMany();
+
+    logger.info('Deleting cat weight logs...');
+    await prisma.cat_weight_logs.deleteMany();
+
+    logger.info('Deleting feeding logs...');
+    await prisma.feeding_logs.deleteMany();
+
+    logger.info('Deleting schedules...');
+    await prisma.schedules.deleteMany();
+
+    logger.info('Deleting cats...');
+    await prisma.cats.deleteMany();
+
+    logger.info('Deleting household members...');
+    await prisma.household_members.deleteMany();
+
+    logger.info('Deleting households...');
+    await prisma.households.deleteMany();
+
+    logger.info('Deleting notifications...');
+    await prisma.notifications.deleteMany();
+
+    logger.info('Deleting profiles...');
+    await prisma.profiles.deleteMany();
+
+    logger.info('Database cleanup completed successfully.');
   } catch (error) {
-    console.error('❌ Error cleaning database:', error);
+    logger.error('Error during database cleanup:', error);
     throw error;
   } finally {
     await prisma.$disconnect();
   }
 }
 
-clean()
-  .catch((error) => {
-    console.error('Failed to clean database:', error);
+main()
+  .catch((e) => {
+    logger.error('Fatal error during database cleanup:', e);
     process.exit(1);
   }); 

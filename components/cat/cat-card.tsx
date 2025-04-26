@@ -10,7 +10,7 @@ import {
   Calendar,
   Weight,
 } from "lucide-react";
-import { CatType } from "@/lib/types";
+import { CatType, FeedingLog } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -32,24 +32,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { getAgeString } from "@/lib/utils/dateUtils";
 import { getFallbackImageUrl, isFallbackImage } from "@/lib/image-errors";
-import { SafeImage } from "./safe-image";
+import { SafeImage } from "../safe-image";
 import { cn } from "@/lib/utils";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 interface CatCardProps {
   cat: CatType;
+  latestFeedingLog?: FeedingLog | null;
   onView: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }
 
-export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
+export function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
 
   const ageString = cat.birthdate ? getAgeString(cat.birthdate) : "Idade desconhecida";
 
-  const lastFed = cat.feedingLogs && cat.feedingLogs.length > 0 
-    ? formatDistanceToNow(new Date(cat.feedingLogs[0].timestamp), {
+  const lastFed = latestFeedingLog
+    ? formatDistanceToNow(new Date(latestFeedingLog.timestamp), {
         addSuffix: true,
         locale: ptBR,
       })
@@ -71,23 +73,35 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
   };
 
   const imageUrl = useMemo(() => {
-    if (!cat.photoUrl || cat.photoUrl.trim() === '') {
+    console.log('[CatCard] Processing image URL for cat:', cat.name);
+    console.log('[CatCard] Raw photo_url:', cat.photo_url);
+    
+    if (!cat.photo_url || cat.photo_url.trim() === '') {
+      console.log('[CatCard] Using fallback image URL');
       return getFallbackImageUrl('cat');
     }
-
-    const url = cat.photoUrl.trim();
-    if (url.startsWith('http') || url.startsWith('data:')) {
-      return url;
-    }
-
-    // Ensure local images are in the correct path
-    return url.startsWith('/') ? url : `/profiles/cats/${url.replace(/^profiles\/cats\//, '')}`;
-  }, [cat.photoUrl]);
+    
+    const finalUrl = cat.photo_url.trim();
+    console.log('[CatCard] Final processed URL:', finalUrl);
+    return finalUrl;
+  }, [cat.photo_url, cat.name]);
 
   // Reset loading state when image URL changes
   useEffect(() => {
+    console.log('[CatCard] Image URL changed, resetting loading state:', imageUrl);
     setIsImageLoading(true);
   }, [imageUrl]);
+
+  // Add logging for image load events
+  const handleImageLoad = () => {
+    console.log('[CatCard] Image loaded successfully:', imageUrl);
+    setIsImageLoading(false);
+  };
+
+  const handleImageError = () => {
+    console.log('[CatCard] Image failed to load:', imageUrl);
+    setIsImageLoading(false);
+  };
 
   return (
     <>
@@ -111,8 +125,8 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
                  isImageLoading ? "opacity-0" : "opacity-100"
                )}
                priority={true}
-               onError={() => setIsImageLoading(false)}
-               onLoad={() => setIsImageLoading(false)}
+               onError={handleImageError}
+               onLoad={handleImageLoad}
                fallback={
                  <div className="w-full h-full flex items-center justify-center bg-purple-100">
                    <span className="text-purple-500 text-4xl">
@@ -123,7 +137,7 @@ export function CatCard({ cat, onView, onEdit, onDelete }: CatCardProps) {
              />
              {isImageLoading && (
                <div className="absolute inset-0 flex items-center justify-center bg-purple-50">
-                 <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-500 rounded-full animate-spin opacity-75"></div>
+                 <GlobalLoading mode="spinner" size="md" />
                </div>
              )}
            </div>

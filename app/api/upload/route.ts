@@ -5,14 +5,28 @@ import { writeFile } from 'fs/promises';
 import path from 'path';
 import { mkdir } from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
-import { getToken } from 'next-auth/jwt';
+import { createClient } from '@/utils/supabase/server';
+import { cookies } from 'next/headers';
 
 // POST /api/upload - Fazer upload de uma imagem
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
-    const token = await getToken({ req: request });
-    if (!token) {
+    const supabase = await createClient();
+
+    // Add check for supabase.auth initialization
+    if (!supabase || !supabase.auth) {
+      console.error("Erro Crítico: Cliente Supabase ou supabase.auth não inicializado corretamente na API de upload.");
+      return NextResponse.json(
+        { error: "Erro interno do servidor ao verificar autenticação." },
+        { status: 500 }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error("Erro de autenticação no upload:", authError);
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
@@ -90,8 +104,21 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticação
-    const token = await getToken({ req: request });
-    if (!token) {
+    const supabase = await createClient();
+
+    // Add check for supabase.auth initialization
+    if (!supabase || !supabase.auth) {
+      console.error("Erro Crítico: Cliente Supabase ou supabase.auth não inicializado corretamente na API de estatísticas do cache.");
+      return NextResponse.json(
+        { error: "Erro interno do servidor ao verificar autenticação." },
+        { status: 500 }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      console.error("Erro de autenticação ao buscar estatísticas do cache:", authError);
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }

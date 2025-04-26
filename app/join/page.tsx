@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useSession, signOut, signIn } from "next-auth/react";
 import BottomNav from "@/components/bottom-nav";
 import PageTransition from "@/components/page-transition";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,15 +15,15 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { Loading } from "@/components/ui/loading";
 import { Loader2 } from "lucide-react";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 export default function JoinPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session, status, update: updateSession } = useSession();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState, dispatch: userDispatch } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { currentUser } = userState;
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
 
   const [inviteCode, setInviteCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -42,7 +41,7 @@ export default function JoinPage() {
       return;
     }
     
-    if (status !== "authenticated" || !currentUser) {
+    if (!currentUser) {
         toast.error("Você precisa estar autenticado para entrar em um domicílio.");
         return;
     }
@@ -78,8 +77,6 @@ export default function JoinPage() {
       
       userDispatch({ type: "SET_USER", payload: updatedUser });
 
-      await updateSession({ user: updatedUser });
-      
       toast.success("Você entrou no domicílio com sucesso!");
       router.push(`/households`); 
     } catch (error: any) {
@@ -91,20 +88,44 @@ export default function JoinPage() {
     }
   };
 
-  if (status === "loading") {
+  if (isLoadingUser) {
       return (
          <PageTransition>
             <div className="flex flex-col min-h-screen bg-background">
                <div className="p-4 pb-24">
                  <Loading text="Carregando..." />
                </div>
+               <BottomNav />
             </div>
          </PageTransition>
       );
   }
 
-  if (status === "unauthenticated") {
-    router.push("/login?callbackUrl=/join");
+  if (errorUser) {
+     return (
+       <PageTransition>
+         <div className="flex flex-col min-h-screen bg-background">
+            <div className="p-4 pb-24 text-center">
+               <PageHeader 
+                 title="Entrar em um Domicílio" 
+                 description="Erro ao carregar dados do usuário"
+                 showBackButton 
+               />
+               <p className="text-destructive mt-6">Erro: {errorUser}</p>
+               <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
+            </div>
+            <BottomNav />
+         </div>
+       </PageTransition>
+     );
+  }
+
+  if (!currentUser) {
+    console.log("[JoinPage] No currentUser found. Redirecting...");
+    useEffect(() => {
+        toast.error("Autenticação necessária para entrar em um domicílio.");
+        router.replace("/login?callbackUrl=/join");
+    }, [router]);
     return <Loading text="Redirecionando para login..." />;
   }
   
@@ -144,7 +165,12 @@ export default function JoinPage() {
                   onClick={handleJoinHousehold}
                   disabled={isLoading || !inviteCode.trim()}
                 >
-                  {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Entrando...</> : "Entrar no Domicílio"}
+                  {isLoading ? (
+                    <>
+                      <GlobalLoading mode="spinner" size="sm" /> 
+                      Entrando...
+                    </>
+                  ) : "Entrar no Domicílio"}
                 </Button>
               </div>
             </CardContent>

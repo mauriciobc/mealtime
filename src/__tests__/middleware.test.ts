@@ -8,7 +8,7 @@ jest.mock('next-auth/jwt', () => ({
   getToken: jest.fn().mockResolvedValue(null) // Default: unauthenticated
 }));
 jest.mock('@/lib/image-cache', () => ({
-  imageCache: { 
+  imageCache: {
     get: jest.fn().mockResolvedValue(null), // Default: cache miss
   }
 }));
@@ -21,7 +21,7 @@ const mockNextResponseJson = jest.fn(); // Mock .json as well
 const mockResponseHeadersSet = jest.fn();
 const mockResponseHeadersGet = jest.fn();
 const mockResponseHeadersHas = jest.fn();
-const mockResponseHeaders = { 
+const mockResponseHeaders = {
   set: mockResponseHeadersSet,
   get: mockResponseHeadersGet,
   has: mockResponseHeadersHas,
@@ -29,13 +29,13 @@ const mockResponseHeaders = {
 
 jest.mock('next/server', () => ({
   NextResponse: {
-    next: mockNextResponseNext.mockReturnValue({ 
-      headers: mockResponseHeaders, 
+    next: mockNextResponseNext.mockReturnValue({
+      headers: mockResponseHeaders,
       status: 200, // Add default status/ok if middleware checks them
       ok: true,
     }),
-    rewrite: mockNextResponseRewrite.mockReturnValue({ 
-      headers: mockResponseHeaders, 
+    rewrite: mockNextResponseRewrite.mockReturnValue({
+      headers: mockResponseHeaders,
       status: 307, // Default rewrite status
       ok: false,
     }),
@@ -44,10 +44,10 @@ jest.mock('next/server', () => ({
       headers: mockResponseHeaders,
       status: 200,
       ok: true,
-    }), 
+    }),
   },
   // Mock NextRequest constructor minimally if needed for type hints, but avoid complex instantiation
-  NextRequest: jest.fn(), 
+  NextRequest: jest.fn(),
 }));
 
 // NOW mock the middleware module itself
@@ -60,10 +60,10 @@ jest.mock('@/middleware', () => {
   return {
     __esModule: true,
     // The actual middleware function is mocked
-    middleware: jest.fn(), 
+    middleware: jest.fn(),
     // We might still need the config export if Jest requires it
     // If tests fail saying config is undefined, uncomment the next lines:
-    // config: jest.requireActual('../middleware').config, 
+    // config: jest.requireActual('../middleware').config,
   };
 });
 
@@ -85,7 +85,7 @@ describe('Middleware', () => {
     nextUrl: { pathname },
     headers: new Headers(headers), // Use standard Headers
     // Add other properties ONLY if the middleware *actually* accesses them
-    // cookies: { get: jest.fn(), set: jest.fn(), delete: jest.fn(), has: jest.fn() }, 
+    // cookies: { get: jest.fn(), set: jest.fn(), delete: jest.fn(), has: jest.fn() },
   });
 
   beforeEach(() => {
@@ -108,18 +108,18 @@ describe('Middleware', () => {
       // Arrange
       const imageData = Buffer.from('mock image data');
       const pathname = '/profiles/user/test.jpg';
-      const cacheKey = 'profiles/user/test.jpg'; 
-      mockedImageCacheGet.mockResolvedValue(imageData); 
+      const cacheKey = 'profiles/user/test.jpg';
+      mockedImageCacheGet.mockResolvedValue(imageData);
       const request = createMockReq(pathname);
-      
+
       // Mock the middleware's *behavior* for this case (returning a direct response)
       // This is tricky - the *actual* middleware constructs a Response manually.
       // We either need to make *our* mock do that, or mock NextResponse.json/blob
       // Let's assume it uses NextResponse.json or similar for simplicity of testing interaction.
-      const mockDirectResponse = { 
-          status: 200, 
-          arrayBuffer: async () => imageData, 
-          headers: new Headers({'Content-Type': 'image/jpeg'}), 
+      const mockDirectResponse = {
+          status: 200,
+          arrayBuffer: async () => imageData,
+          headers: new Headers({'Content-Type': 'image/jpeg'}),
       };
       mockedMiddleware.mockResolvedValue(mockDirectResponse);
 
@@ -148,9 +148,9 @@ describe('Middleware', () => {
       mockedMiddleware.mockImplementation(async () => {
         // Simulate header setting before returning next()
         mockResponseHeadersSet('content-security-policy', 'default-src \'self\'');
-        return NextResponse.next(); 
+        return NextResponse.next();
       });
-      
+
       // Act
       await mockedMiddleware(request as NextRequest);
 
@@ -163,7 +163,7 @@ describe('Middleware', () => {
       // Assert: Headers were set on the mocked response object
       expect(mockResponseHeadersSet).toHaveBeenCalledWith(expect.stringMatching(/content-security-policy/i), expect.any(String));
     });
-    
+
     it('should call next() on cache error and add headers', async () => {
       // Arrange
       const cacheError = new Error('Cache error');
@@ -174,12 +174,12 @@ describe('Middleware', () => {
       // Mock the middleware to call next()
       mockedMiddleware.mockImplementation(async () => {
         mockResponseHeadersSet('content-security-policy', 'default-src \'self\'');
-        return NextResponse.next(); 
+        return NextResponse.next();
       });
 
       // Act
       await mockedMiddleware(request as NextRequest);
-      
+
       // Assert: Middleware called, cache checked (and rejected)
       expect(mockedMiddleware).toHaveBeenCalledWith(request);
       expect(mockedImageCacheGet).toHaveBeenCalledWith(cacheKey);
@@ -199,7 +199,7 @@ describe('Middleware', () => {
       // Mock the middleware to call next()
       mockedMiddleware.mockImplementation(async () => {
         mockResponseHeadersSet('content-security-policy', 'default-src \'self\'');
-        return NextResponse.next(); 
+        return NextResponse.next();
       });
 
       // Act
@@ -222,8 +222,8 @@ describe('Middleware', () => {
       const request = createMockReq(pathname);
       mockedGetToken.mockResolvedValue(null); // Not authenticated
       // Mock the middleware to call next()
-      mockedMiddleware.mockImplementation(async () => NextResponse.next()); 
-      
+      mockedMiddleware.mockImplementation(async () => NextResponse.next());
+
       await mockedMiddleware(request as NextRequest);
 
       // Assert: Middleware called, token checked
@@ -235,11 +235,11 @@ describe('Middleware', () => {
     });
 
     it('should call rewrite() to /login for protected paths without auth', async () => {
-       const pathname = '/dashboard'; // Example protected path
+       const pathname = '/cats'; // Example protected path - UPDATED
        const request = createMockReq(pathname);
        mockedGetToken.mockResolvedValue(null); // Not authenticated
       // Mock the middleware to call rewrite()
-       mockedMiddleware.mockImplementation(async () => NextResponse.rewrite(new URL('/login', request.url))); 
+       mockedMiddleware.mockImplementation(async () => NextResponse.rewrite(new URL('/login', request.url)));
 
        await mockedMiddleware(request as NextRequest);
 
@@ -249,17 +249,17 @@ describe('Middleware', () => {
        // Assert: rewrite() called, next() not called
        expect(mockNextResponseRewrite).toHaveBeenCalledTimes(1);
        // We can check the argument passed to the *mock* rewrite
-       expect(mockNextResponseRewrite).toHaveBeenCalledWith(expect.any(URL)); 
+       expect(mockNextResponseRewrite).toHaveBeenCalledWith(expect.any(URL));
        expect(mockNextResponseRewrite.mock.calls[0][0].pathname).toBe('/login');
        expect(mockNextResponseNext).not.toHaveBeenCalled();
     });
 
     it('should call next() for protected paths with auth', async () => {
-       const pathname = '/dashboard'; // Example protected path
+       const pathname = '/cats'; // Example protected path - UPDATED
        const request = createMockReq(pathname);
-       mockedGetToken.mockResolvedValue({ id: 'user1', email: 'test@example.com' }); // Authenticated
+       mockedGetToken.mockResolvedValue({ id: 'user123' }); // Authenticated
        // Mock the middleware to call next()
-       mockedMiddleware.mockImplementation(async () => NextResponse.next()); 
+       mockedMiddleware.mockImplementation(async () => NextResponse.next());
 
        await mockedMiddleware(request as NextRequest);
 

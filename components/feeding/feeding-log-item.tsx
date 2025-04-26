@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -24,13 +24,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { BaseFeedingLog, BaseCat, BaseUser } from "@/lib/types/common";
+import { FeedingLog } from "@/lib/types";
+import { useCats } from "@/lib/context/CatsContext";
 
 interface FeedingLogItemProps {
-  log: BaseFeedingLog & {
-    cat?: BaseCat;
-    user?: BaseUser;
-  };
+  log: FeedingLog;
   onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -38,7 +36,27 @@ interface FeedingLogItemProps {
 
 export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItemProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  
+  const { state: catsState } = useCats();
+  const { cats, isLoading: isLoadingCats } = catsState;
+
+  // --- DEBUGGING LOGS START ---
+  console.log('[FeedingLogItem] Rendering log:', log);
+  console.log('[FeedingLogItem] Available cats:', cats);
+  console.log(`[FeedingLogItem] Looking for catId: '${log.catId}'`);
+  // --- DEBUGGING LOGS END ---
+
+  const cat = cats?.find(c => c.id === log.catId);
+
+  // --- DEBUGGING LOGS START ---
+  if (cats && log.catId) {
+    const foundCat = cats.find(c => c.id === log.catId);
+    console.log(`[FeedingLogItem] Found cat object:`, foundCat);
+    if (!foundCat) {
+      console.warn(`[FeedingLogItem] Cat ID '${log.catId}' not found in cats list:`, cats.map(c => c.id));
+    }
+  }
+  // --- DEBUGGING LOGS END ---
+
   const showActions = onView || onEdit || onDelete;
 
   const handleDeleteClick = () => {
@@ -46,31 +64,65 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
   };
 
   const confirmDelete = () => {
-    onDelete();
+    if (onDelete) {
+      onDelete();
+    }
     setShowDeleteDialog(false);
   };
 
   const getCatName = () => {
-    return log.cat?.name || "Gato não identificado";
+    if (isLoadingCats) return "Carregando...";
+    return cat?.name || "Gato não identificado";
   };
 
   const getCatInitials = () => {
-    const name = getCatName();
+    if (isLoadingCats) return "..";
+    const name = cat?.name || "??";
     return name.substring(0, 2).toUpperCase();
   };
+
+  // Improved photo URL handling
+  const catPhotoUrl = useMemo(() => {
+    if (isLoadingCats) return "";
+    if (!cat) return "";
+    // Handle both photoUrl and photo_url property names
+    return cat.photoUrl || cat.photo_url || "";
+  }, [isLoadingCats, cat]);
+
+  // Show loading state while cats are being loaded
+  if (isLoadingCats) {
+    return (
+      <Card className="overflow-hidden transition-all duration-300">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-4">
+            <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+            <div className="flex-1">
+              <div className="h-4 w-24 bg-muted animate-pulse rounded mb-2" />
+              <div className="h-3 w-32 bg-muted animate-pulse rounded" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
       <motion.div 
         whileHover={{ y: -2, transition: { duration: 0.2 } }}
-        className="cursor-pointer"
-        onClick={onView}
+        className={`cursor-pointer ${!onView ? 'pointer-events-none' : ''}`}
+        onClick={(e) => {
+          if (onView) {
+            e.stopPropagation();
+            onView();
+          } 
+        }}
       >
         <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
               <Avatar>
-                <AvatarImage src={log.cat?.photoUrl || ""} alt={getCatName()} />
+                <AvatarImage src={catPhotoUrl} alt={getCatName()} />
                 <AvatarFallback className="bg-emerald-100 text-emerald-500">
                   {getCatInitials()}
                 </AvatarFallback>
@@ -80,7 +132,7 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-medium">{getCatName()}</h3>
-                    {log.user && (
+                    {log.user?.name && (
                       <p className="text-sm text-muted-foreground">
                         Alimentado por {log.user.name}
                       </p>
@@ -131,17 +183,29 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
                 </div>
 
                 <div className="mt-2 text-sm">
-                  {log.portionSize !== undefined && (
-                    <div className="flex items-center gap-1">
-                      <span className="font-medium">Quantidade:</span>
-                      <span>{log.portionSize} g</span>
-                    </div>
-                  )}
-                  {log.notes && (
-                    <div className="mt-1 text-muted-foreground">
-                      {log.notes}
-                    </div>
-                  )}
+                  <div className="flex flex-col gap-1">
+                    {log.mealType && (
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium">Tipo:</span>
+                        <span>{log.mealType === 'dry' ? 'Ração' :
+                               log.mealType === 'wet' ? 'Sachê' :
+                               log.mealType === 'treat' ? 'Petisco' :
+                               log.mealType === 'medicine' ? 'Remédio' :
+                               log.mealType === 'water' ? 'Água' : log.mealType}</span>
+                      </div>
+                    )}
+                    {log.portionSize !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <span className="font-medium">Quantidade:</span>
+                        <span>{log.portionSize} g</span>
+                      </div>
+                    )}
+                    {log.notes && (
+                      <div className="mt-1 text-muted-foreground">
+                        {log.notes}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -161,10 +225,7 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction 
-                onClick={confirmDelete} 
-                className="bg-destructive text-destructive-foreground"
-              >
+              <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
                 Excluir
               </AlertDialogAction>
             </AlertDialogFooter>

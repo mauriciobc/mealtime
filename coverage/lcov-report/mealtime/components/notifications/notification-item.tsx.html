@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/29</span>
+                <span class='fraction'>0/32</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/19</span>
+                <span class='fraction'>0/28</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/29</span>
+                <span class='fraction'>0/32</span>
             </div>
         
             
@@ -182,7 +182,13 @@
 <a name='L117'></a><a href='#L117'>117</a>
 <a name='L118'></a><a href='#L118'>118</a>
 <a name='L119'></a><a href='#L119'>119</a>
-<a name='L120'></a><a href='#L120'>120</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -259,6 +265,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -332,10 +344,10 @@ interface NotificationItemProps {
   showActions = <span class="branch-0 cbranch-no" title="branch not covered" >false </span>
 }: NotificationItemProps) {
   const { removeNotification, isLoading, error } = <span class="cstat-no" title="statement not covered" >useNotifications();</span>
-  const { id, title, message, type, isRead, createdAt, actionUrl } = <span class="cstat-no" title="statement not covered" >notification;</span>
+  const { id, title, message, type, is_read, created_at, metadata } = <span class="cstat-no" title="statement not covered" >notification;</span>
   
   // Format the time
-  const timeAgo = <span class="cstat-no" title="statement not covered" >formatDistanceToNow(new Date(createdAt), { addSuffix: true });</span>
+  const timeAgo = <span class="cstat-no" title="statement not covered" >formatDistanceToNow(new Date(created_at), { addSuffix: true });</span>
   
   // Get the icon based on type
   const getIcon = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
@@ -363,7 +375,7 @@ interface NotificationItemProps {
 <span class="cstat-no" title="statement not covered" >    console.log(`[NotificationItem] Delete button clicked for notification:`, {</span>
       id,
       title,
-      isRead,
+      is_read,
       type
     });
 <span class="cstat-no" title="statement not covered" >    try {</span>
@@ -376,43 +388,49 @@ interface NotificationItemProps {
   const content = (
 <span class="cstat-no" title="statement not covered" >    &lt;div </span>
       className={cn(
-        "flex items-start gap-3 p-3 hover:bg-accent cursor-pointer rounded-lg transition-colors",
-        !isRead &amp;&amp; "bg-accent/50",
-        isLoading &amp;&amp; "opacity-50 pointer-events-none"
+        "flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/50 transition-colors",
+        !is_read &amp;&amp; "bg-muted/30"
       )}
-      onClick={onClick}
+      onClick={<span class="fstat-no" title="function not covered" >() =</span>&gt; {
+<span class="cstat-no" title="statement not covered" >        <span class="missing-if-branch" title="if path not taken" >I</span>if (metadata?.action_url) {</span>
+<span class="cstat-no" title="statement not covered" >          window.location.href = metadata.action_url;</span>
+        }
+<span class="cstat-no" title="statement not covered" >        onClick?.(notification);</span>
+      }}
     &gt;
-      &lt;div className="mt-0.5"&gt;{getIcon()}&lt;/div&gt;
-      &lt;div className="flex-1 min-w-0"&gt;
-        &lt;div className="flex justify-between items-start"&gt;
-          &lt;h4 className={cn("text-sm font-medium", !isRead &amp;&amp; "font-semibold")}&gt;
+      &lt;div className="mt-1"&gt;{getIcon()}&lt;/div&gt;
+      &lt;div className="flex-1 space-y-1"&gt;
+        &lt;div className="flex items-center justify-between gap-4"&gt;
+          &lt;p className={cn(
+            "text-sm font-medium leading-none",
+            !is_read &amp;&amp; "font-semibold"
+          )}&gt;
             {title}
-          &lt;/h4&gt;
-          {showActions &amp;&amp; (
-            &lt;Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-6 w-6 -mt-1 -mr-1 text-muted-foreground hover:text-destructive" 
-              onClick={handleDelete}
-              disabled={isLoading}
-            &gt;
-              &lt;Trash2 className="h-4 w-4" /&gt;
-              &lt;span className="sr-only"&gt;Delete&lt;/span&gt;
-            &lt;/Button&gt;
-          )}
+          &lt;/p&gt;
+          &lt;span className="text-xs text-muted-foreground whitespace-nowrap"&gt;
+            {timeAgo}
+          &lt;/span&gt;
         &lt;/div&gt;
-        &lt;p className="text-xs text-muted-foreground line-clamp-2"&gt;{message}&lt;/p&gt;
-        &lt;p className="text-xs text-muted-foreground mt-1"&gt;{timeAgo}&lt;/p&gt;
+        &lt;p className="text-sm text-muted-foreground"&gt;{message}&lt;/p&gt;
       &lt;/div&gt;
-      {!isRead &amp;&amp; (
-        &lt;div className="w-2 h-2 bg-primary rounded-full mt-1.5" /&gt;
+      {showActions &amp;&amp; (
+        &lt;Button
+          variant="ghost"
+          size="icon"
+          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={handleDelete}
+          disabled={isLoading}
+        &gt;
+          &lt;Trash2 className="h-4 w-4" /&gt;
+          &lt;span className="sr-only"&gt;Delete notification&lt;/span&gt;
+        &lt;/Button&gt;
       )}
     &lt;/div&gt;
   );
   
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (actionUrl) {</span>
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (metadata?.action_url) {</span>
 <span class="cstat-no" title="statement not covered" >    return (</span>
-      &lt;Link href={actionUrl} className="block"&gt;
+      &lt;Link href={metadata.action_url} className="block"&gt;
         {content}
       &lt;/Link&gt;
     );
@@ -427,7 +445,7 @@ interface NotificationItemProps {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-10T22:37:47.696Z
+                at 2025-04-26T18:04:12.670Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

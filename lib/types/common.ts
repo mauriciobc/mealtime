@@ -1,13 +1,13 @@
 /**
  * Tipo base para IDs numéricos em toda a aplicação
  */
-export type ID = number;
+export type ID = string;
 
 /**
  * Interface base para usuários do sistema
  */
 export interface BaseUser {
-  id: ID;
+  id: string;
   name: string;
   email: string;
   avatar?: string;
@@ -43,7 +43,7 @@ export interface BaseCat {
   notes?: string;
   householdId: ID;
   feedingInterval: number; // Maps to feeding_interval in the database
-  portionSize?: number; // Maps to portion_size in the database
+  portionSize?: string; // Maps to portion_size in the database
 }
 
 /**
@@ -67,4 +67,43 @@ export interface BaseHousehold {
   id: number;
   name: string;
   ownerId: number;
+}
+
+export interface BaseProfile {
+  id: ID;
+  username?: string | null;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  email?: string | null;
+  updated_at?: Date | null;
+}
+
+export interface BaseCats {
+  id: ID;
+  created_at: Date;
+  updated_at: Date;
+  name: string;
+  birth_date?: Date | null;
+  weight?: Decimal | null;
+  household_id: ID;
+  owner_id: ID;
+  photo_url?: string | null;
+  restrictions?: string | null;
+  notes?: string | null;
+  feeding_interval?: number | null; // Integer type for interval in hours
+  portion_size?: string | null; // Text type
+}
+
+export interface BaseFeedingLogs {
+  id: ID;
+  created_at: Date;
+  updated_at: Date;
+  cat_id: ID;
+  household_id: ID;
+  meal_type: string;
+  amount: number;
+  unit: string;
+  notes?: string | null;
+  fed_by?: ID | null;
+  fed_at: Date;
 }

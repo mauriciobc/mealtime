@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { useNotifications } from "@/lib/context/NotificationContext";
-import { useAppContext } from "@/lib/context/AppContext";
+import { useUserContext } from "@/lib/context/UserContext";
 
 // Constants for backoff strategy
 const INITIAL_CHECK_INTERVAL = 30000; // 30 seconds
@@ -11,7 +11,8 @@ const BACKOFF_MULTIPLIER = 1.5;
 
 export default function NotificationChecker() {
   const { refreshNotifications } = useNotifications();
-  const { state: appState } = useAppContext();
+  const { state } = useUserContext();
+  const currentUser = state.currentUser;
   const mountedRef = useRef(true);
   const isCheckingRef = useRef(false);
   const intervalRef = useRef<NodeJS.Timeout>();
@@ -60,10 +61,10 @@ export default function NotificationChecker() {
         isCheckingRef.current = false;
       }
     }
-  }, [refreshNotifications]);
+  }, [refreshNotifications, state.currentUser?.id]);
 
   useEffect(() => {
-    if (!appState.currentUser?.id) return;
+    if (!state.currentUser?.id) return;
 
     // Initial check
     checkNotifications();
@@ -77,7 +78,7 @@ export default function NotificationChecker() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [appState.currentUser?.id, checkNotifications]);
+  }, [state.currentUser?.id, checkNotifications]);
 
   return null;
 } 

@@ -16,3 +16,5 @@ export function memoize<T extends (...args: any[]) => any>(fn: T): T {
 
 // Example usage:
 // const expensiveComputation = memoize((num: number) => num * 2);
+
+export { memoize } from './cache';

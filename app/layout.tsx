@@ -1,6 +1,6 @@
+import 'dotenv/config'; // Load environment variables
 import type { Metadata } from 'next'
 import "@/app/globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
 import { fontSans } from "@/lib/fonts"
 import { RootClientLayout } from "@/components/layout/root-client-layout"
@@ -43,11 +43,9 @@ export default function RootLayout({
         <link rel="manifest" href="/site.webmanifest" />
       </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <RootClientLayout>
-            {children}
-          </RootClientLayout>
-        </ThemeProvider>
+        <RootClientLayout>
+          {children}
+        </RootClientLayout>
       </body>
     </html>
   )

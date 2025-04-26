@@ -1,6 +1,8 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useRouter } from 'next/navigation';
+import { useUserContext } from "@/lib/context/UserContext";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,56 +11,69 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User } from "lucide-react";
+import { User as UserIcon, LogOut, Settings } from "lucide-react";
+import Link from "next/link";
 
-interface AuthStatusProps {
-  user?: {
-    name?: string | null;
-    email?: string | null;
-    avatar?: string | null;
+export function AuthStatus() {
+  const router = useRouter();
+  const { state: { currentUser, isLoading }, signOut } = useUserContext();
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   };
-}
 
-export function AuthStatus({ user }: AuthStatusProps) {
-  const { status } = useSession();
-  
-  if (status === "loading") {
+  if (isLoading) {
     return <div className="animate-pulse h-8 w-8 rounded-full bg-muted"></div>;
   }
-  
-  if (status === "unauthenticated") {
+
+  if (!currentUser) {
     return (
       <Button variant="outline" size="sm" asChild>
-        <a href="/login">Entrar</a>
+        <Link href="/login">Entrar</Link>
       </Button>
     );
   }
-  
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="rounded-full">
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={user?.avatar || ""} alt={user?.name || "Avatar do usuário"} />
-            <AvatarFallback>{user?.name?.substring(0, 2) || <User className="h-4 w-4" />}</AvatarFallback>
+            <AvatarImage src={currentUser.avatar || undefined} alt={currentUser.name} />
+            <AvatarFallback>
+              <UserIcon className="h-4 w-4" />
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
-            {user?.name && <p className="font-medium">{user.name}</p>}
-            {user?.email && <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>}
+            {currentUser.name && (
+              <p className="font-medium">{currentUser.name}</p>
+            )}
+            {currentUser.email && (
+              <p className="w-[200px] truncate text-sm text-muted-foreground">
+                {currentUser.email}
+              </p>
+            )}
           </div>
         </div>
         <DropdownMenuItem asChild>
-          <a href="/profile">Perfil</a>
+          <Link href="/settings">
+            <Settings className="mr-2 h-4 w-4" />
+            <span>Configurações</span>
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <a href="/settings">Configurações</a>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
-          Sair
+        <DropdownMenuItem onClick={handleSignOut}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Sair</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

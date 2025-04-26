@@ -26,7 +26,7 @@ const initialState: CatsState = {
 };
 
 interface CatsAction {
-  type: 'FETCH_START' | 'FETCH_SUCCESS' | 'FETCH_ERROR' | 'ADD_CAT' | 'REMOVE_CAT' | 'UPDATE_CAT';
+  type: 'FETCH_START' | 'FETCH_SUCCESS' | 'FETCH_ERROR' | 'ADD_CAT' | 'REMOVE_CAT' | 'UPDATE_CAT' | 'REFRESH';
   payload?: CatType[] | CatType | string | number; // Added number for ID-only operations
 }
 
@@ -51,6 +51,8 @@ function catsReducer(state: CatsState, action: CatsAction): CatsState {
           cat.id === (action.payload as CatType).id ? { ...cat, ...(action.payload as CatType) } : cat
         ),
       };
+    case 'REFRESH':
+      return { ...state, isLoading: true, error: null };
     default:
       return state;
   }
@@ -59,7 +61,8 @@ function catsReducer(state: CatsState, action: CatsAction): CatsState {
 const CatsContext = createContext<{
   state: CatsState;
   dispatch: React.Dispatch<CatsAction>;
-}>({ state: initialState, dispatch: () => null });
+  forceRefresh: () => void;
+}>({ state: initialState, dispatch: () => null, forceRefresh: () => null });
 
 export const CatsProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(catsReducer, initialState);
@@ -82,7 +85,25 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [removeLoadingOperation]);
 
+  const forceRefresh = useCallback(() => {
+    // Reset the load attempt flag to force a new load
+    hasAttemptedLoadRef.current = false;
+    
+    // Clear any existing data and set loading state
+    dispatch({ type: 'FETCH_START' });
+    
+    // If there's an ongoing request, abort it
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    
+    // Clean up any existing loading state
+    cleanupLoading();
+  }, [cleanupLoading]);
+
   useEffect(() => {
+    // Reset load attempt when household changes
     hasAttemptedLoadRef.current = false;
   }, [currentUser?.householdId]);
 
@@ -109,7 +130,7 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
         addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
 
         console.log("[CatsProvider] Loading cats for household:", householdId);
-        const catsData: CatType[] = await getCatsByHouseholdId(householdId);
+        const catsData: CatType[] = await getCatsByHouseholdId(householdId, currentUser?.id);
 
         if (!isMounted) return;
 
@@ -134,6 +155,7 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
+    // Execute load immediately when the effect runs
     loadCatsData();
 
     return () => {
@@ -144,9 +166,9 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       }
       cleanupLoading();
     };
-  }, [currentUser?.householdId, addLoadingOperation, cleanupLoading]);
+  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, state.isLoading]);
 
-  const contextValue = useMemo(() => ({ state, dispatch }), [state]);
+  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, forceRefresh]);
 
   return (
     <CatsContext.Provider value={contextValue}>

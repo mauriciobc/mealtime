@@ -14,11 +14,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNotifications } from "@/lib/context/NotificationContext";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Notification, NotificationType } from "@/lib/types/notification";
 import { NotificationItem } from "./notification-item";
+import { useRouter } from "next/navigation";
 
 export function NotificationCenter() {
   const { 
@@ -32,6 +33,7 @@ export function NotificationCenter() {
   } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<number>(0);
+  const router = useRouter();
 
   // Refresh notifications when the popover is opened
   useEffect(() => {
@@ -64,18 +66,12 @@ export function NotificationCenter() {
       await markAllAsRead();
       // Refresh notifications after marking all as read
       await refreshNotifications();
-      toast({
-        description: "Todas as notificações foram marcadas como lidas",
-      });
+      toast.success("Todas as notificações foram marcadas como lidas");
       // Close the popover after successful action
       setIsOpen(false);
     } catch (error) {
       console.error(`[NotificationCenter] Error marking all notifications as read:`, error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível marcar todas as notificações como lidas",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "Não foi possível marcar todas as notificações como lidas");
     }
   };
 
@@ -86,16 +82,10 @@ export function NotificationCenter() {
       await markAsRead(id);
       // Refresh notifications after marking as read
       await refreshNotifications();
-      toast({
-        description: "Notificação marcada como lida",
-      });
+      toast.success("Notificação marcada como lida");
     } catch (error) {
       console.error(`[NotificationCenter] Error marking notification as read:`, error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível marcar a notificação como lida",
-        variant: "destructive",
-      });
+      toast.error(error instanceof Error ? error.message : "Não foi possível marcar a notificação como lida");
     }
   };
 
@@ -106,16 +96,42 @@ export function NotificationCenter() {
       await removeNotification(id);
       // Close the popover after successful deletion
       setIsOpen(false);
-      toast({
-        description: "Notificação removida",
-      });
+      toast.success("Notificação removida");
     } catch (error) {
       console.error(`[NotificationCenter] Error removing notification:`, error);
-      toast({
-        title: "Erro",
-        description: error instanceof Error ? error.message : "Não foi possível remover a notificação",
-        variant: "destructive",
+      toast.error(error instanceof Error ? error.message : "Não foi possível remover a notificação");
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title,
+          message,
+          type,
+          userId,
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to create notification");
+      }
+
+      toast.success("Notificação criada com sucesso");
+      router.push("/notifications");
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao criar notificação");
+    } finally {
+      setIsLoading(false);
     }
   };
 

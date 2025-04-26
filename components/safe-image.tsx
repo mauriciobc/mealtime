@@ -1,7 +1,7 @@
 "use client";
 
 import Image, { ImageProps } from 'next/image';
-import { ErrorBoundary } from './error-boundary';
+import { ErrorBoundary } from '@/lib/context/ErrorContext';
 import { useRef, useState, useCallback, useEffect } from 'react';
 
 interface SafeImageProps extends Omit<ImageProps, 'onError'> {

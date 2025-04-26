@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { ImageCacheError } from './image-errors';
+import { Singleton } from '@/lib/utils/singleton';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -18,24 +19,17 @@ interface CacheEntry {
   data: Buffer;
 }
 
-class ImageCache {
-  private static instance: ImageCache;
+class ImageCache extends Singleton<ImageCache> {
   private cache: Map<string, CacheEntry>;
   private maxSize: number;
   private cacheDir: string;
 
-  private constructor() {
+  protected constructor() {
+    super();
     this.cache = new Map();
     this.maxSize = 100 * 1024 * 1024; // 100MB
     this.cacheDir = path.join(process.cwd(), 'tmp', 'image-cache');
     this.initializeCacheDir();
-  }
-
-  public static getInstance(): ImageCache {
-    if (!ImageCache.instance) {
-      ImageCache.instance = new ImageCache();
-    }
-    return ImageCache.instance;
   }
 
   private async initializeCacheDir() {
@@ -182,6 +176,22 @@ class ImageCache {
       countByType,
       totalEntries: this.cache.size
     };
+  }
+
+  setMaxSize(size: number): void {
+    this.maxSize = size;
+    this.trimCache();
+  }
+
+  private trimCache(): void {
+    while (this.cache.size > this.maxSize) {
+      const firstKey = this.cache.keys().next().value;
+      this.cache.delete(firstKey);
+    }
+  }
+
+  clear(): void {
+    this.cache.clear();
   }
 }
 

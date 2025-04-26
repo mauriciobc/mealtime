@@ -1,134 +1,130 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn, useSession } from "next-auth/react";
+import { createClient } from '@/utils/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageTransition } from "@/components/ui/page-transition";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { toast } from "sonner";
+import { useUserContext } from "@/lib/context/UserContext";
+import { Eye, EyeOff } from "lucide-react";
+import { Icons } from "@/components/icons";
+import { logger } from "@/lib/monitoring/logger";
+import { useLoadingState } from "@/lib/hooks/useLoadingState";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 console.log("[Login] Página de login sendo carregada");
 
-function useAuth() {
+export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session, status } = useSession();
-  const redirectingRef = useRef(false);
+  const { state: { currentUser, isLoading: profileLoading }, authLoading } = useUserContext();
+  const supabase = createClient();
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
-  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    console.log("[Auth] Hook useAuth inicializado");
-    console.log("[Auth] Status da sessão:", status);
-    console.log("[Auth] Session data:", session);
-    
-    // Check for error in URL
-    const errorParam = searchParams.get("error");
-    if (errorParam) {
-      console.log("[Auth] Error from URL:", errorParam);
-      if (errorParam === "CredentialsSignin") {
-          setError("Email ou senha inválidos.");
-      } else if (errorParam === "OAuthSignin") {
-          setError("Erro ao iniciar autenticação com Google.");
-      } else if (errorParam === "OAuthCallback") {
-          setError("Erro ao processar resposta do Google.");
-      } else {
-          setError("Erro durante a autenticação.");
-      }
-      return;
-    }
-  }, [status, session, router, searchParams]);
+  // Register loading state
+  useLoadingState(authLoading || profileLoading, {
+    description: 'Verificando autenticação...',
+    priority: 1,
+  });
 
-  const loginWithGoogle = async () => {
-    try {
-      setIsLoadingGoogle(true);
-      setError(null);
-      console.log("[Auth] Iniciando login com Google");
-      
-      const callbackUrl = searchParams.get("callbackUrl") || "/";
-      console.log("[Auth] Callback URL:", callbackUrl);
-      
-      await signIn("google", { 
-        callbackUrl,
-        redirect: true 
-      }).catch(error => {
-        console.error("[Auth] Error during Google sign-in:", error);
-        throw error;
-      });
-    } catch (error) {
-      console.error("[Auth] Erro no login com Google:", error);
-      setError("Erro ao iniciar login com Google.");
-    } finally {
-      setIsLoadingGoogle(false);
-    }
+  // Register form submission loading state
+  useLoadingState(isLoading, {
+    description: 'Entrando...',
+    priority: 2,
+  });
+
+  // Handle redirect if user is already authenticated
+  // useEffect(() => {
+  //   const isFullyLoaded = !authLoading && !profileLoading;
+  //   if (isFullyLoaded && currentUser) {
+  //     const callbackUrl = searchParams.get("callbackUrl") || "/";
+  //     console.log("[Login] User fully loaded and authenticated, redirecting to:", callbackUrl);
+  //     router.replace(callbackUrl);
+  //   }
+  // }, [authLoading, profileLoading, currentUser, router, searchParams]);
+
+  // Clear error when form values change
+  const handleInputChange = () => {
+    if (error) setError(null);
   };
-  
-  const loginWithCredentials = async (email: string, password: string) => {
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
     try {
-      setIsLoadingCredentials(true);
-      setError(null);
-      console.log("[Auth] Iniciando login com credenciais", { email });
+      const formData = new FormData(e.currentTarget);
+      const email = formData.get('email') as string;
+      const password = formData.get('password') as string;
 
-      const callbackUrl = searchParams.get("callbackUrl") || "/";
-      console.log("[Auth] Callback URL for credentials:", callbackUrl);
+      if (!email || !password) {
+        throw new Error('Please fill in all fields');
+      }
 
-      const result = await signIn("credentials", {
-        redirect: false,
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
-        callbackUrl,
       });
 
-      console.log("[Auth] Credentials signin result:", result);
-
-      if (result?.ok && !result?.error) {
-        console.log("[Auth] Login com credenciais bem-sucedido, redirecionando...");
-        router.replace(callbackUrl);
+      if (signInError) {
+        if (signInError.message.includes('Email not confirmed')) {
+          setError('Please check your email to confirm your account before logging in.');
+        } else if (signInError.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Please try again.');
+        } else {
+          setError(signInError.message);
+        }
+        logger.error('[LoginPage] Sign in error:', { error: signInError.message });
       } else {
-        console.log("[Auth] Falha no login com credenciais:", result?.error);
-        setError(result?.error === "CredentialsSignin" ? "Email ou senha inválidos." : "Ocorreu um erro no login.");
+        // Redirect immediately on successful sign-in
+        const callbackUrl = searchParams.get("callbackUrl") || "/";
+        console.log("[Login] Successful sign-in, redirecting to:", callbackUrl);
+        router.replace(callbackUrl);
       }
-    } catch (error) {
-      console.error("[Auth] Erro inesperado no login com credenciais:", error);
-      setError("Ocorreu um erro inesperado durante o login.");
+    } catch (err) {
+      logger.error('[LoginPage] Unexpected error during sign in:', { error: err instanceof Error ? err.message : String(err) });
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
-      setIsLoadingCredentials(false);
+      setIsLoading(false);
     }
   };
 
-  return { status, error, loginWithGoogle, isLoadingGoogle, loginWithCredentials, isLoadingCredentials, setError };
-}
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setIsLoading(true);
 
-export default function LoginPage() {
-  console.log("[Login] Componente LoginPage renderizando");
-  const { status, error, loginWithGoogle, isLoadingGoogle, loginWithCredentials, isLoadingCredentials, setError } = useAuth();
-  const searchParams = useSearchParams();
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+    try {
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
 
-  useEffect(() => {
-    const params = Object.fromEntries(searchParams.entries());
-    console.log("[Login] URL parameters:", params);
-  }, [searchParams]);
-
-  const handleCredentialsSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-        setError("Por favor, preencha o email e a senha.");
-        return;
+      if (signInError) {
+        setError('Failed to sign in with Google. Please try again.');
+        logger.error('[LoginPage] Google sign in error:', { error: signInError.message });
+      }
+    } catch (err) {
+      logger.error('[LoginPage] Unexpected error during Google sign in:', { error: err instanceof Error ? err.message : String(err) });
+      setError('An unexpected error occurred while signing in with Google');
+    } finally {
+      setIsLoading(false);
     }
-    console.log("[Login] Tentando login com credenciais:", email);
-    loginWithCredentials(email, password);
   };
 
-  const isLoading = status === "loading" || isLoadingGoogle || isLoadingCredentials;
+  // Show loading state while checking auth
+  if (authLoading || profileLoading) {
+    return <GlobalLoading mode="overlay" />;
+  }
 
   return (
     <PageTransition>
@@ -141,41 +137,51 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
-            <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
+                  name="email"
+                  placeholder="name@example.com"
                   type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  autoCorrect="off"
                   disabled={isLoading}
+                  onChange={handleInputChange}
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Sua senha"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={isLoading}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    disabled={isLoading}
+                    onChange={handleInputChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
               </div>
+
+              {error && (
+                <div className="text-sm text-red-500">
+                  {error}
+                </div>
+              )}
+
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoadingCredentials ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...</>
+                {isLoading ? (
+                  <GlobalLoading mode="spinner" size="sm" />
                 ) : (
                   "Entrar com Email"
                 )}
@@ -194,43 +200,38 @@ export default function LoginPage() {
             </div>
 
             <Button
-              onClick={() => {
-                console.log("[Login] Botão de login Google clicado");
-                loginWithGoogle();
-              }}
+              onClick={handleGoogleLogin}
               disabled={isLoading}
               className="w-full"
               variant="outline"
             >
-              {isLoadingGoogle ? (
-                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...</>
+              {isLoading ? (
+                <GlobalLoading mode="spinner" size="sm" />
               ) : (
                 <>
-                  <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
-                    <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
-                  </svg>
+                  <Icons.google className="mr-2 h-4 w-4" />
                   Entrar com Google
                 </>
               )}
             </Button>
           </CardContent>
           <CardFooter className="flex flex-col items-center space-y-2 text-center text-sm text-muted-foreground">
-             <div>
-                Não tem uma conta?{' '}
-                <Link href="/signup" className="underline hover:text-primary">
-                  Registre-se
-                </Link>
-              </div>
-              <div> 
-                Ao entrar, você concorda com nossos{" "}
-                <Link href="/terms" className="underline hover:text-primary">
-                  Termos de Serviço
-                </Link>{" "}
-                e{" "}
-                <Link href="/privacy" className="underline hover:text-primary">
-                  Política de Privacidade
-                </Link>
-              </div>
+            <div>
+              Não tem uma conta?{' '}
+              <Link href="/signup" className="underline hover:text-primary">
+                Registre-se
+              </Link>
+            </div>
+            <div>
+              Ao entrar, você concorda com nossos{" "}
+              <Link href="/terms" className="underline hover:text-primary">
+                Termos de Serviço
+              </Link>{" "}
+              e{" "}
+              <Link href="/privacy" className="underline hover:text-primary">
+                Política de Privacidade
+              </Link>
+            </div>
           </CardFooter>
         </Card>
       </div>

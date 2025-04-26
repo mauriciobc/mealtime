@@ -17,20 +17,19 @@ import {
 } from "@/lib/context/FeedingContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FeedingLogItem } from "@/components/feeding-log-item";
-import { Loading } from "@/components/ui/loading";
+import { FeedingLogItem } from "@/components/feeding/feeding-log-item";
+import { GlobalLoading } from "@/components/ui/global-loading";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useSession } from "next-auth/react";
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { FeedingLog, CatType } from "@/lib/types";
-import { NewFeedingSheet } from "@/components/new-feeding-sheet";
+import { NewFeedingSheet } from "@/components/feeding/new-feeding-sheet";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const { state: userState } = useUserContext();
   const { state: catsState } = useCats();
   const { state: feedingState } = useFeeding();
-  const { data: session, status } = useSession();
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
   const { cats, isLoading: isLoadingCats, error: errorCats } = catsState;
   const { isLoading: isLoadingFeedings, error: errorFeedings } = feedingState;
@@ -43,7 +42,7 @@ export default function Home() {
   const [isNewFeedingSheetOpen, setIsNewFeedingSheetOpen] = useState(false);
 
   const isDataLoading = isLoadingUser || isLoadingCats || isLoadingFeedings;
-  const isNewUserFlow = !isDataLoading && cats && cats.length === 0 && !!currentUser?.householdId;
+  const isNewUserFlow = !isDataLoading && !!currentUser && cats && cats.length === 0 && !!currentUser?.householdId;
 
   const colorPalette = [
     "hsl(var(--primary))",
@@ -74,24 +73,38 @@ export default function Home() {
     }
   };
 
-  if (status === "loading" || (status === "authenticated" && isDataLoading)) {
-    return <Loading text="Carregando painel..." />;
+  const router = useRouter();
+
+  // --- Refined Loading and State Checks --- 
+
+  // 1. Handle User Context Loading FIRST - this covers initial load AND refetches
+  if (isLoadingUser) {
+    return <GlobalLoading text="Carregando dados do usuário..." />;
   }
 
-  const dataError = errorUser || errorCats || errorFeedings;
-  if (dataError) {
+  // 2. Handle User Context Errors (if not loading)
+  if (errorUser) {
     return (
       <div className="container px-4 py-8 text-center">
-        <p className="text-destructive">Erro ao carregar dados: {dataError}</p>
+        <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}</p>
       </div>
     );
   }
 
-  if (status === "unauthenticated") {
-    return <Loading text="Redirecionando para login..." />;
+  // 3. Handle No Authenticated User Found (if not loading and no error)
+  useEffect(() => {
+    if (!isLoadingUser && !currentUser) {
+      router.replace("/login?callbackUrl=/");
+    }
+  }, [isLoadingUser, currentUser, router]);
+
+  if (!currentUser && !isLoadingUser) {
+    return <GlobalLoading text="Redirecionando para login..." />;
   }
   
-  if (status === "authenticated" && !currentUser?.householdId) {
+  // 4. Handle User Found, But No Household Associated (if user loaded and exists)
+  // This check now ONLY runs if isLoadingUser is false and currentUser is valid.
+  if (!currentUser.householdId) { 
     return (
        <div className="container px-4 py-8">
          <EmptyState
@@ -106,7 +119,28 @@ export default function Home() {
      );
   }
 
-  if (isNewUserFlow) {
+  // --- User and Household Confirmed: Proceed with Dashboard --- 
+
+  // 5. Handle Loading States for Other Contexts (Cats, Feedings)
+  const isDashboardDataLoading = isLoadingCats || isLoadingFeedings;
+  if (isDashboardDataLoading) {
+     // Use a more specific loading message if desired
+     return <GlobalLoading text="Carregando dados do painel..." />;
+  }
+
+  // 6. Handle Errors from Other Contexts
+  const dashboardDataError = errorCats || errorFeedings;
+  if (dashboardDataError) {
+     return (
+       <div className="container px-4 py-8 text-center">
+         <p className="text-destructive">Erro ao carregar dados do painel: {dashboardDataError}</p>
+       </div>
+     );
+  }
+  
+  // 7. Handle New User Flow (Household exists, but no cats)
+  const isNewUserWithHouseholdFlow = cats && cats.length === 0;
+  if (isNewUserWithHouseholdFlow) {
     return (
       <div className="container px-4 py-8">
         <EmptyState
@@ -130,6 +164,7 @@ export default function Home() {
 
   const chartCats = cats || [];
 
+  // 8. Render the Main Dashboard Content
   return (
     <motion.div
       className="container px-4 py-6 md:py-8 pb-28"
@@ -251,17 +286,18 @@ export default function Home() {
                       {chartCats.map((cat, index) => (
                         <Bar
                           key={cat.id}
-                          dataKey={cat.name}
+                          dataKey={cat.id}
                           fill={colorPalette[index % colorPalette.length]}
-                          radius={[4, 4, 0, 0]}
+                          radius={4}
+                          name={cat.name}
                         />
                       ))}
                     </RechartsBarChart>
                   </ChartContainer>
                 ) : (
                   <EmptyState
-                    title="Sem dados suficientes"
-                    description="Registre mais alimentações ou adicione gatos para gerar o gráfico."
+                    title="Dados insuficientes para o gráfico"
+                    description="Registre algumas alimentações com porção para ver o gráfico."
                     icon={BarChart3}
                   />
                 )}
@@ -270,43 +306,50 @@ export default function Home() {
           </motion.div>
         </div>
 
-        <div className="space-y-6 lg:col-span-1">
-          <motion.div variants={itemVariants}>
-            <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="quick-actions">
-              <CardHeader>
-                <CardTitle className="text-lg">Ações Rápidas</CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                <Button variant="outline" asChild>
-                  <Link href="/cats">
-                    <Cat className="mr-2 h-4 w-4" /> Ver Gatos ({cats?.length || 0})
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/feedings">
-                    <Utensils className="mr-2 h-4 w-4" /> Histórico
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/schedules">
-                    <Calendar className="mr-2 h-4 w-4" /> Agendamentos
-                  </Link>
-                </Button>
-                 <Button variant="outline" asChild>
-                  <Link href="/settings/household">
-                    <Users className="mr-2 h-4 w-4" /> Residência
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+        <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
+          <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="my-cats">
+            <CardHeader>
+              <CardTitle className="flex items-center text-lg">
+                <Cat className="mr-2 h-5 w-5 text-primary" />
+                Meus Gatos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {cats && cats.length > 0 ? (
+                <ul className="space-y-3">
+                  {cats.slice(0, 5).map((cat: CatType) => (
+                    <li key={cat.id}>
+                      <Link href={`/cats/${cat.id}`} className="flex items-center gap-3 hover:bg-muted/50 p-2 rounded-md transition-colors">
+                        <div className="flex-grow min-w-0">
+                          <p className="font-medium truncate">{cat.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{cat.notes || "Sem raça definida"}</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                 <EmptyState
+                  title="Nenhum gato cadastrado"
+                  description="Cadastre seus gatos para começar."
+                  icon={Cat}
+                />
+              )}
+            </CardContent>
+             <CardFooter className="justify-end">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/cats" className="flex items-center">
+                   Ver todos os gatos
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardFooter>
+          </Card>
+
+        </motion.div>
       </div>
-
       <NewFeedingSheet isOpen={isNewFeedingSheetOpen} onOpenChange={setIsNewFeedingSheetOpen} />
-
-      <div className="h-28" />
-
     </motion.div>
   );
 }

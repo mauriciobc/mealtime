@@ -310,3 +310,81 @@ export function formatDateTimeForDisplay(date: Date | string, userTimezone: stri
     return "Horário não disponível";
   }
 }
+
+/**
+ * Calculate the next feeding time based on schedules and last feeding time
+ */
+export function calculateNextFeedingTime(
+  schedules: { type: string; interval: number | null; times: string | null; enabled: boolean }[],
+  lastFeedingTime: Date | null,
+  userTimezone?: string
+): Date | null {
+  if (!schedules || !Array.isArray(schedules)) {
+    console.log('[calculateNextFeedingTime] No schedules provided');
+    return null;
+  }
+
+  const timezone = getUserTimezone(userTimezone);
+  const now = toDate(new Date(), { timeZone: timezone });
+
+  // Filter enabled schedules
+  const enabledSchedules = schedules.filter(s => s.enabled);
+  if (enabledSchedules.length === 0) {
+    console.log('[calculateNextFeedingTime] No enabled schedules found');
+    return null;
+  }
+
+  let nextFeedingTime: Date | null = null;
+
+  // Process each schedule type
+  enabledSchedules.forEach(schedule => {
+    let scheduleNextTime: Date | null = null;
+
+    try {
+      if (schedule.type === 'fixed' && schedule.times) {
+        // Handle fixed time schedule
+        const timeStrings = schedule.times.split(',');
+        const todayTimes = timeStrings.map(timeStr => {
+          const [hours, minutes] = timeStr.trim().split(':').map(Number);
+          const time = toDate(new Date(), { timeZone: timezone });
+          time.setHours(hours, minutes, 0, 0);
+          return time;
+        });
+
+        // Find the next time that hasn't passed yet
+        const futureTime = todayTimes.find(time => time > now);
+        if (futureTime) {
+          scheduleNextTime = futureTime;
+        } else {
+          // If all times today have passed, use the first time tomorrow
+          const tomorrowTime = toDate(todayTimes[0], { timeZone: timezone });
+          tomorrowTime.setDate(tomorrowTime.getDate() + 1);
+          scheduleNextTime = tomorrowTime;
+        }
+      } else if (schedule.type === 'interval' && schedule.interval) {
+        // Handle interval schedule
+        if (lastFeedingTime) {
+          scheduleNextTime = calculateNextFeeding(lastFeedingTime, schedule.interval, timezone, 'schedule');
+        } else {
+          // If no last feeding, start from now
+          scheduleNextTime = addHours(now, schedule.interval);
+        }
+      }
+    } catch (error) {
+      console.error(`[calculateNextFeedingTime] Error processing schedule: ${error}`);
+    }
+
+    // Update nextFeedingTime if this schedule is sooner
+    if (scheduleNextTime && (!nextFeedingTime || scheduleNextTime < nextFeedingTime)) {
+      nextFeedingTime = scheduleNextTime;
+    }
+  });
+
+  if (nextFeedingTime) {
+    console.log(`[calculateNextFeedingTime] Calculated next feeding time: ${nextFeedingTime.toISOString()}`);
+  } else {
+    console.log('[calculateNextFeedingTime] Could not calculate next feeding time');
+  }
+
+  return nextFeedingTime;
+}

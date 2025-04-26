@@ -124,7 +124,7 @@ export const updateFeedingSchedule = async (
     // Buscar informações do gato para notificação
     const cat = await getCat(catId);
     if (cat) {
-      const nextFeedingTime = await getNextFeedingTime(catId);
+      const nextFeedingTime = await getNextFeedingTime(catId.toString(), userId);
       if (nextFeedingTime) {
         const notifications = generateFeedingNotifications(
           cat,
@@ -145,9 +145,14 @@ export const updateFeedingSchedule = async (
 /**
  * Busca a próxima alimentação de um gato
  */
-export const getNextFeedingTime = async (catId: number): Promise<Date | null> => {
+export const getNextFeedingTime = async (catId: string, userId: number): Promise<Date | null> => {
   try {
-    const response = await fetch(`/api/cats/${catId}/next-feeding`);
+    const response = await fetch(`/api/cats/${catId}/next-feeding`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
     if (!response.ok) return null;
     const data = await response.json();
     return data ? new Date(data) : null;

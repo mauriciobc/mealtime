@@ -1,11 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef, useCallback, useState } from "react";
+import { createClient } from '@/utils/supabase/client'; // Import Supabase client
+import { User as SupabaseUser } from '@supabase/supabase-js'; // Import Supabase types
 import { useLoading } from "./LoadingContext";
 import { toast } from "sonner";
-import { User as CurrentUserType } from "@/lib/types";
-import { useAppContext } from "./AppContext";
+import { User as CurrentUserType, NotificationSettings } from "@/lib/types";
+import { getUserProfile, getFirstHouseholdMembership } from '@/lib/actions/userActions'; // Import the Server Actions
+import { logger } from '@/lib/monitoring/logger'; // Import logger
 
 interface UserState {
   currentUser: CurrentUserType | null;
@@ -15,7 +17,7 @@ interface UserState {
 
 const initialState: UserState = {
   currentUser: null,
-  isLoading: false,
+  isLoading: true,
   error: null,
 };
 
@@ -25,35 +27,66 @@ interface UserAction {
 }
 
 function userReducer(state: UserState, action: UserAction): UserState {
+  console.log(`[userReducer] Dispatching: ${action.type}`, action.payload);
   switch (action.type) {
     case "FETCH_START":
+      console.log("[userReducer] FETCH_START -> isLoading: true");
       return { ...state, isLoading: true, error: null };
     case "SET_CURRENT_USER":
+      console.log("[userReducer] SET_CURRENT_USER -> isLoading: false, currentUser:", action.payload);
       return { ...state, isLoading: false, currentUser: action.payload as CurrentUserType | null, error: null };
     case "FETCH_ERROR":
+      console.error("[userReducer] FETCH_ERROR -> isLoading: false, error:", action.payload);
       return { ...state, isLoading: false, error: action.payload as string };
     case "CLEAR_USER":
-      return initialState;
+      console.warn("[userReducer] CLEAR_USER -> isLoading: false, currentUser: null");
+      return { ...initialState, isLoading: false };
     default:
+      console.warn("[userReducer] Unknown action type:", action.type);
       return state;
   }
 }
 
-const UserContext = createContext<{
+interface UserContextValue {
   state: UserState;
-  dispatch: React.Dispatch<UserAction>;
-}>({ state: initialState, dispatch: () => null });
+  profile: CurrentUserType | null;
+  authLoading: boolean;
+  signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+}
 
-export const UserProvider = ({ children }: { children: ReactNode }) => {
+const UserContext = createContext<UserContextValue | undefined>(undefined);
+
+// Add debounce utility
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
+export function UserProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(userReducer, initialState);
-  const { data: session, status, update: updateSession } = useSession();
-  const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { dispatch: appDispatch } = useAppContext();
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const loadingIdRef = useRef<string | null>(null);
+  const [supabase] = useState(() => {
+    logger.info("[UserProvider] Initializing Supabase client");
+    try {
+      const client = createClient();
+      logger.info("[UserProvider] Supabase client initialized successfully");
+      return client;
+    } catch (error) {
+      logger.error("[UserProvider] Error initializing Supabase client:", error);
+      throw error;
+    }
+  });
+  const [profile, setProfile] = useState<CurrentUserType | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const mountedRef = useRef(true);
-
-  const userEmail = session?.user?.email;
+  const lastProfileFetchRef = useRef<string | null>(null);
+  const authCheckCountRef = useRef(0);
 
   // Set mounted ref
   useEffect(() => {
@@ -63,200 +96,227 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const cleanupLoading = useCallback((loadingId?: string) => {
-    const idToCleanup = loadingId || loadingIdRef.current;
-    if (idToCleanup && loadingIdRef.current === idToCleanup) {
-      try {
-        removeLoadingOperation(idToCleanup);
-        loadingIdRef.current = null;
-      } catch (error) {
-        console.error('[UserProvider] Error cleaning up loading:', error);
+  const loadUserData = useCallback(async (currentUserFromSupabase: SupabaseUser | null) => {
+    if (!currentUserFromSupabase || !mountedRef.current) {
+      if (state.currentUser) {
+        dispatch({ type: "CLEAR_USER" });
       }
+      setProfile(null);
+      lastProfileFetchRef.current = null;
+      setAuthLoading(false);
+      return;
     }
-  }, [removeLoadingOperation]);
 
-  const cleanupRequest = useCallback(() => {
-    if (abortControllerRef.current) {
-      try {
-        abortControllerRef.current.abort();
-      } catch (error) {
-        console.error('[UserProvider] Error aborting request:', error);
-      } finally {
-        abortControllerRef.current = null;
-      }
+    if (lastProfileFetchRef.current === currentUserFromSupabase.id) {
+      setAuthLoading(false);
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    let isEffectActive = true; // Flag to track effect cleanup
-    const loadingId = "user-context-load";
+    dispatch({ type: "FETCH_START" });
+    lastProfileFetchRef.current = currentUserFromSupabase.id;
 
-    const loadUserData = async () => {
-      // Early return conditions check mount status AND effect active status
-      if (!mountedRef.current || !isEffectActive || status !== "authenticated" || !userEmail) {
-        if (status === "unauthenticated" && state.currentUser) {
-          if (isEffectActive) {
-             dispatch({ type: "CLEAR_USER" });
-             appDispatch({ type: 'SET_CURRENT_USER', payload: null });
-          }
-        }
+    try {
+      // Fetch profile first (we know it lacks householdId)
+      const { data: fetchedProfile, error: fetchError } = await getUserProfile();
+
+      if (!mountedRef.current) {
+        setAuthLoading(false);
         return;
       }
 
-      console.log("[UserProvider] Starting user data fetch (Effect active: " + isEffectActive + ")...");
+      if (fetchError) {
+        logger.error("[UserProvider] Error fetching user profile:", fetchError);
+        // Check if it's a database connection error
+        if (fetchError.message?.includes("FATAL: Tenant or user not found")) {
+          toast.error("Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde.");
+          logger.error("[UserProvider] Database connection error:", fetchError);
+        }
+        dispatch({ type: "FETCH_ERROR", payload: fetchError });
+        setProfile(null);
+        lastProfileFetchRef.current = null;
+        setAuthLoading(false);
+        return;
+      }
 
-      cleanupRequest();
-      cleanupLoading(loadingId); 
-
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      try {
-        if (!isEffectActive) return;
-        dispatch({ type: "FETCH_START" });
-        loadingIdRef.current = loadingId;
-        addLoadingOperation({ id: loadingId, priority: 1, description: "Carregando dados do usuário..." });
-
-        const response = await fetch('/api/settings', {
-          method: 'GET',
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache'
-          },
-          credentials: 'include',
-          signal: abortController.signal
-        });
+      let primaryHouseholdId: string | null = null;
+      if (fetchedProfile) {
+        setProfile(fetchedProfile);
+        logger.info("[UserProvider] Profile fetched, now fetching first household membership...");
         
-        if (!isEffectActive || !mountedRef.current) {
-            console.log("[UserProvider] Fetch completed but effect/component inactive.");
-            return;
+        // Fetch the first household membership
+        const { data: membershipData, error: membershipError } = await getFirstHouseholdMembership(currentUserFromSupabase.id);
+
+        if (!mountedRef.current) {
+          setAuthLoading(false);
+          return; // Abort if component unmounted during async calls
         }
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("[UserProvider] API error response:", { 
-            status: response.status, 
-            statusText: response.statusText,
-            body: errorText
-          });
-
-          // Se for erro de autenticação, limpa o estado do usuário
-          if (response.status === 401) {
-            console.log("[UserProvider] Authentication error, clearing user state");
-            dispatch({ type: "CLEAR_USER" });
-            appDispatch({ type: 'SET_CURRENT_USER', payload: null });
-            return;
-          }
-
-          throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
+        if (membershipError) {
+          // Log error but don't block user loading, householdId will be null
+          logger.error("[UserProvider] Error fetching household membership:", membershipError);
+          toast.error("Erro ao verificar a qual residência pertence.");
+        } else if (membershipData) {
+          primaryHouseholdId = membershipData.household_id;
+          logger.info(`[UserProvider] Found primary household ID: ${primaryHouseholdId}`);
+        } else {
+          logger.info("[UserProvider] User is not a member of any household.");
         }
 
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          console.error("[UserProvider] Non-JSON response:", { 
-            status: response.status, 
-            contentType,
-          });
-          throw new Error(`Resposta inesperada do servidor (tipo ${contentType || 'desconhecido'}).`);
-        }
-
-        let userData;
-        try {
-          userData = await response.json();
-        } catch (e) {
-          console.error("[UserProvider] JSON parse error:", e);
-          throw new Error("Falha ao analisar a resposta JSON do servidor.");
-        }
-
-        if (!isEffectActive || !mountedRef.current) return;
-
-        if (!session?.user) {
-          throw new Error('Sessão inválida durante carregamento.');
-        }
-
-        const currentUser: CurrentUserType = {
-          id: String(userData.id),
-          name: userData.name || session.user.name || "",
-          email: userData.email || session.user.email || "",
-          avatar: userData.avatar || session.user.image || null,
-          householdId: userData.householdId ? Number(userData.householdId) : null,
-          role: userData.role || "member",
-          preferences: userData.preferences && typeof userData.preferences === 'object' ? {
-            timezone: userData.preferences.timezone || "UTC",
-            language: userData.preferences.language || "pt-BR",
-            notifications: userData.preferences.notifications && typeof userData.preferences.notifications === 'object' ? {
-              pushEnabled: userData.preferences.notifications.pushEnabled !== undefined ? userData.preferences.notifications.pushEnabled : true,
-              emailEnabled: userData.preferences.notifications.emailEnabled !== undefined ? userData.preferences.notifications.emailEnabled : true,
-              feedingReminders: userData.preferences.notifications.feedingReminders !== undefined ? userData.preferences.notifications.feedingReminders : true,
-              missedFeedingAlerts: userData.preferences.notifications.missedFeedingAlerts !== undefined ? userData.preferences.notifications.missedFeedingAlerts : true,
-              householdUpdates: userData.preferences.notifications.householdUpdates !== undefined ? userData.preferences.notifications.householdUpdates : true
-            } : { pushEnabled: true, emailEnabled: true, feedingReminders: true, missedFeedingAlerts: true, householdUpdates: true }
-          } : { timezone: "UTC", language: "pt-BR", notifications: { pushEnabled: true, emailEnabled: true, feedingReminders: true, missedFeedingAlerts: true, householdUpdates: true } }
+        // Construct user data including the fetched household ID
+        const userData: CurrentUserType = {
+          id: currentUserFromSupabase.id,
+          name: fetchedProfile.name ?? currentUserFromSupabase.email ?? "Usuário",
+          email: currentUserFromSupabase.email!,
+          householdId: primaryHouseholdId, // Use the fetched ID here
+          role: fetchedProfile.role, // Keep other profile fields
+          avatar: fetchedProfile.avatar,
+          notificationSettings: fetchedProfile.notificationSettings as NotificationSettings,
+          timezone: fetchedProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
         };
 
-        if (!isEffectActive || !mountedRef.current) return;
-
-        const currentSessionHouseholdId = session.user.householdId;
-        if (currentUser.householdId !== currentSessionHouseholdId) {
-          console.log("[UserProvider] Updating session with new household ID:", currentUser.householdId);
-          await updateSession({ user: { ...session.user, householdId: currentUser.householdId } });
-        }
-
-        if (!isEffectActive || !mountedRef.current) return;
-
-        console.log("[UserProvider] Dispatching SET_CURRENT_USER");
-        dispatch({ type: "SET_CURRENT_USER", payload: currentUser });
-        appDispatch({ type: 'SET_CURRENT_USER', payload: currentUser });
-
-      } catch (error: any) {
-        if (!isEffectActive || !mountedRef.current) {
-            console.log("[UserProvider] Caught error but effect/component inactive:", error.name);
-            return;
-        }
-
-        console.log(`[UserProvider] Caught error name: ${error.name}`);
-
-        if (error.name === 'AbortError') {
-          console.log("[UserProvider] Handling AbortError...");
-          dispatch({ type: "FETCH_ERROR", payload: "Fetch aborted by client" });
-          console.log("[UserProvider] Dispatched FETCH_ERROR for AbortError.");
-        } else {
-          console.log("[UserProvider] Handling generic error...");
-          console.error("[UserProvider] Error loading user data:", error); 
-          const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-          toast.error(`Erro ao carregar dados: ${errorMessage}`);
-          dispatch({ type: "FETCH_ERROR", payload: errorMessage });
-          appDispatch({ type: 'SET_CURRENT_USER', payload: null });
-          console.log("[UserProvider] Dispatched FETCH_ERROR for generic error.");
-        }
-      } finally {
-        if (isEffectActive && mountedRef.current) {
-          console.log(`[UserProvider] Finally block: Cleaning up loadingId ${loadingId}`);
-          cleanupLoading(loadingId);
-        } else {
-           console.log("[UserProvider] Finally block: Effect inactive or component unmounted, skipping cleanup.");
-        }
-        abortControllerRef.current = null;
+        dispatch({ type: "SET_CURRENT_USER", payload: userData });
+      } else {
+        // No profile found but no error - this is a valid state for new users
+        // They won't have a household membership yet either
+        logger.info("[UserProvider] No profile found for user, treating as new user.");
+        dispatch({ type: "SET_CURRENT_USER", payload: {
+          id: currentUserFromSupabase.id,
+          email: currentUserFromSupabase.email!,
+          name: currentUserFromSupabase.email ?? "Usuário",
+          householdId: null, // Explicitly null for new users
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+        } as CurrentUserType });
       }
-    };
+    } catch (error) {
+      logger.error("[UserProvider] Error fetching user data:", error);
+      dispatch({ type: "FETCH_ERROR", payload: "Failed to load user data" });
+      setProfile(null);
+      lastProfileFetchRef.current = null;
+      
+      // Show a user-friendly error message
+      if (error instanceof Error) {
+        if (error.message?.includes("FATAL: Tenant or user not found")) {
+          toast.error("Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde.");
+        } else {
+          toast.error("Erro ao carregar dados do usuário. Por favor, tente novamente.");
+        }
+      }
+    } finally {
+      if (mountedRef.current) {
+        setAuthLoading(false);
+      }
+    }
+  }, [state.currentUser]);
 
-    loadUserData();
+  const handleAuthChange = useCallback(async () => {
+    const requestId = ++authCheckCountRef.current;
+    logger.info(`[UserProvider][Request ${requestId}] handleAuthChange triggered`);
+
+    if (!mountedRef.current) {
+      logger.warn(`[UserProvider][Request ${requestId}] handleAuthChange aborted: component not mounted`);
+      return;
+    }
+
+    try {
+      logger.info(`[UserProvider][Request ${requestId}] Calling supabase.auth.getUser()`);
+      const authResult = await Promise.race([
+        supabase.auth.getUser(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+        )
+      ]);
+
+      // Type assertion since we know this is the success case
+      const { data: { user: verifiedUser }, error: userError } = authResult as Awaited<ReturnType<typeof supabase.auth.getUser>>;
+      
+      logger.info(`[UserProvider][Request ${requestId}] supabase.auth.getUser() result: user=${verifiedUser ? verifiedUser.id : 'null'}, error=${userError ? JSON.stringify(userError) : 'null'}`);
+      
+      if (userError) {
+        logger.error(`[UserProvider][Request ${requestId}] Auth error:`, userError);
+        throw userError;
+      }
+
+      if (!verifiedUser) {
+        logger.warn(`[UserProvider][Request ${requestId}] No verified user found. Clearing user state.`);
+        setProfile(null);
+        dispatch({ type: "CLEAR_USER" });
+        lastProfileFetchRef.current = null;
+        setAuthLoading(false);
+        return;
+      }
+
+      logger.info(`[UserProvider][Request ${requestId}] Verified user found: ${verifiedUser.id}. Calling loadUserData.`);
+      await loadUserData(verifiedUser);
+    } catch (error) {
+      logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, error);
+      setProfile(null);
+      dispatch({ type: "CLEAR_USER" });
+      lastProfileFetchRef.current = null;
+      setAuthLoading(false);
+    }
+  }, [supabase.auth, loadUserData]);
+
+  // Debounced version of handleAuthChange
+  const debouncedHandleAuthChange = useMemo(
+    () => debounce(handleAuthChange, 300),
+    [handleAuthChange]
+  );
+
+  // Set up auth state change listener
+  useEffect(() => {
+    logger.info("[UserProvider] Setting up auth state change listener");
+    setAuthLoading(true);
+    
+    // Initial auth check
+    handleAuthChange();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      logger.info("[UserProvider] Auth state change detected");
+      debouncedHandleAuthChange();
+    });
 
     return () => {
-      console.log("[UserProvider] Effect cleanup running...");
-      isEffectActive = false;
-      cleanupRequest();
+      logger.info("[UserProvider] Cleaning up auth state change listener");
+      subscription.unsubscribe();
     };
-  }, [status, userEmail, addLoadingOperation, removeLoadingOperation, cleanupLoading, cleanupRequest, dispatch, updateSession, session, appDispatch]);
+  }, [supabase.auth, handleAuthChange, debouncedHandleAuthChange]);
 
-  const contextValue = useMemo(() => ({ state, dispatch }), [state]);
+  const signOut = useCallback(async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      dispatch({ type: "CLEAR_USER" });
+      setProfile(null);
+      lastProfileFetchRef.current = null;
+      
+      logger.info("[UserProvider] User signed out successfully");
+    } catch (error) {
+      logger.error("[UserProvider] Error signing out:", error);
+      throw error;
+    }
+  }, [supabase.auth]);
 
-  return (
-    <UserContext.Provider value={contextValue}>
-      {children}
-    </UserContext.Provider>
-  );
-};
+  const refreshUser = useCallback(async () => {
+    lastProfileFetchRef.current = null;
+    await handleAuthChange();
+  }, [handleAuthChange]);
 
-export const useUserContext = () => useContext(UserContext);
+  const value = useMemo(() => ({
+    state,
+    profile,
+    authLoading,
+    signOut,
+    refreshUser
+  }), [state, profile, authLoading, signOut, refreshUser]);
+
+  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+}
+
+export function useUserContext() {
+  const context = useContext(UserContext);
+  if (!context) {
+    throw new Error("useUserContext must be used within a UserProvider");
+  }
+  return context;
+}

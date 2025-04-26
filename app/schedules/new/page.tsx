@@ -37,14 +37,13 @@ import { useScheduleContext } from "@/lib/context/ScheduleContext";
 import { useCats } from "@/lib/context/CatsContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
-import { useSession } from "next-auth/react";
 import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Switch } from "@/components/ui/switch";
 
 const formSchema = z.object({
-  catId: z.string({ required_error: "Selecione um gato." }),
+  catId: z.string({ required_error: "Selecione um gato." }).uuid({ message: "ID do gato inválido." }),
   type: z.enum(["interval", "fixedTime"], { required_error: "Selecione um tipo." }),
   interval: z.string().optional(),
   times: z.string().optional(),
@@ -72,16 +71,16 @@ export default function NewSchedulePage() {
   const router = useRouter();
   const { state: userState } = useUserContext();
   const { state: catsState } = useCats();
-  const { dispatch: scheduleDispatch } = useScheduleContext();
+  const { dispatch: scheduleDispatch, state: scheduleState } = useScheduleContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const { data: session, status } = useSession();
   const { cats, isLoading: isLoadingCats, error: errorCats } = catsState;
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
+  const { error: errorSchedules } = scheduleState;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedTimes, setSelectedTimes] = useState<(Date | undefined)[]>([undefined]);
 
   const isLoading = isLoadingCats || isLoadingUser;
-  const error = errorCats || errorUser;
+  const combinedError = errorCats || errorUser || errorSchedules;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -135,9 +134,11 @@ export default function NewSchedulePage() {
       toast.error("Erro: Usuário ou residência não identificados.");
       return;
     }
-    if (!cats.some(cat => String(cat.id) === values.catId)) {
-         toast.error("Erro: Gato selecionado inválido ou não pertence à sua residência.");
-         return;
+
+    const selectedCat = cats.find(cat => cat.id === values.catId);
+    if (!selectedCat || selectedCat.householdId !== currentUser.householdId) {
+        toast.error("Erro: Gato selecionado inválido ou não pertence à sua residência.");
+        return;
     }
 
     const opId = "create-schedule";
@@ -148,9 +149,7 @@ export default function NewSchedulePage() {
     const currentHouseholdId = currentUser.householdId;
 
     const payload = {
-      catId: parseInt(values.catId),
-      userId: currentUserId,
-      householdId: currentHouseholdId,
+      catId: values.catId,
       type: values.type,
       interval: values.type === "interval" ? parseInt(values.interval!) : null,
       times: values.type === "fixedTime" ? values.times?.split(',').map(t => t.trim()).filter(t => t) : [],
@@ -171,9 +170,19 @@ export default function NewSchedulePage() {
     }
 
     try {
+      const headers: HeadersInit = {
+          'Content-Type': 'application/json'
+      };
+      if (currentUser?.id) {
+          headers['X-User-ID'] = currentUser.id;
+      } else {
+          toast.error("Erro de autenticação. Tente novamente.");
+          throw new Error("User ID missing for create schedule request");
+      }
+
       const response = await fetch("/api/schedules", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
         body: JSON.stringify(payload),
       });
 
@@ -198,27 +207,32 @@ export default function NewSchedulePage() {
     }
   }
 
-  if (status === "loading" || (status === "authenticated" && isLoading)) {
+  if (isLoading) {
     return <Loading text="Carregando dados..." />;
   }
 
-  if (status === "unauthenticated") {
-    router.push("/login");
-    return <Loading text="Redirecionando para login..." />;
-  }
-
-  if (error) {
+  if (combinedError) {
      return (
        <PageTransition>
-         <div className="container max-w-md mx-auto py-6 pb-28">
+         <div className="container max-w-md mx-auto py-6 pb-28 text-center">
            <PageHeader title="Novo Agendamento" backHref="/schedules" />
-           <EmptyState title="Erro ao carregar dados" description={error} icon={AlertTriangle} />
+            <p className="text-destructive mt-6">Erro ao carregar dados necessários: {combinedError}</p>
+            <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
          </div>
        </PageTransition>
      );
   }
 
-  if (status === "authenticated" && currentUser && !currentUser.householdId) {
+  if (!currentUser) {
+    console.log("[NewSchedulePage] No currentUser found. Redirecting...");
+    useEffect(() => {
+        toast.error("Autenticação necessária para criar agendamentos.");
+        router.replace("/login?callbackUrl=/schedules/new");
+    }, [router]);
+    return <Loading text="Redirecionando para login..." />;
+  }
+
+  if (!currentUser.householdId) {
      return (
        <PageTransition>
          <div className="container max-w-md mx-auto py-6 pb-28">
@@ -237,7 +251,7 @@ export default function NewSchedulePage() {
      );
   }
 
-  const householdCats = cats.filter(cat => String(cat.householdId) === String(currentUser?.householdId));
+  const householdCats = cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));
 
    if (householdCats.length === 0) {
         return (

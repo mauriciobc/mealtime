@@ -71,7 +71,8 @@ const steps: OnboardingStep[] = [
 export function OnboardingTour() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
-  const [showTour, setShowTour] = useLocalStorage("onboarding-completed", false);
+  const [showTour, setShowTour] = useLocalStorage("onboarding-completed", true);
+  const [isFirstVisit, setIsFirstVisit] = useLocalStorage("first-visit", true);
 
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
@@ -97,24 +98,29 @@ export function OnboardingTour() {
 
   const completeTour = () => {
     setShowTour(false);
-    localStorage.setItem("onboarding-completed", "false");
     document.body.classList.remove("overflow-hidden");
   };
 
   useEffect(() => {
-    const isFirstVisit = localStorage.getItem("first-visit") === null;
-    
     if (isFirstVisit) {
-      localStorage.setItem("first-visit", "false");
       setShowTour(true);
+      setIsFirstVisit(false);
     }
-    
+
+    const storedShowTour = localStorage.getItem("onboarding-completed");
+    if (storedShowTour !== null) {
+      setShowTour(storedShowTour === 'true');
+    } else if (!isFirstVisit) {
+      setShowTour(false);
+    }
+
     return () => {
       document.body.classList.remove("overflow-hidden");
     };
-  }, [setShowTour]);
+  }, [isFirstVisit, setIsFirstVisit, setShowTour]);
 
-  if (!showTour) return null;
+  const shouldDisplayTour = showTour && !JSON.parse(localStorage.getItem("onboarding-completed") || "true");
+  if (!shouldDisplayTour) return null;
 
   return (
     <AnimatePresence mode="wait" onExitComplete={() => {

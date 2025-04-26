@@ -34,7 +34,7 @@ import { toast } from "sonner"
 import { notFound } from "next/navigation"
 import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
-import { FeedingForm } from "@/components/feeding-form"
+import { FeedingForm } from "@/app/components/feeding-form"
 import { CatType } from "@/lib/types"
 import { Loading } from "@/components/ui/loading"
 
@@ -57,7 +57,8 @@ export default function CatDetailsClient({ id }: { id: string }) {
     nextFeedingTime, 
     formattedNextFeedingTime, 
     formattedTimeDistance, 
-    isLoading: isFeedingLoading, 
+    isLoading: isFeedingLoading,
+    error: feedingError,
     handleMarkAsFed 
   } = useFeeding(id)
   const [isClient, setIsClient] = useState(false)
@@ -67,6 +68,14 @@ export default function CatDetailsClient({ id }: { id: string }) {
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  useEffect(() => {
+    if (!isFeedingLoading && feedingError) {
+      toast.error(feedingError);
+      // router.push('/cats'); // Commented out: Let user navigate manually on error
+      return;
+    }
+  }, [feedingError, isFeedingLoading, router]);
   
   if (isFeedingLoading) {
     return (
@@ -77,7 +86,11 @@ export default function CatDetailsClient({ id }: { id: string }) {
   }
   
   if (!cat) {
-    notFound()
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loading text="Gato não encontrado. Redirecionando..." />
+      </div>
+    );
   }
 
   // Função para excluir o gato
@@ -88,17 +101,10 @@ export default function CatDetailsClient({ id }: { id: string }) {
     const previousCats = catsState.cats;
 
     // Optimistic update
-    const catIdNumber = parseInt(id, 10);
-    if (isNaN(catIdNumber)) {
-        toast.error("ID do gato inválido.");
-        setIsProcessingDelete(false);
-        removeLoadingOperation(opId);
-        return;
-    }
-    catsDispatch({ type: "DELETE_CAT", payload: catIdNumber });
+    catsDispatch({ type: "REMOVE_CAT", payload: id });
 
     try {
-      // Removed state.cats from service call, assuming it's not needed
+      // Use the string id directly in the fetch call
       const response = await fetch(`/api/cats/${id}`, { method: 'DELETE' });
 
       if (!response.ok) {
@@ -113,7 +119,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
       console.error("Erro ao excluir gato:", error);
       toast.error(`Falha ao excluir o gato: ${error.message}`);
       // Rollback optimistic update on error
-      catsDispatch({ type: "SET_CATS", payload: previousCats });
+      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats });
     } finally {
       setIsProcessingDelete(false);
       setShowDeleteDialog(false);
@@ -213,7 +219,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
                   {cat.birthdate && (
                     <Badge className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      <span>{isClient ? getAgeString(cat.birthdate) : "Carregando..."}</span>
+                      <span>{isClient && cat.birthdate ? getAgeString(new Date(cat.birthdate)) : "Carregando..."}</span>
                     </Badge>
                   )}
                   
@@ -272,7 +278,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
                   <CardTitle>Registrar Alimentação</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <FeedingForm catId={cat.id} />
+                  <FeedingForm catId={cat.id} onMarkAsFed={handleMarkAsFed} />
                 </CardContent>
               </Card>
               

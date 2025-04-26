@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Check, Clock } from "lucide-react"
-import FeedingProgress from "@/components/feeding-progress"
+import FeedingProgress from "@/components/ui/feeding-progress"
 import { motion } from "framer-motion"
 import { format, isBefore, formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -12,7 +12,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatInTimeZone, toDate } from 'date-fns-tz'
 import { getUserTimezone, formatDateTimeForDisplay } from '@/lib/utils/dateUtils'
-import { useSession } from "next-auth/react"
 import { toast as sonnerToast } from 'sonner'
 import { BaseCat, BaseUser, ID, FeedingLog } from "@/lib/types/common"
 import { useUserContext } from "@/lib/context/UserContext"
@@ -26,7 +25,6 @@ export default function UpcomingFeedings() {
   const { state: catsState } = useCats()
   const { state: feedingState, dispatch: feedingDispatch } = useFeeding()
   const { state: schedulesState } = useSchedules()
-  const { data: session } = useSession()
   const { currentUser } = userState
 
   const upcomingFeedings = useSelectUpcomingFeedings(5)
@@ -37,7 +35,7 @@ export default function UpcomingFeedings() {
   const router = useRouter()
   const timezone = useMemo(() => getUserTimezone(currentUser?.preferences?.timezone), [currentUser?.preferences?.timezone])
 
-  const handleFeedNow = async (catId: ID) => {
+  const handleFeedNow = async (catId: string) => {
     if (!currentUser?.id || !currentUser?.householdId) {
         sonnerToast.error("Erro: Usuário ou residência não identificados.")
         console.warn("handleFeedNow: User or householdId not found in context.")
@@ -46,18 +44,22 @@ export default function UpcomingFeedings() {
 
     console.log(`handleFeedNow: Attempting to feed cat ${catId}`)
 
-    try {
-      const now = new Date()
-      const timestampISO = now.toISOString()
+    type PostApiResponse = {
+      id: string;
+      timestamp: string;
+      foodType: "dry" | "wet" | "treat" | "medicine" | "water";
+      amount?: number | null;
+      notes?: string | null;
+      catId: string;
+      userId: string;
+    }
 
+    try {
       const response = await fetch('/api/feedings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           catId: catId,
-          householdId: currentUser.householdId,
-          userId: currentUser.id,
-          timestamp: timestampISO,
           notes: 'Alimentado via "Próximas Alimentações"'
         }),
       })
@@ -69,16 +71,31 @@ export default function UpcomingFeedings() {
          throw new Error(`Erro ao registrar alimentação (${response.status})`)
       }
 
-      const newFeedingLog: FeedingLog = await response.json()
-      console.log("handleFeedNow: Feeding logged successfully:", newFeedingLog)
+      const apiResponse: PostApiResponse = await response.json()
+      console.log("handleFeedNow: Feeding logged successfully (API Response):", apiResponse)
+
+      const newLogForState: FeedingLog = {
+        id: apiResponse.id,
+        catId: apiResponse.catId,
+        userId: apiResponse.userId,
+        timestamp: new Date(apiResponse.timestamp),
+        portionSize: apiResponse.amount,
+        notes: apiResponse.notes,
+        mealType: apiResponse.foodType,
+        householdId: currentUser.householdId,
+        user: {
+          id: currentUser.id,
+          name: currentUser.name ?? null,
+          avatar: currentUser.avatar ?? null,
+        },
+        cat: undefined,
+        status: undefined,
+        createdAt: new Date(apiResponse.timestamp),
+      };
 
       feedingDispatch({ 
           type: "ADD_FEEDING", 
-          payload: { 
-              ...newFeedingLog, 
-              timestamp: new Date(newFeedingLog.timestamp),
-              createdAt: new Date(newFeedingLog.createdAt || newFeedingLog.timestamp)
-          }
+          payload: newLogForState
       })
 
       sonnerToast.success('Alimentação registrada com sucesso!')

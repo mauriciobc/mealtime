@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, use, useCallback } from "react"
-import { ArrowLeft, Calendar, Save, Trash2, Clock, AlertTriangle, Ban, Users } from "lucide-react"
+import { useState, useEffect, useCallback, use } from "react"
+import { ArrowLeft, Calendar, Save, Trash2, Clock, AlertTriangle, Ban, Users, Cat, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,13 +38,28 @@ import { useLoading } from "@/lib/context/LoadingContext"
 import { toast } from "sonner"
 import { format, parseISO, isValid } from "date-fns"
 import { CatType, Schedule } from "@/lib/types"
-import { ImageUpload } from "@/components/image-upload"
-import { useSession } from "next-auth/react"
+import { ImageUpload } from "@/components/ui/image-upload"
 import { Loading } from "@/components/ui/loading"
 import { v4 as uuidv4 } from 'uuid'
 import { Skeleton } from "@/components/ui/skeleton"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/ui/empty-state"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Calendar as CalendarIcon } from "@/components/ui/calendar"
+import { ptBR } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 
 interface PageProps {
   params: Promise<{
@@ -53,14 +68,13 @@ interface PageProps {
 }
 
 export default function EditCatPage({ params }: PageProps) {
-  const resolvedParams = use(params)
+  const resolvedParams = use(params);
   const router = useRouter()
   const { state: catsState, dispatch: catsDispatch } = useCats()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
-  const { cats } = catsState
-  const { currentUser } = userState
-  const { data: session, status } = useSession()
+  const { cats, error: errorCats } = catsState
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState
   const [cat, setCat] = useState<CatType | null>(null)
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -77,70 +91,84 @@ export default function EditCatPage({ params }: PageProps) {
     portion_size: "",
     notes: "",
   })
-  
-  const catId = resolvedParams.id ? parseInt(resolvedParams.id) : null
-  
+
+  // Authentication effect
   useEffect(() => {
-    const opId = `load-cat-${catId}`
-    addLoadingOperation({ id: opId, priority: 1, description: "Loading cat data..." })
-    setIsLoadingData(true)
-    setError(null)
-
-    if (status === "authenticated" && currentUser && catId && cats.length > 0) {
-      const foundCat = cats.find(c => c.id === catId)
-
-      if (foundCat) {
-        if (String(foundCat.householdId) !== String(currentUser.householdId)) {
-          console.warn(`Attempted to edit cat ${catId} from household ${foundCat.householdId}, user belongs to ${currentUser.householdId}.`)
-          setError("Você não tem permissão para editar este gato.")
-          setCat(null)
-        } else {
-          setCat(foundCat)
-          let formattedBirthdate = ""
-          if (foundCat.birthdate) {
-            try {
-              const dateObj = typeof foundCat.birthdate === 'string' ? parseISO(foundCat.birthdate) : new Date(foundCat.birthdate)
-              if (isValid(dateObj)) {
-                formattedBirthdate = format(dateObj, "yyyy-MM-dd")
-              } else {
-                console.warn("Invalid birthdate format received:", foundCat.birthdate)
-              }
-            } catch (e) {
-              console.error("Error parsing birthdate:", foundCat.birthdate, e)
-            }
-          }
-          
-          setFormData({
-            name: foundCat.name,
-            birthdate: formattedBirthdate,
-            weight: foundCat.weight?.toString() || "",
-            restrictions: foundCat.restrictions || "",
-            photoUrl: foundCat.photoUrl || "",
-            feedingInterval: foundCat.feedingInterval?.toString() || "8",
-            portion_size: foundCat.portion_size?.toString() || "",
-            notes: foundCat.notes || "",
-          })
-        }
-      } else {
-        setError("Gato não encontrado.")
-        setCat(null)
-      }
-      setIsLoadingData(false)
-      removeLoadingOperation(opId)
-    } else if (status === "unauthenticated") {
-      setIsLoadingData(false)
-      removeLoadingOperation(opId)
-      setError("Autenticação necessária.")
-      router.replace("/login")
-    } else if (status === "loading" || (currentUser && cats.length === 0)) {
-      setIsLoadingData(true)
-    } else if (!catId) {
-      setIsLoadingData(false)
-      removeLoadingOperation(opId)
-      setError("ID do gato inválido.")
+    if (!currentUser) {
+      console.log("[EditCatPage] No currentUser found. Redirecting to login.");
+      toast.error("Autenticação necessária para editar.");
+      router.replace(`/login?callbackUrl=/cats/${resolvedParams.id}/edit`);
+      return;
     }
-  }, [catId, status, currentUser, cats, router, addLoadingOperation, removeLoadingOperation])
-  
+  }, [currentUser, router, resolvedParams.id]);
+
+  // Data loading effect
+  useEffect(() => {
+    if (!resolvedParams.id || !currentUser) {
+      console.log("EditCatPage useEffect: params.id or currentUser not available yet, waiting.");
+      return; 
+    }
+
+    if (catsState.isLoading) {
+        console.log("EditCatPage useEffect: CatsContext still loading, waiting...");
+        setIsLoadingData(true);
+        return;
+    }
+
+    const catId = resolvedParams.id;
+    const opId = `load-cat-edit-${catId}`;
+    addLoadingOperation({ id: opId, priority: 1, description: "Loading cat data..." });
+    setIsLoadingData(true);
+    setError(null);
+
+    console.log(`EditCatPage useEffect: Attempting to find cat ${catId} for user ${currentUser.id} (household: ${currentUser.householdId})`);
+    console.log(`EditCatPage useEffect: Cats available in context: ${cats.length}`);
+    const foundCat = cats.find(c => String(c.id) === catId);
+    console.log(`EditCatPage useEffect: Found cat?`, foundCat ? foundCat.id : 'No');
+      
+    if (foundCat) {
+      console.log(`EditCatPage useEffect: Checking household match: Cat=${foundCat.householdId}, User=${currentUser.householdId}`);
+      if (String(foundCat.householdId) !== String(currentUser.householdId)) {
+        console.warn(`EditCatPage useEffect: Household mismatch!`);
+        setError("Você não tem permissão para editar este gato.");
+        setCat(null);
+      } else {
+        console.log(`EditCatPage useEffect: Cat found and authorized. Setting data.`);
+        setCat(foundCat);
+        let formattedBirthdate = ""
+        if (foundCat.birthdate) {
+          try {
+            const dateObj = typeof foundCat.birthdate === 'string' ? parseISO(foundCat.birthdate) : new Date(foundCat.birthdate)
+            if (isValid(dateObj)) {
+              formattedBirthdate = format(dateObj, "yyyy-MM-dd")
+            } else {
+              console.warn("Invalid birthdate format received:", foundCat.birthdate)
+            }
+          } catch (e) {
+            console.error("Error parsing birthdate:", foundCat.birthdate, e)
+          }
+        }
+        
+        setFormData({
+          name: foundCat.name,
+          birthdate: formattedBirthdate,
+          weight: foundCat.weight?.toString() || "",
+          restrictions: foundCat.restrictions || "",
+          photoUrl: foundCat.photoUrl || "",
+          feedingInterval: foundCat.feedingInterval?.toString() || "8",
+          portion_size: foundCat.portion_size?.toString() || "",
+          notes: foundCat.notes || "",
+        })
+      }
+    } else {
+      console.warn(`EditCatPage useEffect: Cat ${catId} not found in CatsContext.`);
+      setError("Gato não encontrado.");
+      setCat(null);
+    }
+    setIsLoadingData(false);
+    removeLoadingOperation(opId);
+  }, [resolvedParams.id, currentUser, cats, catsState.isLoading, addLoadingOperation, removeLoadingOperation]);
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
@@ -164,7 +192,19 @@ export default function EditCatPage({ params }: PageProps) {
     catsDispatch({ type: "DELETE_CAT", payload: cat.id })
     
     try {
-      const response = await fetch(`/api/cats/${cat.id}`, { method: 'DELETE' })
+      const headers: HeadersInit = {};
+      if (currentUser?.id) {
+          headers['X-User-ID'] = currentUser.id;
+      } else {
+          toast.error("Erro de autenticação ao excluir.");
+          throw new Error("User ID missing for delete request");
+      }
+      
+      const response = await fetch(`/api/cats/${cat.id}`, { 
+          method: 'DELETE',
+          headers: headers
+      })
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || 'Failed to delete cat on server')
@@ -214,12 +254,21 @@ export default function EditCatPage({ params }: PageProps) {
 
       console.log('Sending update request with data:', updatedData)
       
+      // Add X-User-ID header
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      };
+      if (currentUser?.id) {
+          headers['X-User-ID'] = currentUser.id;
+      } else {
+          toast.error("Erro de autenticação ao salvar.");
+          throw new Error("User ID missing for update request");
+      }
+      
       const response = await fetch(`/api/cats/${cat.id}`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: headers, // Use updated headers
         body: JSON.stringify(updatedData),
       })
       
@@ -248,190 +297,204 @@ export default function EditCatPage({ params }: PageProps) {
       removeLoadingOperation(opId)
     }
   }
-  
-  if (isLoadingData) {
+
+  // All hooks are now declared, we can do conditional returns
+  if (isLoadingUser) {
+    return <Loading text="Verificando usuário..." />;
+  }
+
+  if (errorUser) {
     return (
       <PageTransition>
-        <div className="container max-w-md py-6 pb-28">
-          <div className="flex items-center mb-6">
-            <Skeleton className="h-8 w-8 mr-2 rounded-full" />
-            <Skeleton className="h-7 w-32" />
-          </div>
-          <div className="space-y-6">
-            <div className="flex justify-center mb-4">
-              <Skeleton className="h-32 w-32 rounded-full" />
-            </div>
-            <Skeleton className="h-4 w-20 mb-1" /> 
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-4 w-24 mb-1" /> 
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-4 w-16 mb-1" /> 
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-4 w-32 mb-1" /> 
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-4 w-28 mb-1" /> 
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-10 w-full mt-4" />
-          </div>
+        <div className="p-4 text-center">
+          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
+          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
         </div>
       </PageTransition>
-    )
+    );
+  }
+
+  if (!currentUser) {
+    return <Loading text="Redirecionando para login..." />;
+  }
+
+  if (errorCats) {
+    return (
+      <PageTransition>
+        <div className="p-4 text-center">
+          <p className="text-destructive">Erro ao carregar lista de gatos: {errorCats}. Tente recarregar a página.</p>
+          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+        </div>
+      </PageTransition>
+    );
   }
   
+  if (isLoadingData && !error) {
+    return <Loading text="Carregando dados do gato..." />;
+  }
+
   if (error) {
     return (
       <PageTransition>
-        <div className="container max-w-md py-6 pb-28">
-          <PageHeader title="Erro ao Editar Gato" /> 
-          <div className="mt-6">
-            <EmptyState 
-              icon={AlertTriangle}
-              title="Erro ao Carregar"
-              description={error || "Não foi possível carregar os dados deste gato."}
-              actionLabel="Voltar para Gatos"
-              actionHref="/cats"
-            />
-          </div>
+        <div className="p-4 text-center">
+          <p className="text-destructive">{error}</p>
+          <Button onClick={() => router.push('/cats')} className="mt-4">Voltar para Meus Gatos</Button>
         </div>
       </PageTransition>
-    )
+    );
+  }
+
+  if (!cat) {
+      return (
+        <PageTransition>
+          <div className="p-4 text-center">
+            <p className="text-muted-foreground">Não foi possível carregar os dados do gato.</p>
+            <Button onClick={() => router.push('/cats')} className="mt-4">Voltar para Meus Gatos</Button>
+          </div>
+        </PageTransition>
+      );
   }
   
   return (
     <PageTransition>
       <div className="container max-w-md py-6 pb-28">
-        <PageHeader title={`Editar ${formData.name || "Gato"}`} />
+        <PageHeader title={`Editar ${cat.name || "Gato"}`} />
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                required
+              />
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 mt-6">
-          <div className="flex justify-center">
-            <ImageUpload
-              value={formData.photoUrl}
-              onChange={handlePhotoChange}
-              type="cat"
-            />
+            <div className="space-y-2">
+              <Label htmlFor="photoUrl">Foto</Label>
+              <ImageUpload
+                type="cat"
+                userId={currentUser.id}
+                value={formData.photoUrl || ''}
+                onChange={(url) => setFormData(prev => ({ ...prev, photoUrl: url }))}
+                maxSizeMB={50}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="birthdate">Data de Nascimento</Label>
+              <Input
+                id="birthdate"
+                type="date"
+                value={formData.birthdate ? new Date(formData.birthdate).toISOString().split('T')[0] : ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, birthdate: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="weight">Peso (kg)</Label>
+              <Input
+                id="weight"
+                type="number"
+                step="0.01"
+                value={formData.weight || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
+                placeholder="0.00"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="restrictions">Restrições Alimentares</Label>
+              <Textarea
+                id="restrictions"
+                value={formData.restrictions || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, restrictions: e.target.value }))}
+                placeholder="Alergias, intolerâncias..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="feedingInterval">Intervalo de Alimentação (horas)</Label>
+              <Input
+                id="feedingInterval"
+                type="number"
+                min="1"
+                max="24"
+                value={formData.feedingInterval || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, feedingInterval: e.target.value }))}
+                placeholder="6"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="portion_size">Tamanho da Porção (gramas)</Label>
+              <Input
+                id="portion_size"
+                type="number"
+                step="0.1"
+                value={formData.portion_size || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, portion_size: e.target.value }))}
+                placeholder="0.0"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Observações</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Outras informações importantes..."
+              />
+            </div>
           </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor="name">Nome *</Label>
-            <Input 
-              id="name" 
-              name="name" 
-              value={formData.name} 
-              onChange={handleChange} 
-              placeholder="Nome do gato" 
-              required 
-            />
-          </div>
+          <div className="flex flex-col gap-2">
+            <Button
+              type="submit"
+              disabled={isSubmitting || isLoadingData}
+              className="w-full"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Alterações'
+              )}
+            </Button>
 
-          <div className="grid gap-2">
-            <Label htmlFor="birthdate">Data de Nascimento</Label>
-            <Input 
-               id="birthdate" 
-               name="birthdate" 
-               type="date" 
-               value={formData.birthdate} 
-               onChange={handleChange} 
-            />
-          </div>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isDeleting || isLoadingData}
+              onClick={handleDelete}
+              className="w-full"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir Gato'
+              )}
+            </Button>
 
-          <div className="grid gap-2">
-            <Label htmlFor="weight">Peso (kg)</Label>
-            <Input 
-              id="weight" 
-              name="weight" 
-              type="number" 
-              step="0.1" 
-              value={formData.weight} 
-              onChange={handleChange} 
-              placeholder="Ex: 4.5"
-             />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="portion_size">Porção Recomendada (gramas)</Label>
-             <Input
-               id="portion_size"
-               name="portion_size"
-               type="number"
-               step="1"
-               placeholder="Ex: 50"
-               value={formData.portion_size}
-               onChange={handleChange}
-             />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="feedingInterval">Intervalo Entre Refeições (horas) *</Label>
-            <Input 
-              id="feedingInterval" 
-              name="feedingInterval" 
-              type="number" 
-              min="1" 
-              max="24" 
-              value={formData.feedingInterval} 
-              onChange={handleChange} 
-              required 
-            />
-            
-            {(parseInt(formData.feedingInterval) < 1 || parseInt(formData.feedingInterval) > 24) && (
-              <p className="text-sm text-destructive">O intervalo deve ser entre 1 e 24 horas.</p>
-            )}
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="restrictions">Restrições Alimentares</Label>
-            <Textarea 
-              id="restrictions" 
-              name="restrictions" 
-              value={formData.restrictions} 
-              onChange={handleChange} 
-              placeholder="Ex: Alergia a frango" 
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="notes">Observações Adicionais</Label>
-            <Textarea 
-              id="notes" 
-              name="notes" 
-              value={formData.notes} 
-              onChange={handleChange} 
-              placeholder="Ex: Prefere comer no quarto" 
-            />
-          </div>
-          
-          <Separator />
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <AlertDialog onOpenChange={(open) => !open && setIsDeleting(false)}> 
-              <AlertDialogTrigger asChild>
-                 <Button type="button" variant="destructive" className="w-full sm:w-auto" disabled={isSubmitting || isDeleting}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Excluir Gato
-                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                    <AlertDialogDescription>
-                       Tem certeza que deseja excluir {cat?.name || "este gato"}? Esta ação não pode ser desfeita.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-                      {isDeleting ? <Loading text="Excluindo..." size="sm" /> : "Confirmar Exclusão"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            
-            <Button type="submit" className="w-full sm:flex-1" disabled={isSubmitting || isDeleting || isLoadingData}>
-              {isSubmitting ? <Loading text="Salvando..." size="sm" /> : <><Save className="mr-2 h-4 w-4" /> Salvar Alterações</>}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              className="w-full"
+            >
+              Cancelar
             </Button>
           </div>
         </form>
       </div>
     </PageTransition>
-  )
+  );
 }
