@@ -28,13 +28,15 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   const { state: { isLoading: profileLoading, currentUser }, authLoading } = useUserContext();
 
-  // Redirect authenticated users away from login/signup
-  // useEffect(() => {
-  //   if (!authLoading && !profileLoading && currentUser && isAuthPage) {
-  //     console.log("[ClientLayout] Authenticated user on auth page, redirecting to /");
-  //     router.replace("/");
-  //   }
-  // }, [authLoading, profileLoading, currentUser, isAuthPage, router]);
+  // Handle redirection for authenticated users on auth pages
+  useEffect(() => {
+    if (!authLoading && !profileLoading && currentUser && isAuthPage) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectTo = searchParams.get("redirectTo") || "/";
+      console.log("[ClientLayout] Authenticated user on auth page, redirecting to:", redirectTo);
+      router.replace(redirectTo);
+    }
+  }, [authLoading, profileLoading, currentUser, isAuthPage, router, pathname]);
 
   // TEMP LOGGING
   if (typeof window !== "undefined") {

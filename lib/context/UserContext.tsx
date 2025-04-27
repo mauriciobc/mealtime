@@ -206,7 +206,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
       }
     }
-  }, [state.currentUser]);
+  }, []);
 
   const handleAuthChange = useCallback(async () => {
     const requestId = ++authCheckCountRef.current;

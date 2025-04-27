@@ -166,7 +166,7 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       }
       cleanupLoading();
     };
-  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, state.isLoading]);
+  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading]);
 
   const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, forceRefresh]);
 

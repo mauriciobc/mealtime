@@ -13,7 +13,8 @@ import {
   ChevronRight,
   Cat as CatIcon,
   Users,
-  PlusCircle
+  PlusCircle,
+  AlertCircle
 } from "lucide-react"
 import Link from "next/link"
 import { AnimatedCard } from "@/components/ui/animated-card"
@@ -40,7 +41,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { toast } from "sonner"
 import { useFeeding } from "@/lib/context/FeedingContext"
 import { GlobalLoading } from "@/components/ui/global-loading"
-import { Alert, AlertCircle, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function CatsPage() {
   const router = useRouter()

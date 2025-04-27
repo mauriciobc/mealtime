@@ -41,14 +41,14 @@ export default function LoginPage() {
   });
 
   // Handle redirect if user is already authenticated
-  // useEffect(() => {
-  //   const isFullyLoaded = !authLoading && !profileLoading;
-  //   if (isFullyLoaded && currentUser) {
-  //     const callbackUrl = searchParams.get("callbackUrl") || "/";
-  //     console.log("[Login] User fully loaded and authenticated, redirecting to:", callbackUrl);
-  //     router.replace(callbackUrl);
-  //   }
-  // }, [authLoading, profileLoading, currentUser, router, searchParams]);
+  useEffect(() => {
+    const isFullyLoaded = !authLoading && !profileLoading;
+    if (isFullyLoaded && currentUser) {
+      const redirectTo = searchParams.get("redirectTo") || "/";
+      console.log("[Login] User fully loaded and authenticated, redirecting to:", redirectTo);
+      router.replace(redirectTo);
+    }
+  }, [authLoading, profileLoading, currentUser, router, searchParams]);
 
   // Clear error when form values change
   const handleInputChange = () => {
@@ -85,9 +85,9 @@ export default function LoginPage() {
         logger.error('[LoginPage] Sign in error:', { error: signInError.message });
       } else {
         // Redirect immediately on successful sign-in
-        const callbackUrl = searchParams.get("callbackUrl") || "/";
-        console.log("[Login] Successful sign-in, redirecting to:", callbackUrl);
-        router.replace(callbackUrl);
+        const redirectTo = searchParams.get("redirectTo") || "/";
+        console.log("[Login] Successful sign-in, redirecting to:", redirectTo);
+        router.replace(redirectTo);
       }
     } catch (err) {
       logger.error('[LoginPage] Unexpected error during sign in:', { error: err instanceof Error ? err.message : String(err) });
@@ -105,7 +105,7 @@ export default function LoginPage() {
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(searchParams.get("redirectTo") || "/")}`,
         },
       });
 
