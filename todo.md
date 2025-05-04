@@ -144,3 +144,69 @@
   - [ ] Documentar processo de atualização
   - [ ] Adicionar instruções de debug
   - [ ] Criar checklist de validação 
+
+# User profile
+
+## Objetivo
+Desenvolver uma página de perfil de usuário com uma seção fixa no topo (Avatar e Nome Completo) e três abas:
+1. Informações adicionais (Username, e-mail, data de cadastro)
+2. Lares (lista de lares, quantidade de gatos e membros)
+3. Meus Gatos (lista de gatos do usuário, peso atual e último horário de alimentação)
+A página deve ter botão de editar e uma rota/página separada para edição dos dados do usuário.
+
+---
+
+## Passo a Passo para Desenvolvimento
+
+### 1. Planejamento e Estrutura
+- [x] Ler o schema do Prisma para entender os campos do usuário, lares e gatos.
+- [x] Definir a estrutura dos dados necessários para cada aba.
+- [x] Esboçar o layout da página (wireframe simples).
+
+### 2. Backend/API
+- [x] Criar endpoint GET `/api/profile/[id|username]` para buscar dados completos do usuário (incluindo lares e gatos).
+- [x] Criar endpoint PUT `/api/profile/[id|username]` para editar dados do usuário.
+- [x] Garantir autenticação/autorização nas rotas. (IMPORTANTE: Não alterar a implementação atual de autenticação!!)
+- [x] Incluir dados relacionados: lares (com membros e gatos), gatos (com peso e último feeding).
+
+### 3. Frontend - Página de Perfil
+- [x] Criar página `/profile/[id|username]`.
+- [ ] Implementar seção fixa no topo com Avatar e Nome Completo.
+- [ ] Adicionar botão "Editar perfil" (leva para `/profile/edit`).
+- [ ] Implementar tabs usando componentes do shadcn/ui:
+    - [ ] Aba 1: Informações adicionais (Username, e-mail, data de cadastro)
+    - [ ] Aba 2: Lares (listar lares, mostrar quantidade de gatos e membros de cada lar)
+    - [ ] Aba 3: Meus Gatos (listar gatos, mostrar peso atual e último horário de alimentação)
+- [ ] Garantir responsividade e acessibilidade.
+
+### 4. Frontend - Página de Edição
+- [x] Criar página `/profile/edit`.
+- [x] Implementar formulário para editar Avatar, Nome Completo, Username, e-mail e fuso horário. (usar o mesmo componente de upload de imagens da página '/cats/new')
+- [x] Validar dados no frontend (usar Zod se possível).
+- [x] Enviar dados para o endpoint PUT.
+- [x] Exibir feedback de sucesso/erro.
+
+### 5. Integração e Testes
+- [x] Integrar frontend com endpoints do backend.
+- [ ] Testar fluxo de exibição e edição do perfil.
+- [ ] Adicionar testes unitários e de integração (quando possível).
+
+### 6. UX/UI
+- [x] Usar componentes do shadcn/ui e Tailwind para layout e tabs.
+- [x] Adicionar feedback visual (loading, sucesso, erro).
+- [x] Aplicar animações do Framer para criar impacto visual.
+- [ ] Garantir que a seção fixa do topo permaneça visível ao trocar de abas.
+
+### 7. Documentação
+- [ ] Documentar endpoints criados/alterados.
+- [ ] Adicionar comentários no código para facilitar manutenção.
+- [ ] Atualizar README ou documentação interna sobre o fluxo de perfil de usuário.
+
+---
+
+## Dicas para Desenvolvedor Júnior
+- Sempre comece pelo backend: garanta que os dados necessários estão disponíveis.
+- Use mocks/fake data no frontend enquanto a API não estiver pronta.
+- Teste cada parte separadamente antes de integrar tudo.
+- Peça revisão de código e feedbacks frequentes.
+- Documente dúvidas e decisões tomadas durante o desenvolvimento. 
