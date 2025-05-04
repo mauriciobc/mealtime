@@ -171,13 +171,13 @@ A página deve ter botão de editar e uma rota/página separada para edição do
 
 ### 3. Frontend - Página de Perfil
 - [x] Criar página `/profile/[id|username]`.
-- [ ] Implementar seção fixa no topo com Avatar e Nome Completo.
-- [ ] Adicionar botão "Editar perfil" (leva para `/profile/edit`).
+- [x] Implementar seção fixa no topo com Avatar e Nome Completo.
+- [x] Adicionar botão "Editar perfil" (leva para `/profile/edit`).
 - [ ] Implementar tabs usando componentes do shadcn/ui:
-    - [ ] Aba 1: Informações adicionais (Username, e-mail, data de cadastro)
-    - [ ] Aba 2: Lares (listar lares, mostrar quantidade de gatos e membros de cada lar)
-    - [ ] Aba 3: Meus Gatos (listar gatos, mostrar peso atual e último horário de alimentação)
-- [ ] Garantir responsividade e acessibilidade.
+    - [x] Aba 1: Informações adicionais (Username, e-mail, data de cadastro)
+    - [x] Aba 2: Lares (listar lares, mostrar quantidade de gatos e membros de cada lar)
+    - [x] Aba 3: Meus Gatos (listar gatos, mostrar peso atual e último horário de alimentação)
+- [x] Garantir responsividade e acessibilidade.
 
 ### 4. Frontend - Página de Edição
 - [x] Criar página `/profile/edit`.
@@ -195,7 +195,8 @@ A página deve ter botão de editar e uma rota/página separada para edição do
 - [x] Usar componentes do shadcn/ui e Tailwind para layout e tabs.
 - [x] Adicionar feedback visual (loading, sucesso, erro).
 - [x] Aplicar animações do Framer para criar impacto visual.
-- [ ] Garantir que a seção fixa do topo permaneça visível ao trocar de abas.
+- [x] Garantir que a seção fixa do topo permaneça visível ao trocar de abas.
+- [x] Permitir upload e alteração do avatar do usuário na edição de perfil.
 
 ### 7. Documentação
 - [ ] Documentar endpoints criados/alterados.

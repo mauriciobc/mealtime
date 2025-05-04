@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
+import { ImageUpload } from "@/components/image-upload";
 
 const profileSchema = z.object({
   full_name: z.string().min(2, "Nome obrigatório").max(100),
@@ -107,11 +108,12 @@ export default function EditProfilePage() {
         <CardContent className="py-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex flex-col items-center gap-2 mb-4">
-              <Avatar className="w-20 h-20">
-                <AvatarImage src={form.avatar_url || "/placeholder-avatar.png"} />
-                <AvatarFallback>{form.full_name?.[0] || "U"}</AvatarFallback>
-              </Avatar>
-              {/* TODO: componente de upload de imagem */}
+              <ImageUpload
+                value={form.avatar_url || ""}
+                onChange={(url) => setForm((prev) => prev ? { ...prev, avatar_url: url } : prev)}
+                type="user"
+                className="w-20 h-20"
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Nome completo</label>
