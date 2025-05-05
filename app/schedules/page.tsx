@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Clock, PlusCircle, Users, AlertTriangle } from "lucide-react";
+import { Clock, PlusCircle, Users, AlertTriangle, Calendar } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Loading } from "@/components/ui/loading";
 import { useScheduleContext } from "@/lib/context/ScheduleContext";
@@ -146,7 +146,7 @@ export default function SchedulesPage() {
         description: schedule.type === 'interval'
           ? `A cada ${schedule.interval} horas`
           : `Horário fixo: ${schedule.times}`,
-        status: "pending" as const
+        status: "Outro" as const
       };
     })
     .filter(event => event.date)
@@ -159,10 +159,10 @@ export default function SchedulesPage() {
           <PageHeader
             title="Agendamentos"
             description="Gerencie os horários de alimentação programados"
+            icon={<Calendar className="h-6 w-6 text-primary" />}
             actionIcon={<PlusCircle className="h-4 w-4" />}
             actionLabel="Novo Agendamento"
             actionHref="/schedules/new"
-            showActionButton={!!currentUser?.householdId}
           />
 
           {isLoading && schedulesToDisplay.length === 0 && (
@@ -209,8 +209,9 @@ export default function SchedulesPage() {
                        <motion.div key={schedule.id} variants={itemVariants}>
                          <ScheduleItem
                            schedule={schedule}
+                           onView={() => router.push(`/schedules/${schedule.id}`)}
+                           onEdit={() => router.push(`/schedules/${schedule.id}/edit`)}
                            onDelete={() => handleDeleteSchedule(String(schedule.id))}
-                           catName={cats.find(c => String(c.id) === String(schedule.catId))?.name}
                          />
                        </motion.div>
                      ))}

@@ -41,6 +41,7 @@ import { Loading } from "@/components/ui/loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Switch } from "@/components/ui/switch";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const formSchema = z.object({
   catId: z.string({ required_error: "Selecione um gato." }).uuid({ message: "ID do gato inválido." }),
@@ -95,19 +96,33 @@ export default function NewSchedulePage() {
 
   const watchType = form.watch("type");
 
+  // Effect 1: Reset selectedTimes when type changes to 'interval'
+  useEffect(() => {
+    if (watchType !== 'fixedTime') {
+      // Only reset if not already [undefined]
+      if (selectedTimes.length !== 1 || selectedTimes[0] !== undefined) {
+        setSelectedTimes([undefined]);
+      }
+      // Also clear the times field if not already empty
+      if (form.getValues('times') !== '') {
+        form.setValue('times', '', { shouldValidate: false });
+      }
+    }
+  }, [watchType]);
+
+  // Effect 2: Update form 'times' when selectedTimes changes and type is 'fixedTime'
   useEffect(() => {
     if (watchType === 'fixedTime') {
-        const timesString = selectedTimes
-            .filter((d): d is Date => d instanceof Date)
-            .map(d => format(d, "HH:mm"))
-            .sort()
-            .join(", ");
-        form.setValue("times", timesString, { shouldValidate: true });
-    } else {
-         form.setValue("times", "", { shouldValidate: false });
-        setSelectedTimes([undefined]);
+      const timesString = selectedTimes
+        .filter((d): d is Date => d instanceof Date)
+        .map(d => format(d, "HH:mm"))
+        .sort()
+        .join(", ");
+      if (form.getValues('times') !== timesString) {
+        form.setValue('times', timesString, { shouldValidate: true });
+      }
     }
-  }, [selectedTimes, watchType, form]);
+  }, [selectedTimes, watchType]);
 
   const addTimeField = useCallback(() => {
     if (selectedTimes.length < 5) {
@@ -215,9 +230,11 @@ export default function NewSchedulePage() {
      return (
        <PageTransition>
          <div className="container max-w-md mx-auto py-6 pb-28 text-center">
-           <PageHeader title="Novo Agendamento" backHref="/schedules" />
+           <div className="flex items-center gap-2 mb-4">
+             <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
+             <PageHeader title="Novo Agendamento" />
+           </div>
             <p className="text-destructive mt-6">Erro ao carregar dados necessários: {combinedError}</p>
-            <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
          </div>
        </PageTransition>
      );
@@ -236,7 +253,10 @@ export default function NewSchedulePage() {
      return (
        <PageTransition>
          <div className="container max-w-md mx-auto py-6 pb-28">
-             <PageHeader title="Novo Agendamento" backHref="/schedules" />
+             <div className="flex items-center gap-2 mb-4">
+               <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
+               <PageHeader title="Novo Agendamento" />
+             </div>
              <div className="mt-6">
                 <EmptyState
                     icon={Users}
@@ -257,7 +277,10 @@ export default function NewSchedulePage() {
         return (
            <PageTransition>
              <div className="container max-w-md mx-auto py-6 pb-28">
-                 <PageHeader title="Novo Agendamento" backHref="/schedules" />
+                 <div className="flex items-center gap-2 mb-4">
+                   <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
+                   <PageHeader title="Novo Agendamento" />
+                 </div>
                  <div className="mt-6">
                     <EmptyState
                         icon={CatIcon}
@@ -272,16 +295,31 @@ export default function NewSchedulePage() {
         );
     }
 
+  const selectedCatId = form.watch("catId");
+  const selectedCat = householdCats.find(cat => String(cat.id) === String(selectedCatId));
+
   return (
     <PageTransition>
         <div className="container max-w-md mx-auto py-6 pb-28">
-           <PageHeader title="Novo Agendamento" backHref="/schedules" />
+           <div className="flex items-center gap-2 mb-4">
+             <Button variant="ghost" size="icon" onClick={() => router.back()}><ArrowLeft className="h-5 w-5" /></Button>
+             <PageHeader title="Novo Agendamento" />
+           </div>
 
            <motion.div
              initial={{ opacity: 0, y: 20 }}
              animate={{ opacity: 1, y: 0 }}
              className="mt-6"
            >
+             {/* Show selected cat avatar if a cat is selected */}
+             {selectedCat && (
+               <div className="flex justify-center mb-4">
+                 <Avatar className="h-20 w-20">
+                   <AvatarImage src={selectedCat.photo_url || ""} alt={selectedCat.name} />
+                   <AvatarFallback>{selectedCat.name?.substring(0, 2) || "?"}</AvatarFallback>
+                 </Avatar>
+               </div>
+             )}
              <Form {...form}>
                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                  <FormField
@@ -360,8 +398,8 @@ export default function NewSchedulePage() {
                                    {selectedTimes.map((time, index) => (
                                       <div key={index} className="flex items-center gap-2">
                                          <SimpleTimePicker 
-                                            date={time} 
-                                            setDate={(date) => updateTime(index, date)} 
+                                            value={time || new Date()} 
+                                            onChange={(date) => updateTime(index, date)} 
                                             disabled={isSubmitting}
                                           />
                                          {selectedTimes.length > 1 && (

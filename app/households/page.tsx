@@ -101,7 +101,7 @@ function LoadingHouseholds() {
 export default function HouseholdsPage() {
   const router = useRouter();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { state: userState, dispatch: userDispatch } = useUserContext();
+  const { state: userState, refreshUser } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation, state: loadingState } = useLoading();
   const { households, isLoading: isLoadingHouseholds, error: errorHouseholds } = householdState;
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
@@ -137,10 +137,7 @@ export default function HouseholdsPage() {
       toast.success("Residência excluída com sucesso!");
       householdDispatch({ type: 'SET_HOUSEHOLDS', payload: households.filter(h => String(h.id) !== id) });
       if (currentUser?.householdId === id) {
-        userDispatch({ 
-          type: 'SET_CURRENT_USER', 
-          payload: { ...currentUser, householdId: null }
-        }); 
+        await refreshUser();
       }
       setHouseholdToDelete(null);
     } catch (error: any) {
@@ -265,6 +262,7 @@ export default function HouseholdsPage() {
           <PageHeader
             title="Minhas Residências"
             description="Gerencie as residências onde você cuida dos seus gatos"
+            icon={<Home className="h-6 w-6 text-primary" />}
             actionIcon={<Plus className="h-4 w-4" />}
             actionLabel="Nova Residência"
             actionHref="/households/new"

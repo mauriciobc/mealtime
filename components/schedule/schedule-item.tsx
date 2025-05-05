@@ -56,9 +56,9 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
     setShowDeleteDialog(false);
   };
 
-  const formatDays = (days: string[]) => {
-    if (days.length === 7) return "Todos os dias";
-    
+  const formatDays = (days?: string[]) => {
+    const safeDays = Array.isArray(days) ? days : [];
+    if (safeDays.length === 7) return "Todos os dias";
     const dayMap: Record<string, string> = {
       "sun": "Dom",
       "mon": "Seg",
@@ -68,8 +68,7 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
       "fri": "Sex",
       "sat": "Sáb"
     };
-    
-    return days.map(d => dayMap[d]).join(", ");
+    return safeDays.map(d => dayMap[d] || d).join(", ");
   };
 
   const getCatName = () => {

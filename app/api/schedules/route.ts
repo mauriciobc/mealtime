@@ -34,11 +34,27 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch schedules for the specified household
-    console.log(`[GET /api/schedules] Fetching schedules for household ${householdId} - NOTE: schedules model does not exist in schema.`);
-    const schedules: unknown[] = []; // Return empty array as model doesn't exist
-    console.log(`[GET /api/schedules] Found ${schedules.length} schedules for household ${householdId} (model missing)`);
+    console.log(`[GET /api/schedules] Fetching schedules for household ${householdId}`);
+    const schedules = await prisma.schedules.findMany({
+      where: {
+        cat: {
+          household_id: householdId
+        }
+      },
+      include: {
+        cat: {
+          select: { id: true, name: true }
+        }
+      }
+    });
+    console.log(`[GET /api/schedules] Found ${schedules.length} schedules for household ${householdId}`);
 
-    return NextResponse.json(schedules);
+    // Always include a 'days' property (empty array) for frontend compatibility
+    const mappedSchedules = schedules.map(s => ({
+      ...s,
+      days: [], // fallback, since the DB does not have this field
+    }));
+    return NextResponse.json(mappedSchedules);
   } catch (error) {
     return handleApiError(error, 'Failed to fetch schedules');
   }
