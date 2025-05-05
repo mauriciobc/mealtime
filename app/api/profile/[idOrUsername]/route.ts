@@ -10,15 +10,15 @@ export async function GET(
   { params }: { params: { idOrUsername: string } }
 ) {
   try {
-    const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
+    // const cookieStore = cookies();
+    const supabase = await createClient();
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !supabaseUser) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const { idOrUsername } = params;
+    const { idOrUsername } = await params;
     // Detecta se é UUID (id) ou username
     const isUuid = /^[0-9a-fA-F-]{36}$/.test(idOrUsername);
     const userWhere = isUuid
@@ -35,7 +35,6 @@ export async function GET(
         avatar_url: true,
         email: true,
         timezone: true,
-        createdAt: true,
         household_members: {
           select: {
             role: true,
@@ -112,15 +111,15 @@ export async function PUT(
   { params }: { params: { idOrUsername: string } }
 ) {
   try {
-    const cookieStore = cookies();
-    const supabase = await createClient(cookieStore);
+    // const cookieStore = cookies();
+    const supabase = await createClient();
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !supabaseUser) {
       return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const { idOrUsername } = params;
+    const { idOrUsername } = await params;
     const isUuid = /^[0-9a-fA-F-]{36}$/.test(idOrUsername);
     const userWhere = isUuid
       ? { id: idOrUsername }

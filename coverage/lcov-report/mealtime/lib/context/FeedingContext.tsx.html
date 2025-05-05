@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/246</span>
+                <span class='fraction'>0/252</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/150</span>
+                <span class='fraction'>0/153</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/212</span>
+                <span class='fraction'>0/218</span>
             </div>
         
             
@@ -562,7 +562,20 @@
 <a name='L497'></a><a href='#L497'>497</a>
 <a name='L498'></a><a href='#L498'>498</a>
 <a name='L499'></a><a href='#L499'>499</a>
-<a name='L500'></a><a href='#L500'>500</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L500'></a><a href='#L500'>500</a>
+<a name='L501'></a><a href='#L501'>501</a>
+<a name='L502'></a><a href='#L502'>502</a>
+<a name='L503'></a><a href='#L503'>503</a>
+<a name='L504'></a><a href='#L504'>504</a>
+<a name='L505'></a><a href='#L505'>505</a>
+<a name='L506'></a><a href='#L506'>506</a>
+<a name='L507'></a><a href='#L507'>507</a>
+<a name='L508'></a><a href='#L508'>508</a>
+<a name='L509'></a><a href='#L509'>509</a>
+<a name='L510'></a><a href='#L510'>510</a>
+<a name='L511'></a><a href='#L511'>511</a>
+<a name='L512'></a><a href='#L512'>512</a>
+<a name='L513'></a><a href='#L513'>513</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -734,6 +747,18 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -753,6 +778,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -845,8 +872,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1229,28 +1255,42 @@ export const <span class="cstat-no" title="statement not covered" >FeedingProvid
 &nbsp;
 <span class="cstat-no" title="statement not covered" >        console.log("[FeedingProvider] Raw feedings loaded:", rawFeedingsData.length);</span>
 &nbsp;
+        // Add debug logging for data conversion
+<span class="cstat-no" title="statement not covered" >        console.log("[FeedingProvider] Sample raw feeding data:", rawFeedingsData[0]);</span>
+&nbsp;
         // --- Mapping Logic ---
-        const mappedFeedingsData: FeedingLog[] = <span class="cstat-no" title="statement not covered" >rawFeedingsData.map(<span class="fstat-no" title="function not covered" >meal </span>=&gt; <span class="cstat-no" title="statement not covered" >({</span></span>
-          id: meal.id, // Already string UUID
-          catId: meal.cat_id, // Map cat_id (string UUID)
-          userId: meal.fed_by, // Map fed_by (string UUID)
-          timestamp: new Date(meal.fed_at), // Map fed_at to Date object
-          portionSize: meal.amount, // Map amount
-          notes: meal.notes, // Map notes
-          mealType: meal.meal_type, // Map meal_type
-          householdId: meal.household_id, // Map household_id
-          // Set relations based on API response
-          user: {
-            id: meal.fed_by,
-            name: meal.feeder?.full_name ?? null, // Use optional chaining and nullish coalescing
-            avatar: meal.feeder?.avatar_url ?? null,
-          },
-          cat: undefined, // Explicitly set cat as undefined
-          // Set status and createdAt to undefined or handle differently if needed
-          status: undefined, // Map meal_type to status if required later
-          createdAt: undefined, // Not provided by this endpoint
-        }));
-        // --- End Mapping Logic ---
+        const mappedFeedingsData: FeedingLog[] = <span class="cstat-no" title="statement not covered" >rawFeedingsData.map(<span class="fstat-no" title="function not covered" >meal </span>=&gt; {</span>
+          const convertedAmount = <span class="cstat-no" title="statement not covered" >typeof meal.amount === 'string' ? parseFloat(meal.amount) : meal.amount;</span>
+<span class="cstat-no" title="statement not covered" >          console.log("[FeedingProvider] Amount conversion:", {</span>
+            original: meal.amount,
+            converted: convertedAmount,
+            type: typeof convertedAmount
+          });
+&nbsp;
+<span class="cstat-no" title="statement not covered" >          return {</span>
+            id: meal.id, // Already string UUID
+            catId: meal.cat_id, // Map cat_id (string UUID)
+            userId: meal.fed_by, // Map fed_by (string UUID)
+            timestamp: new Date(meal.fed_at), // Map fed_at to Date object
+            amount: convertedAmount, // Use converted amount
+            portionSize: convertedAmount, // Also use converted amount for portionSize
+            notes: meal.notes, // Map notes
+            mealType: meal.meal_type, // Map meal_type
+            householdId: meal.household_id, // Map household_id
+            // Set relations based on API response
+            user: {
+              id: meal.fed_by,
+              name: meal.feeder?.full_name ?? null, // Use optional chaining and nullish coalescing
+              avatar: meal.feeder?.avatar_url ?? null,
+            },
+            cat: undefined, // Explicitly set cat as undefined
+            // Set status and createdAt to undefined or handle differently if needed
+            status: undefined, // Map meal_type to status if required later
+            createdAt: undefined, // Not provided by this endpoint
+          };
+        });
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        console.log("[FeedingProvider] First mapped feeding data:", mappedFeedingsData[0]);</span>
 &nbsp;
         // Sort the *mapped* data
         const sortedData = <span class="cstat-no" title="statement not covered" >mappedFeedingsData.sort(<span class="fstat-no" title="function not covered" >(a</span>, b) =&gt;</span>
@@ -1343,9 +1383,8 @@ export const <span class="cstat-no" title="statement not covered" >useSelectLast
 &nbsp;
     // Find the corresponding cat from the CatsContext state
     const cat = <span class="cstat-no" title="statement not covered" >cats.find(<span class="fstat-no" title="function not covered" >c </span>=&gt; <span class="cstat-no" title="statement not covered" >c.id === lastLog.catId)</span>;</span>
-    // Decide what to do if cat isn't found - return log without cat enrichment? Or null?
-    // For now, let's return the log as-is if the cat isn't found in the context yet
-    // if (!cat) return null; 
+    // If we can't find the cat, return null to show loading state
+<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!cat) <span class="cstat-no" title="statement not covered" >return null;</span></span>
 &nbsp;
     // Enrich the log object by adding the found cat.
     // The user object from the initial mapping is sufficient.
@@ -1354,7 +1393,7 @@ export const <span class="cstat-no" title="statement not covered" >useSelectLast
       timestamp: new Date(lastLog.timestamp), // Ensure Date object
       // createdAt might be undefined from the API, handle appropriately
       createdAt: lastLog.createdAt ? new Date(lastLog.createdAt) : undefined, 
-      cat: cat, // Add the full cat object found in CatsContext state (could be undefined if not found)
+      cat: cat, // Add the full cat object found in CatsContext state
       // No need to overwrite the user object here, the one from mapping is fine.
       user: lastLog.user // Ensure the user field is present (guaranteed by mapping)
     };
@@ -1567,7 +1606,7 @@ export const <span class="cstat-no" title="statement not covered" >useSelectAver
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-26T18:04:12.670Z
+                at 2025-05-04T23:12:30.023Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

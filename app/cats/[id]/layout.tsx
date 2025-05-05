@@ -1,8 +1,4 @@
-'use client';
-
-import { createClient } from '@/utils/supabase/client';
-import { ErrorBoundary } from 'react-error-boundary';
-import ErrorPage from '@/app/error';
+import { createClient } from '@/utils/supabase/server';
 import { GlobalLoading } from '@/components/ui/global-loading';
 import { Suspense } from 'react';
 import { GlobalLoading as ServerGlobalLoading } from "@/components/ui/global-loading";
@@ -13,8 +9,8 @@ export default async function CatPageLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = createClient();
-  const { data: { user: supabaseUser }, error: authError } = await (await supabase).auth.getUser();
+  const supabase = await createClient();
+  const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !supabaseUser) {
     console.error("CatPageLayout: Unauthorized access attempt.");
@@ -22,10 +18,8 @@ export default async function CatPageLayout({
   }
 
   return (
-    <ErrorBoundary FallbackComponent={ErrorPage}>
-      <Suspense fallback={<GlobalLoading mode="overlay" text="Carregando..." />}>
-        {children}
-      </Suspense>
-    </ErrorBoundary>
+    <Suspense fallback={<GlobalLoading mode="overlay" text="Carregando..." />}>
+      {children}
+    </Suspense>
   );
 } 

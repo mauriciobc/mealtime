@@ -335,7 +335,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             dispatch({ type: 'SET_PAGE', payload: 1 });
         }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps 
+     
     // Removed fetchInitialData diagnostically - it should be stable via useCallback
   }, [isOnHomePage, currentUserId, userLoading, authLoading]); // Added isOnHomePage
 

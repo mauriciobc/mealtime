@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/37</span>
+                <span class='fraction'>0/43</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/37</span>
+                <span class='fraction'>0/43</span>
             </div>
         
             
@@ -177,7 +177,16 @@
 <a name='L112'></a><a href='#L112'>112</a>
 <a name='L113'></a><a href='#L113'>113</a>
 <a name='L114'></a><a href='#L114'>114</a>
-<a name='L115'></a><a href='#L115'>115</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -218,6 +227,15 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -299,7 +317,7 @@ const supabase = <span class="cstat-no" title="statement not covered" >createBro
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 &nbsp;
-export type ImageType = 'avatar' | 'cat';
+export type ImageType = 'user' | 'cat' | 'thumbnail';
 &nbsp;
 interface UploadOptions {
   maxSizeMB?: number;
@@ -309,14 +327,14 @@ interface UploadOptions {
 /**
  * Uploads an image to Supabase Storage
  * @param file The file to upload
- * @param type The type of image (avatar or cat)
+ * @param type The type of image (user, cat, or thumbnail)
  * @param options Upload options including maxSize and userId
  * @returns The URL of the uploaded image
  */
 <span class="cstat-no" title="statement not covered" >export a</span>sync function <span class="fstat-no" title="function not covered" >uploadImage(</span>
   file: File,
   type: ImageType,
-  { maxSizeMB = <span class="branch-0 cbranch-no" title="branch not covered" >5,</span> userId }: UploadOptions
+  { maxSizeMB = <span class="branch-0 cbranch-no" title="branch not covered" >50,</span> userId }: UploadOptions
 ) {
   // Validate file type
 <span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!file.type.startsWith('image/')) {</span>
@@ -329,9 +347,18 @@ interface UploadOptions {
 <span class="cstat-no" title="statement not covered" >    throw new Error(`File size must be less than ${maxSizeMB}MB`);</span>
   }
 &nbsp;
-  const bucket = <span class="cstat-no" title="statement not covered" >type === 'avatar' ? 'avatars' : 'cats';</span>
+  const bucket = <span class="cstat-no" title="statement not covered" >type === 'user' ? 'avatars' : 'cats';</span>
   const ext = <span class="cstat-no" title="statement not covered" >file.name.split('.').pop();</span>
   const fileName = <span class="cstat-no" title="statement not covered" >`${userId}/${uuidv4()}.${ext}`;</span>
+&nbsp;
+  // --- BEGIN ADDED LOGGING ---
+<span class="cstat-no" title="statement not covered" >  console.log(`[uploadImage] Attempting upload:`);</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`  - Bucket: ${bucket}`);</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`  - FileName: ${fileName}`);</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`  - File Size: ${file.size}`);</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`  - User ID: ${userId}`);</span>
+<span class="cstat-no" title="statement not covered" >  console.log(`  - Supabase Client URL: ${supabase.supabaseUrl}`); </span>// Check if URL looks correct
+  // --- END ADDED LOGGING ---
 &nbsp;
   const { data, error } = <span class="cstat-no" title="statement not covered" >await supabase.storage</span>
     .from(bucket)
@@ -356,10 +383,10 @@ interface UploadOptions {
 /**
  * Deletes an image from Supabase Storage
  * @param url The public URL of the image to delete
- * @param type The type of image (avatar or cat)
+ * @param type The type of image (user, cat, or thumbnail)
  */
 <span class="cstat-no" title="statement not covered" >export a</span>sync function <span class="fstat-no" title="function not covered" >deleteImage(</span>url: string, type: ImageType) {
-  const bucket = <span class="cstat-no" title="statement not covered" >type === 'avatar' ? 'avatars' : 'cats';</span>
+  const bucket = <span class="cstat-no" title="statement not covered" >type === 'user' ? 'avatars' : 'cats';</span>
   
   // Extract file path from URL
   const urlObj = <span class="cstat-no" title="statement not covered" >new URL(url);</span>
@@ -381,12 +408,12 @@ interface UploadOptions {
 &nbsp;
 /**
  * Lists all images for a user
- * @param type The type of images to list (avatar or cat)
+ * @param type The type of images to list (user, cat, or thumbnail)
  * @param userId The ID of the user
  * @returns Array of image URLs
  */
 <span class="cstat-no" title="statement not covered" >export a</span>sync function <span class="fstat-no" title="function not covered" >listUserImages(</span>type: ImageType, userId: string) {
-  const bucket = <span class="cstat-no" title="statement not covered" >type === 'avatar' ? 'avatars' : 'cats';</span>
+  const bucket = <span class="cstat-no" title="statement not covered" >type === 'user' ? 'avatars' : 'cats';</span>
 &nbsp;
   const { data, error } = <span class="cstat-no" title="statement not covered" >await supabase.storage</span>
     .from(bucket)
@@ -412,7 +439,7 @@ interface UploadOptions {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-04-26T18:04:12.670Z
+                at 2025-05-04T23:12:30.023Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

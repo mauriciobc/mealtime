@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from "react";
 import { useUserContext } from "@/lib/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
-import { ImageUpload } from "@/components/image-upload";
+import { ImageUpload } from "@/components/ui/image-upload";
 
 const profileSchema = z.object({
   full_name: z.string().min(2, "Nome obrigatório").max(100),
@@ -112,6 +113,7 @@ export default function EditProfilePage() {
                 value={form.avatar_url || ""}
                 onChange={(url) => setForm((prev) => prev ? { ...prev, avatar_url: url } : prev)}
                 type="user"
+                userId={currentUser.id}
                 className="w-20 h-20"
               />
             </div>
