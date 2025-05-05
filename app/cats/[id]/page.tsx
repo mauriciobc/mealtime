@@ -16,7 +16,7 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolvedParams = await params
   const cat = await getCat(resolvedParams.id)
-  if (!cat) return { title: 'Cat Not Found' }
+  if (!cat) return { title: 'Gato não encontrado' }
   return { title: cat.name }
 }
 
@@ -34,7 +34,7 @@ export default async function CatPage({ params }: PageProps) {
               <ChevronLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-semibold">{cat.name}</h1>
+          <h1 className="text-2xl font-semibold">Detalhes do gato</h1>
         </div>
       </div>
       <Suspense fallback={<GlobalLoading mode="spinner" text="Carregando detalhes do gato..." />}>
@@ -59,6 +59,7 @@ async function getCat(id: string) {
       owner_id: true,
       created_at: true,
       updated_at: true,
+      photo_url: true,
       household: {
         select: {
           id: true,
@@ -86,6 +87,7 @@ async function getCat(id: string) {
     householdId: cat.household_id,
     createdAt: cat.created_at,
     updatedAt: cat.updated_at,
-    weight: Number(cat.weight) // Convert Decimal to number
+    weight: Number(cat.weight), // Convert Decimal to number
+    photoUrl: cat.photo_url || null
   }
 }
