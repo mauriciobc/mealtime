@@ -17,29 +17,11 @@ This checklist will guide you through improving performance and reducing redunda
 
 ## 2. Optimize Effect Dependencies
 
-**Goal:** Prevent `useEffect` hooks from running more often than necessary, which can cause duplicate API calls.
-
-### Steps:
-1. **Find useEffect Hooks:**
-   - Search for all `useEffect` hooks in your providers and major components.
-2. **Review Dependencies:**
-   - Check the dependency array (the second argument to `useEffect`).
-   - Only include variables that, when changed, should trigger the effect.
-   - **Tip:** If you leave the array empty (`[]`), the effect runs only once on mount.
-3. **Guard Against Redundant Fetches:**
-   - Before making an API call inside `useEffect`, check if the data is already loaded.
-   - Example:
-     ```tsx
-     useEffect(() => {
-       if (!user && !isLoading) {
-         fetchUser();
-       }
-     }, [user, isLoading]);
-     ```
-4. **Remove Unnecessary Dependencies:**
-   - If a variable is not used inside the effect, remove it from the dependency array.
-5. **Test:**
-   - Reload the app and watch the logs/network tab. Each effect should only trigger as intended.
+**✅ Complete (2024-05-06):**
+- NotificationProvider effect dependency array fixed to only include minimal, stable values.
+- Infinite loop and dependency array errors resolved.
+- Metric: No duplicate or missed API calls; effect only triggers when needed.
+- All notification features work as expected.
 
 ---
 

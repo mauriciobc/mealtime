@@ -322,23 +322,26 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isOnHomePage) return; // Only fetch on '/'
     if (currentUserId) {
-      console.log(`[NotificationProvider] useEffect detected userId: ${currentUserId}. Checking if fetch needed...`);
-      if (state.notifications.length === 0 && !state.isLoading && state.error === null) {
+      if ((Array.isArray(state.notifications) ? state.notifications.length : 0) === 0 && !state.isLoading && state.error === null) {
           console.log("[NotificationProvider] State allows initial fetch, calling fetchInitialData.");
           fetchInitialData(currentUserId);
       } else {
-          console.log("[NotificationProvider] State prevents initial fetch (already loaded/loading/error):", {isLoading: state.isLoading, hasNotifications: state.notifications.length > 0, error: state.error });
+          console.log("[NotificationProvider] State prevents initial fetch (already loaded/loading/error):", {isLoading: state.isLoading, hasNotifications: (Array.isArray(state.notifications) ? state.notifications.length : 0) > 0, error: state.error });
       }
     } else if (!currentUserId && !userLoading && !authLoading) {
         console.log("[NotificationProvider] User logged out (or loading finished with no user), clearing notifications.");
-        if (state.notifications.length > 0 || state.unreadCount > 0) {
+        if ((Array.isArray(state.notifications) ? state.notifications.length : 0) > 0 || state.unreadCount > 0) {
             dispatch({ type: 'SET_NOTIFICATIONS', payload: { notifications: [], totalPages: 1, hasMore: false, unreadCount: 0 } });
             dispatch({ type: 'SET_PAGE', payload: 1 });
         }
     }
-     
-    // Removed fetchInitialData diagnostically - it should be stable via useCallback
-  }, [isOnHomePage, currentUserId, userLoading, authLoading]); // Added isOnHomePage
+    // Only include minimal, stable dependencies to prevent infinite loops.
+  }, [
+    isOnHomePage,
+    currentUserId,
+    userLoading,
+    authLoading
+  ]);
 
   const refreshNotifications = useCallback(async () => {
     if (!currentUserId) {
