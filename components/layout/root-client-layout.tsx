@@ -57,11 +57,13 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
                   <CatsProvider>
                     <FeedingProvider>
                       <ScheduleProvider>
-                        <ClientLayout>
-                          {children}
-                        </ClientLayout>
-                        <Toaster richColors position="top-center" />
-                        <GlobalLoading />
+                        <NotificationProvider>
+                          <ClientLayout>
+                            {children}
+                          </ClientLayout>
+                          <Toaster richColors position="top-center" />
+                          <GlobalLoading />
+                        </NotificationProvider>
                       </ScheduleProvider>
                     </FeedingProvider>
                   </CatsProvider>

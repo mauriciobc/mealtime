@@ -8,7 +8,6 @@ import BottomNav from "@/components/bottom-nav"
 import NotificationChecker from "@/components/notifications/notification-checker"
 import { AnimationProvider } from "@/components/animation-provider"
 import { useUserContext } from "@/lib/context/UserContext"
-import { NotificationProvider } from "@/lib/context/NotificationContext"
 import { GlobalLoading } from "@/components/ui/global-loading"
 
 interface AppHeaderProps {
@@ -69,19 +68,17 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     }
 
     return (
-      <NotificationProvider>
-        <AnimationProvider>
-          <div className="relative flex min-h-screen flex-col">
-            <AppHeader {...getHeaderProps()} />
-            <main className="flex-1 pb-16">
-              {children}
-            </main>
-            <BottomNav />
-            {currentUser && <NotificationChecker />}
-            <OnboardingTour />
-          </div>
-        </AnimationProvider>
-      </NotificationProvider>
+      <AnimationProvider>
+        <div className="relative flex min-h-screen flex-col">
+          <AppHeader {...getHeaderProps()} />
+          <main className="flex-1 pb-16">
+            {children}
+          </main>
+          <BottomNav />
+          {currentUser && <NotificationChecker />}
+          <OnboardingTour />
+        </div>
+      </AnimationProvider>
     );
   };
 
