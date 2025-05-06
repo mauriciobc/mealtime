@@ -34,8 +34,8 @@ const NotificationItem = React.memo(({
   isProcessing,
 }: {
   notification: Notification;
-  onMarkRead: (id: number) => Promise<void>;
-  onRemove: (id: number) => Promise<void>;
+  onMarkRead: (id: string) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
   isProcessing: boolean;
 }) => {
   const [isMarkingRead, setIsMarkingRead] = useState(false);
@@ -67,10 +67,11 @@ const NotificationItem = React.memo(({
     }
   };
 
-  const formattedDate = useMemo(() =>
-    format(new Date(notification.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }),
-    [notification.createdAt]
-  );
+  // Defensive check for valid date
+  const formattedDate = useMemo(() => {
+    const date = new Date(notification.createdAt);
+    return isNaN(date.getTime()) ? "" : format(date, "dd/MM/yyyy HH:mm", { locale: ptBR });
+  }, [notification.createdAt]);
 
   const isActionDisabled = isProcessing || isMarkingRead || isRemoving;
 
@@ -167,11 +168,11 @@ export default function NotificationsPage() {
     }
   }, [markAllAsRead, unreadCount]);
 
-  const handleMarkRead = useCallback(async (id: number) => {
+  const handleMarkRead = useCallback(async (id: string) => {
     await markAsRead(id); // Context handles loading/state updates
   }, [markAsRead]);
 
-  const handleRemove = useCallback(async (id: number) => {
+  const handleRemove = useCallback(async (id: string) => {
     await removeNotification(id); // Context handles loading/state updates
   }, [removeNotification]);
 

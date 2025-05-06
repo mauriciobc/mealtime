@@ -31,8 +31,15 @@ export function NotificationItem({
   const { removeNotification, isLoading, error } = useNotifications();
   const { id, title, message, type, is_read, created_at, metadata } = notification;
   
-  // Format the time
-  const timeAgo = formatDistanceToNow(new Date(created_at), { addSuffix: true });
+  // Defensive date formatting
+  let timeAgo = '';
+  const dateValue = notification.createdAt || notification.created_at;
+  if (dateValue) {
+    const dateObj = new Date(dateValue);
+    if (!isNaN(dateObj.getTime())) {
+      timeAgo = formatDistanceToNow(dateObj, { addSuffix: true });
+    }
+  }
   
   // Get the icon based on type
   const getIcon = () => {
@@ -74,11 +81,11 @@ export function NotificationItem({
     <div 
       className={cn(
         "flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/50 transition-colors",
-        !is_read && "bg-muted/30"
+        !notification.isRead && "bg-muted/30"
       )}
       onClick={() => {
-        if (metadata?.action_url) {
-          window.location.href = metadata.action_url;
+        if (notification.metadata?.actionUrl) {
+          window.location.href = notification.metadata.actionUrl;
         }
         onClick?.(notification);
       }}
@@ -88,15 +95,15 @@ export function NotificationItem({
         <div className="flex items-center justify-between gap-4">
           <p className={cn(
             "text-sm font-medium leading-none",
-            !is_read && "font-semibold"
+            !notification.isRead && "font-semibold"
           )}>
-            {title}
+            {notification.title}
           </p>
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {timeAgo}
           </span>
         </div>
-        <p className="text-sm text-muted-foreground">{message}</p>
+        <p className="text-sm text-muted-foreground">{notification.message}</p>
       </div>
       {showActions && (
         <Button
@@ -113,9 +120,9 @@ export function NotificationItem({
     </div>
   );
   
-  if (metadata?.action_url) {
+  if (notification.metadata?.actionUrl) {
     return (
-      <Link href={metadata.action_url} className="block">
+      <Link href={notification.metadata.actionUrl} className="block">
         {content}
       </Link>
     );

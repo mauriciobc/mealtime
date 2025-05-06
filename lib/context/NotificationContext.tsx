@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from "react";
+import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useMemo } from "react";
 import { 
   getUserNotifications, 
   markNotificationAsRead, 
@@ -97,6 +97,19 @@ const getInitialState = (): NotificationState => {
 // Create the context
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
+// Utility to normalize notification object keys to camelCase
+function normalizeNotification(raw: any): Notification {
+  return {
+    id: String(raw.id),
+    createdAt: raw.created_at || raw.createdAt || '',
+    isRead: raw.is_read ?? raw.isRead ?? false,
+    type: raw.type,
+    title: raw.title,
+    message: raw.message,
+    // add other fields as needed
+  };
+}
+
 // Reducer function with storage updates
 function notificationReducer(state: NotificationState, action: NotificationAction): NotificationState {
   console.log(`[NotificationReducer] Action: ${action.type}`, { payload: 'payload' in action ? action.payload : undefined });
@@ -142,8 +155,8 @@ function notificationReducer(state: NotificationState, action: NotificationActio
         }
         newState = { 
           ...state, 
-          notifications: [action.payload, ...state.notifications],
-          unreadCount: state.unreadCount + (action.payload.isRead ? 0 : 1)
+          notifications: [normalizeNotification(action.payload), ...state.notifications],
+          unreadCount: state.unreadCount + (normalizeNotification(action.payload).isRead ? 0 : 1)
         };
         // Update storage
         storageService.set(STORAGE_KEYS.NOTIFICATIONS, newState.notifications);
@@ -200,7 +213,7 @@ function notificationReducer(state: NotificationState, action: NotificationActio
         const filteredNotifications = state.notifications.filter(
           notification => notification.id !== action.payload.id
         );
-        const newUnreadCount = !notificationToRemove.isRead 
+        const newUnreadCount = !notificationToRemove?.isRead 
           ? Math.max(0, state.unreadCount - 1)
           : state.unreadCount;
         newState = { 
@@ -287,10 +300,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      const formattedNotifications = notificationsResponse.data.map(n => ({ 
-        ...n, 
-        id: String(n.id)
-      }));
+      const formattedNotifications = notificationsResponse.data.map(normalizeNotification);
 
       if (typeof unreadCountResponse !== 'number') {
         console.error("[NotificationContext] Invalid unread count response type:", unreadCountResponse);
@@ -375,7 +385,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           return;
       }
       
-      const formattedNotifications = response.data.map(n => ({ ...n, id: String(n.id) }));
+      const formattedNotifications = response.data.map(normalizeNotification);
 
       dispatch({ 
         type: "APPEND_NOTIFICATIONS", 
@@ -441,7 +451,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, [addLoadingOperation, removeLoadingOperation]);
 
-  const value = {
+  const value = useMemo(() => ({
     notifications: state.notifications,
     unreadCount: state.unreadCount,
     isLoading: state.isLoading,
@@ -454,7 +464,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     removeNotification,
     refreshNotifications,
     loadMore,
-  };
+  }), [
+    state.notifications,
+    state.unreadCount,
+    state.isLoading,
+    state.error,
+    state.page,
+    state.totalPages,
+    state.hasMore,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+    refreshNotifications,
+    loadMore
+  ]);
   
   console.log("[NotificationProvider] Rendering with value:", value);
 
