@@ -60,6 +60,7 @@ import {
 import { Calendar as CalendarIcon } from "@/components/ui/calendar"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
+import { DateTimePicker } from "@/components/ui/datetime-picker"
 
 interface PageProps {
   params: Promise<{
@@ -154,8 +155,8 @@ export default function EditCatPage({ params }: PageProps) {
           birthdate: formattedBirthdate,
           weight: foundCat.weight?.toString() || "",
           restrictions: foundCat.restrictions || "",
-          photoUrl: foundCat.photoUrl || "",
-          feedingInterval: foundCat.feedingInterval?.toString() || "8",
+          photoUrl: foundCat.photo_url || "",
+          feedingInterval: foundCat.feeding_interval !== undefined && foundCat.feeding_interval !== null ? String(foundCat.feeding_interval) : "8",
           portion_size: foundCat.portion_size?.toString() || "",
           notes: foundCat.notes || "",
         })
@@ -189,7 +190,7 @@ export default function EditCatPage({ params }: PageProps) {
     setIsDeleting(true)
     const previousCats = cats
     
-    catsDispatch({ type: "DELETE_CAT", payload: cat.id })
+    catsDispatch({ type: "REMOVE_CAT", payload: cat.id })
     
     try {
       const headers: HeadersInit = {};
@@ -214,7 +215,7 @@ export default function EditCatPage({ params }: PageProps) {
     } catch (error: any) {
       console.error("Erro ao excluir gato:", error)
       toast.error(`Falha ao excluir gato: ${error.message}`)
-      catsDispatch({ type: "SET_CATS", payload: previousCats })
+      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats })
     } finally {
       setIsDeleting(false)
       removeLoadingOperation(opId)
@@ -236,16 +237,16 @@ export default function EditCatPage({ params }: PageProps) {
     try {
       const updatedData: Partial<CatType> = {
         name: formData.name.trim(),
-        photoUrl: formData.photoUrl || null,
+        photo_url: formData.photoUrl || null,
         birthdate: formData.birthdate ? new Date(formData.birthdate) : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
         restrictions: formData.restrictions?.trim() || null,
-        feedingInterval: formData.feedingInterval ? parseInt(formData.feedingInterval) : null,
-        portion_size: formData.portion_size ? parseFloat(formData.portion_size) : null,
+        feeding_interval: formData.feedingInterval ? parseInt(formData.feedingInterval) : null,
+        portion_size: formData.portion_size ? String(formData.portion_size) : null,
         notes: formData.notes?.trim() || null,
       }
       
-      if (updatedData.feedingInterval !== null && (isNaN(updatedData.feedingInterval) || updatedData.feedingInterval < 1 || updatedData.feedingInterval > 24)) {
+      if (updatedData.feeding_interval !== null && (isNaN(updatedData.feeding_interval) || updatedData.feeding_interval < 1 || updatedData.feeding_interval > 24)) {
         toast.error("Intervalo de alimentação deve ser entre 1 e 24 horas.")
         setIsSubmitting(false)
         removeLoadingOperation(opId)
@@ -385,11 +386,14 @@ export default function EditCatPage({ params }: PageProps) {
 
             <div className="space-y-2">
               <Label htmlFor="birthdate">Data de Nascimento</Label>
-              <Input
-                id="birthdate"
-                type="date"
-                value={formData.birthdate ? new Date(formData.birthdate).toISOString().split('T')[0] : ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, birthdate: e.target.value }))}
+              <DateTimePicker
+                value={formData.birthdate ? new Date(formData.birthdate) : undefined}
+                onChange={date => setFormData(prev => ({ ...prev, birthdate: date ? date.toISOString().split('T')[0] : "" }))}
+                disabled={isSubmitting}
+                locale={ptBR}
+                yearRange={35}
+                granularity="day"
+                placeholder="Selecione uma data"
               />
             </div>
 

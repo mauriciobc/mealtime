@@ -39,7 +39,14 @@ const SKIP_AUTH_ROUTES = [
   '/images',
   '/favicon.ico',
   '/manifest.json',
-  '/robots.txt'
+  '/robots.txt',
+  '/site.webmanifest',
+  '/sitemap.xml',
+  '/apple-touch-icon',
+  '/android-chrome',
+  '/mstile',
+  '/browserconfig.xml',
+  // Add common static asset extensions
 ];
 
 // Helper function to create Supabase client in middleware
@@ -56,8 +63,13 @@ function createSupabaseMiddlewareClient(request: NextRequest, response: NextResp
 const isPublicRoute = (path: string) =>
   PUBLIC_ROUTES.some(route => path.startsWith(route));
 
+// Helper to skip auth for static assets by extension
+function hasStaticAssetExtension(path: string): boolean {
+  return /\.(svg|png|jpg|jpeg|gif|webp|ico|json|xml)$/i.test(path);
+}
+
 const shouldSkipAuth = (path: string) =>
-  SKIP_AUTH_ROUTES.some(route => path.startsWith(route));
+  SKIP_AUTH_ROUTES.some(route => path.startsWith(route)) || hasStaticAssetExtension(path);
 
 const isProtectedRoute = (path: string) =>
   PROTECTED_ROUTES.some(route => path.startsWith(route));

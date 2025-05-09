@@ -9,13 +9,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
+    const id = params.id;
 
-    if (isNaN(id)) {
+    if (!id) {
       return handleValidationError('Invalid ID', 'GET /api/schedules/[id]');
     }
 
-    const schedule = await prisma.schedule.findUnique({
+    const schedule = await prisma.schedules.findUnique({
       where: { id },
       include: {
         cat: {
@@ -44,9 +44,9 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
+    const id = params.id;
 
-    if (isNaN(id)) {
+    if (!id) {
       return handleValidationError('Invalid ID', 'PATCH /api/schedules/[id]');
     }
 
@@ -58,7 +58,7 @@ export async function PATCH(
     } = await request.json();
 
     // Check if schedule exists
-    const existingSchedule = await prisma.schedule.findUnique({
+    const existingSchedule = await prisma.schedules.findUnique({
       where: { id }
     });
 
@@ -106,7 +106,7 @@ export async function PATCH(
     }
 
     // Update schedule
-    const schedule = await prisma.schedule.update({
+    const schedule = await prisma.schedules.update({
       where: { id },
       data: updateData
     });
@@ -123,14 +123,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const id = parseInt(params.id);
+    const id = params.id;
 
-    if (isNaN(id)) {
+    if (!id) {
       return handleValidationError('Invalid ID', 'DELETE /api/schedules/[id]');
     }
 
     // Check if schedule exists
-    const existingSchedule = await prisma.schedule.findUnique({
+    const existingSchedule = await prisma.schedules.findUnique({
       where: { id }
     });
 
@@ -139,7 +139,7 @@ export async function DELETE(
     }
 
     // Delete schedule
-    await prisma.schedule.delete({
+    await prisma.schedules.delete({
       where: { id }
     });
 

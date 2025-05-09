@@ -107,12 +107,8 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
                 <FormLabel>Data e Hora</FormLabel>
                 <FormControl>
                   <DateTimePicker
-                    date={field.value}
-                    setDate={(date) => {
-                      if (date) {
-                         field.onChange(date);
-                      }
-                    }}
+                    value={field.value}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />

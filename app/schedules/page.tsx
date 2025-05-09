@@ -134,13 +134,16 @@ export default function SchedulesPage() {
 
   const schedulesToDisplay = schedules;
 
+  // Get the user's timezone from currentUser
+  const userTimezone = currentUser.timezone;
+
   const timelineEvents = schedulesToDisplay
     .filter(schedule => schedule.enabled)
     .map(schedule => {
-      const nextTime = getNextScheduledTime(schedule);
-      const cat = cats.find(c => String(c.id) === String(schedule.catId));
+      const nextTime = getNextScheduledTime(schedule, userTimezone);
+      const cat = cats.find(c => c.id === schedule.catId);
       return {
-        id: String(schedule.id),
+        id: schedule.id,
         date: nextTime || new Date(),
         title: `Alimentação - ${cat?.name || 'Gato Desconhecido'}`,
         description: schedule.type === 'interval'
@@ -201,8 +204,8 @@ export default function SchedulesPage() {
                    {schedulesToDisplay
                      .filter(schedule => schedule.enabled)
                      .sort((a, b) => {
-                       const aTime = getNextScheduledTime(a);
-                       const bTime = getNextScheduledTime(b);
+                       const aTime = getNextScheduledTime(a, userTimezone);
+                       const bTime = getNextScheduledTime(b, userTimezone);
                        return (aTime?.getTime() || Infinity) - (bTime?.getTime() || Infinity);
                      })
                      .map((schedule: Schedule) => (
@@ -211,7 +214,7 @@ export default function SchedulesPage() {
                            schedule={schedule}
                            onView={() => router.push(`/schedules/${schedule.id}`)}
                            onEdit={() => router.push(`/schedules/${schedule.id}/edit`)}
-                           onDelete={() => handleDeleteSchedule(String(schedule.id))}
+                           onDelete={() => handleDeleteSchedule(schedule.id)}
                          />
                        </motion.div>
                      ))}

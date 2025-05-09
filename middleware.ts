@@ -191,10 +191,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - specific file extensions
+     * - site.webmanifest, robots.txt, sitemap.xml, browserconfig.xml
+     * - common static asset extensions
      * 
      * Ensure this correctly excludes static assets while including API and page routes.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|site.webmanifest|robots.txt|sitemap.xml|browserconfig.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|xml)$).*)',
   ],
 }; 

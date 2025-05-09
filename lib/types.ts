@@ -121,8 +121,8 @@ export interface LegacyCatProfile {
 }
 
 export interface Schedule {
-  id: number;
-  catId: number;
+  id: string;
+  catId: string;
   userId: string;
   type: 'interval' | 'fixedTime';
   interval?: number; // Hours between feedings

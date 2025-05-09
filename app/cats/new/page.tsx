@@ -36,6 +36,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import { Loading } from "@/components/ui/loading";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -275,152 +276,128 @@ export default function NewCatPage() {
             control={form.control}
             name="birthdate"
             render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Data de Nascimento</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                          disabled={isSubmitting}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP", { locale: ptBR })
-                          ) : (
-                            <span>Selecione uma data</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        captionLayout="dropdown-buttons"
-                        fromYear={1990}
-                        toYear={new Date().getFullYear()}
-                        disabled={(date) =>
-                          date > new Date() || date < new Date("1990-01-01")
-                        }
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <FormItem className="flex flex-col">
+                <FormLabel>Data de Nascimento</FormLabel>
+                <FormControl>
+                  <DateTimePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={isSubmitting}
+                    locale={ptBR}
+                    yearRange={35}
+                    granularity="day"
+                    placeholder="Selecione uma data"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            <FormField
-              control={form.control}
-              name="weight"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Peso (kg)</FormLabel>
-                  <FormControl>
-                    <Input 
-                        type="number" 
-                        step="0.1" 
-                        placeholder="Ex: 4.5" 
-                        {...field} 
-                        id="weight"
-                        disabled={isSubmitting}
-                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="feedingInterval"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Intervalo Ideal Entre Refeições (horas) *</FormLabel>
-                  <FormControl>
-                     <Input 
-                        type="number" 
-                        min="1" 
-                        max="24" 
-                        placeholder="Ex: 8" 
-                        {...field} 
-                        id="feedingInterval"
-                        required 
-                        disabled={isSubmitting}
-                     />
-                  </FormControl>
-                   <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="portion_size"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Porção Recomendada (gramas)</FormLabel>
-                  <FormControl>
-                    <Input 
-                        type="number" 
-                        step="1" 
-                        placeholder="Ex: 50" 
-                        {...field} 
-                        id="portion_size"
-                        disabled={isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="restrictions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Restrições Alimentares</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Ex: Alergia a frango, sensível a grãos"
-                      className="resize-none"
-                      {...field}
-                      id="restrictions"
+          <FormField
+            control={form.control}
+            name="weight"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Peso (kg)</FormLabel>
+                <FormControl>
+                  <Input 
+                      type="number" 
+                      step="0.1" 
+                      placeholder="Ex: 4.5" 
+                      {...field} 
+                      id="weight"
                       disabled={isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                   />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observações Adicionais</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Ex: Prefere comer no quarto, só come ração úmida"
-                      className="resize-none"
-                      {...field}
-                      id="notes"
+          <FormField
+            control={form.control}
+            name="feedingInterval"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Intervalo Ideal Entre Refeições (horas) *</FormLabel>
+                <FormControl>
+                   <Input 
+                      type="number" 
+                      min="1" 
+                      max="24" 
+                      placeholder="Ex: 8" 
+                      {...field} 
+                      id="feedingInterval"
+                      required 
                       disabled={isSubmitting}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                   />
+                </FormControl>
+                 <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="portion_size"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Porção Recomendada (gramas)</FormLabel>
+                <FormControl>
+                  <Input 
+                      type="number" 
+                      step="1" 
+                      placeholder="Ex: 50" 
+                      {...field} 
+                      id="portion_size"
+                      disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="restrictions"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Restrições Alimentares</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Ex: Alergia a frango, sensível a grãos"
+                    className="resize-none"
+                    {...field}
+                    id="restrictions"
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Observações Adicionais</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Ex: Prefere comer no quarto, só come ração úmida"
+                    className="resize-none"
+                    {...field}
+                    id="notes"
+                    disabled={isSubmitting}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <Button type="submit" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? <Loading text="Adicionando..." size="sm" /> : "Adicionar Gato"}

@@ -168,8 +168,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
         // --- Mapping Logic (adjust based on actual API response) ---
         const mappedSchedules: Schedule[] = rawSchedulesData.map(s => ({
-          id: s.id, 
-          catId: s.cat_id,
+          id: String(s.id), 
+          catId: String(s.cat_id),
           householdId: s.household_id,
           userId: s.user_id,
           type: s.type, // 'interval' or 'fixedTime'
@@ -181,7 +181,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
           updatedAt: s.updated_at ? new Date(s.updated_at) : undefined,
           // Map the nested cat object from the API response
           cat: s.cat ? { 
-              id: s.cat.id,
+              id: String(s.cat.id),
               name: s.cat.name,
               // Initialize other required CatType fields as undefined/null if not provided by API
               birthdate: undefined,
