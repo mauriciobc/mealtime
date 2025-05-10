@@ -63,6 +63,7 @@
 
 ### 1. Project Setup
 - [x] Set up ShadCN/ui library and configure theme tokens in `components.json`.
+- [x] Typography component available in `components/ui/typography.tsx`.
 
 ### 2. Dashboard Structure & Components
 #### A. Current Status Card
