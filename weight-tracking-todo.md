@@ -78,7 +78,7 @@
 - [ ] Integrate a chart library (e.g., Recharts) for timeline visualization.
 - [x] Add toggle buttons (30/60/90 days) using ShadCN `Button` (outline variant).
 - [x] Overlay feeding log density using `Badge`.
-- [ ] Implement tooltips with `Popover` for detailed data.
+- [x] Implement tooltips with `Popover` for detailed data.
 - [ ] Enable swipe gestures for mobile navigation.
 
 #### C. Quick Log Panel
