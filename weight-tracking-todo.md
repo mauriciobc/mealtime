@@ -67,11 +67,11 @@
 
 ### 2. Dashboard Structure & Components
 #### A. Current Status Card
-- [ ] Create `CurrentStatusCard` component using ShadCN `Card`, `CardContent`, `Progress`, and `Typography`.
-- [ ] Display current weight, target weight, and progress bar.
+- [x] Create `CurrentStatusCard` component using ShadCN `Card`, `CardContent`, `Progress`, and `Typography`.
+- [x] Display current weight, target weight, and progress bar.
 - [ ] Add a circular indicator for progress (optional).
-- [ ] Render a health tip in a `Callout` with a vet icon.
-- [ ] Style using theme tokens for consistency.
+- [x] Render a health tip in a `Callout` with a vet icon.
+- [x] Style using theme tokens for consistency.
 
 #### B. Weight Trend Chart
 - [ ] Create `WeightTrendChart` component.
