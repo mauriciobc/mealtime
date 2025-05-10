@@ -74,9 +74,10 @@
 - [x] Style using theme tokens for consistency.
 
 #### B. Weight Trend Chart
-- [x] Create `WeightTrendChart` component.
+- [x] Create `WeightTrendChart` component with timeline, toggle buttons, and feeding density overlay.
+- [x] Add popover/tooltips for weight entries.
+- [x] Support swipe gestures for range selection (mobile/desktop).
 - [ ] Integrate a chart library (e.g., Recharts) for timeline visualization.
-- [x] Add toggle buttons (30/60/90 days) using ShadCN `Button` (outline variant).
 - [x] Overlay feeding log density using `Badge`.
 - [x] Implement tooltips with `Popover` for detailed data.
 - [ ] Enable swipe gestures for mobile navigation.
