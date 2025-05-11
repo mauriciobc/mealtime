@@ -101,8 +101,8 @@
 #### C. Quick Log Panel
 - [x] Add a floating action button (FAB) using ShadCN `Button` with `Tooltip`.
 - [x] Open a modal (`Dialog`) with a form for logging weight.
-- [ ] Use `Input` and `Label` for form fields, pre-fill date, and use form hooks.
-- [ ] Validate input and show errors with `FormMessage`.
+- [x] Use `Input` and `Label` for form fields, pre-fill date, and use form hooks.
+- [x] Validate input and show errors with `FormMessage`.
 - [ ] On submit, call backend API and show result with Toast.
 
 #### D. Recent History List
