@@ -58,41 +58,64 @@ const sampleFeedingLogs = [
 import React, { useState } from 'react';
 =======
 import React, { useState, useMemo } from 'react';
+<<<<<<< HEAD
 >>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+=======
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  Legend, ResponsiveContainer, DotProps
+} from 'recharts';
+>>>>>>> 213b60b (feat(weight): add Popover tooltips to WeightTrendChart data points)
 import { Button } from '@/components/ui/button'; // Assuming @/components maps to components/ui or similar
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge'; // Import Badge
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
-// Sample data - replace with actual data from props/API
+// Updated Sample Data
 const sampleWeightLogs = [
-  { date: '2023-10-01', weight: 5.0 },
+  { date: '2023-10-01', weight: 5.0, notes: 'First weigh-in after diet change.' },
   { date: '2023-10-08', weight: 5.1 },
-  { date: '2023-10-15', weight: 5.05 },
+  { date: '2023-10-15', weight: 5.05, notes: 'Slightly less active this week.' },
   { date: '2023-10-22', weight: 5.15 },
-  { date: '2023-10-29', weight: 5.2 },
+  { date: '2023-10-29', weight: 5.2, notes: 'Good progress!' },
   { date: '2023-11-05', weight: 5.25 },
   { date: '2023-11-12', weight: 5.2 },
-  { date: '2023-11-19', weight: 5.3 },
+  { date: '2023-11-19', weight: 5.3, notes: 'Increased portion size slightly.' },
   { date: '2023-11-26', weight: 5.35 },
   { date: '2023-12-03', weight: 5.3 },
-  { date: '2023-12-10', weight: 5.4 },
+  { date: '2023-12-10', weight: 5.4, notes: 'Vet check-up, all good.' },
   { date: '2023-12-17', weight: 5.38 },
-  { date: '2023-12-24', weight: 5.45 },
+  { date: '2023-12-24', weight: 5.45, notes: 'Holiday treats!' },
   { date: '2023-12-31', weight: 5.5 },
-  { date: '2024-01-07', weight: 5.48 },
+  { date: '2024-01-07', weight: 5.48, notes: 'Back to normal diet.' },
   { date: '2024-01-14', weight: 5.52 },
 ];
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
 =======
 // Sample feeding logs
+=======
+>>>>>>> 213b60b (feat(weight): add Popover tooltips to WeightTrendChart data points)
 const sampleFeedingLogs = [
-  { date: '2023-10-01', type: 'Meal' }, { date: '2023-10-08', type: 'Meal' }, { date: '2023-10-08', type: 'Snack' },
-  { date: '2023-10-15', type: 'Meal' }, { date: '2023-10-29', type: 'Meal' }, { date: '2023-11-12', type: 'Snack' },
-  { date: '2023-11-26', type: 'Meal' }, { date: '2023-12-10', type: 'Meal' }, { date: '2023-12-10', type: 'Meal' },
-  { date: '2023-12-24', type: 'Meal' }, { date: '2024-01-07', type: 'Snack' }, { date: '2024-01-14', type: 'Meal' },
+  { date: '2023-10-01', meal_type: 'Wet Food', amount: 1, unit: 'can' },
+  { date: '2023-10-08', meal_type: 'Dry Kibble', amount: 0.5, unit: 'cup' },
+  { date: '2023-10-08', meal_type: 'Treat', amount: 2, unit: 'pcs' },
+  { date: '2023-10-15', meal_type: 'Wet Food', amount: 1, unit: 'can' },
+  { date: '2023-10-29', meal_type: 'Dry Kibble', amount: 0.5, unit: 'cup' },
+  { date: '2023-11-12', meal_type: 'Treat', amount: 3, unit: 'pcs' },
+  { date: '2023-11-26', meal_type: 'Wet Food', amount: 1, unit: 'can' },
+  { date: '2023-12-10', meal_type: 'Dry Kibble', amount: 0.5, unit: 'cup' },
+  { date: '2023-12-10', meal_type: 'Wet Food', amount: 0.5, unit: 'can' },
+  { date: '2023-12-24', meal_type: 'Treat', amount: 5, unit: 'pcs' },
+  { date: '2024-01-07', meal_type: 'Treat', amount: 1, unit: 'pc' },
+  { date: '2024-01-14', meal_type: 'Wet Food', amount: 1, unit: 'can' },
 ];
 
 >>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
@@ -101,6 +124,7 @@ type TimeRange = 30 | 60 | 90;
 interface WeightLog {
   date: string; // Should be ISO date string for easier manipulation
   weight: number;
+<<<<<<< HEAD
 <<<<<<< HEAD
   notes?: string; // Added notes
 }
@@ -325,18 +349,80 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
   }
 
 =======
+=======
+  notes?: string; // Added notes
+>>>>>>> 213b60b (feat(weight): add Popover tooltips to WeightTrendChart data points)
 }
 
 interface FeedingLog {
   date: string;
-  type: string;
-  // count?: number; // For density visualization if needed later
+  meal_type: string; // Changed from type
+  amount?: number;
+  unit?: string;
+}
+
+interface ProcessedFeedingLog extends FeedingLog {
+  id: string;
 }
 
 interface WeightTrendChartProps {
   weightLogs?: WeightLog[]; // Optional: pass real data later
   feedingLogs?: FeedingLog[];
 }
+
+// Custom Active Dot for Popover Trigger
+interface CustomActiveDotProps extends DotProps {
+  payload?: WeightLog;
+  allFeedingLogsForDay?: ProcessedFeedingLog[];
+}
+
+const CustomActiveDot: React.FC<CustomActiveDotProps> = (props) => {
+  const { cx, cy, stroke, payload, allFeedingLogsForDay } = props;
+
+  if (!cx || !cy || !payload) return null;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <circle cx={cx} cy={cy} r={8} fill={stroke} strokeWidth={2} stroke="white" style={{ cursor: 'pointer' }} />
+      </PopoverTrigger>
+      <PopoverContent className="w-80">
+        <div className="grid gap-4">
+          <div className="space-y-2">
+            <h4 className="font-medium leading-none">Log Details</h4>
+            <p className="text-sm text-muted-foreground">
+              {new Date(payload.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+          </div>
+          <div className="grid gap-2">
+            <div className="grid grid-cols-3 items-center gap-4">
+              <span className="font-semibold">Weight:</span>
+              <span className="col-span-2">{payload.weight.toFixed(2)} kg</span>
+            </div>
+            {payload.notes && (
+              <div className="grid grid-cols-3 items-start gap-4">
+                <span className="font-semibold">Notes:</span>
+                <span className="col-span-2 text-sm text-muted-foreground">{payload.notes}</span>
+              </div>
+            )}
+            {allFeedingLogsForDay && allFeedingLogsForDay.length > 0 && (
+              <>
+                <div className="col-span-3"><hr className="my-2" /></div>
+                <h5 className="col-span-3 font-medium text-sm mb-1">Feedings on this day:</h5>
+                {allFeedingLogsForDay.map((feeding, index) => (
+                  <div key={feeding.id || index} className="grid grid-cols-3 items-center gap-4 text-xs col-span-3">
+                    <span className="col-span-2">{feeding.meal_type}</span>
+                    <span>{feeding.amount} {feeding.unit}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
 
 const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
   weightLogs = sampleWeightLogs,
@@ -346,7 +432,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
 
   const [chartMargins] = useState({ top: 5, right: 30, left: 0, bottom: 25 }); // Keep track of margins for positioning
 
-  const { chartData, feedingDataMap, dateRange, yAxisDomain } = useMemo(() => {
+  const { chartData, feedingDataMap, dateRange, yAxisDomain, dailyFeedingLogsMap } = useMemo(() => {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setDate(endDate.getDate() - timeRange);
@@ -359,11 +445,17 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     const currentFeedingDataMap = new Map<string, number>();
-    feedingLogs.forEach(log => {
+    const currentDailyFeedingLogsMap = new Map<string, ProcessedFeedingLog[]>();
+
+    feedingLogs.forEach((log, index) => {
       const logDate = new Date(log.date);
       if (logDate >= startDate && logDate <= endDate) {
         const dateKey = logDate.toISOString().split('T')[0];
         currentFeedingDataMap.set(dateKey, (currentFeedingDataMap.get(dateKey) || 0) + 1);
+        
+        const dayLogs = currentDailyFeedingLogsMap.get(dateKey) || [];
+        dayLogs.push({ ...log, id: `feeding-${dateKey}-${index}` });
+        currentDailyFeedingLogsMap.set(dateKey, dayLogs);
       }
     });
     
@@ -382,6 +474,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
     return {
       chartData: filteredWeightLogs,
       feedingDataMap: currentFeedingDataMap,
+      dailyFeedingLogsMap: currentDailyFeedingLogsMap,
       dateRange: { start: startDate.getTime(), end: endDate.getTime() },
       yAxisDomain: [Math.floor(minWeight) - 0.5, Math.ceil(maxWeight) + 0.5] // Dynamic Y-axis based on data + padding
     };
@@ -392,7 +485,17 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+<<<<<<< HEAD
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
+=======
+  const renderCustomActiveDot = (dotProps: CustomActiveDotProps) => {
+    if (!dotProps.payload) return null;
+    const dateKey = new Date(dotProps.payload.date).toISOString().split('T')[0];
+    const feedingsForDay = dailyFeedingLogsMap.get(dateKey);
+    return <CustomActiveDot {...dotProps} allFeedingLogsForDay={feedingsForDay} />;
+  };
+
+>>>>>>> 213b60b (feat(weight): add Popover tooltips to WeightTrendChart data points)
   return (
     <Card>
       <CardHeader>
@@ -484,7 +587,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
                 formatter={(value: number) => [`${value.toFixed(2)} kg`, 'Weight']}
               />
               <Legend wrapperStyle={{ fontSize: '14px'}} verticalAlign="bottom" />
-              <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={{ r: 6 }} name="Weight (kg)" />
+              <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot} name="Weight (kg)" />
             </LineChart>
           </ResponsiveContainer>
           {/* Absolutely positioned badges for feeding logs */}

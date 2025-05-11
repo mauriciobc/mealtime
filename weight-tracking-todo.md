@@ -86,8 +86,12 @@
 - [x] Integrate a chart library (e.g., Recharts) for timeline visualization.
 - [x] Add toggle buttons (30/60/90 days) using ShadCN `Button` (outline variant).
 - [x] Overlay feeding log density using `Badge`.
+<<<<<<< HEAD
 - [ ] Implement tooltips with `Popover` for detailed data.
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
+=======
+- [x] Implement tooltips with `Popover` for detailed data.
+>>>>>>> 213b60b (feat(weight): add Popover tooltips to WeightTrendChart data points)
 - [ ] Enable swipe gestures for mobile navigation.
 
 #### C. Quick Log Panel
