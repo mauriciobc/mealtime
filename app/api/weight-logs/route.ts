@@ -318,4 +318,44 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: \'Internal Server Error\' }, { status: 500 });
 >>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
   }
+}
+
+// GET handler for fetching weight logs for a cat
+export async function GET(request: NextRequest) {
+  try {
+    // Authentication
+    const headersList = headers();
+    const authUserId = headersList.get(\'X-User-ID\');
+    if (!authUserId) {
+      return NextResponse.json({ error: \'Not authenticated\' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const catId = searchParams.get(\'catId\');
+
+    if (!catId || typeof catId !== \'string\' || !z.string().uuid().safeParse(catId).success) {
+      return NextResponse.json({ error: \'Valid catId query parameter is required\' }, { status: 400 });
+    }
+
+    // Fetch weight logs for the cat, ordered by date descending
+    const weightLogs = await prisma.cat_weight_logs.findMany({
+      where: {
+        cat_id: catId,
+        // Optional: could also verify ownership if measured_by should be the authUserId,
+        // or if cats table has a direct link to user profiles.
+        // For now, just fetching by catId if user is authenticated.
+      },
+      orderBy: {
+        date: \'desc\',
+      },
+      // Optionally, include related data like \'measured_by\' profile if needed for display
+      // include: { measured_by_profile: { select: { username: true } } }
+    });
+
+    return NextResponse.json(weightLogs, { status: 200 });
+
+  } catch (error) {
+    console.error(\'[API GET /api/weight-logs] Error:\', error);
+    return NextResponse.json({ error: \'Internal Server Error\' }, { status: 500 });
+  }
 } 

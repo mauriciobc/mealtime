@@ -106,9 +106,9 @@
 - [x] On submit, call backend API and show result with Toast.
 
 #### D. Recent History List
-- [ ] Create `RecentHistoryList` component.
-- [ ] Render logs in a `Table` (desktop) or `Accordion` (mobile).
-- [ ] Add trend icons (ArrowUp/ArrowDown) for weight changes.
+- [x] Create `RecentHistoryList` component.
+- [x] Render logs in a `Table` (desktop) or `Accordion` (mobile).
+- [x] Add trend icons (ArrowUp/ArrowDown) for weight changes.
 - [ ] Implement swipe-to-edit/delete with `ButtonGroup`.
 - [ ] Add export option in a `DropdownMenu` (PDF via react-pdf).
 
