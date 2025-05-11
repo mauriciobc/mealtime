@@ -99,8 +99,8 @@
 >>>>>>> 65d397f (feat(weight): enable horizontal scroll for WeightTrendChart on mobile)
 
 #### C. Quick Log Panel
-- [ ] Add a floating action button (FAB) using ShadCN `Button` with `Tooltip`.
-- [ ] Open a modal (`Dialog`) with a form for logging weight.
+- [x] Add a floating action button (FAB) using ShadCN `Button` with `Tooltip`.
+- [x] Open a modal (`Dialog`) with a form for logging weight.
 - [ ] Use `Input` and `Label` for form fields, pre-fill date, and use form hooks.
 - [ ] Validate input and show errors with `FormMessage`.
 - [ ] On submit, call backend API and show result with Toast.

@@ -1,5 +1,6 @@
 "use client";
 
+<<<<<<< HEAD
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +18,20 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+=======
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose
+} from '@/components/ui/dialog';
+>>>>>>> a59197a (feat(weight): add QuickLogPanel FAB and dialog structure)
 import {
   Tooltip,
   TooltipContent,
@@ -24,6 +39,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
+<<<<<<< HEAD
 import {
   Form,
   FormControl,
@@ -191,6 +207,127 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
           </div>
         </DrawerContent>
       </Drawer>
+=======
+import { Label } from '@/components/ui/label';
+// Assuming a Plus icon, replace if you have a specific icon library
+// import { PlusIcon } from 'lucide-react'; 
+
+// Placeholder for form handling (e.g., react-hook-form) and Toast
+// import { useForm } from 'react-hook-form';
+// import { toast } from '@/components/ui/use-toast'; 
+
+interface QuickLogPanelProps {
+  // onLogSubmit: (data: { weight: number; date: string; notes?: string }) => Promise<void>;
+}
+
+const QuickLogPanel: React.FC<QuickLogPanelProps> = (/*{ onLogSubmit }*/) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [weight, setWeight] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]); // Pre-fill date
+  const [notes, setNotes] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Basic validation
+    if (!weight || isNaN(parseFloat(weight)) || !date) {
+      alert('Please enter a valid weight and date.'); // Replace with FormMessage & Toast
+      return;
+    }
+    console.log('Submitting:', { weight: parseFloat(weight), date, notes });
+    // await onLogSubmit({ weight: parseFloat(weight), date, notes });
+    // toast({ title: 'Weight logged successfully!' }); // Example toast
+    setIsOpen(false); // Close dialog on submit
+    // Reset form fields
+    setWeight('');
+    setDate(new Date().toISOString().split('T')[0]);
+    setNotes('');
+  };
+
+  return (
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild isOpen={isOpen} onOpenChange={setIsOpen}>
+              <Button 
+                className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg flex items-center justify-center text-2xl" 
+                variant="default" 
+                size="icon"
+                aria-label="Log new weight"
+              >
+                {/* <PlusIcon className="h-6 w-6" /> Replace with actual icon */}
+                +
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Log New Weight</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Log New Weight</DialogTitle>
+            <DialogDescription>
+              Enter the cat's current weight, date of measurement, and any relevant notes.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="weight" className="text-right">
+                  Weight (kg)
+                </Label>
+                <Input 
+                  id="weight" 
+                  type="number" 
+                  step="0.01" 
+                  value={weight} 
+                  onChange={(e) => setWeight(e.target.value)} 
+                  className="col-span-3" 
+                  required 
+                />
+                {/* Placeholder for FormMessage */}
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="date" className="text-right">
+                  Date
+                </Label>
+                <Input 
+                  id="date" 
+                  type="date" 
+                  value={date} 
+                  onChange={(e) => setDate(e.target.value)} 
+                  className="col-span-3" 
+                  required 
+                />
+                {/* Placeholder for FormMessage */}
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="notes" className="text-right">
+                  Notes
+                </Label>
+                <Input 
+                  id="notes" 
+                  value={notes} 
+                  onChange={(e) => setNotes(e.target.value)} 
+                  className="col-span-3" 
+                  placeholder="Optional notes..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">Cancel</Button>
+              </DialogClose>
+              <Button type="submit">Save Log</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+>>>>>>> a59197a (feat(weight): add QuickLogPanel FAB and dialog structure)
     </>
   );
 };
