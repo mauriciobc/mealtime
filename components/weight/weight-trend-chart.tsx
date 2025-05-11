@@ -1,5 +1,6 @@
 "use client"; // Required for Recharts and hooks like useState
 
+<<<<<<< HEAD
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -52,11 +53,39 @@ const sampleFeedingLogs = [
   { date: '2024-01-14', meal_type: 'Wet Food', amount: 1, unit: 'can' },
 ];
 
+=======
+import React, { useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Button } from '@/components/ui/button'; // Assuming @/components maps to components/ui or similar
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
+// Sample data - replace with actual data from props/API
+const sampleWeightLogs = [
+  { date: '2023-10-01', weight: 5.0 },
+  { date: '2023-10-08', weight: 5.1 },
+  { date: '2023-10-15', weight: 5.05 },
+  { date: '2023-10-22', weight: 5.15 },
+  { date: '2023-10-29', weight: 5.2 },
+  { date: '2023-11-05', weight: 5.25 },
+  { date: '2023-11-12', weight: 5.2 },
+  { date: '2023-11-19', weight: 5.3 },
+  { date: '2023-11-26', weight: 5.35 },
+  { date: '2023-12-03', weight: 5.3 },
+  { date: '2023-12-10', weight: 5.4 },
+  { date: '2023-12-17', weight: 5.38 },
+  { date: '2023-12-24', weight: 5.45 },
+  { date: '2023-12-31', weight: 5.5 },
+  { date: '2024-01-07', weight: 5.48 },
+  { date: '2024-01-14', weight: 5.52 },
+];
+
+>>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
 type TimeRange = 30 | 60 | 90;
 
 interface WeightLog {
   date: string; // Should be ISO date string for easier manipulation
   weight: number;
+<<<<<<< HEAD
   notes?: string; // Added notes
 }
 
@@ -279,16 +308,54 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
     );
   }
 
+=======
+}
+
+interface WeightTrendChartProps {
+  weightLogs?: WeightLog[]; // Optional: pass real data later
+}
+
+const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ weightLogs = sampleWeightLogs }) => {
+  const [timeRange, setTimeRange] = useState<TimeRange>(30);
+
+  const filterDataByTimeRange = (data: WeightLog[], days: number): WeightLog[] => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - days);
+    
+    return data.filter(log => {
+      const logDate = new Date(log.date);
+      return logDate >= startDate && logDate <= endDate;
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
+  const chartData = filterDataByTimeRange(weightLogs, timeRange);
+
+  // Format date for XAxis
+  const formatDateTick = (tickItem: string) => {
+    const date = new Date(tickItem);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+>>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-center">
           <div>
+<<<<<<< HEAD
             <CardTitle>Tendência de Peso</CardTitle>
             <CardDescription>Últimos {timeRange} dias</CardDescription>
           </div>
           <div className="flex space-x-2">
             {([30, 60, 90] as TimeRange[]).map((range) => (
+=======
+            <CardTitle>Weight Trend</CardTitle>
+            <CardDescription>Last {timeRange} days</CardDescription>
+          </div>
+          <div className="flex space-x-2">
+            {( [30, 60, 90] as TimeRange[]).map((range) => (
+>>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
               <Button
                 key={range}
                 variant={timeRange === range ? 'default' : 'outline'}
@@ -302,21 +369,34 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
         </div>
       </CardHeader>
       <CardContent>
+<<<<<<< HEAD
         <div style={{ position: 'relative', width: '100%', height: '300px', overflowX: 'auto' }}>
           <ResponsiveContainer width="100%" height="100%" minWidth={500}>
             <LineChart data={chartData} margin={chartMargins}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5} />
+=======
+        {chartData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}> {/* Adjusted left margin for YAxis */}
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5}/>
+>>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDateTick} 
                 tick={{ fontSize: 12 }}
                 stroke="hsl(var(--muted-foreground))"
+<<<<<<< HEAD
                 domain={dateRange ? [dateRange.start, dateRange.end] : undefined} // Apply date range to XAxis if needed, or handle via data
                 type="number" // If dateRange.start/end are timestamps
                 scale="time" // If XAxis should scale as time
               />
               <YAxis 
                 domain={yAxisDomain as [number,number]} 
+=======
+              />
+              <YAxis 
+                domain={['dataMin - 0.2', 'dataMax + 0.2']} 
+>>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
                 tick={{ fontSize: 12 }} 
                 stroke="hsl(var(--muted-foreground))"
                 tickFormatter={(value) => `${value.toFixed(1)}kg`} 
@@ -324,6 +404,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
               <RechartsTooltip 
                 contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
                 labelFormatter={formatDateTick}
+<<<<<<< HEAD
                 formatter={(value: number | string) => { // Allow string for initial safety, parse to number
                   const numValue = typeof value === 'string' ? parseFloat(value) : value;
                   return [`${numValue.toFixed(2)} kg`, 'Weight'];
@@ -333,6 +414,22 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
               <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot} name="Weight (kg)" />
             </LineChart>
           </ResponsiveContainer>
+=======
+                formatter={(value: number) => [`${value.toFixed(2)} kg`, 'Weight']}
+              />
+              <Legend wrapperStyle={{ fontSize: '14px'}}/>
+              <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={{ r: 6 }} name="Weight (kg)" />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-[300px]">
+            <p className="text-muted-foreground">No weight data available for the selected period.</p>
+          </div>
+        )}
+        {/* Placeholder for feeding log density badges */}
+        <div className="mt-4 text-xs text-muted-foreground">
+          Feeding log density overlay (coming soon)
+>>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
         </div>
       </CardContent>
     </Card>
