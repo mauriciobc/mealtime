@@ -138,7 +138,7 @@
 ### 7. Next Steps for Junior Dev
 - [ ] Work through the checklist section by section.
 - [ ] Ask for help if you have questions or need code examples.
-- [ ] Review your work with a senior dev or designer before merging. 
+- [ ] Review your work with a senior dev or designer before merging.
 
 ### 8. Conflicts & Goal Management (Section 2.F)
 - [ ] If a new weight log makes a future milestone's target weight invalid (e.g., current weight surpasses a future loss milestone), highlight.

@@ -1,22 +1,14 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
-  darkMode: ["class"],
+  darkMode: 'class',
   content: [
     './pages/**/*.{ts,tsx,js,jsx,mdx}',
     './components/**/*.{ts,tsx,js,jsx,mdx}',
     './app/**/*.{ts,tsx,js,jsx,mdx}',
     './src/**/*.{ts,tsx,js,jsx,mdx}',
   ],
-  prefix: "",
   theme: {
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
-    },
     extend: {
       fontFamily: {
         sans: ["var(--font-sans)", "sans-serif"],
