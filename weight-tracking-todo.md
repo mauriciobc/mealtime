@@ -85,7 +85,7 @@
 - [x] Create `WeightTrendChart` component.
 - [x] Integrate a chart library (e.g., Recharts) for timeline visualization.
 - [x] Add toggle buttons (30/60/90 days) using ShadCN `Button` (outline variant).
-- [ ] Overlay feeding log density using `Badge`.
+- [x] Overlay feeding log density using `Badge`.
 - [ ] Implement tooltips with `Popover` for detailed data.
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
 - [ ] Enable swipe gestures for mobile navigation.

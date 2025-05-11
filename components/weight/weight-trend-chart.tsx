@@ -1,6 +1,7 @@
 "use client"; // Required for Recharts and hooks like useState
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
@@ -55,9 +56,13 @@ const sampleFeedingLogs = [
 
 =======
 import React, { useState } from 'react';
+=======
+import React, { useState, useMemo } from 'react';
+>>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Button } from '@/components/ui/button'; // Assuming @/components maps to components/ui or similar
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge'; // Import Badge
 
 // Sample data - replace with actual data from props/API
 const sampleWeightLogs = [
@@ -79,7 +84,18 @@ const sampleWeightLogs = [
   { date: '2024-01-14', weight: 5.52 },
 ];
 
+<<<<<<< HEAD
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
+=======
+// Sample feeding logs
+const sampleFeedingLogs = [
+  { date: '2023-10-01', type: 'Meal' }, { date: '2023-10-08', type: 'Meal' }, { date: '2023-10-08', type: 'Snack' },
+  { date: '2023-10-15', type: 'Meal' }, { date: '2023-10-29', type: 'Meal' }, { date: '2023-11-12', type: 'Snack' },
+  { date: '2023-11-26', type: 'Meal' }, { date: '2023-12-10', type: 'Meal' }, { date: '2023-12-10', type: 'Meal' },
+  { date: '2023-12-24', type: 'Meal' }, { date: '2024-01-07', type: 'Snack' }, { date: '2024-01-14', type: 'Meal' },
+];
+
+>>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
 type TimeRange = 30 | 60 | 90;
 
 interface WeightLog {
@@ -311,27 +327,66 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
 =======
 }
 
-interface WeightTrendChartProps {
-  weightLogs?: WeightLog[]; // Optional: pass real data later
+interface FeedingLog {
+  date: string;
+  type: string;
+  // count?: number; // For density visualization if needed later
 }
 
-const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ weightLogs = sampleWeightLogs }) => {
+interface WeightTrendChartProps {
+  weightLogs?: WeightLog[]; // Optional: pass real data later
+  feedingLogs?: FeedingLog[];
+}
+
+const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
+  weightLogs = sampleWeightLogs,
+  feedingLogs = sampleFeedingLogs,
+}) => {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
 
-  const filterDataByTimeRange = (data: WeightLog[], days: number): WeightLog[] => {
+  const [chartMargins] = useState({ top: 5, right: 30, left: 0, bottom: 25 }); // Keep track of margins for positioning
+
+  const { chartData, feedingDataMap, dateRange, yAxisDomain } = useMemo(() => {
     const endDate = new Date();
     const startDate = new Date();
-    startDate.setDate(endDate.getDate() - days);
-    
-    return data.filter(log => {
+    startDate.setDate(endDate.getDate() - timeRange);
+
+    const filteredWeightLogs = weightLogs
+      .filter(log => {
+        const logDate = new Date(log.date);
+        return logDate >= startDate && logDate <= endDate;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const currentFeedingDataMap = new Map<string, number>();
+    feedingLogs.forEach(log => {
       const logDate = new Date(log.date);
-      return logDate >= startDate && logDate <= endDate;
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
+      if (logDate >= startDate && logDate <= endDate) {
+        const dateKey = logDate.toISOString().split('T')[0];
+        currentFeedingDataMap.set(dateKey, (currentFeedingDataMap.get(dateKey) || 0) + 1);
+      }
+    });
+    
+    let minWeight = Infinity;
+    let maxWeight = -Infinity;
+    if (filteredWeightLogs.length > 0) {
+      filteredWeightLogs.forEach(log => {
+        if (log.weight < minWeight) minWeight = log.weight;
+        if (log.weight > maxWeight) maxWeight = log.weight;
+      });
+    } else {
+      minWeight = 5; // Default if no data
+      maxWeight = 6;
+    }
 
-  const chartData = filterDataByTimeRange(weightLogs, timeRange);
+    return {
+      chartData: filteredWeightLogs,
+      feedingDataMap: currentFeedingDataMap,
+      dateRange: { start: startDate.getTime(), end: endDate.getTime() },
+      yAxisDomain: [Math.floor(minWeight) - 0.5, Math.ceil(maxWeight) + 0.5] // Dynamic Y-axis based on data + padding
+    };
+  }, [weightLogs, feedingLogs, timeRange]);
 
-  // Format date for XAxis
   const formatDateTick = (tickItem: string) => {
     const date = new Date(tickItem);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -370,6 +425,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ weightLogs = sample
       </CardHeader>
       <CardContent>
 <<<<<<< HEAD
+<<<<<<< HEAD
         <div style={{ position: 'relative', width: '100%', height: '300px', overflowX: 'auto' }}>
           <ResponsiveContainer width="100%" height="100%" minWidth={500}>
             <LineChart data={chartData} margin={chartMargins}>
@@ -380,6 +436,12 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ weightLogs = sample
             <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}> {/* Adjusted left margin for YAxis */}
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5}/>
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
+=======
+        <div style={{ position: 'relative', width: '100%', height: '300px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={chartMargins}>
+              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5} />
+>>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
               <XAxis 
                 dataKey="date" 
                 tickFormatter={formatDateTick} 
@@ -395,8 +457,12 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ weightLogs = sample
 =======
               />
               <YAxis 
+<<<<<<< HEAD
                 domain={['dataMin - 0.2', 'dataMax + 0.2']} 
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
+=======
+                domain={yAxisDomain as [number,number]} 
+>>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
                 tick={{ fontSize: 12 }} 
                 stroke="hsl(var(--muted-foreground))"
                 tickFormatter={(value) => `${value.toFixed(1)}kg`} 
@@ -417,20 +483,67 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ weightLogs = sample
 =======
                 formatter={(value: number) => [`${value.toFixed(2)} kg`, 'Weight']}
               />
-              <Legend wrapperStyle={{ fontSize: '14px'}}/>
+              <Legend wrapperStyle={{ fontSize: '14px'}} verticalAlign="bottom" />
               <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={{ r: 6 }} name="Weight (kg)" />
             </LineChart>
           </ResponsiveContainer>
-        ) : (
+          {/* Absolutely positioned badges for feeding logs */}
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+            {chartData.map((log, index) => {
+              const dateKey = new Date(log.date).toISOString().split('T')[0];
+              const feedingCount = feedingDataMap.get(dateKey);
+              if (!feedingCount) return null;
+
+              // Approximate positioning logic
+              const chartRenderWidth = typeof window !== 'undefined' ? document.querySelector('.recharts-responsive-container')?.firstChild?.clientWidth || 300 : 300; // Get actual render width
+              const chartRenderHeight = 300; // Keep consistent with ResponsiveContainer height
+              
+              const plotAreaWidth = chartRenderWidth - chartMargins.left - chartMargins.right;
+              const plotAreaHeight = chartRenderHeight - chartMargins.top - chartMargins.bottom;
+
+              const logTime = new Date(log.date).getTime();
+              const xRatio = (logTime - dateRange.start) / (dateRange.end - dateRange.start);
+              let xPos = chartMargins.left + xRatio * plotAreaWidth;
+              
+              const [yMin, yMax] = yAxisDomain;
+              const yRatio = (log.weight - yMin) / (yMax - yMin);
+              let yPos = chartMargins.top + (1 - yRatio) * plotAreaHeight; // Y is inverted
+
+              // Clamp positions to be within the plot area to avoid overflow with badges
+              xPos = Math.max(chartMargins.left, Math.min(xPos, chartRenderWidth - chartMargins.right - 10)); // -10 for badge width
+              yPos = Math.max(chartMargins.top, Math.min(yPos, chartRenderHeight - chartMargins.bottom - 10)); // -10 for badge height
+
+              return (
+                <Badge
+                  key={`feeding-badge-${index}`}
+                  variant="secondary" // Or other variants
+                  className="absolute text-xs px-1 py-0.5"
+                  style={{
+                    left: `${xPos}px`,
+                    top: `${yPos - 20}px`, // Position badge slightly above the point
+                    transform: 'translateX(-50%)', // Center badge
+                    pointerEvents: 'none' // So they don't interfere with chart interactions
+                  }}
+                >
+                  {feedingCount > 1 ? `${feedingCount}x Fed` : 'Fed'}
+                </Badge>
+              );
+            })}
+          </div>
+        </div>
+        {chartData.length === 0 && (
           <div className="flex items-center justify-center h-[300px]">
             <p className="text-muted-foreground">No weight data available for the selected period.</p>
           </div>
         )}
+<<<<<<< HEAD
         {/* Placeholder for feeding log density badges */}
         <div className="mt-4 text-xs text-muted-foreground">
           Feeding log density overlay (coming soon)
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
         </div>
+=======
+>>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
       </CardContent>
     </Card>
   );
