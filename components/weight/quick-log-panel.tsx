@@ -31,7 +31,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose
 } from '@/components/ui/dialog';
@@ -43,6 +42,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
+<<<<<<< HEAD
 <<<<<<< HEAD
 import {
   Form,
@@ -213,10 +213,11 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
       </Drawer>
 =======
 import { Label } from '@/components/ui/label';
+=======
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -228,56 +229,60 @@ import { toast } from '@/components/ui/use-toast';
 // import { PlusIcon } from 'lucide-react'; 
 
 const weightLogSchema = z.object({
+  catId: z.string().uuid({ message: 'Valid Cat ID is required.' }),
   weight: z.coerce.number().positive({ message: 'Weight must be a positive number.' }),
-  date: z.string().min(1, { message: 'Date is required.' }), // Further date validation can be added
+  date: z.string().min(1, { message: 'Date is required.' }),
   notes: z.string().optional(),
 });
 
-type WeightLogFormValues = z.infer<typeof weightLogSchema>;
+export type WeightLogFormValues = z.infer<typeof weightLogSchema>;
 
 interface QuickLogPanelProps {
-  // onLogSubmit: (data: WeightLogFormValues) => Promise<void>;
-  // This prop would be used to actually persist the data
-  // and potentially update global state / re-fetch data for charts
+  catId: string;
+  onLogSubmit: (data: WeightLogFormValues) => Promise<void>;
 }
 
-const QuickLogPanel: React.FC<QuickLogPanelProps> = (/*{ onLogSubmit }*/) => {
+const QuickLogPanel: React.FC<QuickLogPanelProps> = ({ catId, onLogSubmit }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const form = useForm<WeightLogFormValues>({
     resolver: zodResolver(weightLogSchema),
-    defaultValues: {
-      weight: undefined, // Or a sensible default like 0, but undefined encourages input
-      date: new Date().toISOString().split('T')[0],
-      notes: '',
-    },
   });
 
+  React.useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        catId: catId,
+        weight: undefined,
+        date: new Date().toISOString().split('T')[0],
+        notes: '',
+      });
+    }
+  }, [isOpen, catId, form]);
+
   async function onSubmit(data: WeightLogFormValues) {
-    console.log('Submitting with react-hook-form:', data);
-    // try {
-    //   await onLogSubmit(data);
-    //   toast({ title: 'Success!', description: 'Weight logged successfully.' });
-    //   form.reset(); // Reset form to default values
-    //   setIsOpen(false);
-    // } catch (error) {
-    //   toast({ 
-    //     title: 'Error',
-    //     description: 'Failed to log weight. Please try again.',
-    //     variant: 'destructive' 
-    //   });
-    // }
-    
-    // For now, simulate success and close
-    toast({ title: 'Logged (Simulated)', description: `Weight: ${data.weight}kg, Date: ${data.date}` });
-    form.reset();
-    setIsOpen(false);
+    try {
+      await onLogSubmit(data);
+      toast({ title: 'Success!', description: 'Weight logged successfully.' });
+      form.reset();
+      setIsOpen(false);
+    } catch (error) {
+      toast({ 
+        title: 'Error',
+        description: (error as Error)?.message || 'Failed to log weight. Please try again.',
+        variant: 'destructive' 
+      });
+    }
   }
 
-  // Function to reset form and set isOpen when dialog is closed manually
   const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      form.reset(); // Reset form when dialog is closed
+    if (open) {
+      form.reset({
+        catId: catId,
+        weight: undefined,
+        date: new Date().toISOString().split('T')[0],
+        notes: '',
+      });
     }
     setIsOpen(open);
   };
@@ -287,13 +292,12 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = (/*{ onLogSubmit }*/) => {
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            {/* The DialogTrigger should control the open state of the Dialog passed to form.handleSubmit */}
             <Button 
               className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg flex items-center justify-center text-2xl" 
               variant="default" 
               size="icon"
               aria-label="Log new weight"
-              onClick={() => handleOpenChange(true)} // Manually trigger open state
+              onClick={() => handleOpenChange(true)}
             >
               {/* <PlusIcon className="h-6 w-6" /> */}
               +
@@ -314,13 +318,13 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = (/*{ onLogSubmit }*/) => {
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-2">
               <FormField
                 control={form.control}
                 name="weight"
                 render={({ field }) => (
                   <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">Weight (kg)</FormLabel>
+                    <FormLabel className="text-right pt-1.5">Weight (kg)</FormLabel>
                     <FormControl className="col-span-3">
                       <Input type="number" step="0.01" placeholder="e.g., 5.2" {...field} />
                     </FormControl>
@@ -333,7 +337,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = (/*{ onLogSubmit }*/) => {
                 name="date"
                 render={({ field }) => (
                   <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">Date</FormLabel>
+                    <FormLabel className="text-right pt-1.5">Date</FormLabel>
                     <FormControl className="col-span-3">
                       <Input type="date" {...field} />
                     </FormControl>
@@ -346,7 +350,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = (/*{ onLogSubmit }*/) => {
                 name="notes"
                 render={({ field }) => (
                   <FormItem className="grid grid-cols-4 items-center gap-4">
-                    <FormLabel className="text-right">Notes</FormLabel>
+                    <FormLabel className="text-right pt-1.5">Notes</FormLabel>
                     <FormControl className="col-span-3">
                       <Input placeholder="Optional notes..." {...field} />
                     </FormControl>
@@ -354,9 +358,9 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = (/*{ onLogSubmit }*/) => {
                   </FormItem>
                 )}
               />
-              <DialogFooter>
+              <DialogFooter className="pt-4">
                 <DialogClose asChild>
-                  <Button type="button" variant="outline" onClick={() => form.reset()}>
+                  <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                     Cancel
                   </Button>
                 </DialogClose>

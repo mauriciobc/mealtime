@@ -103,7 +103,7 @@
 - [x] Open a modal (`Dialog`) with a form for logging weight.
 - [x] Use `Input` and `Label` for form fields, pre-fill date, and use form hooks.
 - [x] Validate input and show errors with `FormMessage`.
-- [ ] On submit, call backend API and show result with Toast.
+- [x] On submit, call backend API and show result with Toast.
 
 #### D. Recent History List
 - [ ] Create `RecentHistoryList` component.

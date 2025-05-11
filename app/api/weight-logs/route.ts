@@ -1,13 +1,21 @@
+<<<<<<< HEAD
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma'; // Adjusted path based on memory.md (lib/prisma.ts)
 import { headers } from 'next/headers';
 import { Prisma } from '@prisma/client';
+=======
+import { NextRequest, NextResponse } from \'next/server\';
+import { z } from \'zod\';
+import prisma from \'@/lib/prisma\'; // Adjusted path based on memory.md (lib/prisma.ts)
+import { headers } from \'next/headers\';
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
 
 // Zod schema for request body validation
 const CreateWeightLogBodySchema = z.object({
   catId: z.string().uuid(),
   weight: z.number().positive(),
+<<<<<<< HEAD
   date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, { message: "Date must be in YYYY-MM-DD format." }), // Expecting YYYY-MM-DD
   notes: z.string().optional(),
 });
@@ -22,6 +30,13 @@ const UpdateWeightLogBodySchema = CreateWeightLogBodySchema.extend({
 
 export type CreateWeightLogBody = z.infer<typeof CreateWeightLogBodySchema>;
 export type UpdateWeightLogBody = z.infer<typeof UpdateWeightLogBodySchema>;
+=======
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: \"Date must be in YYYY-MM-DD format.\" }), // Expecting YYYY-MM-DD
+  notes: z.string().optional(),
+});
+
+export type CreateWeightLogBody = z.infer<typeof CreateWeightLogBodySchema>;
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
 export type CreateWeightLogResponse = Awaited<ReturnType<typeof createWeightLogAndUpdateCat>>;
 
 async function createWeightLogAndUpdateCat(data: CreateWeightLogBody, measuredById: string) {
@@ -43,14 +58,22 @@ async function createWeightLogAndUpdateCat(data: CreateWeightLogBody, measuredBy
     // Step B: Find the most recent weight log for this cat (including the new one)
     const latestLogForCat = await tx.cat_weight_logs.findFirst({
       where: { cat_id: catId },
+<<<<<<< HEAD
       orderBy: { date: 'desc' },
+=======
+      orderBy: { date: \'desc\' },
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
     });
 
     // Step C: If the new log is the latest, update cats.weight
     if (latestLogForCat && latestLogForCat.id === newLog.id) {
       await tx.cats.update({
         where: { id: catId },
+<<<<<<< HEAD
         data: { weight: newLog.weight }, // Update with the new log's weight
+=======
+        data: { weight: newLog.weight }, // Update with the new log\'s weight
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
       });
     }
     
@@ -59,6 +82,7 @@ async function createWeightLogAndUpdateCat(data: CreateWeightLogBody, measuredBy
   });
 }
 
+<<<<<<< HEAD
 // Helper function to find the latest log and update cat's weight
 async function syncCatWeightWithLatestLog(tx: Prisma.TransactionClient, catId: string) {
   const latestLog = await tx.cat_weight_logs.findFirst({
@@ -74,14 +98,24 @@ async function syncCatWeightWithLatestLog(tx: Prisma.TransactionClient, catId: s
   });
 }
 
+=======
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
 // POST handler for creating a new weight log
 export async function POST(request: NextRequest) {
   try {
     // Authentication: Get user ID from header (as per memory.md)
+<<<<<<< HEAD
     const authUserId = request.headers.get('X-User-ID');
 
     if (!authUserId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+=======
+    const headersList = headers();
+    const authUserId = headersList.get(\'X-User-ID\');
+
+    if (!authUserId) {
+      return NextResponse.json({ error: \'Not authenticated\' }, { status: 401 });
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
     }
 
     // Parse and validate request body
@@ -89,7 +123,11 @@ export async function POST(request: NextRequest) {
     const validatedBody = CreateWeightLogBodySchema.safeParse(json);
 
     if (!validatedBody.success) {
+<<<<<<< HEAD
       return NextResponse.json({ error: 'Invalid request body', details: validatedBody.error.format() }, { status: 400 });
+=======
+      return NextResponse.json({ error: \'Invalid request body\', details: validatedBody.error.format() }, { status: 400 });
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
     }
 
     // Call business logic function
@@ -98,6 +136,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
+<<<<<<< HEAD
     console.error('[API POST /api/weight-logs] Error:', error);
     // Distinguish Prisma errors or other specific errors if needed
     if (error instanceof z.ZodError) { // Should be caught by safeParse, but as a fallback
@@ -268,5 +307,15 @@ export async function DELETE(request: NextRequest) {
     console.error('[API DELETE /api/weight-logs] Error:', error);
     // Add Prisma error handling if needed
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+=======
+    console.error(\'[API POST /api/weight-logs] Error:\', error);
+    // Distinguish Prisma errors or other specific errors if needed
+    if (error instanceof z.ZodError) { // Should be caught by safeParse, but as a fallback
+        return NextResponse.json({ error: \'Invalid request body\', details: error.format() }, { status: 400 });
+    }
+    // Check if it\'s a Prisma known error, e.g., foreign key constraint fail if catId doesn\'t exist
+    // if (error instanceof Prisma.PrismaClientKnownRequestError) { ... }
+    return NextResponse.json({ error: \'Internal Server Error\' }, { status: 500 });
+>>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
   }
 } 
