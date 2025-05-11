@@ -91,8 +91,12 @@
 >>>>>>> 05f022c (feat(weight): implement WeightTrendChart with Recharts and time toggles)
 =======
 - [x] Implement tooltips with `Popover` for detailed data.
+<<<<<<< HEAD
 >>>>>>> 213b60b (feat(weight): add Popover tooltips to WeightTrendChart data points)
 - [ ] Enable swipe gestures for mobile navigation.
+=======
+- [x] Enable swipe gestures for mobile navigation.
+>>>>>>> 65d397f (feat(weight): enable horizontal scroll for WeightTrendChart on mobile)
 
 #### C. Quick Log Panel
 - [ ] Add a floating action button (FAB) using ShadCN `Button` with `Tooltip`.

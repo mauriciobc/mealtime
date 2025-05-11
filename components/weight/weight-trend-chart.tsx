@@ -529,6 +529,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
       <CardContent>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         <div style={{ position: 'relative', width: '100%', height: '300px', overflowX: 'auto' }}>
           <ResponsiveContainer width="100%" height="100%" minWidth={500}>
             <LineChart data={chartData} margin={chartMargins}>
@@ -542,6 +543,10 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
 =======
         <div style={{ position: 'relative', width: '100%', height: '300px' }}>
           <ResponsiveContainer width="100%" height="100%">
+=======
+        <div style={{ position: 'relative', width: '100%', height: '300px', overflowX: 'auto' }}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={500}>
+>>>>>>> 65d397f (feat(weight): enable horizontal scroll for WeightTrendChart on mobile)
             <LineChart data={chartData} margin={chartMargins}>
               <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5} />
 >>>>>>> bbe560d (feat(weight): overlay feeding log density badges on WeightTrendChart)
@@ -591,7 +596,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
             </LineChart>
           </ResponsiveContainer>
           {/* Absolutely positioned badges for feeding logs */}
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
             {chartData.map((log, index) => {
               const dateKey = new Date(log.date).toISOString().split('T')[0];
               const feedingCount = feedingDataMap.get(dateKey);
@@ -635,7 +640,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({
           </div>
         </div>
         {chartData.length === 0 && (
-          <div className="flex items-center justify-center h-[300px]">
+          <div className="flex items-center justify-center h-[300px] bg-muted rounded-md">
             <p className="text-muted-foreground">No weight data available for the selected period.</p>
           </div>
         )}
