@@ -1,5 +1,6 @@
 "use client";
 
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,10 +29,30 @@ interface Milestone {
   target_weight: number;
   target_date: string; // ISO date string e.g., "2024-12-31"
   description?: string;
+=======
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'; // For milestone completion alert
+import { Button } from '@/components/ui/button';
+// import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'; // For feeding adjustments
+// import { CheckCircle2, AlertTriangle, Settings2, Edit } from 'lucide-react'; // Example icons
+
+// Based on weight-tracking-todo.md schema reference
+interface WeightGoalMilestone {
+  id: string;
+  goal_id: string;
+  weight: number; // Representing Decimal as number
+  date: string;   // Representing DateTime as string (ISO)
+  notes?: string | null;
+  // created_at will be managed by DB
+>>>>>>> e13f30a (feat(weight): add MilestoneProgress component and integrate into dashboard)
 }
 
 interface WeightGoalWithMilestones {
   id: string;
+<<<<<<< HEAD
   goal_name: string;
   start_date: string; // ISO date string
   target_date: string; // ISO date string for the overall goal
@@ -40,11 +61,23 @@ interface WeightGoalWithMilestones {
   unit: 'kg' | 'lbs'; // Unit for weight values
   milestones: Milestone[];
   description?: string;
+=======
+  cat_id: string;
+  target_weight: number;
+  target_date?: string | null;
+  start_weight?: number | null;
+  status: string; // e.g., "active", "completed", "paused"
+  notes?: string | null;
+  created_by: string;
+  milestones: WeightGoalMilestone[];
+  // created_at, updated_at managed by DB
+>>>>>>> e13f30a (feat(weight): add MilestoneProgress component and integrate into dashboard)
 }
 
 interface MilestoneProgressProps {
   activeGoal: WeightGoalWithMilestones | null;
   currentWeight: number | null;
+<<<<<<< HEAD
 }
 
 type MilestoneStatus = 'completed' | 'pending' | 'overdue' | 'upcoming';
@@ -170,12 +203,32 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
         <CardContent>
           <p className="text-sm text-muted-foreground">
             No active weight goal or current weight data available.
+=======
+  // onOpenFeedingAdjustmentSheet?: (milestoneId: string) => void;
+}
+
+const MilestoneProgress: React.FC<MilestoneProgressProps> = ({
+  activeGoal,
+  currentWeight,
+  // onOpenFeedingAdjustmentSheet
+}) => {
+  if (!activeGoal || currentWeight === null) {
+    return (
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Milestone Progress</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            { !activeGoal ? 'No active weight goal set.' : 'Current weight not available.' }
+>>>>>>> e13f30a (feat(weight): add MilestoneProgress component and integrate into dashboard)
           </p>
         </CardContent>
       </Card>
     );
   }
 
+<<<<<<< HEAD
   let progressValue = 0;
   if (activeGoal.target_weight !== activeGoal.initial_weight) {
     if (isWeightLossGoal) {
@@ -332,5 +385,88 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
     </>
   );
 }
+=======
+  const { start_weight, target_weight, milestones } = activeGoal;
+  const overallProgressValue = 
+    start_weight && target_weight && currentWeight
+      ? ((currentWeight - start_weight) / (target_weight - start_weight)) * 100
+      : 0;
+
+  const getMilestoneStatus = (milestone: WeightGoalMilestone): 'completed' | 'pending' | 'overdue' => {
+    if (currentWeight >= milestone.weight) return 'completed';
+    // Basic overdue check, could be more sophisticated based on milestone.date vs today
+    if (new Date(milestone.date) < new Date() && currentWeight < milestone.weight) return 'overdue';
+    return 'pending';
+  };
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle>Milestone Progress</CardTitle>
+        <CardDescription>
+          Tracking progress towards target weight of {target_weight.toFixed(1)} kg.
+          {start_weight && ` (Started at ${start_weight.toFixed(1)} kg)`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div>
+          <div className="flex justify-between mb-1 text-sm">
+            <span>Overall Progress</span>
+            <span className="font-semibold">{Math.max(0, Math.min(100, overallProgressValue)).toFixed(0)}%</span>
+          </div>
+          <Progress value={Math.max(0, Math.min(100, overallProgressValue))} className="w-full" />
+          {/* Placeholder for circular progress - currently using linear Progress */}
+        </div>
+
+        {milestones.length > 0 && (
+          <div>
+            <h4 className="text-md font-semibold mb-3">Milestones</h4>
+            <div className="space-y-4">
+              {milestones.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((milestone) => {
+                const status = getMilestoneStatus(milestone);
+                const isCompleted = status === 'completed';
+                // Placeholder: Check if this is the most recently completed milestone for an alert
+                // const isNewlyCompleted = isCompleted && recentlyCompletedMilestoneId === milestone.id;
+
+                return (
+                  <div key={milestone.id} className="flex items-center justify-between p-3 rounded-md border
+                    ${isCompleted ? 'bg-green-50 border-green-200' : status === 'overdue' ? 'bg-red-50 border-red-200' : 'bg-secondary/30'}\">
+                    <div>
+                      <p className="font-medium flex items-center">
+                        Target: {milestone.weight.toFixed(1)} kg by {new Date(milestone.date).toLocaleDateString()}
+                        {/* Placeholder for conflict badge */}
+                        {/* <Badge variant="destructive" className="ml-2">Conflict</Badge> */}
+                      </p>
+                      {milestone.notes && <p className="text-xs text-muted-foreground mt-0.5">{milestone.notes}</p>}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={isCompleted ? 'success' : status === 'overdue' ? 'destructive' : 'outline'}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </Badge>
+                      {/* Placeholder: Button to link to feeding adjustments (Sheet) */}
+                      {/* <Button variant="ghost" size="sm" onClick={() => onOpenFeedingAdjustmentSheet?.(milestone.id)}>Adjust Feed</Button> */}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Placeholder: Animated Alert on milestone completion */}
+            {/* {showMilestoneCompletionAlert && (
+              <Alert className="mt-4 bg-green-100 border-green-500 text-green-700">
+                <CheckCircle2 className="h-4 w-4" />
+                <AlertTitle>Milestone Reached!</AlertTitle>
+                <AlertDescription>Great job! You've reached a weight milestone.</AlertDescription>
+              </Alert>
+            )} */}
+          </div>
+        )}
+        {milestones.length === 0 && (
+          <p className="text-sm text-muted-foreground">No specific milestones set for this goal.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+>>>>>>> e13f30a (feat(weight): add MilestoneProgress component and integrate into dashboard)
 
 export default MilestoneProgress; 

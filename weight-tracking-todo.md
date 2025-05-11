@@ -114,10 +114,17 @@
 
 #### E. Milestone Progress Section
 - [x] Create `MilestoneProgress` component.
+<<<<<<< HEAD
 - [x] Show milestones as a progress circle.
 - [x] Show animated `Alert` on milestone completion.
 - [x] Link milestones to feeding adjustments (open in `Sheet` modal).
 - [x] Show conflicts with a destructive `Badge`.
+=======
+- [ ] Show milestones as a progress circle.
+- [ ] Show animated `Alert` on milestone completion.
+- [ ] Link milestones to feeding adjustments (open in `Sheet` modal).
+- [ ] Show conflicts with a destructive `Badge`.
+>>>>>>> e13f30a (feat(weight): add MilestoneProgress component and integrate into dashboard)
 
 #### F. Cat Avatar Stack
 - [x] Implement `CatAvatarStack` component at the top of the dashboard for cat selection:
