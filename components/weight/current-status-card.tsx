@@ -1,4 +1,5 @@
 import React from 'react';
+<<<<<<< HEAD
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -13,10 +14,20 @@ interface CurrentStatusCardProps {
   previousWeight?: number | null; // Previous weight measurement
   previousWeightDate?: string | null; // Date of the previous weight log (ISO string)
   unit?: 'kg' | 'lbs'; // To display with velocity
+=======
+import { Card, CardContent, CardHeader, CardTitle } from 'components/ui/card';
+import { Progress } from 'components/ui/progress';
+
+interface CurrentStatusCardProps {
+  currentWeight: number;
+  targetWeight: number;
+  healthTip: string;
+>>>>>>> 1b1a616 (feat(weight): implement CurrentStatusCard and integrate into weight page)
 }
 
 const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
   currentWeight,
+<<<<<<< HEAD
   currentWeightDate,
   targetWeight,
   healthTip,
@@ -79,10 +90,17 @@ const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
          VelocityIcon = Minus;
     }
   }
+=======
+  targetWeight,
+  healthTip,
+}) => {
+  const progressValue = targetWeight > 0 ? (currentWeight / targetWeight) * 100 : 0;
+>>>>>>> 1b1a616 (feat(weight): implement CurrentStatusCard and integrate into weight page)
 
   return (
     <Card>
       <CardHeader>
+<<<<<<< HEAD
         <CardTitle>Estado Atual do Peso</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -118,6 +136,31 @@ const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
             {healthTip}
           </AlertDescription>
         </Alert>
+=======
+        <CardTitle>Current Weight Status</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+          <p className="text-sm font-medium">
+            Current Weight: <span className="font-bold">{currentWeight} kg</span>
+          </p>
+          <p className="text-sm font-medium">
+            Target Weight: <span className="font-bold">{targetWeight} kg</span>
+          </p>
+        </div>
+        <Progress value={progressValue} className="w-full" />
+        
+        {/* Optional Circular Progress Indicator - Placeholder */}
+        {/* <div className="flex items-center justify-center">
+          <p className="text-lg font-semibold">{Math.round(progressValue)}%</p>
+        </div> */}
+
+        <div className="p-3 bg-blue-100 border-l-4 border-blue-500 text-blue-700 rounded-md">
+          {/* Placeholder for vet icon */}
+          <span className="mr-2">🩺</span> 
+          <p className="text-sm">{healthTip}</p>
+        </div>
+>>>>>>> 1b1a616 (feat(weight): implement CurrentStatusCard and integrate into weight page)
       </CardContent>
     </Card>
   );
