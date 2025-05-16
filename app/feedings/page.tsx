@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 // Helper functions for status display
 const getStatusIcon = (status: string | undefined) => {
@@ -55,12 +56,13 @@ const getStatusIcon = (status: string | undefined) => {
   }
 };
 
-const getStatusVariant = (status: string | undefined): "default" | "secondary" | "warning" | "destructive" | "outline" => {
+// Only allowed variants: "default" | "secondary" | "destructive" | "outline"
+const getStatusVariant = (status: string | undefined): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
     case "Normal":
       return "default";
     case "Comeu Pouco":
-      return "warning";
+      return "secondary"; // changed from 'warning' to 'secondary'
     case "Recusou":
     case "Vomitou":
       return "destructive";
@@ -93,6 +95,9 @@ export default function FeedingsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [logToDelete, setLogToDelete] = useState<FeedingLog | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   // Memoized filtering and sorting
   const filteredAndSortedLogs = useMemo(() => {
@@ -220,7 +225,7 @@ export default function FeedingsPage() {
         <div className="flex flex-col min-h-screen bg-background">
           <div className="p-4 pb-24">
             <PageHeader title="Histórico de Alimentações" description="Erro ao carregar dados" />
-            <EmptyState title="Erro ao Carregar" description={error || "Não foi possível buscar os dados."} icon={AlertTriangle} />
+            <EmptyState title="Erro ao Carregar" description={error || "Não foi possível buscar os dados."} IconComponent={AlertTriangle} />
           </div>
           <BottomNav />
         </div>
@@ -249,11 +254,14 @@ export default function FeedingsPage() {
               description="Veja todos os registros"
             />
             <EmptyState
-              icon={Users}
+              IconComponent={Users}
               title="Sem Residência Associada"
               description="Você precisa criar ou juntar-se a uma residência para ver e registrar alimentações."
-              actionLabel="Ir para Configurações"
-              actionHref="/settings"
+              actionButton={
+                <Button asChild>
+                  <Link href="/settings">Ir para Configurações</Link>
+                </Button>
+              }
               className="mt-6"
             />
           </div>
@@ -301,13 +309,18 @@ export default function FeedingsPage() {
           {/* Timeline or Empty State */}
           {filteredAndSortedLogs.length === 0 && !isLoading ? (
             <EmptyState
-              icon={Utensils}
+              IconComponent={Utensils}
               title="Nenhum registro encontrado"
               description={searchTerm
                 ? "Nenhum registro corresponde à sua busca. Tente outros termos."
                 : "Ainda não há registros de alimentação. Que tal registrar o primeiro?"}
-              actionLabel={!searchTerm ? "Registrar Alimentação" : undefined}
-              actionHref={!searchTerm ? "/feedings/new" : undefined}
+              actionButton={
+                !searchTerm ? (
+                  <Button asChild>
+                    <Link href="/feedings/new">Registrar Alimentação</Link>
+                  </Button>
+                ) : undefined
+              }
               className="mt-12"
             />
           ) : (
@@ -316,7 +329,7 @@ export default function FeedingsPage() {
                 <React.Fragment key={date}>
                   {/* Date Header */}
                   <h2 className="text-lg font-semibold my-4 sticky top-[68px] bg-background py-2 z-10"> {/* Adjusted sticky top */}
-                    {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                    {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy")}
                   </h2>
                   {/* Logs for the Date */}
                   {logsOnDate.map((log) => {
@@ -333,7 +346,7 @@ export default function FeedingsPage() {
                         <div className="absolute left-0 top-0 flex-shrink-0"> {/* Position Avatar absolutely to the left */}
                           <Link href={`/cats/${cat?.id}`} aria-label={`Ver perfil de ${cat?.name}`}>
                             <Avatar className="h-10 w-10 border shadow-md"> {/* Match icon size from original TimelineItem */}
-                              <AvatarImage src={cat?.photoUrl || undefined} alt={cat?.name} />
+                              <AvatarImage src={cat?.photo_url || undefined} alt={cat?.name} />
                               <AvatarFallback>{cat?.name?.substring(0, 1).toUpperCase() || "?"}</AvatarFallback>
                             </Avatar>
                           </Link>
@@ -342,7 +355,7 @@ export default function FeedingsPage() {
                         <div className="flex items-start gap-4 w-full">
                            {/* Time Column */}
                           <div className="text-right text-sm text-muted-foreground pt-1 w-16 flex-shrink-0 tabular-nums -ml-[58px]"> {/* Use negative margin to pull time back into the padding space */}
-                            {format(new Date(log.timestamp), "HH:mm", { locale: ptBR })}
+                            {format(new Date(log.timestamp), "HH:mm")}
                           </div>
 
                           {/* Main Content Card (moves to the right of the Avatar/dot) */}
@@ -394,7 +407,7 @@ export default function FeedingsPage() {
                                         <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
                                         <AlertDialogDescription>
                                           Tem certeza que deseja excluir este registro de alimentação?
-                                          {log && ` (Gato: ${cats.find(c => String(c.id) === String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })})`}
+                                          {log && ` (Gato: ${cats.find(c => String(c.id) === String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm')})`}
                                           <br />
                                           Esta ação não pode ser desfeita.
                                         </AlertDialogDescription>

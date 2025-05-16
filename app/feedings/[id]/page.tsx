@@ -17,6 +17,7 @@ import BottomNav from "@/components/bottom-nav"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { FeedingLog } from "@/lib/types"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 interface FeedingLogDetails extends FeedingLog {
   // Assuming API returns cat and user nested
@@ -32,6 +33,8 @@ export default function FeedingDetailsPage({
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   const [isLoadingPage, setIsLoadingPage] = useState(true)
   const [feedingLog, setFeedingLog] = useState<FeedingLogDetails | null>(null)
@@ -75,11 +78,14 @@ export default function FeedingDetailsPage({
             <div className="p-4 pb-24">
                <PageHeader title="Detalhes da Alimentação" />
                <EmptyState
-                 icon={Users}
+                 IconComponent={Users}
                  title="Sem Residência Associada"
                  description="Associe-se a uma residência para ver detalhes."
-                 actionLabel="Ir para Configurações"
-                 actionHref="/settings"
+                 actionButton={
+                   <Button asChild variant="default" className="mt-4">
+                     <a href="/settings">Ir para Configurações</a>
+                   </Button>
+                 }
                  className="mt-8"
                />
             </div>
@@ -184,23 +190,27 @@ export default function FeedingDetailsPage({
   } else if (error) {
     content = (
       <EmptyState
-        icon={AlertTriangle}
+        IconComponent={AlertTriangle}
         title="Erro ao Carregar"
         description={error}
-        actionLabel="Voltar para Histórico"
-        actionHref="/feedings"
-        variant="default"
+        actionButton={
+          <Button asChild variant="default">
+            <a href="/feedings">Voltar para Histórico</a>
+          </Button>
+        }
       />
     )
   } else if (!feedingLog) {
     content = (
       <EmptyState
-        icon={Ban}
+        IconComponent={Ban}
         title="Registro Não Encontrado"
         description="O registro de alimentação não foi encontrado ou você não tem permissão para vê-lo."
-        actionLabel="Voltar para Histórico"
-        actionHref="/feedings"
-        variant="default"
+        actionButton={
+          <Button asChild variant="default">
+            <a href="/feedings">Voltar para Histórico</a>
+          </Button>
+        }
       />
     )
   } else {
@@ -225,11 +235,11 @@ export default function FeedingDetailsPage({
             </CardTitle>
             <div className="flex items-center gap-3 pt-2">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={feedingLog.cat?.photoUrl || undefined} alt={feedingLog.cat?.name || "Gato"} />
+                <AvatarImage src={feedingLog.cat?.photo_url || undefined} alt={feedingLog.cat?.name || "Gato"} />
                 <AvatarFallback>{feedingLog.cat?.name?.charAt(0) || "?"}</AvatarFallback>
               </Avatar>
               <p className="text-sm text-muted-foreground">
-                Alimentado em: {format(new Date(feedingLog.timestamp), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR })}
+                Alimentado em: {format(new Date(feedingLog.timestamp), "dd 'de' MMMM 'de' yyyy 'às' HH:mm")}
               </p>
             </div>
           </CardHeader>

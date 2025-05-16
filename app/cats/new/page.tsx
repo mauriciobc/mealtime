@@ -215,11 +215,10 @@ export default function NewCatPage() {
           <PageHeader title="Adicionar Novo Gato" />
           <div className="mt-6">
             <EmptyState 
-              icon={Users}
+              IconComponent={Users}
               title="Nenhum domicílio encontrado"
               description="Você precisa pertencer a um domicílio para adicionar um gato. Crie ou junte-se a um domicílio nas configurações."
-              actionLabel="Ir para Configurações"
-              actionHref="/settings"
+              actionButton={<Button asChild><a href="/settings">Ir para Configurações</a></Button>}
              />
           </div>
         </div>

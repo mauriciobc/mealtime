@@ -5,7 +5,7 @@ class ErrorMonitor extends Singleton<ErrorMonitor> {
   private errors: Error[];
   private readonly MAX_ERROR_HISTORY = 100;
 
-  protected constructor() {
+  public constructor() {
     super();
     this.errors = [];
   }

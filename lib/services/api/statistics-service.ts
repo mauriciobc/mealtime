@@ -31,14 +31,35 @@ export async function getFeedingStatistics(
     console.log("Período de busca:", { startDate, endDate });
 
     // Buscar logs de alimentação
-    const logs = await FeedingRepository.getByHousehold(Number(householdId));
-    console.log("Logs encontrados:", logs.length);
+    const rawLogs = await FeedingRepository.getByHousehold(String(householdId));
+    console.log("Logs encontrados:", rawLogs.length);
+
+    // Map raw logs to FeedingLog type
+    const logs: FeedingLog[] = rawLogs.map((log: any) => ({
+      id: log.id,
+      catId: log.cat_id,
+      userId: log.fed_by || log.feeder?.id || log.user_id,
+      timestamp: log.fed_at || log.timestamp,
+      amount: log.amount ?? log.portion_size ?? null,
+      portionSize: log.amount ?? log.portion_size ?? null,
+      notes: log.notes ?? null,
+      createdAt: log.created_at ?? null,
+      status: log.status ?? undefined,
+      mealType: log.meal_type ?? undefined,
+      householdId: log.household_id ?? undefined,
+      cat: log.cat,
+      user: log.feeder ? {
+        id: log.feeder.id,
+        name: log.feeder.full_name ?? log.feeder.username ?? null,
+        avatar: log.feeder.avatar_url ?? null,
+      } : undefined,
+    }));
     
     // Filtrar logs pelo período e gato (se especificado)
     const filteredLogs = logs.filter(log => {
       const logDate = new Date(log.timestamp);
       const dateInRange = logDate >= startDate && logDate <= endDate;
-      const catMatch = catId === "all" || log.catId.toString() === catId;
+      const catMatch = catId === "all" || log.catId?.toString() === catId;
       console.log("Filtrando log:", { 
         logDate, 
         dateInRange, 

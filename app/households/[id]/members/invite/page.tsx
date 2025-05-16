@@ -229,7 +229,7 @@ export default function HouseholdInvitePage({ params }: PageProps) {
        const updatedHousehold = { ...household, inviteCode: newCode };
        setHousehold(updatedHousehold);
 
-       householdDispatch({ type: "UPDATE_HOUSEHOLD", payload: updatedHousehold });
+       householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
 
        toast.success("Novo código de convite gerado!");
 

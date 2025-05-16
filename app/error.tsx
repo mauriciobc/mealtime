@@ -11,7 +11,7 @@ export default function ErrorPage({ error, resetErrorBoundary }: FallbackProps) 
     // Log the error to an error reporting service
     console.error('[ErrorPage]', {
       message: error.message,
-      digest: error.digest,
+      digest: 'digest' in error ? (error as any).digest : undefined,
       stack: error.stack,
       timestamp: new Date().toISOString()
     })

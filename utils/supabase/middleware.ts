@@ -129,12 +129,22 @@ export async function updateSession(request: NextRequest) {
 
     // Handle auth errors
     if (userError) {
-      logger.error('[updateSession] Supabase user error:', { 
-        message: userError.message, 
-        code: userError.status, 
-        name: userError.name, 
-        path: currentPath 
-      });
+      // Only log as error for protected routes; otherwise, log as info to avoid noisy logs for expected cases (e.g., /auth/auth-code-error)
+      if (isProtectedRoute(currentPath)) {
+        logger.error('[updateSession] Supabase user error:', { 
+          message: userError.message, 
+          code: userError.status, 
+          name: userError.name, 
+          path: currentPath 
+        });
+      } else {
+        logger.info('[updateSession] Supabase user error (non-protected route, likely expected):', { 
+          message: userError.message, 
+          code: userError.status, 
+          name: userError.name, 
+          path: currentPath 
+        });
+      }
 
       // If there's an error checking the user, treat as unauthenticated for protected routes
       if (isProtectedRoute(currentPath)) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { format, formatDistanceToNow } from "date-fns"
+import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { getCats } from "@/lib/data"
+import { useUserContext } from "@/lib/context/UserContext"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 // Definindo a interface para o registro de alimentação
 interface FeedingLogType {
@@ -59,6 +61,9 @@ export default function HistoryPage() {
   const [selectedCat, setSelectedCat] = useState<string>("all")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [cats, setCats] = useState<CatType[]>([])
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
   
   useEffect(() => {
     async function loadData() {

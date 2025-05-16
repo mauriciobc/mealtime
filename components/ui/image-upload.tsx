@@ -67,46 +67,55 @@ export function ImageUpload({
         className="hidden"
       />
 
-      {value ? (
-        <div className="relative">
-          <Image
-            src={value}
-            alt="Uploaded image"
-            width={type === 'user' ? 128 : 256}
-            height={type === 'user' ? 128 : 256}
-            className={cn(
-              'rounded-lg object-cover',
-              type === 'user' ? 'aspect-square' : 'aspect-auto'
-            )}
-          />
+      <div
+        className={cn(
+          'relative',
+          type === 'user' ? 'w-32 aspect-square' : 'w-64 aspect-square',
+          'flex items-center justify-center'
+        )}
+      >
+        {value ? (
+          <>
+            <Image
+              src={value}
+              alt="Uploaded image"
+              fill
+              className={cn(
+                'rounded-lg object-cover',
+                'w-full h-full'
+              )}
+              style={{ objectFit: 'cover' }}
+            />
+            <Button
+              variant="destructive"
+              size="icon"
+              type="button"
+              className="absolute -top-2 -right-2"
+              onClick={handleRemove}
+              disabled={isUploading}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </>
+        ) : (
           <Button
-            variant="destructive"
-            size="icon"
+            variant="outline"
             type="button"
-            className="absolute -top-2 -right-2"
-            onClick={handleRemove}
+            onClick={handleClick}
             disabled={isUploading}
+            className={cn(
+              'flex flex-col items-center justify-center gap-2 w-full h-full',
+              'absolute inset-0'
+            )}
+            style={{ borderRadius: '0.5rem' }}
           >
-            <X className="h-4 w-4" />
+            <ImagePlus className="h-8 w-8 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {isUploading ? 'Uploading...' : `Upload ${type === 'user' ? 'avatar' : 'photo'}`}
+            </span>
           </Button>
-        </div>
-      ) : (
-        <Button
-          variant="outline"
-          type="button"
-          onClick={handleClick}
-          disabled={isUploading}
-          className={cn(
-            'flex flex-col items-center justify-center gap-2 p-8',
-            type === 'user' ? 'aspect-square w-32' : 'w-64'
-          )}
-        >
-          <ImagePlus className="h-8 w-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
-            {isUploading ? 'Uploading...' : `Upload ${type === 'user' ? 'avatar' : 'photo'}`}
-          </span>
-        </Button>
-      )}
+        )}
+      </div>
     </div>
   );
 } 

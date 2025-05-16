@@ -10,8 +10,7 @@ export async function GET(
   { params }: { params: { catId: string } }
 ) {
   // const session = await getServerSession(authOptions);
-  const cookieStore = cookies(); // Get cookies
-  const supabase = createClient(cookieStore); // Create Supabase client
+  const supabase = await createClient(); // Create Supabase client
   const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(); // Get Supabase user
 
   // if (!session?.user?.id) {
@@ -19,30 +18,30 @@ export async function GET(
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
 
-  const catId = parseInt(params.catId);
+  const catId = params.catId;
 
-  if (isNaN(catId)) {
+  if (!catId) {
     return NextResponse.json({ error: 'ID do gato inválido' }, { status: 400 });
   }
 
   try {
-    // Fetch the user's household ID from Prisma using Supabase ID
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
-      select: { householdId: true }
+    // Find the user's household via household_members
+    const householdMember = await prisma.household_members.findFirst({
+      where: { user_id: supabaseUser.id },
+      select: { household_id: true }
     });
 
-    if (!prismaUser?.householdId) {
+    if (!householdMember?.household_id) {
       return NextResponse.json({ error: 'Usuário não associado a uma residência' }, { status: 403 });
     }
 
-    // Verify the cat belongs to the user's household *before* querying logs
-    const cat = await prisma.cat.findUnique({
+    // Verify the cat belongs to the user's household
+    const cat = await prisma.cats.findUnique({
       where: {
         id: catId,
-        householdId: prismaUser.householdId
+        household_id: householdMember.household_id
       },
-      select: { id: true } // Only need ID for verification
+      select: { id: true }
     });
 
     if (!cat) {
@@ -50,13 +49,13 @@ export async function GET(
       return NextResponse.json({ error: 'Gato não encontrado ou acesso não autorizado' }, { status: 404 });
     }
 
-    // Now that access is confirmed, find the last feeding log for this specific cat
-    const lastFeeding = await prisma.feedingLog.findFirst({
+    // Find the last feeding log for this cat
+    const lastFeeding = await prisma.feeding_logs.findFirst({
       where: {
-        catId: catId, // Already verified this cat belongs to the user's household
+        cat_id: catId,
       },
       orderBy: {
-        timestamp: 'desc',
+        fed_at: 'desc',
       },
     });
 

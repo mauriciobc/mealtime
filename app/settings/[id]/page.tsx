@@ -2,7 +2,7 @@
 
 // import { useState, useEffect, use } from "react"
 // import { useRouter, notFound } from "next/navigation"
-import { AnimatedButton } from "@/components/ui/animated-button"
+// import { AnimatedButton } from "@/components/ui/animated-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 // import { Switch } from "@/components/ui/switch"
@@ -54,7 +54,7 @@ interface Cat extends BaseCat {
 export default async function CatSettingsPage({ params }: { params: { id: string } }) {
   // const cookieStore = cookies()
   // const supabase = createClient(cookieStore)
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !supabaseUser) {
@@ -69,13 +69,17 @@ export default async function CatSettingsPage({ params }: { params: { id: string
     notFound()
   }
 
-  const prismaUser = await prisma.user.findUnique({
-    where: { auth_id: supabaseUser.id },
-    select: { householdId: true }
+  // Fix: Use the correct Prisma model (profiles) and field (id)
+  const prismaProfile = await prisma.profiles.findUnique({
+    where: { id: supabaseUser.id },
+    select: { household_members: { select: { household_id: true } } }
   })
 
-  if (!prismaUser || !prismaUser.householdId || prismaUser.householdId !== cat.householdId) {
-    console.error(`CatSettingsPage: User ${supabaseUser.id} (household ${prismaUser?.householdId}) unauthorized attempt to access cat ${cat.id} (household ${cat.householdId}).`)
+  // Extract householdId from the first household_members entry (if any)
+  const householdId = prismaProfile?.household_members?.[0]?.household_id
+
+  if (!prismaProfile || !householdId || householdId !== cat.householdId) {
+    console.error(`CatSettingsPage: User ${supabaseUser.id} (household ${householdId}) unauthorized attempt to access cat ${cat.id} (household ${cat.householdId}).`)
     notFound()
   }
 

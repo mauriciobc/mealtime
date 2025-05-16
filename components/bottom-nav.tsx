@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Home, Calendar, List, Settings, Users, BarChart2 } from "lucide-react"
+import { Home, Calendar, List, Settings, Users, BarChart2, Scale } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
@@ -29,8 +29,8 @@ export default function BottomNav({ currentPath }: BottomNavProps) {
     { path: "/cats", icon: <Cat className="h-6 w-6" />, label: "Gatos" },
     { path: "/households", icon: <Users className="h-6 w-6" />, label: "Domicílios" },
     { path: "/schedules", icon: <Calendar className="h-6 w-6" />, label: "Agenda" },
+    { path: "/weight", icon: <Scale className="h-6 w-6" />, label: "Peso" },
     { path: "/statistics", icon: <BarChart2 className="h-6 w-6" />, label: "Estatísticas" },
-    { path: "/settings", icon: <Settings className="h-6 w-6" />, label: "Config." },
   ]
 
   if (!shouldAnimate) {

@@ -32,11 +32,12 @@ import { getAgeString } from "@/lib/utils/dateUtils"
 import { deleteCat as deleteCatService } from "@/lib/services/apiService"
 import { toast } from "sonner"
 import { notFound } from "next/navigation"
-import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { FeedingForm } from "@/app/components/feeding-form"
 import { CatType } from "@/lib/types"
 import { Loading } from "@/components/ui/loading"
+import { useUserContext } from "@/lib/context/UserContext"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 // Interface para agendamentos (schedules)
 interface Schedule {
@@ -65,6 +66,9 @@ export default function CatDetailsClient({ id }: { id: string }) {
   const [isClient, setIsClient] = useState(false)
   const [isProcessingDelete, setIsProcessingDelete] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
   
   useEffect(() => {
     setIsClient(true)
@@ -311,7 +315,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
                                 <Clock className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
                                 <div>
                                   <p className="text-sm font-medium">
-                                    {format(new Date(log.timestamp), "PPp", { locale: ptBR })}
+                                    {format(new Date(log.timestamp), "PPp")}
                                   </p>
                                   <p className="text-xs text-muted-foreground">
                                     Alimentado por: {feederName}
@@ -371,7 +375,7 @@ export default function CatDetailsClient({ id }: { id: string }) {
                                   )}
                                   { (schedule['override_until'] ?? schedule['overrideUntil']) && (
                                     <Badge variant="secondary" className="mt-2">
-                                      Temporário até {format(new Date(schedule['override_until'] ?? schedule['overrideUntil']), "PP", { locale: ptBR })}
+                                      Temporário até {format(new Date(schedule['override_until'] ?? schedule['overrideUntil']), "PP")}
                                     </Badge>
                                   )}
                                 </div>

@@ -5,7 +5,6 @@ import { logger } from '@/lib/monitoring/logger';
 import { redirectionLogger } from '@/lib/monitoring/redirection-logger';
 import { updateSession } from '@/utils/supabase/middleware';
 import { applySecurityHeaders } from '@/lib/utils/security-headers';
-import { rateLimitMiddleware } from '@/lib/utils/rate-limit';
 import { handleAuthError } from '@/lib/utils/auth-errors';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createMiddlewareCookieStore } from '@/lib/supabase/cookie-store';
@@ -111,16 +110,6 @@ export async function middleware(request: NextRequest) {
   logger.debug(`[Middleware Root] Processing request for: ${pathname}`, { url: request.nextUrl.toString() });
 
   try {
-    // Apply rate limiting early for relevant paths
-    if (pathname.startsWith('/api/auth') || pathname === '/login' || pathname === '/signup') {
-      const rateLimitResponse = await rateLimitMiddleware(request);
-      if (rateLimitResponse) {
-        logger.warn(`[Middleware Root] Rate limit exceeded for: ${pathname}`);
-        // Apply security headers even to rate limit response
-        return applySecurityHeaders(rateLimitResponse, request); 
-      }
-    }
-
     // Check if this is an API route
     const isApiRoute = apiRoutes.some(route => pathname.startsWith(route));
 

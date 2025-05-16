@@ -15,7 +15,7 @@ interface LogEntry {
 class Logger extends Singleton<Logger> {
   private logLevel: LogLevel = 'info';
 
-  protected constructor() {
+  public constructor() {
     super();
   }
 

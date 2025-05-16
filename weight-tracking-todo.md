@@ -97,33 +97,34 @@
 - [ ] Add export option in a `DropdownMenu` (PDF via react-pdf).
 
 #### E. Milestone Progress Section
-- [ ] Create `MilestoneProgress` component.
-- [ ] Show milestones as a progress circle.
-- [ ] Show animated `Alert` on milestone completion.
-- [ ] Link milestones to feeding adjustments (open in `Sheet` modal).
-- [ ] Show conflicts with a destructive `Badge`.
+- [x] Create `MilestoneProgress` component.
+- [x] Show milestones as a progress circle.
+- [x] Show animated `Alert` on milestone completion.
+- [x] Link milestones to feeding adjustments (open in `Sheet` modal).
+- [x] Show conflicts with a destructive `Badge`.
 
 #### F. Cat Avatar Stack
-- [ ] Implement `CatAvatarStack` component at the top of the dashboard for cat selection:
-    - [ ] Display all cats as avatars in a horizontal stack.
-    - [ ] Each avatar acts as a button to select a cat.
-    - [ ] Highlight the selected cat (border, ring, or scale effect).
-    - [ ] Add ARIA labels and tooltips for accessibility.
-    - [ ] Ensure keyboard navigation and mobile scrollability.
-    - [ ] On selection, update dashboard data for the chosen cat.
+- [x] Implement `CatAvatarStack` component at the top of the dashboard for cat selection:
+    - [x] Display all cats as avatars in a horizontal stack.
+    - [x] Each avatar acts as a button to select a cat.
+    - [x] Highlight the selected cat (border, ring, or scale effect).
+    - [x] Add ARIA labels and tooltips for accessibility.
+    - [x] Ensure keyboard navigation and mobile scrollability.
+    - [x] On selection, update dashboard data for the chosen cat.
 
 ### 3. Backend & Data Integrity
-- [ ] Ensure all UI elements use theme tokens from `components.json`.
-- [ ] Use ShadCN CLI to generate/update theme-matched components.
-- [ ] Surface backend errors in the UI using ShadCN `Toast` notifications.
+- [x] Ensure all UI elements use theme tokens from `components.json`.
+- [x] Use ShadCN CLI to generate/update theme-matched components.
+- [x] Surface backend errors in the UI using ShadCN `Toast` notifications.
 
 ### 4. Edge Case Handling
-- [ ] Build onboarding flow with ShadCN `Carousel` and `Tooltip` for first-time users.
-- [ ] Use `Skeleton` components for loading states.
-- [ ] Use EmptyState illustrations for missing data.
-- [ ] Toggle archived goals with ShadCN `Switch` and `Accordion`.
+- [x] Build onboarding flow with ShadCN `Carousel` and `Tooltip` for first-time users.
+- [x] Use `Skeleton` components for loading states.
+- [x] Use EmptyState illustrations for missing data.
+- [x] Toggle archived goals with ShadCN `Switch` and `Accordion`.
 
 ### 5. Metrics & Analytics
+- [x] Implement basic weight change velocity calculation (kg/week, lbs/week).
 - [ ] Implement PDF export using react-pdf, styled with ShadCN `Typography` and `Card`.
 - [ ] A/B test milestone animations using ShadCN's `AnimatePresence`.
 
@@ -131,10 +132,13 @@
 - [ ] Ensure accessibility (keyboard navigation, ARIA labels).
 - [ ] Test all components for responsiveness (mobile/desktop).
 - [ ] Break down features into small, reusable components.
-- [ ] Use clear, descriptive names for files and components.
+- [x] Use clear, descriptive names for files and components.
 - [ ] Document all new components and update this checklist as you go.
 
 ### 7. Next Steps for Junior Dev
 - [ ] Work through the checklist section by section.
 - [ ] Ask for help if you have questions or need code examples.
 - [ ] Review your work with a senior dev or designer before merging. 
+
+### 8. Conflicts & Goal Management (Section 2.F)
+- [ ] If a new weight log makes a future milestone's target weight invalid (e.g., current weight surpasses a future loss milestone), highlight.

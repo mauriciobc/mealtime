@@ -11,6 +11,8 @@ import * as React from "react";
 import { useImperativeHandle, useRef } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DayPicker, DayPickerProps } from "react-day-picker";
+import { useUserContext } from "@/lib/context/UserContext"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 // ---------- utils start ----------
 function isValidHour(value: string) {
@@ -373,16 +375,9 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
         `PP hh:mm${!granularity || granularity === 'second' ? ':ss' : ''} b`,
     };
 
-    let loc = enUS;
-    const { options, localize, formatLong } = locale;
-    if (options && localize && formatLong) {
-      loc = {
-        ...enUS,
-        options,
-        localize,
-        formatLong,
-      };
-    }
+    const { state: userState } = useUserContext();
+    const userLanguage = userState.currentUser?.preferences?.language;
+    const userLocale = resolveDateFnsLocale(userLanguage);
 
     return (
       <Popover>
@@ -402,7 +397,7 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
                 displayDate,
                 hourCycle === 24 ? initHourFormat.hour24 : initHourFormat.hour12,
                 {
-                  locale: loc,
+                  locale: userLocale,
                 },
               )
             ) : (

@@ -20,8 +20,9 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useCat, useUpdateCat } from '@/lib/hooks/useCats';
+import { useCats } from '@/lib/hooks/useCats';
 import { toast } from 'sonner';
+import { useEffect } from 'react';
 
 const catFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -40,24 +41,47 @@ interface EditCatDialogProps {
 }
 
 export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCatDialogProps) {
-  const { data: cat } = useCat(householdId, catId || '');
-  const { mutate: updateCat, isLoading } = useUpdateCat(householdId);
+  const { updateCat, isUpdating, cats } = useCats(householdId);
+  const cat = catId ? cats.find(c => c.id === catId) : null;
 
   const form = useForm<CatFormValues>({
     resolver: zodResolver(catFormSchema),
     defaultValues: {
-      name: cat?.name || '',
-      age: cat?.age || 0,
-      weight: cat?.weight || 0,
-      notes: cat?.notes || '',
+      name: '',
+      age: 0,
+      weight: 0,
+      notes: '',
     },
   });
+
+  useEffect(() => {
+    if (cat && open) {
+      form.reset({
+        name: cat.name || '',
+        weight: cat.weight || 0,
+        notes: cat.medical_history || '',
+        age: cat.birth_date ? new Date().getFullYear() - new Date(cat.birth_date).getFullYear() : 0,
+      });
+    } else if (!open) {
+      form.reset({
+        name: '',
+        age: 0,
+        weight: 0,
+        notes: '',
+      });
+    }
+  }, [cat, open, form]);
 
   async function onSubmit(data: CatFormValues) {
     if (!catId) return;
 
     try {
-      await updateCat({ id: catId, ...data });
+      const updatesForApi: Partial<any> = {
+        name: data.name,
+        weight: data.weight,
+        medical_history: data.notes,
+      };
+      await updateCat({ catId, updates: updatesForApi });
       toast.success('Cat updated successfully');
       onOpenChange(false);
     } catch (error) {
@@ -129,8 +153,8 @@ export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCa
               )}
             />
             <DialogFooter>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save changes'}
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? 'Saving...' : 'Save changes'}
               </Button>
             </DialogFooter>
           </form>

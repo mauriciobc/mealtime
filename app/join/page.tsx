@@ -21,7 +21,7 @@ export default function JoinPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { state: userState, dispatch: userDispatch } = useUserContext();
+  const { state: userState, refreshUser } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
 
@@ -73,9 +73,10 @@ export default function JoinPage() {
           throw new Error("Resposta inválida do servidor após entrar no domicílio.");
       }
 
-      householdDispatch({ type: "ADD_HOUSEHOLD", payload: joinedHousehold });
+      householdDispatch({ type: "SET_HOUSEHOLD", payload: joinedHousehold });
       
-      userDispatch({ type: "SET_USER", payload: updatedUser });
+      // Refresh user context after joining household
+      await refreshUser();
 
       toast.success("Você entrou no domicílio com sucesso!");
       router.push(`/households`); 
@@ -109,7 +110,6 @@ export default function JoinPage() {
                <PageHeader 
                  title="Entrar em um Domicílio" 
                  description="Erro ao carregar dados do usuário"
-                 showBackButton 
                />
                <p className="text-destructive mt-6">Erro: {errorUser}</p>
                <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
@@ -136,7 +136,6 @@ export default function JoinPage() {
            <PageHeader 
              title="Entrar em um Domicílio" 
              description="Use um código de convite para entrar em um domicílio existente"
-             showBackButton 
            />
           
           <Card className="mt-6">

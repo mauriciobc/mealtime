@@ -5,10 +5,12 @@ import { toast } from 'sonner';
 import { FeedingLog } from "@/lib/types"; // Use the existing detailed FeedingLog type
 import { CatType } from "@/lib/types";
 import { useCats } from './CatsContext'; // Needed for chart selector
-import { format, startOfDay, isEqual, addHours, isBefore, parseISO, compareAsc, endOfDay, subDays, compareDesc } from 'date-fns'; // Date helpers
-import { ptBR } from 'date-fns/locale'; // Date locale
+import { format, startOfDay, isEqual, addHours, isBefore, compareAsc, endOfDay, subDays, compareDesc } from 'date-fns'; // Date helpers
+import { toDate } from 'date-fns-tz'; // Import toDate for timezone-aware conversion
 import { useScheduleContext } from './ScheduleContext'; // Fixed import name
 import { getUserTimezone } from "../utils/dateUtils"; // Import timezone utility
+import { useUserContext as useUserContextLib } from "@/lib/context/UserContext"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 // Remove the simple Feeding interface, use FeedingLog from types.ts
 // interface Feeding {
@@ -93,6 +95,9 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const loadingIdRef = useRef<string | null>(null);
   const hasAttemptedLoadRef = useRef(false);
+  const { state: userStateLib } = useUserContextLib();
+  const userLanguage = userStateLib.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   const cleanupLoading = useCallback(() => {
     if (loadingIdRef.current) {
@@ -348,7 +353,7 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
       }, {} as Record<string, number>);
 
       return {
-        name: format(date, 'EEE', { locale: ptBR }), // Format day name
+        name: format(date, 'EEE'), // Format day name
         ...catData
       };
     });
@@ -399,7 +404,7 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
       const householdSchedules = schedules.filter(sch => householdCats.some(cat => cat.id === sch.catId));
       
       // Pre-compute last log for each cat
-      const lastLogMap = new Map<ID, FeedingLog>();
+      const lastLogMap = new Map<string, FeedingLog>();
       householdLogs.sort((a, b) => compareAsc(new Date(b.timestamp), new Date(a.timestamp))); // Sort once
       householdLogs.forEach(log => {
           if (!lastLogMap.has(log.catId)) {
@@ -459,12 +464,13 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
         }
 
         // 3. Check Default Cat Interval (if no schedules found)
-        if (!nextFeedingTime && cat.feedingInterval && cat.feedingInterval > 0) {
+        const feedingIntervalNum = Number(cat.feeding_interval);
+        if (!nextFeedingTime && feedingIntervalNum && !isNaN(feedingIntervalNum) && feedingIntervalNum > 0) {
           if (lastFeeding) {
-            nextFeedingTime = calculateNextFeeding(lastFeeding, cat.feedingInterval, timezone);
+            nextFeedingTime = calculateNextFeeding(lastFeeding, feedingIntervalNum, timezone);
           } else {
             // If never fed, schedule based on now + interval
-            nextFeedingTime = addHours(now, cat.feedingInterval);
+            nextFeedingTime = addHours(now, feedingIntervalNum);
           }
         }
         
@@ -474,7 +480,7 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
             id: `cat-${cat.id}-next-${nextFeedingTime.toISOString()}`, // More unique key
             catId: cat.id,
             catName: cat.name,
-            catPhoto: cat.photoUrl || null,
+            catPhoto: cat.photo_url || null,
             nextFeeding: nextFeedingTime,
             isOverdue: isBefore(nextFeedingTime, now) // Check if overdue compared to current time
           });
@@ -511,3 +517,14 @@ export const useSelectAveragePortionSize = (): number | null => {
   const { state } = useFeeding();
   return useMemo(() => selectAveragePortionSize(state.feedingLogs), [state.feedingLogs]);
 };
+
+// --- Helper Functions ---
+
+/**
+ * Calculates the next feeding time by adding the interval (in hours) to the last feeding, respecting timezone.
+ */
+function calculateNextFeeding(lastFeeding: Date, interval: number, timezone: string): Date {
+  // Add interval hours to lastFeeding, then convert to the user's timezone
+  const next = addHours(lastFeeding, interval);
+  return toDate(next, { timeZone: timezone });
+}

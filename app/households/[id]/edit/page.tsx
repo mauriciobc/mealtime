@@ -140,8 +140,12 @@ export default function EditHouseholdPage({ params }: PageProps) {
       }
 
       householdDispatch({
-        type: "UPDATE_HOUSEHOLD",
+        type: "SET_HOUSEHOLD",
         payload: { ...household, name: trimmedName },
+      });
+      householdDispatch({
+        type: "SET_HOUSEHOLDS",
+        payload: households.map(h => String(h.id) === String(household.id) ? { ...h, name: trimmedName } : h),
       });
 
       toast.success("Residência atualizada com sucesso!");

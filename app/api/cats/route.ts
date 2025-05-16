@@ -83,8 +83,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         name: true,
-        // Update fields to match schema
-        // photo_url: true,  // Removed: Column does not exist in DB
+        photo_url: true,
         birth_date: true,
         weight: true,
         household_id: true,
@@ -174,6 +173,28 @@ export async function POST(request: NextRequest) {
         portion_size: body.portion_size || null
       }
     });
+
+    // If weight was provided, create an initial weight log
+    if (newCat && body.weight && !isNaN(parseFloat(body.weight))) {
+      try {
+        await prisma.cat_weight_logs.create({
+          data: {
+            cat_id: newCat.id,
+            weight: parseFloat(body.weight),
+            date: new Date(), // Use current date for the initial log
+            measured_by: authUserId, // Associate with the user creating the cat
+          }
+        });
+        logger.debug(`[POST /api/cats] Initial weight log created for cat ${newCat.id}`);
+      } catch (logError: any) {
+        // Log the error but don't fail the cat creation, as logging weight is secondary
+        logger.error(`[POST /api/cats] Failed to create initial weight log for cat ${newCat.id}:`, {
+          error: logError,
+          message: logError.message,
+          stack: logError.stack,
+        });
+      }
+    }
 
     logger.debug(`[POST /api/cats] Cat created successfully:`, newCat);
     return NextResponse.json(newCat, { status: 201 });

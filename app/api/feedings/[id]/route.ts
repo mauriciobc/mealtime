@@ -27,7 +27,7 @@ export async function GET(
     const feedingLog = await prisma.feeding_logs.findUnique({
       where: { id: logId },
       include: {
-        cats: {
+        cat: {
           select: {
             id: true,
             name: true,
@@ -85,10 +85,10 @@ export async function GET(
       notes: feedingLog.notes,
       mealType: feedingLog.meal_type,
       householdId: feedingLog.household_id,
-      cat: feedingLog.cats ? {
-        id: feedingLog.cats.id,
-        name: feedingLog.cats.name,
-        photoUrl: feedingLog.cats.photo_url
+      cat: feedingLog.cat ? {
+        id: feedingLog.cat.id,
+        name: feedingLog.cat.name,
+        photoUrl: feedingLog.cat.photo_url
       } : undefined,
       user: feedingLog.feeder ? {
         id: feedingLog.feeder.id,

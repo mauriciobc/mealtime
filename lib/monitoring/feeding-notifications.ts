@@ -6,7 +6,7 @@ class FeedingNotificationMonitor extends Singleton<FeedingNotificationMonitor> {
     private readonly MAX_ERROR_HISTORY = 100;
     private readonly MAX_TIMING_HISTORY = 1000;
 
-    protected constructor() {
+    public constructor() {
         super();
         this.metrics = {
             totalChecks: 0,

@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -26,6 +25,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { FeedingLog } from "@/lib/types";
 import { useCats } from "@/lib/context/CatsContext";
+import { useUserContext } from "@/lib/context/UserContext";
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 
 interface FeedingLogItemProps {
   log: FeedingLog;
@@ -38,6 +39,9 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { state: catsState } = useCats();
   const { cats, isLoading: isLoadingCats } = catsState;
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   // --- DEBUGGING LOGS START ---
   console.log('[FeedingLogItem] Rendering log:', log);

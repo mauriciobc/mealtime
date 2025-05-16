@@ -69,13 +69,12 @@ export async function GET(
 
     // 2. Fetch Required Data for Calculation
     console.log(`[GET /api/cats/${catId}/next-feeding] Fetching schedules and last feeding log...`);
-    const [schedules, lastFeedingLog] = await Promise.all([
+    const [rawSchedules, lastFeedingLog] = await Promise.all([
       prisma.schedules.findMany({
         where: {
           cat_id: catId,
           enabled: true
         },
-        // Select only necessary fields
         select: { type: true, interval: true, times: true }
       }),
       prisma.feeding_logs.findFirst({
@@ -84,6 +83,13 @@ export async function GET(
         select: { fed_at: true }
       })
     ]);
+    // Map schedules to required type for calculateNextFeedingTime
+    const schedules = rawSchedules.map(sch => ({
+      type: sch.type,
+      interval: sch.interval,
+      times: Array.isArray(sch.times) ? sch.times.join(',') : sch.times,
+      enabled: true // Already filtered by enabled: true
+    }));
     console.log(`[GET /api/cats/${catId}/next-feeding] Found ${schedules.length} enabled schedules.`);
     console.log(`[GET /api/cats/${catId}/next-feeding] Last feeding log time: ${lastFeedingLog?.fed_at}`);
 

@@ -6,7 +6,6 @@ import { cookies } from "next/headers";
 import { withError } from "@/lib/utils/api-middleware";
 import { z } from "zod";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { Cat } from "@/lib/types";
 
 interface CatSchedule {
   type: 'interval' | 'fixedTime';
@@ -60,10 +59,9 @@ async function createSupabaseRouteClient() {
 }
 
 // GET /api/cats/[catId] - Get cat by ID
-export const GET = withError(async (request: Request, { params }: { params: { catId: string } }) => {
+export const GET = withError(async (request: Request, { params }: { params: Promise<{ catId: string }> }) => {
   const supabase = await createSupabaseRouteClient();
-  const resolvedParams = await params;
-  const catId = resolvedParams.catId;
+  const { catId } = await params;
   
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -115,10 +113,9 @@ export const GET = withError(async (request: Request, { params }: { params: { ca
 });
 
 // PUT /api/cats/[catId] - Update a cat
-export const PUT = withError(async (request: Request, { params }: { params: { catId: string } }) => {
+export const PUT = withError(async (request: Request, { params }: { params: Promise<{ catId: string }> }) => {
   const supabase = await createSupabaseRouteClient();
-  const resolvedParams = await params;
-  const catId = resolvedParams.catId;
+  const { catId } = await params;
   
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -168,10 +165,9 @@ export const PUT = withError(async (request: Request, { params }: { params: { ca
 });
 
 // DELETE /api/cats/[catId] - Delete a cat
-export const DELETE = withError(async (request: NextRequest, { params }: { params: { catId: string } }) => {
+export const DELETE = withError(async (request: NextRequest, { params }: { params: Promise<{ catId: string }> }) => {
   const supabase = await createSupabaseRouteClient();
-  const resolvedParams = await params;
-  const catId = resolvedParams.catId;
+  const { catId } = await params;
   
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 

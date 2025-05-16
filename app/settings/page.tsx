@@ -288,7 +288,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const userContext = useUserContext(); // Get the whole context object
-  const { state: userState, refetchUser: refetchUserViaContext } = userContext;
+  const { state: userState } = userContext;
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { households, isLoading: isLoadingHouseholds, error: errorHousehold } = householdState; // Add household loading/error
@@ -345,10 +345,7 @@ export default function SettingsPage() {
         preferences: newPrefs // Use the correctly typed preferences object
       };    
 
-      userContext.dispatch({ 
-        type: "SET_CURRENT_USER", // Correct action type
-        payload: updatedUserPayload 
-      });
+      userContext.refreshUser();
     }
   };
 
@@ -357,7 +354,7 @@ export default function SettingsPage() {
     // Re-setting the current user might be the way to trigger updates
     // if no dedicated refresh action exists.
     if (currentUser) {
-      userContext.dispatch({ type: "SET_CURRENT_USER", payload: currentUser }); // Correct action type
+      userContext.refreshUser();
     }
   };
 
@@ -457,8 +454,7 @@ export default function SettingsPage() {
 
       const updatedUser = await response.json();
       if (updatedUser && updatedUser.user) {
-        // Use dispatch to update user state in context
-        userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedUser.user }); // Correct action type
+        await userContext.refreshUser();
         toast.success(successMessage);
         success = true;
       } else {
@@ -494,9 +490,7 @@ export default function SettingsPage() {
         throw new Error(errorData.error || `Falha ao entrar na residência. Status: ${response.status}`);
       }
       const updatedData = await response.json();
-      // userDispatch({ type: \"SET_CURRENT_USER\", payload: updatedData.user }); // Update user with new householdId
-      userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Use dispatch
-      // Potentially refresh other contexts if needed (cats, schedules, etc.)
+      await userContext.refreshUser();
       toast.success("Você entrou na residência com sucesso!");
       setIsHouseholdModalOpen(false);
     } catch (error: any) {
@@ -527,9 +521,7 @@ export default function SettingsPage() {
               throw new Error(errorData.error || `Falha ao criar residência. Status: ${response.status}`);
           }
           const updatedData = await response.json();
-          // userDispatch({ type: \"SET_CURRENT_USER\", payload: updatedData.user });
-          userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Use dispatch
-          // Potentially refresh other contexts
+          await userContext.refreshUser();
           toast.success("Residência criada com sucesso!");
           setIsHouseholdModalOpen(false);
       } catch (error: any) { 
@@ -555,10 +547,7 @@ export default function SettingsPage() {
         throw new Error(errorData.error || `Falha ao sair da residência. Status: ${response.status}`);
       }
       const updatedData = await response.json();
-      // userDispatch({ type: \"SET_CURRENT_USER\", payload: updatedData.user }); // User without householdId
-      userContext.dispatch({ type: "SET_CURRENT_USER", payload: updatedData.user }); // Use dispatch
-       // Clear other contexts tied to household (cats, schedules, etc.) - This needs robust implementation
-       // Example: dispatch({ type: 'RESET_STATE' }) in relevant contexts
+      await userContext.refreshUser();
       toast.success("Você saiu da residência.");
       setIsLeaveHouseholdConfirmOpen(false);
       setIsHouseholdModalOpen(false); // Close main household modal too
@@ -611,13 +600,7 @@ export default function SettingsPage() {
     const opId = "logout-op"; // Give operation a unique ID
     addLoadingOperation({ id: opId, priority: 1, description: "Logging out..." }); 
     try {
-      const { error } = await supabase.auth.signOut(); // Use Supabase signout
-      if (error) {
-        throw error;
-      }
-      // Clear user context state after successful Supabase logout
-      userContext.dispatch({ type: 'CLEAR_USER' }); // Correct action type
-      
+      await userContext.signOut();
       toast.success("Logout realizado com sucesso!"); 
       router.push('/login'); // Redirect to login page
     } catch (error: any) {

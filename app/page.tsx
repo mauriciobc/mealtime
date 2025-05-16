@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Cat, Clock, Utensils, BarChart3, Calendar, Users, PlusCircle, Gauge, ArrowRight } from "lucide-react";
+import { Cat, Clock, Utensils, BarChart3, Calendar, Users, PlusCircle, Gauge, ArrowRight, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useUserContext } from "@/lib/context/UserContext";
@@ -25,6 +25,12 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { FeedingLog, CatType } from "@/lib/types";
 import { NewFeedingSheet } from "@/components/feeding/new-feeding-sheet";
 import { useRouter } from "next/navigation";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function Home() {
   const { state: userState } = useUserContext();
@@ -108,11 +114,14 @@ export default function Home() {
     return (
        <div className="container px-4 py-8">
          <EmptyState
-           icon={Users}
+           IconComponent={Users}
            title="Associe uma Residência"
            description="Você precisa criar ou juntar-se a uma residência para usar o painel."
-           actionLabel="Ir para Configurações de Residência"
-           actionHref="/households"
+           actionButton={
+             <Button asChild>
+               <Link href="/households">Ir para Configurações de Residência</Link>
+             </Button>
+           }
            className="max-w-xl mx-auto my-12"
          />
        </div>
@@ -144,18 +153,14 @@ export default function Home() {
     return (
       <div className="container px-4 py-8">
         <EmptyState
-          icon={Cat}
+          IconComponent={Cat}
           title="Bem-vindo ao MealTime!"
           description="Sua residência está configurada! Cadastre seu primeiro gato para começar."
-          actionLabel="Cadastrar Meu Primeiro Gato"
-          actionHref="/cats/new"
-           secondaryActionLabel="Ver Tutorial"
-          secondaryActionOnClick={() => {
-            localStorage.removeItem("onboarding-completed");
-            document.body.style.overflow = "auto";
-            document.body.classList.remove("overflow-hidden");
-            window.location.reload();
-          }}
+          actionButton={
+            <Button asChild>
+              <Link href="/cats/new">Cadastrar Meu Primeiro Gato</Link>
+            </Button>
+          }
           className="max-w-xl mx-auto my-12"
         />
       </div>
@@ -224,7 +229,7 @@ export default function Home() {
             <CardContent className="p-0">
               <p className="text-lg font-semibold">
                 {lastFeedingLog
-                  ? format(new Date(lastFeedingLog.timestamp), "HH:mm", { locale: ptBR })
+                  ? format(new Date(lastFeedingLog.timestamp), "HH:mm")
                   : "N/A"}
               </p>
             </CardContent>
@@ -237,7 +242,7 @@ export default function Home() {
           <motion.div variants={itemVariants}>
             <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="last-feeding">
               <CardHeader>
-                <CardTitle className="flex items-center text-lg">
+                <CardTitle className="flex items-center">
                   <Clock className="mr-2 h-5 w-5 text-primary" />
                   Última Alimentação
                 </CardTitle>
@@ -248,15 +253,17 @@ export default function Home() {
                 ) : (
                   <EmptyState
                     title="Nenhuma alimentação encontrada"
-                    description="Registre a primeira alimentação para vê-la aqui."
-                    icon={Utensils}
+                    description="Registre a primeira alimentação do seu pet para começar."
+                    IconComponent={Utensils}
+                    actionButton={
+                      <Button onClick={() => setIsNewFeedingSheetOpen(true)} size="sm">
+                        <PlusCircle className="mr-2 h-4 w-4" /> Registrar Nova
+                      </Button>
+                    }
                   />
                 )}
               </CardContent>
               <CardFooter className="flex justify-between sm:justify-end items-center gap-2">
-                <Button size="sm" onClick={() => setIsNewFeedingSheetOpen(true)} data-tour="log-feeding-button" className="flex-grow sm:flex-grow-0">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Registrar Nova
-                </Button>
                 <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
                   <Link href="/feedings" className="flex items-center">
                     Ver todas
@@ -270,7 +277,7 @@ export default function Home() {
           <motion.div variants={itemVariants}>
             <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="feeding-chart">
               <CardHeader>
-                <CardTitle className="flex items-center text-lg">
+                <CardTitle className="flex items-center">
                   <BarChart3 className="mr-2 h-5 w-5 text-primary" />
                   Alimentações (Últimos 7 dias)
                 </CardTitle>
@@ -298,9 +305,23 @@ export default function Home() {
                   <EmptyState
                     title="Dados insuficientes para o gráfico"
                     description="Registre algumas alimentações com porção para ver o gráfico."
-                    icon={BarChart3}
+                    IconComponent={BarChart3}
                   />
                 )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          <motion.div variants={itemVariants} data-tour="recent-logs">
+            <Card className="shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Calendar className="mr-2 h-5 w-5 text-primary" />
+                  Registros Recentes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Add recent logs content here */}
               </CardContent>
             </Card>
           </motion.div>
@@ -309,7 +330,7 @@ export default function Home() {
         <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
           <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="my-cats">
             <CardHeader>
-              <CardTitle className="flex items-center text-lg">
+              <CardTitle className="flex items-center">
                 <Cat className="mr-2 h-5 w-5 text-primary" />
                 Meus Gatos
               </CardTitle>
@@ -333,7 +354,7 @@ export default function Home() {
                  <EmptyState
                   title="Nenhum gato cadastrado"
                   description="Cadastre seus gatos para começar."
-                  icon={Cat}
+                  IconComponent={Cat}
                 />
               )}
             </CardContent>
@@ -349,7 +370,35 @@ export default function Home() {
 
         </motion.div>
       </div>
-      <NewFeedingSheet isOpen={isNewFeedingSheetOpen} onOpenChange={setIsNewFeedingSheetOpen} />
+
+      {/* FAB to open NewFeedingSheet */}
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              className="fixed bottom-24 right-6 h-14 w-14 rounded-full shadow-lg flex items-center justify-center text-2xl z-20" 
+              variant="default" 
+              size="icon"
+              aria-label="Registrar nova alimentação"
+              onClick={() => setIsNewFeedingSheetOpen(true)}
+            >
+              <Plus className="h-6 w-6" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Registrar Nova Alimentação</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <NewFeedingSheet
+        isOpen={isNewFeedingSheetOpen}
+        onOpenChange={setIsNewFeedingSheetOpen}
+        // Assuming you have a function to handle the submission of the new feeding log
+        // and the list of cats to pass as props.
+        // Adjust props as necessary based on your NewFeedingSheet component's requirements.
+        // e.g., onLogSubmit={handleNewFeedingSubmit} cats={cats}
+      />
     </motion.div>
   );
 }

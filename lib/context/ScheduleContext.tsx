@@ -176,6 +176,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
           interval: s.interval, // number (hours) or null
           // Ensure 'times' is treated as an array, even if null/undefined from DB
           times: Array.isArray(s.times) ? s.times : [], // Expecting string[] or handle DB format
+          days: Array.isArray(s.days) ? s.days : [], // <-- Ensure days is always present (required by Schedule type)
           enabled: s.enabled, // boolean
           createdAt: s.created_at ? new Date(s.created_at) : new Date(),
           updatedAt: s.updated_at ? new Date(s.updated_at) : undefined,
@@ -187,10 +188,10 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
               birthdate: undefined,
               weight: null,
               householdId: s.household_id, // Can reuse householdId from schedule
-              photoUrl: null, // Not included in API response
+              photo_url: null, // Not included in API response
               restrictions: null, 
               notes: null, 
-              feedingInterval: undefined, 
+              feeding_interval: null, // Not included in API response
               portion_size: undefined, 
               createdAt: undefined, // Not relevant for this nested object usually
               updatedAt: undefined, 

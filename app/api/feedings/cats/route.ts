@@ -16,9 +16,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Consulta para obter gatos com informações necessárias para alimentação
-    const cats = await prisma.cat.findMany({
+    const cats = await prisma.cats.findMany({
       where: {
-        householdId: parseInt(householdId)
+        household_id: householdId
       },
       orderBy: {
         name: 'asc'

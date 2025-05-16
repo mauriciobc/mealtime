@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { GET } from './route';
-import { prisma } from "@/lib/prisma";
+import prisma from "@/lib/prisma";
 
 // Mock prisma findMany
 jest.mock('@/lib/prisma', () => ({
@@ -20,33 +20,33 @@ describe('Feeding Stats API', () => {
       id: '1',
       meal_type: 'Breakfast',
       amount: 100,
-      timestamp: new Date('2023-01-01T08:00:00Z'),
+      fed_at: new Date('2023-01-01T08:00:00Z'),
       cat_id: 'cat-1',
-      cats: { name: 'Whiskers' }
+      cat: { name: 'Whiskers' }
     },
     {
       id: '2',
       meal_type: 'Dinner',
       amount: 150,
-      timestamp: new Date('2023-01-01T18:00:00Z'),
+      fed_at: new Date('2023-01-01T18:00:00Z'),
       cat_id: 'cat-1',
-      cats: { name: 'Whiskers' }
+      cat: { name: 'Whiskers' }
     },
     {
       id: '3',
       meal_type: 'Breakfast',
       amount: 90,
-      timestamp: new Date('2023-01-02T08:00:00Z'),
+      fed_at: new Date('2023-01-02T08:00:00Z'),
       cat_id: 'cat-2',
-      cats: { name: 'Mittens' }
+      cat: { name: 'Mittens' }
     },
     {
       id: '4',
       meal_type: 'Snack',
       amount: 50,
-      timestamp: new Date('2023-01-02T14:00:00Z'),
+      fed_at: new Date('2023-01-02T14:00:00Z'),
       cat_id: 'cat-1',
-      cats: { name: 'Whiskers' }
+      cat: { name: 'Whiskers' }
     },
   ];
 
@@ -81,11 +81,12 @@ describe('Feeding Stats API', () => {
     // Mock the current date to have predictable results
     const realDate = Date;
     global.Date = class extends Date {
-      constructor(date) {
+      constructor(date?: any) {
         if (date) {
-          return super(date);
+          super(date);
+        } else {
+          super('2023-01-07T00:00:00Z');
         }
-        return new realDate('2023-01-07T00:00:00Z');
       }
     } as any;
 
@@ -113,11 +114,12 @@ describe('Feeding Stats API', () => {
     // Mock the current date
     const realDate = Date;
     global.Date = class extends Date {
-      constructor(date) {
+      constructor(date?: any) {
         if (date) {
-          return super(date);
+          super(date);
+        } else {
+          super('2023-01-07T00:00:00Z');
         }
-        return new realDate('2023-01-07T00:00:00Z');
       }
     } as any;
 

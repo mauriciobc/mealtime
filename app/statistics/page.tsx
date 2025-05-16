@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, getHours, parseISO } from "date-fns"
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, getHours } from "date-fns"
+import { parseISO } from "date-fns/parseISO"
 import { ptBR } from "date-fns/locale"
 import { PageTransition } from "@/components/ui/page-transition"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { FeedingLog, CatType } from "@/lib/types"
 import { getDateRange, StatisticsData, TimeSeriesDataPoint, CatPortion } from "@/lib/selectors/statisticsSelectors"
 import { toast } from "sonner"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
@@ -294,6 +296,9 @@ export default function StatisticsPage() {
     error: errorAggregated,
   } = useSelectFeedingStatistics()
 
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
+
   // Add debug logging
   console.log('Statistics Page - Raw Data:', {
     cats,
@@ -516,7 +521,7 @@ export default function StatisticsPage() {
       catPortionData,
       timeDistributionData,
     };
-  }, [filteredLogs, cats, startDate, endDate]);
+  }, [filteredLogs, cats, startDate, endDate, userLocale]);
 
   // Add debug logging for final statistics
   console.log('Statistics Page - Processed Data:', {
@@ -546,9 +551,9 @@ export default function StatisticsPage() {
         <div className="p-4 text-center">
           <PageHeader title="Estatísticas" />
           <EmptyState 
+            IconComponent={AlertTriangle}
             title="Erro ao Carregar Usuário"
             description={`Não foi possível carregar os dados do usuário: ${errorUser}`}
-            icon={AlertTriangle}
           />
           <Button variant="outline" onClick={() => router.back()} className="mt-4">Voltar</Button>
         </div>
@@ -562,11 +567,16 @@ export default function StatisticsPage() {
         <div className="p-4">
           <PageHeader title="Estatísticas" />
           <EmptyState
-            icon={Users}
+            IconComponent={Users}
             title="Sem Residência Associada"
             description="Associe-se a uma residência para ver estatísticas."
-            actionLabel="Ir para Configurações"
-            actionHref="/settings"
+            actionButton={
+              <Link href="/settings" passHref legacyBehavior>
+                <Button asChild variant="default" className="mt-4">
+                  Ir para Configurações
+                </Button>
+              </Link>
+            }
             className="mt-8"
           />
         </div>
@@ -580,9 +590,9 @@ export default function StatisticsPage() {
         <div className="p-4 text-center">
           <PageHeader title="Estatísticas" />
           <EmptyState 
+            IconComponent={AlertTriangle}
             title="Erro ao Carregar Estatísticas"
             description={`Não foi possível carregar os dados: ${errorAggregated}`}
-            icon={AlertTriangle}
           />
           <Button variant="outline" onClick={() => window.location.reload()} className="mt-4">Tentar Novamente</Button>
         </div>

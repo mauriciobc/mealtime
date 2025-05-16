@@ -161,9 +161,11 @@ async function main() {
   const miloWeightGoal = await prisma.weight_goals.create({
     data: {
       cat_id: catMilo.id,
+      goal_name: 'Milo Weight Loss',
       target_weight: 4.2,
       target_date: new Date('2024-06-01'),
       start_weight: 4.5,
+      unit: 'kg',
       status: 'active',
       notes: 'Gradual weight reduction plan',
       created_by: adminProfile.id,

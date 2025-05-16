@@ -29,11 +29,10 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/auth/auth-code-error', request.url));
     }
 
-    // Create cookie store
-    const cookieStore = cookies();
-    const asyncCookieStore = createRouteHandlerCookieStore(cookieStore);
+    // Create cookie stores
+    const asyncCookieStore = await createRouteHandlerCookieStore();
 
-    // Verify environment variables
+    // Verify environment variables and initialize Supabase client
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       logger.error('[Auth Callback] Missing required environment variables');
       throw new Error('Missing required environment variables');
@@ -51,7 +50,11 @@ export async function GET(request: Request) {
     const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     
     if (exchangeError) {
-      logger.error('[Auth Callback] Error exchanging code for session:', exchangeError);
+      logger.error('[Auth Callback] Error exchanging code for session:', {
+        message: exchangeError.message,
+        name: exchangeError.name,
+        status: exchangeError.status
+      });
       return NextResponse.redirect(new URL(`/auth/auth-code-error?error=${encodeURIComponent(exchangeError.message)}`, request.url));
     }
 
@@ -91,7 +94,7 @@ export async function GET(request: Request) {
     
     // Check each cookie asynchronously
     for (const name of requiredCookies) {
-      const value = await cookieStore.get(name);
+      const value = await asyncCookieStore.get(name);
       if (!value) {
         missingCookies.push(name);
       }

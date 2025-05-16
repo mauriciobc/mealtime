@@ -86,7 +86,9 @@ export default function CatDetails({ params }: CatDetailsProps) {
     };
   }, [params.id]);
 
-  const { currentUser, loading: userLoading } = useUserContext()
+  const { state: userState } = useUserContext()
+  const currentUser = userState.currentUser;
+  const userLoading = userState.isLoading;
   const router = useRouter()
   const { state: catsState, dispatch: catsDispatch } = useCats()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
@@ -308,7 +310,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
           <div className="bg-card text-card-foreground rounded-xl p-5 mb-4 shadow-sm">
             <div className="flex items-center">
               <Avatar className="h-20 w-20 mr-4">
-                <AvatarImage src={cat.photoUrl || ""} alt={cat.name} />
+                <AvatarImage src={cat.photo_url || ""} alt={cat.name} />
                 <AvatarFallback>{cat.name.substring(0, 2)}</AvatarFallback>
               </Avatar>
               
@@ -394,9 +396,8 @@ export default function CatDetails({ params }: CatDetailsProps) {
                 </CardHeader>
                 <CardContent>
                   <FeedingForm 
-                     catId={String(cat.id)} 
-                     catPortionSize={cat.portion_size} 
-                     onSuccess={() => console.log("Feeding logged from details page form")}
+                     catId={String(cat.id)}
+                     onMarkAsFed={handleMarkAsFed}
                   />
                 </CardContent>
               </Card>

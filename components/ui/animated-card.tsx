@@ -3,7 +3,7 @@
 import * as React from "react"
 import { motion } from "framer-motion"
 import { Card } from "@/components/ui/card"
-import { useAnimation } from "@/components/animation-provider"
+import { useAnimation } from "@/components/animation-provider" // Assuming this path is correct
 import { cn } from "@/lib/utils"
 
 interface AnimatedCardProps extends React.ComponentPropsWithoutRef<typeof Card> {
@@ -13,7 +13,7 @@ interface AnimatedCardProps extends React.ComponentPropsWithoutRef<typeof Card> 
 
 const AnimatedCard = React.forwardRef<React.ElementRef<typeof Card>, AnimatedCardProps>(
   ({ className, delay = 0, hover = true, children, ...props }, ref) => {
-    const { shouldAnimate } = useAnimation()
+    const { shouldAnimate } = useAnimation() // Assuming useAnimation() is available and works
 
     if (!shouldAnimate) {
       return (
@@ -43,5 +43,4 @@ const AnimatedCard = React.forwardRef<React.ElementRef<typeof Card>, AnimatedCar
 )
 AnimatedCard.displayName = "AnimatedCard"
 
-export { AnimatedCard }
-
+export { AnimatedCard } 

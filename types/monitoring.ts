@@ -45,4 +45,27 @@ export interface ErrorReport {
   source: string;
   userId?: string;
   sessionId?: string;
+}
+
+export interface NotificationMetrics {
+    totalChecks: number;
+    totalNotificationsCreated: number;
+    totalNotificationsFailed: number;
+    totalCatsProcessed: number;
+    skippedNoInterval: number;
+    skippedNoHousehold: number;
+    skippedNoLogs: number;
+    skippedDuplicate: number;
+    averageProcessingTime: number;
+    lastCheckTimestamp: Date;
+    errors: Array<{
+        timestamp: Date;
+        error: string;
+        context?: Record<string, any>;
+    }>;
+    timings: Array<{
+        operation: string;
+        duration: number;
+        timestamp: Date;
+    }>;
 } 

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GlobalLoading } from "@/components/ui/global-loading";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { useUserContext } from "@/lib/context/UserContext";
 
 interface SettingsClientPageProps {
   cat: CatType;
@@ -19,6 +20,8 @@ interface SettingsClientPageProps {
 export default function SettingsClientPage({ cat }: SettingsClientPageProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const { state: userState } = useUserContext();
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
   const [formData, setFormData] = useState({
     name: cat.name,
     breed: cat.breed || "",
@@ -78,6 +81,10 @@ export default function SettingsClientPage({ cat }: SettingsClientPageProps) {
     }
   };
 
+  if (!currentUser) {
+    return <GlobalLoading mode="spinner" text="Carregando usuário..." />;
+  }
+
   return (
     <div className="container mx-auto py-8">
       <Card>
@@ -96,9 +103,10 @@ export default function SettingsClientPage({ cat }: SettingsClientPageProps) {
             <div className="space-y-2">
               <Label htmlFor="photo">Foto</Label>
               <ImageUpload
+                type="cat"
+                userId={currentUser.id}
                 value={formData.photoUrl}
                 onChange={handlePhotoChange}
-                disabled={isLoading}
               />
             </div>
             

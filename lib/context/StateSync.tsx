@@ -11,18 +11,18 @@ export const StateSync = () => {
 
   useEffect(() => {
     const handleCatsUpdate = (updatedState: any) => {
-      // Example: Sync cats state
-      catsDispatch({ type: 'SYNC_STATE', payload: updatedState });
+      // Sync cats state using valid action type
+      catsDispatch({ type: 'FETCH_SUCCESS', payload: updatedState });
     };
 
     const handleFeedingsUpdate = (updatedState: any) => {
-      // Example: Sync feedings state
-      feedingDispatch({ type: 'SYNC_STATE', payload: updatedState });
+      // Sync feedings state using valid action type
+      feedingDispatch({ type: 'FETCH_SUCCESS', payload: updatedState });
     };
 
     const handleHouseholdUpdate = (updatedState: any) => {
-      // Example: Sync household state
-      householdDispatch({ type: 'SYNC_STATE', payload: updatedState });
+      // Sync household state using valid action type
+      householdDispatch({ type: 'FETCH_SUCCESS', payload: updatedState });
     };
 
     eventSystem.on('catsUpdated', handleCatsUpdate);

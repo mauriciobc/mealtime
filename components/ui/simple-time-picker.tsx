@@ -25,6 +25,8 @@ import {
   subHours,
   setMilliseconds,
 } from 'date-fns';
+import { useUserContext } from "@/lib/context/UserContext"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 interface SimpleTimeOption {
   value: any;
@@ -53,6 +55,9 @@ export function SimpleTimePicker({
   className?: string;
   modal?: boolean;
 }) {
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
   // hours24h = HH
   // hours12h = hh
   const formatStr = useMemo(
@@ -359,7 +364,7 @@ function buildTime(options: BuildTimeOptions) {
     dateStr = dateStr.slice(0, 14) + minute.toString().padStart(2, '0') + dateStr.slice(16);
     dateStr = dateStr.slice(0, 17) + second.toString().padStart(2, '0') + dateStr.slice(19);
     dateStr = dateStr.slice(0, 24) + (ampm == AM_VALUE ? 'AM' : 'PM') + dateStr.slice(26);
-    date = parse(dateStr, formatStr, value);
+    date = parse(dateStr, formatStr, { locale: userLocale });
   } else {
     date = setHours(setMinutes(setSeconds(setMilliseconds(value, 0), second), minute), hour);
   }

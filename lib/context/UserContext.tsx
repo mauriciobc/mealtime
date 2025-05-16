@@ -69,6 +69,16 @@ function debounce<T extends (...args: any[]) => any>(
   };
 }
 
+// Add a type guard for error with message
+function isErrorWithMessage(err: unknown): err is { message: string } {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'message' in err &&
+    typeof (err as any).message === 'string'
+  );
+}
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(userReducer, initialState);
   const [supabase] = useState(() => {
@@ -124,14 +134,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (fetchError) {
-        logger.error("[UserProvider] Error fetching user profile:", fetchError);
+      if (fetchError != null) {
+        logger.error("[UserProvider] Error fetching user profile:", { error: fetchError });
         // Check if it's a database connection error
-        if (fetchError.message?.includes("FATAL: Tenant or user not found")) {
+        if (
+          isErrorWithMessage(fetchError) &&
+          fetchError.message.includes("FATAL: Tenant or user not found")
+        ) {
           toast.error("Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde.");
-          logger.error("[UserProvider] Database connection error:", fetchError);
+          logger.error("[UserProvider] Database connection error:", { error: fetchError });
         }
-        dispatch({ type: "FETCH_ERROR", payload: fetchError });
+        dispatch({ type: "FETCH_ERROR", payload: typeof fetchError === 'string' ? fetchError : (isErrorWithMessage(fetchError as unknown) ? (fetchError as { message: string }).message : 'Unknown error') });
         setProfile(null);
         lastProfileFetchRef.current = null;
         setAuthLoading(false);
@@ -153,7 +166,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         if (membershipError) {
           // Log error but don't block user loading, householdId will be null
-          logger.error("[UserProvider] Error fetching household membership:", membershipError);
+          logger.error("[UserProvider] Error fetching household membership:", { error: membershipError });
           toast.error("Erro ao verificar a qual residência pertence.");
         } else if (membershipData) {
           primaryHouseholdId = membershipData.household_id;
@@ -167,11 +180,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
           id: currentUserFromSupabase.id,
           name: fetchedProfile.name ?? currentUserFromSupabase.email ?? "Usuário",
           email: currentUserFromSupabase.email!,
-          householdId: primaryHouseholdId, // Use the fetched ID here
-          role: fetchedProfile.role, // Keep other profile fields
           avatar: fetchedProfile.avatar,
-          notificationSettings: fetchedProfile.notificationSettings as NotificationSettings,
-          timezone: fetchedProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+          households: fetchedProfile.households ?? [],
+          primaryHousehold: primaryHouseholdId ?? "",
+          householdId: primaryHouseholdId,
+          preferences: {
+            timezone: fetchedProfile.preferences?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: fetchedProfile.preferences?.language || "pt-BR",
+            notifications: fetchedProfile.preferences?.notifications || {
+              pushEnabled: false,
+              emailEnabled: false,
+              feedingReminders: false,
+              missedFeedingAlerts: false,
+              householdUpdates: false
+            }
+          },
+          role: fetchedProfile.role,
+          imageUrl: fetchedProfile.imageUrl
         };
 
         dispatch({ type: "SET_CURRENT_USER", payload: userData });
@@ -179,20 +204,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
         // No profile found but no error - this is a valid state for new users
         // They won't have a household membership yet either
         logger.info("[UserProvider] No profile found for user, treating as new user.");
+        // Fill all required fields for CurrentUserType, use defaults if needed
         dispatch({ type: "SET_CURRENT_USER", payload: {
           id: currentUserFromSupabase.id,
           email: currentUserFromSupabase.email!,
           name: currentUserFromSupabase.email ?? "Usuário",
-          householdId: null, // Explicitly null for new users
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          avatar: undefined,
+          households: [],
+          primaryHousehold: "",
+          householdId: null,
+          preferences: {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: "pt-BR",
+            notifications: {
+              pushEnabled: false,
+              emailEnabled: false,
+              feedingReminders: false,
+              missedFeedingAlerts: false,
+              householdUpdates: false
+            }
+          },
+          role: "user"
         } as CurrentUserType });
       }
     } catch (error) {
-      logger.error("[UserProvider] Error fetching user data:", error);
+      logger.error("[UserProvider] Error fetching user data:", { error });
       dispatch({ type: "FETCH_ERROR", payload: "Failed to load user data" });
       setProfile(null);
       lastProfileFetchRef.current = null;
-      
       // Show a user-friendly error message
       if (error instanceof Error) {
         if (error.message?.includes("FATAL: Tenant or user not found")) {
@@ -232,7 +271,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       logger.info(`[UserProvider][Request ${requestId}] supabase.auth.getUser() result: user=${verifiedUser ? verifiedUser.id : 'null'}, error=${userError ? JSON.stringify(userError) : 'null'}`);
       
       if (userError) {
-        logger.error(`[UserProvider][Request ${requestId}] Auth error:`, userError);
+        logger.error(`[UserProvider][Request ${requestId}] Auth error:`, { error: userError });
         throw userError;
       }
 

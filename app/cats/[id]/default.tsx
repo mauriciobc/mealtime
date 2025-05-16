@@ -28,8 +28,7 @@ interface CatData {
 
 async function getCatData(id: string, userId: string): Promise<CatData | null> {
   try {
-    const cookieStore = cookies()
-    const supabase = createClient(cookieStore)
+    const supabase = await createClient()
     
     console.log("[getCatData] Starting data fetch", { 
       id,
@@ -137,8 +136,7 @@ export default async function DefaultCatPage({ params }: PageProps) {
       notFound()
     }
 
-    const cookieStore = cookies()
-    const supabase = createClient(cookieStore)
+    const supabase = await createClient()
     
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser()

@@ -259,11 +259,14 @@ export default function NewSchedulePage() {
              </div>
              <div className="mt-6">
                 <EmptyState
-                    icon={Users}
+                    IconComponent={Users}
                     title="Sem Residência Associada"
                     description="Associe-se a uma residência para criar agendamentos."
-                    actionLabel="Ir para Configurações"
-                    actionHref="/settings"
+                    actionButton={
+                      <Button asChild>
+                        <Link href="/settings">Ir para Configurações</Link>
+                      </Button>
+                    }
                  />
              </div>
          </div>
@@ -283,11 +286,14 @@ export default function NewSchedulePage() {
                  </div>
                  <div className="mt-6">
                     <EmptyState
-                        icon={CatIcon}
+                        IconComponent={CatIcon}
                         title="Nenhum Gato Cadastrado"
                         description="Cadastre pelo menos um gato antes de criar agendamentos."
-                        actionLabel="Cadastrar Gato"
-                        actionHref="/cats/new"
+                        actionButton={
+                          <Button asChild>
+                            <Link href="/cats/new">Cadastrar Gato</Link>
+                          </Button>
+                        }
                      />
                  </div>
              </div>

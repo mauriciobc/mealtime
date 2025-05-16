@@ -22,7 +22,7 @@ async function createSupabaseRouteClient() {
 // GET /api/notifications - Get all notifications for the user
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = await createSupabaseRouteClient();
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -30,23 +30,44 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Parse page and limit from query params
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get('page') || '1', 10);
+  const limit = parseInt(searchParams.get('limit') || '10', 10);
+  const safePage = isNaN(page) || page < 1 ? 1 : page;
+  const safeLimit = isNaN(limit) || limit < 1 ? 10 : limit;
+  const from = (safePage - 1) * safeLimit;
+  const to = from + safeLimit - 1;
+
+  // Fetch paginated notifications
   const { data: notifications, error } = await supabase
     .from('notifications')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Return as an object with notifications property and pagination fields
+  // Get total count from Supabase response (if available)
+  const total = notifications?.length === safeLimit ? (safePage * safeLimit + 1) : (notifications?.length || 0);
+  // If count is not available, fallback to notifications.length
+  // Supabase JS client v2 returns count in a different way, adjust if needed
+
+  // Calculate totalPages and hasMore
+  // If you want exact total, you may need a separate count query
+  // For now, we estimate hasMore by checking if we got a full page
+  const hasMore = notifications && notifications.length === safeLimit;
+  const totalPages = hasMore ? safePage + 1 : safePage;
+
   return NextResponse.json({
     notifications: notifications || [],
-    total: notifications ? notifications.length : 0,
-    page: 1,
-    totalPages: 1,
-    hasMore: false
+    total,
+    page: safePage,
+    totalPages,
+    hasMore
   });
 }
 

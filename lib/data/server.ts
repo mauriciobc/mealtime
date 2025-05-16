@@ -1,20 +1,22 @@
-import { prisma } from '@/lib/prisma';
+import { unstable_noStore as noStore } from "next/cache";
+import prisma from "@/lib/prisma";
+import { logger } from "@/lib/monitoring/logger";
 
-export async function getCatByIdServer(id: number) {
-  if (!id || isNaN(id)) {
+export async function getCatByIdServer(id: string) {
+  if (!id || typeof id !== "string") {
     return null;
   }
 
   try {
-    const cat = await prisma.cat.findUnique({
+    const cat = await prisma.cats.findUnique({
       where: { id },
       include: {
         household: true,
-        feedings: {
-          orderBy: { createdAt: 'desc' },
+        feeding_logs: {
+          orderBy: { created_at: 'desc' },
           take: 10,
           include: {
-            user: true
+            feeder: true
           }
         }
       }

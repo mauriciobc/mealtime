@@ -55,10 +55,11 @@ export interface CatGroup {
 export interface CatType {
   id: string; // UUID
   name: string;
+  breed?: string | null; // Added breed as optional
   photo_url?: string | null;
   birthdate?: Date | string | null;
-  weight?: Decimal | null;
-  feeding_interval: number | null;  // Hours between feedings (1-24)
+  weight?: number | string | null; // Allow string for form compatibility
+  feeding_interval: number | string | null;  // Allow string for form compatibility
   portion_size?: string | null; // Text type
   restrictions?: string | null;
   notes?: string | null;

@@ -3,7 +3,7 @@ import prisma from '../prisma';
 export const CatRepository = {
   // Buscar todos os gatos
   getAll: async () => {
-    return prisma.cat.findMany({
+    return prisma.cats.findMany({
       include: {
         household: true,
         schedules: true,
@@ -12,13 +12,13 @@ export const CatRepository = {
   },
 
   // Buscar todos os gatos de um domicílio
-  getAllByHousehold: async (householdId: number) => {
-    return prisma.cat.findMany({
-      where: { householdId },
+  getAllByHousehold: async (householdId: string) => {
+    return prisma.cats.findMany({
+      where: { household_id: householdId },
       include: {
         schedules: true,
-        feedingLogs: {
-          orderBy: { timestamp: 'desc' },
+        feeding_logs: {
+          orderBy: { created_at: 'desc' },
           take: 5,
         },
       },
@@ -26,20 +26,19 @@ export const CatRepository = {
   },
 
   // Buscar um gato pelo ID
-  getById: async (id: number) => {
-    return prisma.cat.findUnique({
+  getById: async (id: string) => {
+    return prisma.cats.findUnique({
       where: { id },
       include: {
         household: true,
         schedules: true,
-        feedingLogs: {
-          orderBy: { timestamp: 'desc' },
+        feeding_logs: {
+          orderBy: { created_at: 'desc' },
           take: 10,
           include: {
-            user: true,
+            feeder: true,
           },
         },
-        groups: true,
       },
     });
   },
@@ -47,74 +46,57 @@ export const CatRepository = {
   // Criar um novo gato
   create: async (data: {
     name: string;
-    photoUrl?: string;
-    birthdate?: Date;
+    photo_url?: string;
+    birth_date?: Date;
     weight?: number;
     restrictions?: string;
     notes?: string;
-    householdId: number;
+    household_id: string;
+    owner_id: string;
+    feeding_interval?: number;
+    portion_size?: number;
+    portion_unit?: string;
   }) => {
-    return prisma.cat.create({
+    return prisma.cats.create({
       data,
     });
   },
 
   // Atualizar um gato
   update: async (
-    id: number,
+    id: string,
     data: {
       name?: string;
-      photoUrl?: string;
-      birthdate?: Date;
+      photo_url?: string;
+      birth_date?: Date;
       weight?: number;
       restrictions?: string;
       notes?: string;
+      feeding_interval?: number;
+      portion_size?: number;
+      portion_unit?: string;
     }
   ) => {
-    return prisma.cat.update({
+    return prisma.cats.update({
       where: { id },
       data,
     });
   },
 
   // Excluir um gato
-  delete: async (id: number) => {
+  delete: async (id: string) => {
     // Primeiro exclui os registros relacionados
-    await prisma.feedingLog.deleteMany({
-      where: { catId: id },
+    await prisma.feeding_logs.deleteMany({
+      where: { cat_id: id },
     });
     
-    await prisma.schedule.deleteMany({
-      where: { catId: id },
+    await prisma.schedules.deleteMany({
+      where: { cat_id: id },
     });
     
     // Depois exclui o gato
-    return prisma.cat.delete({
+    return prisma.cats.delete({
       where: { id },
-    });
-  },
-
-  // Adicionar um gato a um grupo
-  addToGroup: async (catId: number, groupId: number) => {
-    return prisma.catGroup.update({
-      where: { id: groupId },
-      data: {
-        cats: {
-          connect: { id: catId },
-        },
-      },
-    });
-  },
-
-  // Remover um gato de um grupo
-  removeFromGroup: async (catId: number, groupId: number) => {
-    return prisma.catGroup.update({
-      where: { id: groupId },
-      data: {
-        cats: {
-          disconnect: { id: catId },
-        },
-      },
     });
   },
 }; 

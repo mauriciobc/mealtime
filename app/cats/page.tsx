@@ -25,10 +25,9 @@ import PageTransition from "@/components/page-transition"
 import { motion } from "framer-motion"
 import { CatType, FeedingLog } from "@/lib/types"
 import { getAgeString, getScheduleText } from "@/lib/utils/dateUtils"
-import { AnimatedButton } from "@/components/ui/animated-button"
 import { AppHeader } from "@/components/app-header"
 import { useRouter } from "next/navigation"
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow"
 import { ptBR } from "date-fns/locale"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/page-header"
@@ -151,11 +150,14 @@ export default function CatsPage() {
                 icon={<Users className="h-6 w-6" />}
               />
              <EmptyState
-                icon={Users}
+                IconComponent={Users}
                 title="Sem Residência Associada"
                 description="Você precisa criar ou juntar-se a uma residência para adicionar e gerenciar gatos."
-                actionLabel="Ir para Configurações"
-                actionHref="/settings"
+                actionButton={
+                  <Link href="/settings">
+                    <Button variant="outline">Ir para Configurações</Button>
+                  </Link>
+                }
                 className="max-w-xl mx-auto my-12"
              />
            </div>
@@ -181,12 +183,14 @@ export default function CatsPage() {
           {catsToDisplay.length === 0 ? (
              <div className="mt-6">
                <EmptyState
-                 icon={CatIcon}
+                 IconComponent={CatIcon}
                  title="Nenhum gato cadastrado"
                  description="Você ainda não adicionou nenhum gato a esta residência. Que tal adicionar o primeiro?"
-                 actionLabel="Adicionar Meu Primeiro Gato"
-                 actionHref="/cats/new"
-                 variant="cat"
+                 actionButton={
+                   <Link href="/cats/new">
+                     <Button variant="outline">Adicionar Meu Primeiro Gato</Button>
+                   </Link>
+                 }
                />
              </div>
           ) : (

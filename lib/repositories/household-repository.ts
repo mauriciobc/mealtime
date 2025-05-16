@@ -1,18 +1,23 @@
-import { prisma } from '../prisma';
+import prisma from '../prisma';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '@/lib/monitoring/logger';
 
 export const HouseholdRepository = {
   // Buscar todos os domicílios
   getAll: async () => {
-    return prisma.household.findMany();
+    return prisma.households.findMany();
   },
 
   // Buscar um domicílio pelo ID
-  getById: async (id: number) => {
-    return prisma.household.findUnique({
+  getById: async (id: string) => {
+    return prisma.households.findUnique({
       where: { id },
       include: {
-        users: true,
+        household_members: {
+          include: {
+            user: true,
+          },
+        },
         cats: true,
       },
     });
@@ -20,68 +25,80 @@ export const HouseholdRepository = {
 
   // Buscar um domicílio pelo código de convite
   getByInviteCode: async (inviteCode: string) => {
-    return prisma.household.findUnique({
+    return prisma.households.findUnique({
       where: { inviteCode },
       include: {
-        users: true,
+        household_members: {
+          include: {
+            user: true,
+          },
+        },
         cats: true,
       },
     });
   },
 
   // Criar um novo domicílio
-  create: async (name: string) => {
+  create: async (name: string, owner_id: string) => {
     const inviteCode = uuidv4().substring(0, 8).toUpperCase();
-    return prisma.household.create({
+    return prisma.households.create({
       data: {
         name,
         inviteCode,
+        owner_id,
       },
     });
   },
 
   // Atualizar um domicílio
-  update: async (id: number, data: { name?: string }) => {
-    return prisma.household.update({
+  update: async (id: string, data: { name?: string }) => {
+    return prisma.households.update({
       where: { id },
       data,
     });
   },
 
   // Gerar um novo código de convite
-  refreshInviteCode: async (id: number) => {
+  refreshInviteCode: async (id: string) => {
     const inviteCode = uuidv4().substring(0, 8).toUpperCase();
-    return prisma.household.update({
+    return prisma.households.update({
       where: { id },
       data: { inviteCode },
     });
   },
 
   // Adicionar um usuário ao domicílio
-  addUser: async (householdId: number, userId: number, role: string) => {
-    return prisma.user.update({
-      where: { id: userId },
+  addUser: async (householdId: string, userId: string, role: string) => {
+    return prisma.household_members.create({
       data: {
-        householdId,
+        household_id: householdId,
+        user_id: userId,
         role,
       },
     });
   },
 
   // Remover um usuário do domicílio
-  removeUser: async (userId: number) => {
-    return prisma.user.update({
-      where: { id: userId },
-      data: {
-        householdId: null,
+  removeUser: async (householdId: string, userId: string) => {
+    return prisma.household_members.delete({
+      where: {
+        household_id_user_id: {
+          household_id: householdId,
+          user_id: userId,
+        },
       },
     });
   },
 
   // Atualizar o papel de um usuário no domicílio
-  updateUserRole: async (userId: number, role: string) => {
-    return prisma.user.update({
-      where: { id: userId },
+  updateUserRole: async (householdId: string, userId: string, role: string) => {
+    return prisma.household_members.update({
+      where: {
+        household_id_user_id: {
+          household_id: householdId,
+          user_id: userId,
+        },
+      },
       data: { role },
     });
   },

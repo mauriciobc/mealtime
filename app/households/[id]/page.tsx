@@ -1,5 +1,3 @@
-// For better development experience, install React DevTools:
-// https://react.dev/learn/react-developer-tools
 "use client"
 
 import { useState, useEffect, use } from "react"
@@ -63,9 +61,10 @@ import React from "react"
 import { Loading } from "@/components/ui/loading"
 import { EmptyState } from "@/components/ui/empty-state"
 import { CatCard } from "@/components/cat/cat-card"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 const formatMemberRole = (role?: string) => {
@@ -74,16 +73,17 @@ const formatMemberRole = (role?: string) => {
 };
 
 export default function HouseholdDetailsPage({ params }: PageProps) {
+  const resolvedParams = use(params) as { id: string };
   const router = useRouter();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { state: userState, dispatch: _userDispatch } = useUserContext();
+  const { state: userState } = useUserContext();
   const { state: catsState, dispatch: _catsDispatch } = useCats();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { households, error: errorHousehold } = householdState;
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
   const { cats: allCats, isLoading: isLoadingCats, error: errorCats } = catsState;
   
-  const householdId = use(params).id;
+  const householdId = resolvedParams.id;
   
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -98,6 +98,9 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
   const [_showLeaveDialog, setShowLeaveDialog] = useState(false)
   const [_showDeleteHouseholdDialog, setShowDeleteHouseholdDialog] = useState(false)
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   // Handle authentication and redirection
   useEffect(() => {
@@ -131,11 +134,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         }
       });
       
-      _userDispatch({ 
-           type: "SET_CURRENT_USER", 
-           payload: currentUser ? { ...currentUser, householdId: null } : null
-      });
-
       toast.success("Você saiu da residência.");
       router.push("/households");
 
@@ -167,7 +165,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         throw new Error(errorData.error || 'Falha ao excluir residência');
       }
 
-      householdDispatch({ type: "DELETE_HOUSEHOLD", payload: household.id });
+      householdDispatch({ type: "SET_HOUSEHOLD", payload: null });
       toast.success("Residência excluída com sucesso.");
       router.push("/households");
     } catch (error: any) {
@@ -400,12 +398,13 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     return (
       <PageTransition>
         <div className="p-4 text-center">
-          <EmptyState 
-            icon={AlertTriangle}
+          <EmptyState
+            IconComponent={AlertTriangle}
             title="Erro ao Carregar Residência"
             description={loadError || "Não foi possível carregar os dados desta residência."}
-            actionLabel="Voltar para Residências"
-            actionHref="/households"
+            actionButton={
+              <Button onClick={() => router.push("/households")}>Voltar para Residências</Button>
+            }
           />
         </div>
       </PageTransition>
@@ -416,12 +415,13 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     return (
       <PageTransition>
         <div className="p-4 text-center">
-          <EmptyState 
-            icon={ShieldAlert}
+          <EmptyState
+            IconComponent={ShieldAlert}
             title="Residência Não Encontrada"
             description="A residência que você está tentando acessar não foi encontrada ou você não tem permissão."
-            actionLabel="Voltar para Residências"
-            actionHref="/households"
+            actionButton={
+              <Button onClick={() => router.push("/households")}>Voltar para Residências</Button>
+            }
           />
         </div>
       </PageTransition>
@@ -456,11 +456,12 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     // If we want a specific error page/state here, we can adjust.
     return (
       <EmptyState
-        icon={AlertTriangle}
+        IconComponent={AlertTriangle}
         title="Erro"
         description={loadError}
-        actionLabel="Voltar para Residências"
-        actionHref="/households"
+        actionButton={
+          <Button onClick={() => router.push("/households")}>Voltar para Residências</Button>
+        }
       />
     );
   }
@@ -483,7 +484,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
                <div>
                   <h1 className="text-xl font-bold truncate" title={household.name}>{household.name}</h1>
                    <p className="text-xs text-muted-foreground">
-                      Criada em {format(new Date(household.createdAt || Date.now()), "dd/MM/yyyy", { locale: ptBR })} por {household.owner?.name || 'Desconhecido'}
+                      Criada em {format(new Date(household.createdAt || Date.now()), "dd/MM/yyyy")} por {household.owner?.name || 'Desconhecido'}
                    </p>
                </div>
              </div>
@@ -734,13 +735,14 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
                      ) : (
                          <div className="pt-4">
                            <EmptyState
-                             icon={Cat}
+                             IconComponent={Cat}
                              title="Nenhum Gato Adicionado"
                              description="Adicione o primeiro gato desta residência."
-                             actionLabel="Adicionar Gato"
-                             actionHref={`/cats/new?householdId=${householdId}`}
-                            />
-                          </div>
+                             actionButton={
+                               <Button onClick={() => router.push(`/cats/new?householdId=${householdId}`)}>Adicionar Gato</Button>
+                             }
+                           />
+                         </div>
                      )}
                   </CardContent>
                    {isAdmin && (

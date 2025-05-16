@@ -7,8 +7,14 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Clock, FileText, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useUserContext } from "@/lib/context/UserContext";
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 
 export function FeedingHistory({ logs, onMarkAsFed }: FeedingHistoryProps) {
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
+
   if (logs.length === 0) {
     return (
       <div className="text-center py-8">
@@ -40,7 +46,7 @@ export function FeedingHistory({ logs, onMarkAsFed }: FeedingHistoryProps) {
               <Clock className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium">
-                  {format(new Date(log.timestamp), "PPp", { locale: ptBR })}
+                  {format(new Date(log.timestamp), "PPp")}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Alimentado por: {feederName}

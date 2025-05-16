@@ -4,9 +4,8 @@ import { useMemo } from "react";
 import { useCats } from "@/lib/context/CatsContext";
 import { useFeeding } from "@/lib/context/FeedingContext";
 import { useUserContext } from "@/lib/context/UserContext";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, getHours, parseISO, format } from "date-fns";
-import { FeedingLog, CatType, Household } from "@/lib/types";
-import { User } from 'next-auth';
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subMonths, getHours, format } from "date-fns";
+import { FeedingLog, CatType, Household, User as CurrentUserType } from "@/lib/types";
 
 // Define interfaces for structured data
 export interface StatisticsData {

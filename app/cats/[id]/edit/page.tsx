@@ -36,7 +36,8 @@ import { useCats } from "@/lib/context/CatsContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { toast } from "sonner"
-import { format, parseISO, isValid } from "date-fns"
+import { format, isValid } from "date-fns"
+import { parseISO } from "date-fns/parseISO"
 import { CatType, Schedule } from "@/lib/types"
 import { ImageUpload } from "@/components/ui/image-upload"
 import { Loading } from "@/components/ui/loading"
@@ -61,6 +62,7 @@ import { Calendar as CalendarIcon } from "@/components/ui/calendar"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { DateTimePicker } from "@/components/ui/datetime-picker"
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 interface PageProps {
   params: Promise<{
@@ -92,6 +94,9 @@ export default function EditCatPage({ params }: PageProps) {
     portion_size: "",
     notes: "",
   })
+
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   // Authentication effect
   useEffect(() => {
@@ -168,7 +173,7 @@ export default function EditCatPage({ params }: PageProps) {
     }
     setIsLoadingData(false);
     removeLoadingOperation(opId);
-  }, [resolvedParams.id, currentUser, cats, catsState.isLoading, addLoadingOperation, removeLoadingOperation]);
+  }, [resolvedParams.id, currentUser, cats, catsState.isLoading, addLoadingOperation, removeLoadingOperation, userLocale]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -375,13 +380,15 @@ export default function EditCatPage({ params }: PageProps) {
 
             <div className="space-y-2">
               <Label htmlFor="photoUrl">Foto</Label>
-              <ImageUpload
-                type="cat"
-                userId={currentUser.id}
-                value={formData.photoUrl || ''}
-                onChange={(url) => setFormData(prev => ({ ...prev, photoUrl: url }))}
-                maxSizeMB={50}
-              />
+              <div className="w-64 aspect-square flex items-center justify-center">
+                <ImageUpload
+                  type="cat"
+                  userId={currentUser.id}
+                  value={formData.photoUrl || ''}
+                  onChange={(url) => setFormData(prev => ({ ...prev, photoUrl: url }))}
+                  maxSizeMB={50}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

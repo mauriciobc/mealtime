@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 
 interface LogEntry {
   timestamp: Date;
@@ -44,6 +45,8 @@ export default function TestNotificationsPage() {
   const { state: userState } = useUserContext();
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   console.log("[TestNotificationsPage] Context State:", {
     notificationsCount: notifications.length,
@@ -278,7 +281,7 @@ export default function TestNotificationsPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
-                      {format(log.timestamp, "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                      {format(log.timestamp, "dd/MM/yyyy HH:mm:ss")}
                     </span>
                     <span className={cn(
                       "text-xs font-medium",

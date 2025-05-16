@@ -15,6 +15,8 @@ import { useNotifications } from "@/lib/context/NotificationContext";
 import { Notification } from "@/lib/types/notification";
 import { cn } from "@/lib/utils";
 import { GlobalLoading } from "@/components/ui/global-loading";
+import { useUserContext } from "@/lib/context/UserContext";
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 
 // Re-usable Icon component
 const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
@@ -32,11 +34,13 @@ const NotificationItem = React.memo(({
   onMarkRead,
   onRemove,
   isProcessing,
+  userLanguage,
 }: {
   notification: Notification;
   onMarkRead: (id: string) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
   isProcessing: boolean;
+  userLanguage?: string;
 }) => {
   const [isMarkingRead, setIsMarkingRead] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -70,7 +74,8 @@ const NotificationItem = React.memo(({
   // Defensive check for valid date
   const formattedDate = useMemo(() => {
     const date = new Date(notification.createdAt);
-    return isNaN(date.getTime()) ? "" : format(date, "dd/MM/yyyy HH:mm", { locale: ptBR });
+    if (isNaN(date.getTime())) return "";
+    return format(date, "dd/MM/yyyy HH:mm");
   }, [notification.createdAt]);
 
   const isActionDisabled = isProcessing || isMarkingRead || isRemoving;
@@ -153,6 +158,9 @@ export default function NotificationsPage() {
     // refreshNotifications // Consider if manual refresh is needed
   } = useNotifications();
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   const handleMarkAllRead = useCallback(async () => {
     if (unreadCount === 0) return;
@@ -254,6 +262,7 @@ export default function NotificationsPage() {
                 onMarkRead={handleMarkRead}
                 onRemove={handleRemove}
                 isProcessing={isProcessing} // Pass overall processing state
+                userLanguage={userLanguage}
               />
             ))}
           </div>

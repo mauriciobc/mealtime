@@ -5,7 +5,7 @@ import { logger } from './logger';
 class MetricsMonitor extends Singleton<MetricsMonitor> {
   private metrics: Map<string, MetricDefinition>;
 
-  protected constructor() {
+  public constructor() {
     super();
     this.metrics = new Map();
   }

@@ -1,77 +1,89 @@
 import prisma from '@/lib/prisma';
-import type { PrismaClient, User } from '@prisma/client';
 
 export const UserRepository = {
   // Buscar todos os usuários
   getAll: async () => {
-    return prisma.user.findMany();
+    return prisma.profiles.findMany();
   },
 
   // Buscar um usuário pelo ID
-  getById: async (id: number) => {
-    return prisma.user.findUnique({
+  getById: async (id: string) => {
+    return prisma.profiles.findUnique({
       where: { id },
       include: {
-        household: true,
+        household_members: {
+          include: {
+            household: true,
+          },
+        },
       },
     });
   },
 
   // Buscar um usuário pelo email
   getByEmail: async (email: string) => {
-    return prisma.user.findUnique({
+    return prisma.profiles.findFirst({
       where: { email },
       include: {
-        household: true,
+        household_members: {
+          include: {
+            household: true,
+          },
+        },
       },
     });
   },
 
-  // Buscar um usuário pelo Supabase auth ID
+  // Buscar um usuário pelo Supabase auth ID (maps to id field)
   getByAuthId: async (authId: string) => {
-    return prisma.user.findUnique({
-      where: { authId },
+    return prisma.profiles.findUnique({
+      where: { id: authId },
       include: {
-        household: true,
+        household_members: {
+          include: {
+            household: true,
+          },
+        },
       },
     });
   },
 
   // Buscar usuários de um domicílio
-  getByHousehold: async (householdId: number) => {
-    return prisma.user.findMany({
-      where: { householdId },
+  getByHousehold: async (householdId: string) => {
+    return prisma.household_members.findMany({
+      where: { household_id: householdId },
+      include: {
+        user: true,
+      },
     });
   },
 
   // Criar um novo usuário
   create: async (data: {
-    name: string;
-    email: string;
-    authId: string;
-    role: string;
-    householdId?: number;
+    full_name?: string;
+    email?: string;
+    id: string; // Supabase Auth ID
     timezone?: string;
-    language?: string;
+    username?: string;
+    avatar_url?: string;
   }) => {
-    return prisma.user.create({
+    return prisma.profiles.create({
       data,
     });
   },
 
   // Atualizar um usuário
   update: async (
-    id: number,
+    id: string,
     data: {
-      name?: string;
+      full_name?: string;
       email?: string;
-      role?: string;
-      householdId?: number | null;
       timezone?: string;
-      language?: string;
+      username?: string;
+      avatar_url?: string;
     }
   ) => {
-    return prisma.user.update({
+    return prisma.profiles.update({
       where: { id },
       data,
     });
@@ -79,24 +91,23 @@ export const UserRepository = {
 
   // Atualizar preferências do usuário
   updatePreferences: async (
-    id: number,
+    id: string,
     data: {
       timezone?: string;
-      language?: string;
     }
   ) => {
-    return prisma.user.update({
+    return prisma.profiles.update({
       where: { id },
       data,
     });
   },
 
   // Excluir um usuário
-  delete: async (id: number) => {
-    await prisma.feedingLog.deleteMany({
-      where: { userId: id },
+  delete: async (id: string) => {
+    await prisma.feeding_logs.deleteMany({
+      where: { fed_by: id },
     });
-    return prisma.user.delete({
+    return prisma.profiles.delete({
       where: { id },
     });
   },

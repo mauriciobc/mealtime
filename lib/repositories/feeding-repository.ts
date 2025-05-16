@@ -3,36 +3,36 @@ import prisma from '../prisma';
 export const FeedingRepository = {
   // Buscar todos os registros de alimentação
   getAll: async () => {
-    return prisma.feedingLog.findMany({
+    return prisma.feeding_logs.findMany({
       include: {
         cat: true,
-        user: true,
+        feeder: true, // 'feeder' is the user who fed
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
     });
   },
 
   // Buscar registros de alimentação de um gato
-  getByCat: async (catId: number, limit = 20, offset = 0) => {
-    return prisma.feedingLog.findMany({
-      where: { catId },
+  getByCat: async (catId: string, limit = 20, offset = 0) => {
+    return prisma.feeding_logs.findMany({
+      where: { cat_id: catId },
       include: {
-        user: true,
+        feeder: true,
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
       skip: offset,
       take: limit,
     });
   },
 
   // Buscar registros de alimentação de um domicílio
-  getByHousehold: async (householdId: number, limit?: number, offset?: number) => {
+  getByHousehold: async (householdId: string, limit?: number, offset?: number) => {
     console.log("Buscando logs de alimentação para household:", householdId);
     
     const query = {
       where: {
         cat: {
-          householdId: Number(householdId),
+          household_id: householdId,
         },
       },
       include: {
@@ -40,17 +40,17 @@ export const FeedingRepository = {
           select: {
             id: true,
             name: true,
-            householdId: true
+            household_id: true
           }
         },
-        user: true,
+        feeder: true,
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
     };
 
     // Se limit e offset forem fornecidos, adiciona paginação
     if (typeof limit === 'number' && typeof offset === 'number') {
-      const result = await prisma.feedingLog.findMany({
+      const result = await prisma.feeding_logs.findMany({
         ...query,
         skip: offset,
         take: limit,
@@ -60,19 +60,19 @@ export const FeedingRepository = {
     }
 
     // Caso contrário, retorna todos os registros
-    const result = await prisma.feedingLog.findMany(query);
+    const result = await prisma.feeding_logs.findMany(query);
     console.log(`Encontrados ${result.length} logs sem paginação`);
     return result;
   },
 
-  // Buscar registros de alimentação de um usuário
-  getByUser: async (userId: number, limit = 20, offset = 0) => {
-    return prisma.feedingLog.findMany({
-      where: { userId },
+  // Buscar registros de alimentação de um usuário (feeder)
+  getByUser: async (userId: string, limit = 20, offset = 0) => {
+    return prisma.feeding_logs.findMany({
+      where: { fed_by: userId },
       include: {
         cat: true,
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
       skip: offset,
       take: limit,
     });
@@ -80,72 +80,87 @@ export const FeedingRepository = {
 
   // Criar um novo registro de alimentação
   create: async (data: {
-    catId: number;
-    userId: number;
-    timestamp: Date;
-    portionSize?: number;
+    cat_id: string;
+    fed_by: string;
+    fed_at: Date;
+    amount: number;
+    unit: string;
     notes?: string;
+    meal_type: string;
+    household_id: string;
   }) => {
-    return prisma.feedingLog.create({
-      data,
+    // Only pass the fields that are part of the Prisma model
+    return prisma.feeding_logs.create({
+      data: {
+        cat_id: data.cat_id,
+        fed_by: data.fed_by,
+        fed_at: data.fed_at,
+        amount: data.amount,
+        unit: data.unit,
+        notes: data.notes,
+        meal_type: data.meal_type,
+        household_id: data.household_id,
+      },
       include: {
         cat: true,
-        user: true,
+        feeder: true,
       },
     });
   },
 
   // Atualizar um registro de alimentação
   update: async (
-    id: number,
+    id: string,
     data: {
-      timestamp?: Date;
-      portionSize?: number;
+      fed_at?: Date;
+      amount?: number;
+      unit?: string;
       notes?: string;
+      meal_type?: string;
     }
   ) => {
-    return prisma.feedingLog.update({
+    return prisma.feeding_logs.update({
       where: { id },
       data,
       include: {
         cat: true,
-        user: true,
+        feeder: true,
       },
     });
   },
 
   // Excluir um registro de alimentação
-  delete: async (id: number) => {
-    return prisma.feedingLog.delete({
+  delete: async (id: string) => {
+    return prisma.feeding_logs.delete({
       where: { id },
     });
   },
 
   // Buscar estatísticas de alimentação para um gato
-  getStatsByCat: async (catId: number, days = 30) => {
+  getStatsByCat: async (catId: string, days = 30) => {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    const logs = await prisma.feedingLog.findMany({
+    const logs = await prisma.feeding_logs.findMany({
       where: {
-        catId,
-        timestamp: {
+        cat_id: catId,
+        fed_at: {
           gte: startDate,
         },
       },
-      orderBy: { timestamp: 'asc' },
+      orderBy: { fed_at: 'asc' },
     });
 
     return logs;
   },
 
   // Buscar a última alimentação de um gato
-  getLastFeeding: async (catId: number) => {
-    return prisma.feedingLog.findFirst({
-      where: { catId },
-      orderBy: { timestamp: 'desc' },
+  getLastFeeding: async (catId: string) => {
+    return prisma.feeding_logs.findFirst({
+      where: { cat_id: catId },
+      orderBy: { fed_at: 'desc' },
       include: {
-        user: true,
+        feeder: true,
       },
     });
   },

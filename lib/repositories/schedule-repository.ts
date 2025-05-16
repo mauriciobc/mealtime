@@ -1,9 +1,10 @@
-import { prisma } from '../prisma';
+import prisma from '../prisma';
+import { logger } from "@/lib/monitoring/logger";
 
 export const ScheduleRepository = {
   // Buscar todos os agendamentos
   getAll: async () => {
-    return prisma.schedule.findMany({
+    return prisma.schedules.findMany({
       include: {
         cat: true,
       },
@@ -11,18 +12,18 @@ export const ScheduleRepository = {
   },
 
   // Buscar agendamentos de um gato
-  getByCat: async (catId: number) => {
-    return prisma.schedule.findMany({
-      where: { catId },
+  getByCat: async (catId: string) => {
+    return prisma.schedules.findMany({
+      where: { cat_id: catId },
     });
   },
 
   // Buscar agendamentos de um domicílio
-  getByHousehold: async (householdId: number) => {
-    return prisma.schedule.findMany({
+  getByHousehold: async (householdId: string) => {
+    return prisma.schedules.findMany({
       where: {
         cat: {
-          householdId,
+          household_id: householdId,
         },
       },
       include: {
@@ -32,8 +33,8 @@ export const ScheduleRepository = {
   },
 
   // Buscar um agendamento pelo ID
-  getById: async (id: number) => {
-    return prisma.schedule.findUnique({
+  getById: async (id: string) => {
+    return prisma.schedules.findUnique({
       where: { id },
       include: {
         cat: true,
@@ -43,14 +44,21 @@ export const ScheduleRepository = {
 
   // Criar um novo agendamento
   create: async (data: {
-    catId: number;
+    catId: string;
     type: string;
     interval: number;
-    times: string;
+    times: string[];
     overrideUntil?: Date;
   }) => {
-    return prisma.schedule.create({
-      data,
+    return prisma.schedules.create({
+      data: {
+        type: data.type,
+        interval: data.interval,
+        times: data.times,
+        cat: {
+          connect: { id: data.catId },
+        },
+      },
       include: {
         cat: true,
       },
@@ -59,17 +67,18 @@ export const ScheduleRepository = {
 
   // Atualizar um agendamento
   update: async (
-    id: number,
+    id: string,
     data: {
       type?: string;
       interval?: number;
-      times?: string;
+      times?: string[];
       overrideUntil?: Date | null;
     }
   ) => {
-    return prisma.schedule.update({
+    const { overrideUntil, ...restOfData } = data;
+    return prisma.schedules.update({
       where: { id },
-      data,
+      data: restOfData,
       include: {
         cat: true,
       },
@@ -77,53 +86,55 @@ export const ScheduleRepository = {
   },
 
   // Excluir um agendamento
-  delete: async (id: number) => {
-    return prisma.schedule.delete({
+  delete: async (id: string) => {
+    return prisma.schedules.delete({
       where: { id },
     });
   },
 
   // Criar uma substituição temporária
   createOverride: async (
-    id: number,
+    id: string,
     data: {
       type: string;
       interval: number;
-      times: string;
+      times: string[];
       overrideUntil: Date;
     }
   ) => {
-    return prisma.schedule.update({
+    return prisma.schedules.update({
       where: { id },
       data,
     });
   },
 
   // Remover uma substituição temporária
-  removeOverride: async (id: number) => {
-    return prisma.schedule.update({
+  removeOverride: async (id: string) => {
+    return prisma.schedules.update({
       where: { id },
       data: {
-        overrideUntil: null,
+        enabled: true,
       },
     });
   },
 
   // Criar agendamentos em massa para um grupo
+  // The catGroup model does not exist in prisma.schema, so this function is commented out.
+  /* 
   createForGroup: async (
-    groupId: number,
+    groupId: string, // groupId to string
     data: {
       type: string;
       interval: number;
-      times: string;
+      times: string[]; // times to string[]
       overrideUntil?: Date;
     }
   ) => {
     // Buscar todos os gatos do grupo
-    const group = await prisma.catGroup.findUnique({
-      where: { id: groupId },
+    const group = await prisma.catGroup.findUnique({ 
+      where: { id: groupId }, 
       include: {
-        cats: true,
+        cats: true, 
       },
     });
 
@@ -134,10 +145,15 @@ export const ScheduleRepository = {
     // Criar agendamentos para cada gato do grupo
     const schedules = await Promise.all(
       group.cats.map(async (cat) => {
-        return prisma.schedule.create({
+        return prisma.schedules.create({
           data: {
-            catId: cat.id,
-            ...data,
+            type: data.type,
+            interval: data.interval,
+            times: data.times,
+            // overrideUntil: data.overrideUntil, // Removed: field does not exist
+            cat: {
+              connect: { id: cat.id }, 
+            },
           },
         });
       })
@@ -145,4 +161,5 @@ export const ScheduleRepository = {
 
     return schedules;
   },
+  */
 }; 

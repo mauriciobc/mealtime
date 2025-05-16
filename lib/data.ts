@@ -49,11 +49,11 @@ export async function getCats(householdId?: number) {
 }
 
 // Buscar um gato pelo ID
-export async function getCatById(id: number) {
+export async function getCatById(id: string) {
   try {
     if (!id) return null;
 
-    const cat = await prisma.cat.findUnique({
+    const cat = await prisma.cats.findUnique({
       where: { id },
       include: {
         household: {
@@ -62,23 +62,23 @@ export async function getCatById(id: number) {
             name: true
           }
         },
-        feedingLogs: {
+        feeding_logs: {
           take: 10,
           orderBy: {
-            timestamp: 'desc'
+            fed_at: 'desc'
           },
           include: {
-            user: {
+            feeder: {
               select: {
                 id: true,
-                name: true
+                full_name: true
               }
             }
           }
         },
         schedules: {
           orderBy: {
-            createdAt: 'desc'
+            created_at: 'desc'
           }
         }
       }

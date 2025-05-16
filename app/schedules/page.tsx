@@ -90,7 +90,7 @@ export default function SchedulesPage() {
             <EmptyState 
               title="Erro"
               description={combinedError || "Ocorreu um erro inesperado."}
-              icon={AlertTriangle}
+              IconComponent={AlertTriangle}
             />
             <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
           </div>
@@ -119,11 +119,14 @@ export default function SchedulesPage() {
               description="Gerencie os horários de alimentação programados"
             />
             <EmptyState
-              icon={Users}
+              IconComponent={Users}
               title="Sem Residência Associada"
               description="Você precisa criar ou juntar-se a uma residência para ver e criar agendamentos."
-              actionLabel="Ir para Configurações"
-              actionHref="/settings"
+              actionButton={
+                <Button asChild variant="default" className="mt-4">
+                  <Link href="/settings">Ir para Configurações</Link>
+                </Button>
+              }
             />
           </div>
           <BottomNav />
@@ -135,7 +138,7 @@ export default function SchedulesPage() {
   const schedulesToDisplay = schedules;
 
   // Get the user's timezone from currentUser
-  const userTimezone = currentUser.timezone;
+  const userTimezone = currentUser.preferences?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const timelineEvents = schedulesToDisplay
     .filter(schedule => schedule.enabled)
@@ -175,20 +178,20 @@ export default function SchedulesPage() {
           {!isLoading && schedulesToDisplay.length === 0 ? (
             <div className="mt-6">
               <EmptyState
-                icon={Clock}
+                IconComponent={Clock}
                 title="Sem agendamentos criados"
                 description={
                   cats.length === 0
                     ? "Cadastre seus gatos primeiro para poder criar agendamentos."
                     : "Você ainda não criou nenhum agendamento para esta residência."
                 }
-                actionLabel={
-                  cats.length === 0
-                    ? "Cadastrar Gato"
-                    : "Criar Primeiro Agendamento"
+                actionButton={
+                  <Button asChild variant="default">
+                    <Link href={cats.length === 0 ? "/cats/new" : "/schedules/new"}>
+                      {cats.length === 0 ? "Cadastrar Gato" : "Criar Primeiro Agendamento"}
+                    </Link>
+                  </Button>
                 }
-                actionHref={cats.length === 0 ? "/cats/new" : "/schedules/new"}
-                variant="schedule"
               />
             </div>
           ) : (

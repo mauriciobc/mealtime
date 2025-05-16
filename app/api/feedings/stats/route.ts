@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
         amount: true,
         fed_at: true,
         cat_id: true,
-        cats: {
+        cat: {
           select: {
             name: true,
           }
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       if (!catStats[catId]) {
         catStats[catId] = {
           id: catId,
-          name: feeding.cats?.name || "Unknown Cat",
+          name: feeding.cat?.name || "Unknown Cat",
           totalFeedings: 0,
           byType: {},
           dailyAverage: 0,

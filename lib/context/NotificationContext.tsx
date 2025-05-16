@@ -101,12 +101,14 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 function normalizeNotification(raw: any): Notification {
   return {
     id: String(raw.id),
-    createdAt: raw.created_at || raw.createdAt || '',
-    isRead: raw.is_read ?? raw.isRead ?? false,
-    type: raw.type,
     title: raw.title,
     message: raw.message,
-    // add other fields as needed
+    type: raw.type,
+    isRead: raw.is_read ?? raw.isRead ?? false,
+    createdAt: raw.created_at || raw.createdAt || '',
+    updatedAt: raw.updated_at || raw.updatedAt || '',
+    userId: raw.user_id || raw.userId || '',
+    metadata: raw.metadata ?? undefined,
   };
 }
 
@@ -257,7 +259,8 @@ function notificationReducer(state: NotificationState, action: NotificationActio
 export function NotificationProvider({ children }: { children: ReactNode }) {
   console.log('[METRIC] NotificationProvider initialized');
   const [state, dispatch] = useReducer(notificationReducer, getInitialState());
-  const { state: userState, isLoading: userLoading, authLoading } = useUserContext();
+  const { state: userState, authLoading } = useUserContext();
+  const userLoading = userState.isLoading;
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const currentUser = userState.currentUser;
   const currentUserId = currentUser?.id;

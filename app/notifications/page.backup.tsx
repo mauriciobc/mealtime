@@ -15,6 +15,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
 import { Notification } from "@/lib/types/notification";
 import { cn } from "@/lib/utils";
+import { useUserContext } from "@/lib/context/UserContext";
+import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 
 const NotificationIcon = ({ type }: { type: string }) => {
   const icon = useMemo(() => {
@@ -43,8 +45,11 @@ const NotificationCard = (({
   onRemove: (notification: Notification) => void;
 }) => {
   const { isLoading } = useNotifications();
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
   const formattedDate = useMemo(() => 
-    format(new Date(notification.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }),
+    format(new Date(notification.createdAt), "dd/MM/yyyy HH:mm"),
     [notification.createdAt]
   );
 
@@ -117,6 +122,9 @@ export default function NotificationsPage() {
   const [lastUpdated, setLastUpdated] = useState(0);
   const mountedRef = useRef(true);
   const router = useRouter();
+  const { state: userState } = useUserContext();
+  const userLanguage = userState.currentUser?.preferences?.language;
+  const userLocale = resolveDateFnsLocale(userLanguage);
 
   useEffect(() => {
     console.log(`[NotificationsPage] Component mounted/updated, current notifications:`, {

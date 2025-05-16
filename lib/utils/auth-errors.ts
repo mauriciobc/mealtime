@@ -102,19 +102,4 @@ export function handleAuthError(error: unknown): NextResponse {
     { error: 'Ocorreu um erro inesperado. Por favor, tente novamente.' },
     { status: 500 }
   );
-}
-
-// Rate limiting error handler
-export function handleRateLimitError(retryAfter?: number): NextResponse {
-  const message = retryAfter
-    ? `Muitas tentativas. Por favor, tente novamente em ${Math.ceil(retryAfter / 60)} minutos.`
-    : 'Muitas tentativas. Por favor, tente novamente mais tarde.';
-
-  return NextResponse.json(
-    { error: message },
-    { 
-      status: 429,
-      headers: retryAfter ? { 'Retry-After': retryAfter.toString() } : undefined
-    }
-  );
 } 

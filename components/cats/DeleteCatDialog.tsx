@@ -9,7 +9,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { useCat, useDeleteCat } from '@/lib/hooks/useCats';
+import { useCats } from '@/lib/hooks/useCats';
 
 interface DeleteCatDialogProps {
   open: boolean;
@@ -24,8 +24,8 @@ export function DeleteCatDialog({
   catId,
   householdId,
 }: DeleteCatDialogProps) {
-  const { data: cat } = useCat(householdId, catId || '');
-  const { mutate: deleteCat, isLoading } = useDeleteCat(householdId);
+  const { deleteCat, isDeleting, cats } = useCats(householdId);
+  const cat = catId ? cats.find(c => c.id === catId) : null;
 
   async function onDelete() {
     if (!catId) return;
@@ -51,8 +51,8 @@ export function DeleteCatDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onDelete} disabled={isLoading}>
-            {isLoading ? 'Deleting...' : 'Delete'}
+          <AlertDialogAction onClick={onDelete} disabled={isDeleting}>
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

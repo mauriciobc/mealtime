@@ -59,6 +59,16 @@ export async function createRouteHandlerCookieStore() {
     },
     async getAll() {
       return await cookieStore.getAll();
+    },
+    async setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          // Set each cookie using the Next.js cookie store
+          cookieStore.set(name, value, options);
+        });
+      } catch (error) {
+        logger.error('[Supabase Cookie Store] Route Handler error in setAll:', { error });
+      }
     }
   };
 }
