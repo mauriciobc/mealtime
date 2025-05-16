@@ -155,18 +155,7 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
               </Button>
             )}
             <Link href="/" className="flex items-center gap-2">
-              {title ? (
-                <span className="font-bold">{title}</span>
-              ) : (
-                <Image
-                  src="/images/SVG/mealtime-logo.svg"
-                  alt="MealTime"
-                  width={120}
-                  height={30}
-                  className="h-7 w-auto"
-                  priority
-                />
-              )}
+              <img src="/images/mealtime-logo.svg" alt="MealTime" className="h-8 w-auto" />
             </Link>
           </div>
 

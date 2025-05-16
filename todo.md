@@ -210,4 +210,4 @@ A página deve ter botão de editar e uma rota/página separada para edição do
 - Use mocks/fake data no frontend enquanto a API não estiver pronta.
 - Teste cada parte separadamente antes de integrar tudo.
 - Peça revisão de código e feedbacks frequentes.
-- Documente dúvidas e decisões tomadas durante o desenvolvimento. 
+- Documente dúvidas e decisões tomadas durante o desenvolvimento.
