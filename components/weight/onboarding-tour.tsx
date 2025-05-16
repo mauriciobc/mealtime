@@ -1,127 +1,173 @@
 "use client";
 
-import React from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-  type CarouselApi,
-} from "@/components/ui/carousel";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Gauge, List, Plus, TrendingUp, History, CheckCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card"; // For styling individual tour steps
+import { cn } from "@/lib/utils";
 
 interface OnboardingTourProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onComplete?: () => void; // Callback for when the tour is finished
+  onComplete?: () => void;
 }
 
-const tourSteps = [
+const steps = [
   {
-    title: "Welcome to Weight Tracking!",
-    description: "Let\'s quickly walk through the key features to help you get started with monitoring your cat\'s weight.",
-    // image?: string, // Optional image for the step
+    id: 1,
+    title: "Bem-vindo ao Rastreamento de Peso!",
+    description: "Vamos passar rapidamente pelos principais recursos para ajudar você a monitorar o peso do seu gato.",
+    icon: <Gauge className="h-10 w-10" />,
+    color: "bg-blue-50 text-blue-500",
   },
   {
-    title: "The Dashboard Overview",
-    description: "At the top, select your cat. You\'ll then see their current status, weight goals, and a trend chart.",
+    id: 2,
+    title: "Visão Geral do Painel",
+    description: "No topo, selecione seu gato. Você verá o status atual, metas de peso e um gráfico de tendências.",
+    icon: <List className="h-10 w-10" />,
+    color: "bg-purple-50 text-purple-500",
   },
   {
-    title: "Logging New Weights",
-    description: "Use the '+' button at the bottom right to quickly log a new weight measurement for the selected cat.",
+    id: 3,
+    title: "Registrando Novos Pesos",
+    description: "Use o botão '+' no canto inferior direito para registrar rapidamente um novo peso para o gato selecionado.",
+    icon: <Plus className="h-10 w-10" />,
+    color: "bg-indigo-50 text-indigo-500",
   },
   {
-    title: "Tracking Progress",
-    description: "The chart visualizes weight trends over time. Milestones help you track progress towards specific targets.",
+    id: 4,
+    title: "Acompanhando o Progresso",
+    description: "O gráfico visualiza as tendências de peso ao longo do tempo. Marcos ajudam a acompanhar o progresso em direção a metas.",
+    icon: <TrendingUp className="h-10 w-10" />,
+    color: "bg-amber-50 text-amber-500",
   },
   {
-    title: "Viewing History",
-    description: "The recent history list shows all logged weights, allowing you to review past entries.",
+    id: 5,
+    title: "Visualizando o Histórico",
+    description: "A lista de histórico mostra todos os pesos registrados, permitindo revisar entradas anteriores.",
+    icon: <History className="h-10 w-10" />,
+    color: "bg-emerald-50 text-emerald-500",
   },
   {
-    title: "Ready to Go!",
-    description: "You\'re all set to start tracking. If you need a refresher, you can always revisit this tour.",
+    id: 6,
+    title: "Pronto para Começar!",
+    description: "Tudo pronto para acompanhar o peso. Se precisar rever, você pode sempre acessar este tour novamente.",
+    icon: <CheckCircle className="h-10 w-10" />,
+    color: "bg-rose-50 text-rose-500",
   },
 ];
 
 export function OnboardingTour({ isOpen, onOpenChange, onComplete }: OnboardingTourProps) {
-  const [api, setApi] = React.useState<CarouselApi>();
-  const [current, setCurrent] = React.useState(0);
-  const [count, setCount] = React.useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
 
-  React.useEffect(() => {
-    if (!api) {
-      return;
+  useEffect(() => {
+    if (!isOpen) {
+      setCurrentStep(0);
     }
-    setCount(api.scrollSnapList().length);
-    setCurrent(api.selectedScrollSnap() + 1);
+  }, [isOpen]);
 
-    api.on("select", () => {
-      setCurrent(api.selectedScrollSnap() + 1);
-    });
-  }, [api]);
-
-  const handleFinishTour = () => {
-    if (onComplete) {
-      onComplete();
+  const nextStep = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleComplete();
     }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const goToStep = (stepIndex: number) => {
+    setCurrentStep(stepIndex);
+  };
+
+  const handleClose = () => {
     onOpenChange(false);
   };
 
+  const handleComplete = () => {
+    if (onComplete) onComplete();
+    onOpenChange(false);
+  };
+
+  if (!isOpen) return null;
+
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0">
-        <Carousel setApi={setApi} className="w-full">
-          <CarouselContent>
-            {tourSteps.map((step, index) => (
-              <CarouselItem key={index}>
-                <div className="p-1">
-                  <Card className="border-0 shadow-none">
-                    <CardContent className="flex flex-col items-center justify-center p-6 aspect-[3/2] sm:aspect-[4/3]">
-                      <DialogHeader className="text-center mb-4">
-                        <DialogTitle className="text-2xl font-semibold">{step.title}</DialogTitle>
-                      </DialogHeader>
-                      <DialogDescription className="text-center text-muted-foreground text-base leading-relaxed">
-                        {step.description}
-                      </DialogDescription>
-                    </CardContent>
-                  </Card>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          {count > 0 && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-full px-6 flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                    {api && current > 1 && <CarouselPrevious className="static translate-y-0" />}                 
-                </div>
-                <div className="text-center text-sm text-muted-foreground">
-                    Step {current} of {count}
-                </div>
-                <div className="flex items-center space-x-2">
-                    {api && current < count && <CarouselNext className="static translate-y-0" />}
-                    {api && current === count && (
-                        <Button onClick={handleFinishTour} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                            Finish Tour
-                        </Button>
-                    )}
-                </div>
+    <AnimatePresence mode="wait" onExitComplete={() => {
+      document.body.style.overflow = "auto";
+    }}>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleClose();
+            }
+          }}
+        >
+          <motion.div
+            className="relative w-full max-w-lg rounded-xl bg-card p-6 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+            initial={{ scale: 0.9 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-2 top-2"
+              onClick={handleClose}
+              aria-label="Fechar tour"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+
+            <div className="mb-6">
+              <div className={cn("rounded-full p-4 inline-flex mb-4", steps[currentStep].color)}>
+                {steps[currentStep].icon}
+              </div>
+              <h2 className="text-xl font-semibold mb-2">{steps[currentStep].title}</h2>
+              <p className="text-muted-foreground">{steps[currentStep].description}</p>
             </div>
-          )}
-        </Carousel>
-      </DialogContent>
-    </Dialog>
+
+            <div className="flex justify-between items-center">
+              <div className="flex space-x-1">
+                {steps.map((_, index) => (
+                  <button
+                    key={index}
+                    className={cn(
+                      "h-2 w-2 rounded-full transition-all duration-300",
+                      index === currentStep ? "bg-primary w-4" : "bg-muted"
+                    )}
+                    onClick={() => goToStep(index)}
+                  />
+                ))}
+              </div>
+              <div className="flex space-x-2">
+                {currentStep > 0 && (
+                  <Button variant="outline" onClick={prevStep}>
+                    Anterior
+                  </Button>
+                )}
+                {currentStep < steps.length - 1 ? (
+                  <Button onClick={nextStep}>Próximo</Button>
+                ) : (
+                  <Button onClick={handleComplete}>
+                    Começar
+                  </Button>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
