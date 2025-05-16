@@ -31,6 +31,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Home() {
   const { state: userState } = useUserContext();
@@ -341,9 +342,15 @@ export default function Home() {
                   {cats.slice(0, 5).map((cat: CatType) => (
                     <li key={cat.id}>
                       <Link href={`/cats/${cat.id}`} className="flex items-center gap-3 hover:bg-muted/50 p-2 rounded-md transition-colors">
+                        <Avatar className="h-10 w-10 mr-2">
+                          <AvatarImage src={cat.photo_url || ''} alt={cat.name} />
+                          <AvatarFallback>{cat.name.substring(0, 2)}</AvatarFallback>
+                        </Avatar>
                         <div className="flex-grow min-w-0">
                           <p className="font-medium truncate">{cat.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{cat.notes || "Sem raça definida"}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {cat.weight ? `${cat.weight} kg` : "- kg"}
+                          </p>
                         </div>
                         <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       </Link>
