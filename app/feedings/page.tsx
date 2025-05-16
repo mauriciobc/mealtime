@@ -352,9 +352,9 @@ export default function FeedingsPage() {
                           </Link>
                         </div>
                         {/* Custom content layout */}
-                        <div className="flex items-start gap-4 w-full">
+                        <div className="flex items-start gap-8 w-full">
                            {/* Time Column */}
-                          <div className="text-right text-sm text-muted-foreground pt-1 w-16 flex-shrink-0 tabular-nums -ml-[58px]"> {/* Use negative margin to pull time back into the padding space */}
+                          <div className="text-right text-sm text-muted-foreground pt-1 w-16 flex-shrink-0 tabular-nums -ml-[58px] pl-12"> {/* Use negative margin to pull time back into the padding space */}
                             {format(new Date(log.timestamp), "HH:mm")}
                           </div>
 
