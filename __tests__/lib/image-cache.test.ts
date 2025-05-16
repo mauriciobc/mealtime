@@ -1,7 +1,7 @@
 import { imageCache } from '../../lib/image-cache';
 import fsPromises from 'fs/promises';
 import path from 'path';
-import { ImageCacheError } from '@/lib/image-errors';
+import { ImageCacheError } from '@/src/lib/image-errors';
 import fsSync from 'fs';
 
 // --- Mocks ---

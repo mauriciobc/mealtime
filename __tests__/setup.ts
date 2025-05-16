@@ -37,9 +37,4 @@ if (typeof Headers === 'undefined') {
     },
     writable: true
   });
-}
-
-// Placeholder test to prevent "Your test suite must contain at least one test." error
-it('should run setup', () => {
-  expect(true).toBe(true);
-}); 
+} 

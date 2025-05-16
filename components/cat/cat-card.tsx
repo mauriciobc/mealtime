@@ -31,10 +31,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { getAgeString } from "@/lib/utils/dateUtils";
-import { getFallbackImageUrl, isFallbackImage } from "@/lib/image-errors";
+import { getFallbackImageUrl, isFallbackImage } from "@/src/lib/image-errors";
 import { SafeImage } from "../safe-image";
 import { cn } from "@/lib/utils";
 import { GlobalLoading } from "@/components/ui/global-loading";
+import { useUserContext } from "@/lib/context/UserContext";
 
 interface CatCardProps {
   cat: CatType;
@@ -47,8 +48,10 @@ interface CatCardProps {
 export function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
+  const { state: userState } = useUserContext();
+  const userTimezone = userState.currentUser?.preferences?.timezone;
 
-  const ageString = cat.birthdate ? getAgeString(cat.birthdate) : "Idade desconhecida";
+  const ageString = cat.birthdate ? getAgeString(cat.birthdate, userTimezone) : "Idade desconhecida";
 
   const lastFed = latestFeedingLog
     ? formatDistanceToNow(new Date(latestFeedingLog.timestamp), {

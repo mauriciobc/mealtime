@@ -72,6 +72,7 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
   const abortControllerRef = useRef<AbortController | null>(null);
   const loadingIdRef = useRef<string | null>(null);
   const hasAttemptedLoadRef = useRef(false);
+  const isMountedRef = useRef(true);
 
   const cleanupLoading = useCallback(() => {
     if (loadingIdRef.current) {
@@ -85,88 +86,67 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [removeLoadingOperation]);
 
+  const loadCatsData = useCallback(async () => {
+    const loadingId = 'cats-data-load';
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    const householdId = currentUser?.householdId;
+    if (!householdId || !isMountedRef.current) {
+      if (!householdId) {
+        dispatch({ type: 'FETCH_SUCCESS', payload: [] });
+      }
+      return;
+    }
+    hasAttemptedLoadRef.current = true;
+    try {
+      loadingIdRef.current = loadingId;
+      dispatch({ type: 'FETCH_START' });
+      addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
+      console.log("[CatsProvider] Loading cats for household:", householdId);
+      const catsData: CatType[] = await getCatsByHouseholdId(householdId, currentUser?.id);
+      if (!isMountedRef.current) return;
+      console.log("[CatsProvider] Cats loaded:", catsData.length);
+      dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('[CatsProvider] Request aborted');
+        return;
+      }
+      if (!isMountedRef.current) return;
+      console.error("[CatsProvider] Error loading cats data:", error);
+      const errorMessage = error.message || 'Falha ao carregar dados dos gatos';
+      dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
+      toast.error(errorMessage);
+    } finally {
+      if (isMountedRef.current) {
+        cleanupLoading();
+      }
+    }
+  }, [addLoadingOperation, cleanupLoading, currentUser?.householdId, currentUser?.id]);
+
   const forceRefresh = useCallback(() => {
-    // Reset the load attempt flag to force a new load
     hasAttemptedLoadRef.current = false;
-    
-    // Clear any existing data and set loading state
-    dispatch({ type: 'FETCH_START' });
-    
-    // If there's an ongoing request, abort it
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
-    // Clean up any existing loading state
     cleanupLoading();
-  }, [cleanupLoading]);
-
-  useEffect(() => {
-    // Reset load attempt when household changes
-    hasAttemptedLoadRef.current = false;
-  }, [currentUser?.householdId]);
-
-  useEffect(() => {
-    const loadingId = 'cats-data-load';
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    let isMounted = true;
-
-    const loadCatsData = async () => {
-      const householdId = currentUser?.householdId;
-      if (!householdId || !isMounted || hasAttemptedLoadRef.current) {
-        if (!householdId) {
-          dispatch({ type: 'FETCH_SUCCESS', payload: [] });
-        }
-        return;
-      }
-
-      hasAttemptedLoadRef.current = true;
-
-      try {
-        loadingIdRef.current = loadingId;
-        dispatch({ type: 'FETCH_START' });
-        addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
-
-        console.log("[CatsProvider] Loading cats for household:", householdId);
-        const catsData: CatType[] = await getCatsByHouseholdId(householdId, currentUser?.id);
-
-        if (!isMounted) return;
-
-        console.log("[CatsProvider] Cats loaded:", catsData.length);
-        dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.log('[CatsProvider] Request aborted');
-          return;
-        }
-
-        if (!isMounted) return;
-
-        console.error("[CatsProvider] Error loading cats data:", error);
-        const errorMessage = error.message || 'Falha ao carregar dados dos gatos';
-        dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-        toast.error(errorMessage);
-      } finally {
-        if (isMounted) {
-          cleanupLoading();
-        }
-      }
-    };
-
-    // Execute load immediately when the effect runs
     loadCatsData();
+  }, [cleanupLoading, loadCatsData]);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    hasAttemptedLoadRef.current = false;
+    loadCatsData();
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
       cleanupLoading();
     };
-  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading]);
+  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, loadCatsData]);
 
   const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, forceRefresh]);
 

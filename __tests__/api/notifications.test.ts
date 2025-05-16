@@ -28,28 +28,25 @@ jest.mock('next/cache', () => ({
   unstable_cache: jest.fn((fn) => fn),
 }))
 
-// Mock do Prisma
-// jest.mock('@/lib/prisma', () => { // Commented out
-//   return {
-//     __esModule: true,
-//     default: {
-//       notification: {
-//         findMany: jest.fn(),
-//         count: jest.fn(),
-//         findFirst: jest.fn(),
-//         update: jest.fn(),
-//         updateMany: jest.fn(),
-//         create: jest.fn(),
-//         delete: jest.fn(),
-//       },
-//       $queryRaw: jest.fn(),
-//       $executeRaw: jest.fn(),
-//     },
-//   }
-// })
+// In-memory mock for Prisma
+const mockPrisma = {
+  notification: {
+    findMany: jest.fn(),
+    count: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn(),
+    updateMany: jest.fn(),
+    create: jest.fn(),
+    delete: jest.fn(),
+  },
+  $queryRaw: jest.fn(),
+  $executeRaw: jest.fn(),
+};
 
-// Obter o mock do Prisma
-// const mockPrisma = jest.requireMock('@/lib/prisma').default // Commented out
+jest.mock('@/lib/prisma', () => ({
+  __esModule: true,
+  default: mockPrisma,
+}));
 
 // Skipping this entire suite temporarily due to module resolution issues with @/lib/prisma
 describe.skip('API de Notificações', () => {

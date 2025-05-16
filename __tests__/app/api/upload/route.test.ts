@@ -36,7 +36,7 @@ const { NextResponse: MockedNextResponse } = require('next/server');
 // Import the original handler AND the functions it uses
 import { POST } from '@/app/api/upload/route'; 
 import { validateImage, processImage } from '@/lib/image-processing'; // Import real functions if needed for direct mocking later (less likely now)
-import { ImageProcessingError } from '@/lib/image-errors'; // Import error class for checking
+import { ImageProcessingError } from '@/src/lib/image-errors'; // Import error class for checking
 import path from 'path';
 import { NextRequest } from 'next/server';
 
