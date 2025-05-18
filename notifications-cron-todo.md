@@ -126,15 +126,39 @@
 #### Next Steps for This Milestone
 
 - [x] Audit and update all business logic to call `createNotification` for the above events *(feeding registration handler updated, warning audit in progress, household join/leave notifications implemented server-side)*
-- [ ] Ensure notification payloads match the unified type system
+- [x] Ensure notification payloads match the unified type system
 - [ ] Add/expand tests for event-driven notification triggers
 - [ ] Document trigger points and update architecture docs
 
 ---
 
-# Next Milestone: Ensure notification payloads match the unified type system
+# Next Milestone: Add/expand tests for event-driven notification triggers
 
-Work is now starting on this milestone. All event-driven triggers have been updated to use the notification API/service. The next step is to review all notification payloads and ensure they conform to the unified type system as defined in the project documentation and types.
+Work is now starting on this milestone. The next step is to review and add/expand automated tests to ensure all event-driven notification triggers are covered and validated.
+
+## Unified Notification Type System (Summary)
+
+- **NotificationType**: One of 'feeding', 'reminder', 'household', 'system', 'info', 'warning', 'error'.
+
+- **Notification** (from `lib/types/notification.ts`):
+  - `id: string` (UUID)
+  - `title: string`
+  - `message: string`
+  - `type: NotificationType`
+  - `isRead: boolean`
+  - `createdAt: string`
+  - `updatedAt: string`
+  - `userId: string` (UUID)
+  - `metadata?: { catId?: string; householdId?: string; actionUrl?: string; icon?: string; scheduledTime?: string; [key: string]: any }`
+
+- **CreateNotificationPayload** (from `lib/types/notification.ts`):
+  - `title: string`
+  - `message: string`
+  - `type: NotificationType`
+  - `metadata?: { catId?: string; actionUrl?: string; icon?: string; scheduledTime?: string; [key: string]: any }`
+  - (userId and householdId are handled by the API/session, not in the payload)
+
+All notification creation and API payloads must match these structures. The next step is to audit all notification creation points and ensure conformance.
 
 ---
 
