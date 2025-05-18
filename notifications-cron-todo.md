@@ -119,7 +119,7 @@
 - [ ] Feeding registration triggers `warning` notification on duplicate/missed *(audit in progress)*
 - [x] Schedule update triggers `reminder` or `system` notification *(system notification sent on PATCH /api/schedules/[id], includes updated fields and cat info)*
 - [x] User joins/leaves household triggers `household` notification for all members
-- [ ] System/admin events trigger `system` or `info` notification
+- [x] System/admin events trigger `system` or `info` notification *(admin-only API route POST /api/notifications/admin-send implemented)*
 - [ ] Error handling triggers `error` notification for affected user
 - [x] Overdue feeding triggers repeated reminder notifications every 15 minutes, deduplicated by `catId`, `scheduledTime`, and `reminderInterval` *(implemented in cron job)*
 
