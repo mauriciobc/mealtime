@@ -6,7 +6,7 @@ import { Plus, Upload, X, Camera, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { formatErrorMessage, getFallbackImageUrl, isFallbackImage } from "@/src/lib/image-errors";
+import { formatErrorMessage, getFallbackImageUrl, isFallbackImage } from "@/lib/image-errors";
 
 interface ImageUploadProps {
   value: string;

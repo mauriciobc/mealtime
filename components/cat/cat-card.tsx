@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { getAgeString } from "@/lib/utils/dateUtils";
-import { getFallbackImageUrl, isFallbackImage } from "@/src/lib/image-errors";
+import { getFallbackImageUrl, isFallbackImage } from "@/lib/image-errors";
 import { SafeImage } from "../safe-image";
 import { cn } from "@/lib/utils";
 import { GlobalLoading } from "@/components/ui/global-loading";

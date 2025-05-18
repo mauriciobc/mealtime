@@ -1,5 +1,5 @@
 import { processImage, validateImage, ImageType } from '@/lib/image-processing';
-import { ImageProcessingError, ImageValidationError } from '@/src/lib/image-errors';
+import { ImageProcessingError, ImageValidationError } from '@/lib/image-errors';
 import sharp from 'sharp';
 import path from 'path';
 import fs from 'fs'; // Import core fs
