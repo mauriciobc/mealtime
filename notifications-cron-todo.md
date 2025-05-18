@@ -21,6 +21,7 @@
   - Fetch schedules and last feeding log.
   - Use `generateFeedingNotifications` to determine if a `feeding`, `reminder`, or `warning` notification is due.
   - For each notification, POST to `/api/notifications`.
+  - **If a feeding is overdue, send a new reminder notification every 15 minutes after the scheduled time, until the cat is fed. Each reminder is deduplicated using `catId`, `scheduledTime`, and `reminderInterval` in notification metadata.**
 - **Metrics**: Use `feedingNotificationMonitor` to track checks, successes, failures, and timing.
 
 ---
@@ -117,13 +118,14 @@
 - [x] Feeding registration triggers `feeding` notification *(implemented in POST handler)*
 - [ ] Feeding registration triggers `warning` notification on duplicate/missed *(audit in progress)*
 - [ ] Schedule update triggers `reminder` or `system` notification
-- [ ] User joins/leaves household triggers `household` notification for all members
+- [x] User joins/leaves household triggers `household` notification for all members
 - [ ] System/admin events trigger `system` or `info` notification
 - [ ] Error handling triggers `error` notification for affected user
+- [x] Overdue feeding triggers repeated reminder notifications every 15 minutes, deduplicated by `catId`, `scheduledTime`, and `reminderInterval` *(implemented in cron job)*
 
 #### Next Steps for This Milestone
 
-- [ ] Audit and update all business logic to call `createNotification` for the above events *(feeding registration handler updated, warning audit in progress)*
+- [x] Audit and update all business logic to call `createNotification` for the above events *(feeding registration handler updated, warning audit in progress, household join/leave notifications implemented server-side)*
 - [ ] Ensure notification payloads match the unified type system
 - [ ] Add/expand tests for event-driven notification triggers
 - [ ] Document trigger points and update architecture docs
