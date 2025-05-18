@@ -117,7 +117,7 @@
 
 - [x] Feeding registration triggers `feeding` notification *(implemented in POST handler)*
 - [ ] Feeding registration triggers `warning` notification on duplicate/missed *(audit in progress)*
-- [ ] Schedule update triggers `reminder` or `system` notification
+- [x] Schedule update triggers `reminder` or `system` notification *(system notification sent on PATCH /api/schedules/[id], includes updated fields and cat info)*
 - [x] User joins/leaves household triggers `household` notification for all members
 - [ ] System/admin events trigger `system` or `info` notification
 - [ ] Error handling triggers `error` notification for affected user
