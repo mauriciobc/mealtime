@@ -132,6 +132,12 @@
 
 ---
 
+# Next Milestone: Ensure notification payloads match the unified type system
+
+Work is now starting on this milestone. All event-driven triggers have been updated to use the notification API/service. The next step is to review all notification payloads and ensure they conform to the unified type system as defined in the project documentation and types.
+
+---
+
 # Risk Assessment & Review
 
 ## Risks
