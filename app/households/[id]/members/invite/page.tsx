@@ -216,7 +216,11 @@ export default function HouseholdInvitePage({ params }: PageProps) {
      setIsGenerating(true);
      try {
        const response = await fetch(`/api/households/${householdId}/invite-code`, {
-          method: "PATCH", 
+          method: "PATCH",
+          headers: {
+            "X-User-ID": currentUser.id,
+            "Content-Type": "application/json"
+          }
         });
 
         const result = await response.json();

@@ -19,7 +19,8 @@
     "test:notifications:watch": "jest __tests__/api/notifications.test.ts --watch",
     "test:notifications:coverage": "jest __tests__/api/notifications.test.ts --coverage",
     "test:notifications:manual": "bash scripts/test-notifications.sh",
-    "test:notifications:postman": "echo 'Importe a coleção postman/notifications-collection.json no Postman'"
+    "test:notifications:postman": "echo 'Importe a coleção postman/notifications-collection.json no Postman'",
+    "cron": "ts-node scripts/cron-runner.ts"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.2.1",
@@ -65,6 +66,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
+    "cron": "^4.3.0",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.2.0",
     "dotenv": "^16.5.0",
@@ -74,6 +76,8 @@
     "lucide-react": "^0.454.0",
     "next": "15.1.0",
     "next-themes": "^0.4.4",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.16.0",
     "postcss": "^8",
     "react": "^18.3.1",
     "react-day-picker": "^9.6.7",

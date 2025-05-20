@@ -32,6 +32,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import EventsList from "@/components/events-list";
 
 export default function Home() {
   const { state: userState } = useUserContext();
@@ -322,7 +323,7 @@ export default function Home() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Add recent logs content here */}
+                <EventsList />
               </CardContent>
             </Card>
           </motion.div>

@@ -1,22 +1,17 @@
 "use client"
 
-import { useState, useEffect, useCallback, memo, useRef } from "react"
+import { useState, useEffect, memo } from "react"
 import { useRouter, redirect } from "next/navigation"
-import { useTheme } from "next-themes"
 import { toast } from "sonner"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { useUserContext } from "@/lib/context/UserContext"
-import { createClient } from "@/utils/supabase/client"
 import { useHousehold } from "@/lib/context/HouseholdContext"
 
 // Componentes
-import { AppHeader } from "@/components/app-header"
 import PageTransition from "@/components/page-transition"
 import BottomNav from "@/components/bottom-nav"
 import { AnimatedCard } from "@/components/ui/animated-card"
-import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
   Dialog, 
   DialogContent, 
@@ -43,18 +38,9 @@ import { AlertCircle } from "lucide-react"
 import { 
   Bell,
   Globe, 
-  Clock, 
-  Check, 
   ChevronRight, 
   LogOut, 
-  Moon, 
   Sun, 
-  User,
-  Mail,
-  Loader2,
-  Home,
-  Users,
-  Settings2,
   Trash2
 } from "lucide-react"
 
@@ -290,10 +276,8 @@ export default function SettingsPage() {
   const userContext = useUserContext(); // Get the whole context object
   const { state: userState } = userContext;
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
-  const { state: householdState, dispatch: householdDispatch } = useHousehold();
-  const { households, isLoading: isLoadingHouseholds, error: errorHousehold } = householdState; // Add household loading/error
-  const supabase = createClient(); // Get supabase client instance
-  const { theme, setTheme } = useTheme(); // Theme is handled directly here
+  const { state: householdState } = useHousehold();
+  const { isLoading: isLoadingHouseholds, error: errorHousehold } = householdState; // Add household loading/error
 
   // Local state for modals
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -317,46 +301,6 @@ export default function SettingsPage() {
   
   // Error state for modals
   const [modalError, setModalError] = useState<string | null>(null);
-
-  // Use dispatch to update preferences
-  const updatePreferencesViaContext = (updatedPrefs: Partial<UserType['preferences']>) => {
-    if (currentUser) {
-      // Ensure the preferences object matches the required type by providing defaults
-      const currentPrefs = currentUser.preferences ?? { 
-          language: 'pt-BR', // Default language
-          timezone: 'America/Sao_Paulo', // Default timezone
-          notifications: defaultNotificationSettings // Default notifications
-      };
-      
-      const newPrefs: UserType['preferences'] = {
-          language: updatedPrefs.language ?? currentPrefs.language ?? 'pt-BR', // Moved to top level
-          timezone: updatedPrefs.timezone ?? currentPrefs.timezone ?? 'America/Sao_Paulo', // Moved to top level
-          notifications: { // Correctly nested notifications object
-              pushEnabled: updatedPrefs.notifications?.pushEnabled ?? currentPrefs.notifications?.pushEnabled ?? defaultNotificationSettings.pushEnabled,
-              emailEnabled: updatedPrefs.notifications?.emailEnabled ?? currentPrefs.notifications?.emailEnabled ?? defaultNotificationSettings.emailEnabled,
-              feedingReminders: updatedPrefs.notifications?.feedingReminders ?? currentPrefs.notifications?.feedingReminders ?? defaultNotificationSettings.feedingReminders,
-              missedFeedingAlerts: updatedPrefs.notifications?.missedFeedingAlerts ?? currentPrefs.notifications?.missedFeedingAlerts ?? defaultNotificationSettings.missedFeedingAlerts,
-              householdUpdates: updatedPrefs.notifications?.householdUpdates ?? currentPrefs.notifications?.householdUpdates ?? defaultNotificationSettings.householdUpdates,
-          }
-      };
-
-      const updatedUserPayload = { 
-        ...currentUser, 
-        preferences: newPrefs // Use the correctly typed preferences object
-      };    
-
-      userContext.refreshUser();
-    }
-  };
-
-  // Refresh user data (assuming this exists in context)
-  const refreshUserViaContext = () => {
-    // Re-setting the current user might be the way to trigger updates
-    // if no dedicated refresh action exists.
-    if (currentUser) {
-      userContext.refreshUser();
-    }
-  };
 
   // Fetch household details when user data is available and they have a householdId
   useEffect(() => {
@@ -489,7 +433,6 @@ export default function SettingsPage() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Falha ao entrar na residência. Status: ${response.status}`);
       }
-      const updatedData = await response.json();
       await userContext.refreshUser();
       toast.success("Você entrou na residência com sucesso!");
       setIsHouseholdModalOpen(false);
@@ -520,7 +463,6 @@ export default function SettingsPage() {
               const errorData = await response.json().catch(() => ({}));
               throw new Error(errorData.error || `Falha ao criar residência. Status: ${response.status}`);
           }
-          const updatedData = await response.json();
           await userContext.refreshUser();
           toast.success("Residência criada com sucesso!");
           setIsHouseholdModalOpen(false);
@@ -546,7 +488,6 @@ export default function SettingsPage() {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Falha ao sair da residência. Status: ${response.status}`);
       }
-      const updatedData = await response.json();
       await userContext.refreshUser();
       toast.success("Você saiu da residência.");
       setIsLeaveHouseholdConfirmOpen(false);
@@ -615,6 +556,14 @@ export default function SettingsPage() {
   const isLoading = isLoadingUser || isLoadingHouseholds;
   const combinedError = errorUser || errorHousehold;
 
+  // Move this useEffect outside of the conditional block:
+  useEffect(() => {
+    if (!currentUser) {
+      toast.error("Autenticação necessária para acessar as configurações.");
+      router.replace("/login?callbackUrl=/settings");
+    }
+  }, [currentUser, router]);
+
   // Main Render
   if (isLoading) {
     return (
@@ -642,10 +591,6 @@ export default function SettingsPage() {
   
   if (!currentUser) {
     console.log("[SettingsPage] No currentUser found. Redirecting...");
-    useEffect(() => {
-        toast.error("Autenticação necessária para acessar as configurações.");
-        router.replace("/login?callbackUrl=/settings");
-    }, [router]);
     return <Loading text="Redirecionando para login..." />;
   }
 

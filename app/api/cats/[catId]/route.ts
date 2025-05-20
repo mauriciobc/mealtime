@@ -1,23 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { headers } from 'next/headers';
-import { createClient } from "@/utils/supabase/server";
-import { cookies } from "next/headers";
 import { withError } from "@/lib/utils/api-middleware";
-import { z } from "zod";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-
-interface CatSchedule {
-  type: 'interval' | 'fixedTime';
-  interval?: number;
-  times?: string;
-  overrideUntil?: string | null;
-  createdAt?: Date;
-}
-
-interface PrismaError extends Error {
-  code?: string;
-}
 
 // Helper function to create Supabase client in API routes using async cookie store
 async function createSupabaseRouteClient() {

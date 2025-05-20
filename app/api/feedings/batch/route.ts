@@ -142,5 +142,56 @@ export const POST = withError(async (request: Request) => {
     )
   );
 
+  // Scheduled notification logic for each feeding
+  for (const feeding of createdFeedings) {
+    // Fetch cat info (including feeding_interval and name)
+    const cat = await prisma.cats.findUnique({
+      where: { id: feeding.cat_id },
+      select: { id: true, name: true, feeding_interval: true, household_id: true }
+    });
+
+    if (!cat || !cat.feeding_interval || cat.feeding_interval <= 0) {
+      console.log(`[SCHEDULING][BATCH] Skipping scheduling for cat ${feeding.cat_id} (no interval)`);
+      continue;
+    }
+
+    // Fetch household members (excluding the user who fed)
+    const householdMembers = await prisma.household_members.findMany({
+      where: {
+        household_id: cat.household_id,
+        user_id: { not: user.id }
+      },
+      select: { user_id: true }
+    });
+    const reminderMembers = householdMembers.map(member => member.user_id);
+    console.log('[SCHEDULING][BATCH] Household members for reminders:', reminderMembers);
+
+    const reminderTime = new Date(new Date(feeding.fed_at).getTime() + cat.feeding_interval * 60 * 60 * 1000);
+    const reminderNotifications = reminderMembers.map(userId => ({
+      id: crypto.randomUUID(),
+      userId: userId,
+      catId: cat.id,
+      type: "reminder",
+      title: "Lembrete de alimentação",
+      message: `Está na hora de alimentar o gato ${cat.name}.`,
+      deliverAt: reminderTime,
+      delivered: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+    console.log('[SCHEDULING][BATCH] Reminder notifications to insert:', reminderNotifications);
+
+    if (reminderNotifications.length > 0) {
+      try {
+        const result = await prisma.scheduledNotification.createMany({ data: reminderNotifications });
+        console.log('[SCHEDULING][BATCH] Scheduled notifications created successfully:', result);
+      } catch (err) {
+        console.error('[SCHEDULING][BATCH] Failed to create scheduled notifications:', err, reminderNotifications);
+      }
+    } else {
+      console.log('[SCHEDULING][BATCH] No reminder notifications to schedule.');
+    }
+  }
+
   return NextResponse.json({ count: createdFeedings.length, logs: createdFeedings });
 }); 

@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   const authUserId = headersList.get('X-User-ID');
 
   if (!authUserId) {
-    return handleAuthError('Missing X-User-ID header');
+    return handleAuthError('Missing X-User-ID header', 'GET /api/schedules');
   }
 
   try {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const householdId = searchParams.get('householdId');
 
     if (!householdId) {
-      return handleValidationError('Household ID is required');
+      return handleValidationError('Household ID is required', 'GET /api/schedules');
     }
 
     // --- Authorization Check --- 
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!userAccess) {
-      return handleAuthError('Access denied to this household', 403);
+      return handleAuthError('Access denied to this household', 'GET /api/schedules');
     }
 
     // Fetch schedules for the specified household
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
   const authUserId = headersList.get('X-User-ID');
 
   if (!authUserId) {
-    return handleAuthError('Authentication required');
+    return handleAuthError('Authentication required', 'POST /api/schedules');
   }
 
   try {
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!catId || !type) {
-      return handleValidationError('Cat ID and schedule type are required');
+      return handleValidationError('Cat ID and schedule type are required', 'POST /api/schedules');
     }
     
     // --- Authorization & Validation --- 
@@ -92,26 +92,26 @@ export async function POST(request: NextRequest) {
     const userHouseholdId = userProfile?.household_members[0]?.household_id;
 
     if (!cat) {
-        return handleApiError(new Error('Cat not found'), 'Cat not found', 404);
+        return handleApiError(new Error('Cat not found'), 'POST /api/schedules');
     }
     if (!userHouseholdId) {
-        return handleAuthError('User profile or household not found', 403);
+        return handleAuthError('User profile or household not found', 'POST /api/schedules');
     }
     if (cat.household_id !== userHouseholdId) {
-        return handleAuthError('Access denied: Cat does not belong to user\'s household', 403);
+        return handleAuthError('Access denied: Cat does not belong to user\'s household', 'POST /api/schedules');
     }
 
     // Validate schedule type
     if (type !== 'interval' && type !== 'fixedTime') {
-      return handleValidationError('Invalid schedule type');
+      return handleValidationError('Invalid schedule type', 'POST /api/schedules');
     }
 
     // Validate type-specific data
     if (type === 'interval' && (!interval || interval <= 0)) {
-      return handleValidationError('Interval must be greater than zero');
+      return handleValidationError('Interval must be greater than zero', 'POST /api/schedules');
     }
     if (type === 'fixedTime' && (!Array.isArray(times) || times.length === 0)) {
-      return handleValidationError('Times array is required for fixed time schedules');
+      return handleValidationError('Times array is required for fixed time schedules', 'POST /api/schedules');
     }
 
     // Create the schedule

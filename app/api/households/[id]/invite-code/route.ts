@@ -11,14 +11,14 @@ async function isUserAdmin(userId: string, householdId: string): Promise<boolean
   try {
     const membership = await prisma.household_members.findUnique({
       where: {
-        user_id_household_id: {
-          user_id: userId,
+        household_id_user_id: {
           household_id: householdId,
+          user_id: userId,
         },
       },
       select: { role: true },
     });
-    return membership?.role === 'admin' || membership?.role === 'owner';
+    return membership?.role?.toLowerCase() === 'admin' || membership?.role?.toLowerCase() === 'owner';
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
@@ -34,9 +34,10 @@ function generateInviteCode(): string {
 
 export async function PATCH(
   request: NextRequest, // request is unused but required by the signature
-  { params }: { params: { id: string } },
+  context: { params: { id: string } } // context instead of destructuring params
 ) {
   const headersList = await headers();
+  const params = await context.params; // Await params as required by Next.js
   const authUserId = headersList.get('X-User-ID');
   const householdId = params.id;
 
@@ -59,8 +60,8 @@ export async function PATCH(
     // Update the household with the new invite code
     const updatedHousehold = await prisma.households.update({
       where: { id: householdId },
-      data: { invite_code: newInviteCode },
-      select: { invite_code: true }, // Only select the field we need to return
+      data: { inviteCode: newInviteCode },
+      select: { inviteCode: true }, // Only select the field we need to return
     });
 
     if (!updatedHousehold) {
@@ -68,7 +69,7 @@ export async function PATCH(
         return NextResponse.json({ error: 'Household not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ inviteCode: updatedHousehold.invite_code }, { status: 200 });
+    return NextResponse.json({ inviteCode: updatedHousehold.inviteCode }, { status: 200 });
 
   } catch (error) {
     console.error('Error regenerating invite code:', error);

@@ -83,13 +83,13 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest): Nex
 
   const cspHeader = [
     "default-src 'self'",
-    `connect-src 'self' ${supabaseUrl ? supabaseUrl.origin : ''} https://accounts.google.com https://*.google.com https://*.gstatic.com`, 
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.gstatic.com", 
+    `connect-src 'self' ${supabaseUrl ? supabaseUrl.origin : ''} wss://*.supabase.co https://accounts.google.com https://*.google.com https://*.gstatic.com`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.gstatic.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com https://*.google.com`, 
-    `img-src 'self' data: blob: ${supabaseStorageDomain ? `https://${supabaseStorageDomain}` : ''} https://accounts.google.com https://*.googleusercontent.com https://api.dicebear.com`, 
-    `frame-src 'self' ${supabaseUrl ? supabaseUrl.origin : ''} https://accounts.google.com https://*.google.com`, 
-    "form-action 'self' https://accounts.google.com https://*.google.com", 
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com https://*.google.com`,
+    `img-src 'self' data: blob: ${supabaseStorageDomain ? `https://${supabaseStorageDomain}` : ''} https://accounts.google.com https://*.googleusercontent.com https://api.dicebear.com`,
+    `frame-src 'self' ${supabaseUrl ? supabaseUrl.origin : ''} https://accounts.google.com https://*.google.com`,
+    "form-action 'self' https://accounts.google.com https://*.google.com",
   ].join('; ');
 
   response.headers.set('Content-Security-Policy', cspHeader.replace(/\s{2,}/g, ' ').trim());

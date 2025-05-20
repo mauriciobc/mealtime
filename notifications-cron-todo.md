@@ -1,5 +1,17 @@
 # Unified Notification Dispatch Plan
 
+> **IMPORTANT:**
+> - In development, you must run the notification cron job with:
+>   ```bash
+>   npm run cron
+>   ```
+>   This keeps scheduled notifications working locally.
+> - In production (e.g., Vercel), use an external scheduler (GitHub Actions, cron-job.org, etc.) to call:
+>   ```
+>   GET /api/notifications/feeding-check
+>   ```
+>   every 5 minutes. Persistent background jobs are not supported on most serverless platforms.
+
 ## 1. Notification Types & Triggers
 
 | Type        | Triggered by Cron? | Triggered by Event? | Example Event Source                |
@@ -199,4 +211,99 @@ All notification creation and API payloads must match these structures. The next
 
 ---
 
-*Registered by AI assistant on behalf of the team. Review and update as implementation progresses.* 
+*Registered by AI assistant on behalf of the team. Review and update as implementation progresses.*
+
+---
+
+# Migration Plan: Moving from CRON to Supabase Realtime for Notifications
+
+## Overview
+This plan details how to migrate from the current CRON/polling-based notification fetching to a Supabase Realtime-driven approach, enabling instant notification delivery to clients when new rows are inserted into the `notifications` table.
+
+## Step-by-Step Migration Plan
+
+### 1. Prerequisites
+- Ensure the `notifications` table is compatible with Supabase Realtime (already verified).
+- Supabase Realtime is enabled for the `public` schema by default.
+- Obtain your Supabase project URL and anon/public key for the client SDK.
+
+### 2. Client-Side Integration
+
+#### a. Install Supabase JS Client
+```bash
+npm install @supabase/supabase-js
+```
+
+#### b. Initialize Supabase Client
+Create a utility (e.g., `lib/supabaseClient.ts`):
+```ts
+import { createClient } from '@supabase/supabase-js';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+```
+
+#### c. Subscribe to Notifications Table
+In your `NotificationContext.tsx` (or a new hook), add a subscription:
+```ts
+import { supabase } from '@/lib/supabaseClient';
+useEffect(() => {
+  const channel = supabase
+    .channel('public:notifications')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` },
+      (payload) => {
+        // Add the new notification to your context/reducer
+        dispatch({ type: 'ADD_NOTIFICATION', payload: payload.new });
+      }
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [currentUserId]);
+```
+- This ensures only notifications for the current user are received.
+
+#### d. Update Notification State
+- When a new notification arrives, add it to the top of your notifications list in context/reducer.
+- Optionally, increment the unread count if `is_read` is false.
+
+#### e. (Optional) Handle Updates/Deletes
+- You can also subscribe to `UPDATE` and `DELETE` events if you want real-time sync for read/removal actions.
+
+### 3. Backend/Notification Creation
+- No change needed if you already insert notifications into the `notifications` table.
+- If you use CRON to periodically check and insert, you can remove the CRON job once you're confident the real-time approach is working.
+
+### 4. Remove/Refactor Polling or CRON
+- Remove any setInterval polling or CRON jobs that fetch notifications.
+- Keep REST endpoints for pagination/history, but rely on Realtime for new notifications.
+
+### 5. Testing & Rollout
+- Test with multiple users to ensure only relevant notifications are received.
+- Test on slow/unstable networks (WebSocket fallback).
+- Monitor for duplicate notifications (ensure idempotency in reducer).
+
+### 6. Documentation & Maintenance
+- Update your `README.md` and `docs/architecture.md` to reflect the new real-time notification flow.
+- Document the Supabase Realtime subscription logic and any changes to the notification context/provider.
+
+### 7. (Optional) Advanced: Server-Side Filtering
+- If you want to filter notifications more granularly (e.g., by household, type), adjust the `filter` in the subscription accordingly.
+
+## Summary Table
+
+| Step | Action | File/Location | Notes |
+|------|--------|---------------|-------|
+| 1    | Install Supabase client | `package.json` | `npm install @supabase/supabase-js` |
+| 2    | Create Supabase client | `lib/supabaseClient.ts` | Use env vars for keys |
+| 3    | Add Realtime subscription | `NotificationContext.tsx` | Use `useEffect` and `dispatch` |
+| 4    | Update reducer for new notifications | `NotificationContext.tsx` | Add to top of list, update unread count |
+| 5    | Remove polling/CRON | Context, backend | Only if all triggers are now event-driven |
+| 6    | Test & document | All relevant docs | Update architecture diagrams |
+
+---
+
+*Registered by AI assistant: Migration plan for real-time notifications with Supabase Realtime.* 

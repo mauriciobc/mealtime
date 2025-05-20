@@ -221,4 +221,81 @@ export async function POST(
       { status: 500 }
     );
   }
+}
+
+// DELETE /api/households/[id]/members/[userId] - Remove or leave household
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string; userId: string } }
+) {
+  // Validate route parameters
+  const paramsValidation = RouteParamsSchema.safeParse({ id: params.id });
+  if (!paramsValidation.success) {
+    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+  }
+  const householdId = parseInt(paramsValidation.data.id);
+  const userIdToRemove = params.userId;
+
+  const cookieStore = cookies();
+  const supabase = createClient(cookieStore);
+  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+
+  // Only allow self-leave or admin removal
+  let isAdmin = false;
+  let isSelf = false;
+  let removingUserName = '';
+  try {
+    const prismaUser = await prisma.user.findUnique({
+      where: { auth_id: supabaseUser.id },
+      select: { id: true, householdId: true, role: true, name: true },
+    });
+    if (!prismaUser) {
+      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+    }
+    isAdmin = prismaUser.role === 'admin';
+    isSelf = prismaUser.id === userIdToRemove;
+    if (!isAdmin && !isSelf) {
+      return NextResponse.json({ error: 'Apenas administradores podem remover outros membros.' }, { status: 403 });
+    }
+    // Get the name of the user being removed
+    const userToRemove = await prisma.user.findUnique({ where: { id: userIdToRemove }, select: { name: true } });
+    removingUserName = userToRemove?.name || 'Um usuário';
+  } catch (error) {
+    return NextResponse.json({ error: 'Erro de autorização' }, { status: 500 });
+  }
+
+  // Remove user from household
+  try {
+    await prisma.user.update({
+      where: { id: userIdToRemove },
+      data: { householdId: null, role: 'member' },
+    });
+    // Fetch remaining members
+    const remainingMembers = await prisma.user.findMany({
+      where: { householdId: householdId },
+      select: { id: true },
+    });
+    // Fetch household name
+    const household = await prisma.household.findUnique({ where: { id: householdId }, select: { name: true } });
+    // Notify remaining members
+    const notifications = remainingMembers.map(member => ({
+      id: crypto.randomUUID(),
+      user_id: member.id,
+      title: 'Membro saiu da residência',
+      message: `${removingUserName} saiu da residência ${household?.name || ''}`,
+      type: 'household',
+      metadata: {
+        householdId: householdId,
+        actionUrl: `/households/${householdId}`
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+    if (notifications.length > 0) {
+      await prisma.notification.createMany({ data: notifications });
+    }
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: 'Erro ao remover membro' }, { status: 500 });
+  }
 } 

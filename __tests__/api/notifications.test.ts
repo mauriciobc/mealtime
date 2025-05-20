@@ -225,5 +225,24 @@ describe.skip('API de Notificações', () => {
       expect(response.status).toBe(401)
     })
   })
-}) 
+})
+
+describe('Scheduled Notifications API', () => {
+  it('should schedule a notification for future delivery', async () => {
+    // Mock session and Prisma
+    // TODO: Implement test logic for POST /api/scheduled-notifications
+    expect(true).toBe(true); // Placeholder
+  });
+
+  it('should deliver due scheduled notifications', async () => {
+    // Mock Prisma to return due notifications and mark as delivered
+    // TODO: Implement test logic for POST /api/scheduled-notifications/deliver
+    expect(true).toBe(true); // Placeholder
+  });
+
+  it('should reject scheduling with invalid deliverAt', async () => {
+    // TODO: Implement test for invalid deliverAt (past date or invalid string)
+    expect(true).toBe(true); // Placeholder
+  });
+}); 
 */ 

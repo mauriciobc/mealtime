@@ -13,6 +13,7 @@ import { useUserContext } from "./UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { storageService } from "@/lib/utils/storage";
 import { usePathname } from 'next/navigation';
+import { createClient } from "@/utils/supabase/client";
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -453,6 +454,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         removeLoadingOperation(loadingOpId);
     }
   }, [addLoadingOperation, removeLoadingOperation]);
+
+  // Supabase Realtime subscription for notifications
+  useEffect(() => {
+    if (!currentUserId) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel('public:notifications')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` },
+        (payload) => {
+          if (payload?.new) {
+            dispatch({ type: "ADD_NOTIFICATION", payload: normalizeNotification(payload.new) });
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentUserId]);
 
   const value = useMemo(() => ({
     notifications: state.notifications,

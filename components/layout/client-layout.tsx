@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import BottomNav from "@/components/bottom-nav"
-import NotificationChecker from "@/components/notifications/notification-checker"
 import { AnimationProvider } from "@/components/animation-provider"
 import { useUserContext } from "@/lib/context/UserContext"
 import { GlobalLoading } from "@/components/ui/global-loading"
@@ -75,7 +74,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
             {children}
           </main>
           <BottomNav />
-          {currentUser && <NotificationChecker />}
           <OnboardingTour />
         </div>
       </AnimationProvider>
