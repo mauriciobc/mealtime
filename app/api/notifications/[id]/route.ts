@@ -16,7 +16,8 @@ async function createSupabaseRouteClient() {
 }
 
 // DELETE /api/notifications/[id] - Delete a notification
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
+  const { params } = await context;
   const notificationId = params.id;
   console.log(`\n--- [DELETE /api/notifications/${notificationId}] Start ---`);
 
@@ -93,7 +94,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, context: { params: { id: string } }) {
+  const { params } = await context;
   const supabase = await createSupabaseRouteClient();
 
   const { data: { user } } = await supabase.auth.getUser();

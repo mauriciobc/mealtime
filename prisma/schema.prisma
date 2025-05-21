@@ -110,7 +110,27 @@ model notifications {
   is_read    Boolean  @default(false)
   metadata   Json     @default("{}")
 
+  // Note: The actual unique constraint on JSONB fields (metadata->>'catId', metadata->>'expectedTime') must be added via a raw SQL migration, as Prisma does not support functional indexes on JSON fields directly.
   @@schema("public")
+}
+
+/// Scheduled notifications for future delivery (UTC timestamps)
+model scheduledNotification {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String
+  catId       String?
+  type        String
+  title       String
+  message     String
+  deliverAt   DateTime @db.Timestamptz(6) // UTC
+  delivered   Boolean  @default(false)
+  deliveredAt DateTime? @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([delivered, deliverAt])
+  @@schema("public")
+  // TODO: Add expiresAt for retention/cleanup
 }
 
 model schedules {

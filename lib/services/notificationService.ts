@@ -333,3 +333,75 @@ function getIconForType(type: string): string {
       return 'bell';
   }
 }
+
+/**
+ * Schedule a notification for future delivery.
+ * @param payload { type, title, message, deliverAt, catId }
+ * @returns The created scheduled notification record.
+ */
+export async function scheduleNotification(payload: {
+  type: string;
+  title: string;
+  message: string;
+  deliverAt: string;
+  catId?: string;
+}) {
+  const logContext = { event: 'scheduleNotification', payload, timestamp: new Date().toISOString() };
+  console.log('[NotificationService] scheduleNotification called', logContext);
+  try {
+    const res = await fetch('/api/scheduled-notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    console.log('[NotificationService] scheduleNotification fetch completed', { status: res.status });
+    if (!res.ok) {
+      let errorMsg = 'Scheduling failed';
+      try {
+        const err = await res.json();
+        errorMsg = err.error || errorMsg;
+      } catch {}
+      console.error('[NotificationService] scheduleNotification error', { ...logContext, status: res.status, error: errorMsg });
+      throw new Error(errorMsg);
+    }
+    const data = await res.json();
+    console.log('[NotificationService] scheduleNotification success', { ...logContext, response: data });
+    return data;
+  } catch (err) {
+    console.error('[NotificationService] scheduleNotification exception', { ...logContext, error: err });
+    throw err;
+  }
+}
+
+/**
+ * Trigger delivery of due scheduled notifications (internal/server-side use).
+ * @returns { delivered: number, notifications: ScheduledNotification[] }
+ */
+export async function deliverScheduledNotifications() {
+  const logContext = { event: 'deliverScheduledNotifications', timestamp: new Date().toISOString() };
+  console.log('[NotificationService] deliverScheduledNotifications called', logContext);
+  try {
+    const res = await fetch('/api/scheduled-notifications/deliver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    console.log('[NotificationService] deliverScheduledNotifications fetch completed', { status: res.status });
+    if (!res.ok) {
+      let errorMsg = 'Delivery failed';
+      try {
+        const err = await res.json();
+        errorMsg = err.error || errorMsg;
+      } catch {}
+      console.error('[NotificationService] deliverScheduledNotifications error', { ...logContext, status: res.status, error: errorMsg });
+      throw new Error(errorMsg);
+    }
+    const data = await res.json();
+    console.log('[NotificationService] deliverScheduledNotifications success', { ...logContext, response: data });
+    return data;
+  } catch (err) {
+    console.error('[NotificationService] deliverScheduledNotifications exception', { ...logContext, error: err });
+    throw err;
+  }
+}

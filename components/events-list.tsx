@@ -9,10 +9,13 @@ import { motion } from "framer-motion"
 import { useFeeding } from "@/lib/context/FeedingContext"
 import { FeedingLog } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useCats } from "@/lib/context/CatsContext"
 
 export default function EventsList() {
   const { state: feedingState } = useFeeding()
   const { feedingLogs, isLoading, error } = feedingState
+  const { state: catsState } = useCats()
+  const { cats, isLoading: isLoadingCats } = catsState
 
   if (isLoading) {
     return (
@@ -65,57 +68,66 @@ export default function EventsList() {
       animate={{ opacity: 1 }}
       transition={{ staggerChildren: 0.1 }}
     >
-      {recentLogs.map((log, index) => (
-        <motion.div
-          key={log.id}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1 }}
-        >
-          <Card>
-            <CardContent className="p-3">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarImage src={log.cat?.photoUrl || undefined} alt={log.cat?.name || "Gato"} />
-                  <AvatarFallback>
-                    {(log.cat?.name || "G").substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-medium">{log.cat?.name || "Gato Desconhecido"}</h3>
-                      {log.user && (
+      {recentLogs.map((log, index) => {
+        let cat = log.cat
+        if (!cat || !cat.name) {
+          cat = cats.find(c => String(c.id) === String(log.catId))
+        }
+        const catName = cat?.name || "Gato Desconhecido"
+        const catPhoto = cat?.photoUrl || cat?.photo_url || undefined
+        const catInitials = catName.substring(0, 2).toUpperCase()
+        return (
+          <motion.div
+            key={log.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarImage src={catPhoto} alt={catName} />
+                    <AvatarFallback>
+                      {catInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium">{catName}</h3>
+                        {log.user && (
+                          <p className="text-xs text-muted-foreground">
+                            Alimentado por {log.user?.name || "Usuário Desconhecido"}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
                         <p className="text-xs text-muted-foreground">
-                          Alimentado por {log.user?.name || "Usuário Desconhecido"}
+                          {formatDistanceToNow(new Date(log.timestamp), { 
+                            addSuffix: true,
+                            locale: ptBR
+                          })}
                         </p>
-                      )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(log.timestamp), { 
-                          addSuffix: true,
-                          locale: ptBR
-                        })}
+                    {log.portionSize != null && (
+                      <p className="text-xs mt-1">
+                        <span className="font-medium">Quantidade:</span> {log.portionSize}g
                       </p>
-                    </div>
+                    )}
+                    {log.notes && (
+                      <p className="text-xs mt-1 text-muted-foreground">
+                        <span className="font-medium">Notas:</span> {log.notes}
+                      </p>
+                    )}
                   </div>
-                  {log.portionSize != null && (
-                    <p className="text-xs mt-1">
-                      <span className="font-medium">Quantidade:</span> {log.portionSize}g
-                    </p>
-                  )}
-                  {log.notes && (
-                    <p className="text-xs mt-1 text-muted-foreground">
-                      <span className="font-medium">Notas:</span> {log.notes}
-                    </p>
-                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      ))}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )
+      })}
     </motion.div>
   )
 }

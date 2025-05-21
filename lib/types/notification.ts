@@ -42,3 +42,17 @@ export interface CreateNotificationPayload {
     [key: string]: any;
   };
 }
+
+export interface ScheduledNotification {
+  id: string;
+  userId: string;
+  catId?: string;
+  type: string;
+  title: string;
+  message: string;
+  deliverAt: string; // ISO-8601
+  delivered: boolean;
+  deliveredAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}

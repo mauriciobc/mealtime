@@ -11,7 +11,7 @@ const MISSED_THRESHOLD_MINUTES = 60; // Considerar perdida após 1 hora
 const DUPLICATE_THRESHOLD_MINUTES = 5; // Limite para alimentação duplicada
 
 interface FeedingSchedule {
-  catId: number;
+  catId: string;
   nextFeedingTime: Date;
   interval: number;
 }
@@ -23,7 +23,7 @@ export const createFeedingNotification = (
   cat: BaseCat,
   type: NotificationType,
   scheduledTime: Date,
-  userId: number
+  userId: string
 ): Notification => {
   const now = new Date();
   const minutesUntil = differenceInMinutes(scheduledTime, now);
@@ -69,7 +69,7 @@ export const createFeedingNotification = (
   }
 
   return {
-    id: parseInt(generateNumericUUID()),
+    id: generateNumericUUID(),
     title,
     message,
     type,
@@ -135,7 +135,7 @@ export const shouldSendReminder = (scheduledTime: Date): boolean => {
 export const generateFeedingNotifications = (
   cat: BaseCat,
   scheduledTime: Date,
-  userId: number,
+  userId: string,
   lastFeedingTime: Date | null = null
 ): Notification[] => {
   const notifications: Notification[] = [];

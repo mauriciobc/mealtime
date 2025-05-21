@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { withModel } from '@/lib/prisma/safe-access';
 import { logger } from '@/lib/monitoring/logger'; // Import the logger
 
 // Log Runtime
 logger.debug('[/api/cats] Runtime:', { runtime: process.env.NEXT_RUNTIME });
-
-interface PrismaError extends Error {
-  code?: string;
-}
 
 // GET /api/cats - Listar todos os gatos (filtragem opcional por householdId)
 export async function GET(request: NextRequest) {

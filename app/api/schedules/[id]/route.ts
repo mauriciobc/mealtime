@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { handleApiError, handleValidationError } from '@/lib/utils/api-error-handling';
 import { headers } from 'next/headers';
+import { createNotification } from '@/lib/services/notificationService';
 
 // GET /api/schedules/[id] - Get a specific schedule
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = await context;
     const id = params.id;
 
     if (!id) {
@@ -22,7 +24,7 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            photoUrl: true
+            photo_url: true
           }
         }
       }
@@ -41,9 +43,10 @@ export async function GET(
 // PATCH /api/schedules/[id] - Update a schedule
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = await context;
     const id = params.id;
 
     if (!id) {
@@ -59,7 +62,8 @@ export async function PATCH(
 
     // Check if schedule exists
     const existingSchedule = await prisma.schedules.findUnique({
-      where: { id }
+      where: { id },
+      include: { cat: { select: { id: true, name: true } } }
     });
 
     if (!existingSchedule) {
@@ -82,34 +86,38 @@ export async function PATCH(
 
     // Prepare update data
     const updateData: any = {};
+    const updatedFields: string[] = [];
 
-    if (type !== undefined) updateData.type = type;
-    
-    if (type === 'interval' && interval !== undefined) {
-      updateData.interval = interval;
-      updateData.times = '';
-    } else if (type === 'fixedTime' && times !== undefined) {
-      updateData.times = times;
-      updateData.interval = 0;
-    } else {
-      // If only interval or times are updated without changing type
-      if (interval !== undefined && existingSchedule.type === 'interval') {
-        updateData.interval = interval;
-      }
-      if (times !== undefined && existingSchedule.type === 'fixedTime') {
-        updateData.times = times;
-      }
+    if (type !== undefined) { updateData.type = type; updatedFields.push('type'); }
+    if (type === 'interval' && interval !== undefined) { updateData.interval = interval; updateData.times = ''; updatedFields.push('interval'); }
+    else if (type === 'fixedTime' && times !== undefined) { updateData.times = times; updateData.interval = 0; updatedFields.push('times'); }
+    else {
+      if (interval !== undefined && existingSchedule.type === 'interval') { updateData.interval = interval; updatedFields.push('interval'); }
+      if (times !== undefined && existingSchedule.type === 'fixedTime') { updateData.times = times; updatedFields.push('times'); }
     }
-
-    if (overrideUntil !== undefined) {
-      updateData.overrideUntil = overrideUntil ? new Date(overrideUntil) : null;
-    }
+    if (overrideUntil !== undefined) { updateData.overrideUntil = overrideUntil ? new Date(overrideUntil) : null; updatedFields.push('overrideUntil'); }
 
     // Update schedule
     const schedule = await prisma.schedules.update({
       where: { id },
       data: updateData
     });
+
+    // Trigger system notification for schedule update
+    try {
+      await createNotification({
+        title: 'Horário de alimentação atualizado',
+        message: `O agendamento do gato ${existingSchedule.cat.name} foi atualizado.`,
+        type: 'system',
+        metadata: {
+          catId: existingSchedule.cat.id,
+          scheduleId: id,
+          updatedFields,
+        },
+      });
+    } catch (notifyError) {
+      console.error('[PATCH /api/schedules/[id]] Failed to create schedule update notification:', notifyError);
+    }
 
     return NextResponse.json(schedule);
   } catch (error) {
@@ -120,9 +128,10 @@ export async function PATCH(
 // DELETE /api/schedules/[id] - Delete a schedule
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
+    const { params } = await context;
     const id = params.id;
 
     if (!id) {

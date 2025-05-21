@@ -14,8 +14,7 @@ const JoinBodySchema = z.object({
 
 // POST /api/households/join - Entrar em um domicílio usando um código de convite
 export async function POST(request: NextRequest) {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !supabaseUser) {
@@ -33,15 +32,20 @@ export async function POST(request: NextRequest) {
     const { inviteCode } = bodyValidation.data;
 
     // Buscar o domicílio pelo código de convite
-    const household = await prisma.household.findUnique({
+    const household = await prisma.households.findUnique({
       where: { inviteCode: inviteCode },
       include: {
-        users: {
+        household_members: {
           select: {
-            id: true,
-            auth_id: true, // Select auth_id to check if user is already present
-            name: true,
-            email: true,
+            user: {
+              select: {
+                id: true,
+                full_name: true,
+                email: true,
+                username: true,
+                avatar_url: true
+              }
+            },
             role: true
           }
         },
@@ -54,9 +58,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch the corresponding Prisma user using the Supabase user ID (auth_id)
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
-      select: { id: true, householdId: true } // Select existing householdId
+    const prismaUser = await prisma.profiles.findUnique({
+      where: { id: supabaseUser.id },
+      select: {
+        id: true,
+        household_members: {
+          select: {
+            household_id: true
+          }
+        }
+      }
     });
 
     if (!prismaUser) {
@@ -64,35 +75,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Usuário não encontrado no banco de dados local.' }, { status: 404 });
     }
 
-    // Check if user is already associated with this household (via Prisma user record)
-    if (prismaUser.householdId === household.id) {
+    // Check if user is already associated with this household (via household_members)
+    const userHouseholdIds = prismaUser.household_members.map(m => m.household_id);
+    if (userHouseholdIds.includes(household.id)) {
       return NextResponse.json({ error: 'Você já pertence a este domicílio' }, { status: 400 });
     }
 
     // Check if user is already associated with *another* household
-    // Decide on policy: allow joining multiple? Overwrite? For now, let's prevent joining if already in one.
-    if (prismaUser.householdId) {
-        return NextResponse.json({ error: 'Você já pertence a outro domicílio. Saia do domicílio atual antes de entrar em um novo.' }, { status: 400 });
+    if (userHouseholdIds.length > 0) {
+      return NextResponse.json({ error: 'Você já pertence a outro domicílio. Saia do domicílio atual antes de entrar em um novo.' }, { status: 400 });
     }
 
-    // Adicionar usuário ao domicílio como membro (Update the Prisma user record)
-    await prisma.user.update({
-      where: { id: prismaUser.id }, // Use the found Prisma user ID
+    // Adicionar usuário ao domicílio como membro (create a new household_members record)
+    await prisma.household_members.create({
       data: {
-        householdId: household.id,
+        user_id: prismaUser.id,
+        household_id: household.id,
         role: 'member' // Novos usuários sempre entram como membros
-      },
+      }
     });
 
     // Buscar o domicílio atualizado com todos os membros para a resposta
-    const updatedHousehold = await prisma.household.findUnique({
+    const updatedHousehold = await prisma.households.findUnique({
       where: { id: household.id },
       include: {
-        users: {
+        household_members: {
           select: {
-            id: true,
-            name: true,
-            email: true,
+            user: {
+              select: {
+                id: true,
+                full_name: true,
+                email: true,
+                username: true,
+                avatar_url: true
+              }
+            },
             role: true
           }
         },
@@ -105,16 +122,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Erro ao buscar domicílio atualizado após entrada' }, { status: 500 });
     }
 
+    // --- Notification logic: Notify all other members ---
+    try {
+      const members = updatedHousehold.household_members.map(m => ({ ...m.user, role: m.role }));
+      const joiningUser = members.find(u => u.id === prismaUser.id);
+      const otherMembers = members.filter(u => u.id !== prismaUser.id);
+      const notifications = otherMembers.map(member => ({
+        id: crypto.randomUUID(),
+        user_id: member.id,
+        title: 'Novo membro na residência',
+        message: `${joiningUser?.full_name || 'Um usuário'} entrou na residência ${updatedHousehold.name}`,
+        type: 'household',
+        metadata: {
+          householdId: updatedHousehold.id,
+          actionUrl: `/households/${updatedHousehold.id}`
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+      if (notifications.length > 0) {
+        await prisma.notifications.createMany({ data: notifications });
+        console.log(`[household join] Created ${notifications.length} notifications for new member`);
+      }
+    } catch (notifyError) {
+      console.error('[household join] Failed to create notifications:', notifyError);
+    }
+    // --- End notification logic ---
+
     // Formatar a resposta (adjust based on frontend needs)
     const formattedHousehold = {
       id: updatedHousehold.id,
       name: updatedHousehold.name,
       inviteCode: updatedHousehold.inviteCode, // Might want to omit this from general responses
-      members: updatedHousehold.users.map(user => ({
-        id: user.id, // Use number or string based on frontend
-        name: user.name,
-        email: user.email, // Consider privacy implications
-        role: user.role
+      members: updatedHousehold.household_members.map(m => ({
+        id: m.user.id,
+        full_name: m.user.full_name,
+        email: m.user.email, // Consider privacy implications
+        username: m.user.username,
+        avatar_url: m.user.avatar_url,
+        role: m.role
       })),
       cats: updatedHousehold.cats // Include cats data
     };

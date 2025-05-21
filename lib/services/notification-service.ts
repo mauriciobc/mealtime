@@ -1,4 +1,4 @@
-import { Notification, NotificationType } from "@/lib/types/notification";
+import { Notification, NotificationType, CreateNotificationPayload } from "@/lib/types/notification";
 import { v4 as uuidv4 } from "uuid";
 import { format, addHours, isBefore, isAfter, differenceInMinutes } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -9,15 +9,15 @@ const LATE_THRESHOLD_MINUTES = 15; // Considerar atrasado após 15 minutos
 
 // Interface para o gato
 interface Cat {
-  id: number;
+  id: string;
   name: string;
   photoUrl: string | null;
 }
 
 // Interface para o agendamento
 interface Schedule {
-  id: number;
-  catId: number;
+  id: string;
+  catId: string;
   type: "interval" | "fixedTime";
   interval: number;
   times: string;
@@ -50,15 +50,15 @@ export const createFeedingNotification = (cat: Cat, scheduledTime: Date): Notifi
   }
 
   return {
-    id: parseInt(uuidv4().replace(/\D/g, '')),
+    id: uuidv4(),
     title,
     message,
     type,
-    timestamp: new Date(),
-    createdAt: new Date(),
     isRead: false,
-    userId: 0, // Será definido pelo contexto do usuário
-    data: {
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    userId: "", // Será definido pelo contexto do usuário (UUID string)
+    metadata: {
       catId: cat.id,
       scheduledTime: scheduledTime.toISOString()
     }

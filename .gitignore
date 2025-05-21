@@ -32,3 +32,6 @@ public/uploads/8104f8a4-3de8-4ce4-86b8-97787de6f410.jpg
 .env.development
 .env.production
 .env*.local
+
+# Local Netlify folder
+.netlify

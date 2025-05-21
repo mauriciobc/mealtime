@@ -211,3 +211,34 @@ A página deve ter botão de editar e uma rota/página separada para edição do
 - Teste cada parte separadamente antes de integrar tudo.
 - Peça revisão de código e feedbacks frequentes.
 - Documente dúvidas e decisões tomadas durante o desenvolvimento.
+
+# Backend Listener for Scheduled Notifications (pg_notify)
+
+## Objetivo
+Implementar um serviço backend que escuta eventos pg_notify no canal 'send-scheduled-notifications' do Postgres, permitindo entrega instantânea de notificações agendadas.
+
+## Checklist
+- [ ] Planejamento
+  - [x] Definir objetivo e arquitetura do listener
+  - [x] Escolher tecnologia (Node.js + pg)
+  - [x] Definir método de entrega (chamar Edge Function ou inserir direto na tabela notifications)
+- [ ] Implementação
+  - [ ] Adicionar script Node.js ao projeto existente (ex: `scripts/pg_notify_listener.js`)
+  - [ ] Instalar dependências necessárias (`pg`, `dotenv`) se ainda não estiverem presentes
+  - [ ] Utilizar variáveis de ambiente já existentes (.env compartilhado)
+  - [ ] Implementar conexão segura com o banco (usar service role key)
+  - [ ] Implementar lógica de LISTEN no canal 'send-scheduled-notifications'
+  - [ ] Parsear payload JSON recebido
+  - [ ] Chamar função de entrega (Edge Function via HTTP OU inserir na tabela notifications)
+  - [ ] Adicionar tratamento de erros e reconexão automática
+  - [ ] Adicionar logs para monitoramento
+  - [ ] Adicionar instruções para rodar o script como processo separado (ex: `node scripts/pg_notify_listener.js`)
+- [ ] Deploy
+  - [ ] Escolher ambiente de execução (VM, container, serverless, etc.)
+  - [ ] Configurar variáveis de ambiente seguras
+  - [ ] Garantir execução contínua e reinício automático em caso de falha
+- [ ] Documentação
+  - [ ] Documentar arquitetura e fluxo do listener
+  - [ ] Adicionar instruções de deploy e variáveis de ambiente
+  - [ ] Atualizar diagramas de arquitetura (se aplicável)
+  - [ ] Incluir exemplos de logs e troubleshooting

@@ -3,11 +3,15 @@
  */
 export type ID = string;
 
+// Add this at the top if Decimal is not defined elsewhere
+// If you use a library like decimal.js, import it. Otherwise, fallback to number.
+type Decimal = number;
+
 /**
  * Interface base para usuários do sistema
  */
 export interface BaseUser {
-  id: string;
+  id: ID;
   name: string;
   email: string;
   avatar?: string;
@@ -42,8 +46,8 @@ export interface BaseCat {
   restrictions?: string;
   notes?: string;
   householdId: ID;
-  feedingInterval: number; // Maps to feeding_interval in the database
-  portionSize?: string; // Maps to portion_size in the database
+  feedingInterval: number;
+  portionSize?: string;
 }
 
 /**
