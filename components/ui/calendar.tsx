@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
@@ -13,19 +11,11 @@ function Calendar({
   className,
   classNames,
   showOutsideDays = true,
-  yearRange = 50,
   ...props
-}: CalendarProps & { yearRange?: number }) {
-  const today = new Date();
-  const fromYear = today.getFullYear() - yearRange;
-  const toYear = today.getFullYear() + yearRange;
-
+}: CalendarProps) {
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      captionLayout="dropdown"
-      fromYear={fromYear}
-      toYear={toYear}
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
@@ -61,9 +51,17 @@ function Calendar({
         day_hidden: "invisible",
         ...classNames,
       }}
+      components={{
+        IconLeft: ({ className, ...props }) => (
+          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
+        ),
+        IconRight: ({ className, ...props }) => (
+          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
+        ),
+      }}
       {...props}
     />
-  );
+  )
 }
 Calendar.displayName = "Calendar"
 

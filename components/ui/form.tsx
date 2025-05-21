@@ -5,11 +5,11 @@ import * as LabelPrimitive from "@radix-ui/react-label"
 import { Slot } from "@radix-ui/react-slot"
 import {
   Controller,
-  ControllerProps,
-  FieldPath,
-  FieldValues,
   FormProvider,
   useFormContext,
+  type ControllerProps,
+  type FieldPath,
+  type FieldValues,
 } from "react-hook-form"
 
 import { cn } from "@/lib/utils"
@@ -46,20 +46,13 @@ const useFormField = () => {
   const itemContext = React.useContext(FormItemContext)
   const { getFieldState, formState } = useFormContext()
 
+  const fieldState = getFieldState(fieldContext.name, formState)
+
   if (!fieldContext) {
-    console.warn("useFormField should be used within <FormField>")
-    return {
-      id: itemContext?.id ?? "",
-      name: "",
-      formItemId: "",
-      formDescriptionId: "",
-      formMessageId: "",
-      error: undefined
-    }
+    throw new Error("useFormField should be used within <FormField>")
   }
 
-  const fieldState = getFieldState(fieldContext.name, formState)
-  const { id } = itemContext ?? { id: "" }
+  const { id } = itemContext
 
   return {
     id,
@@ -154,7 +147,7 @@ const FormMessage = React.forwardRef<
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, children, ...props }, ref) => {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message) : children
+  const body = error ? String(error?.message ?? "") : children
 
   if (!body) {
     return null

@@ -1,21 +1,13 @@
-<<<<<<< HEAD
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma'; // Adjusted path based on memory.md (lib/prisma.ts)
 import { headers } from 'next/headers';
 import { Prisma } from '@prisma/client';
-=======
-import { NextRequest, NextResponse } from \'next/server\';
-import { z } from \'zod\';
-import prisma from \'@/lib/prisma\'; // Adjusted path based on memory.md (lib/prisma.ts)
-import { headers } from \'next/headers\';
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
 
 // Zod schema for request body validation
 const CreateWeightLogBodySchema = z.object({
   catId: z.string().uuid(),
   weight: z.number().positive(),
-<<<<<<< HEAD
   date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, { message: "Date must be in YYYY-MM-DD format." }), // Expecting YYYY-MM-DD
   notes: z.string().optional(),
 });
@@ -30,13 +22,6 @@ const UpdateWeightLogBodySchema = CreateWeightLogBodySchema.extend({
 
 export type CreateWeightLogBody = z.infer<typeof CreateWeightLogBodySchema>;
 export type UpdateWeightLogBody = z.infer<typeof UpdateWeightLogBodySchema>;
-=======
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: \"Date must be in YYYY-MM-DD format.\" }), // Expecting YYYY-MM-DD
-  notes: z.string().optional(),
-});
-
-export type CreateWeightLogBody = z.infer<typeof CreateWeightLogBodySchema>;
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
 export type CreateWeightLogResponse = Awaited<ReturnType<typeof createWeightLogAndUpdateCat>>;
 
 async function createWeightLogAndUpdateCat(data: CreateWeightLogBody, measuredById: string) {
@@ -58,22 +43,14 @@ async function createWeightLogAndUpdateCat(data: CreateWeightLogBody, measuredBy
     // Step B: Find the most recent weight log for this cat (including the new one)
     const latestLogForCat = await tx.cat_weight_logs.findFirst({
       where: { cat_id: catId },
-<<<<<<< HEAD
       orderBy: { date: 'desc' },
-=======
-      orderBy: { date: \'desc\' },
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
     });
 
     // Step C: If the new log is the latest, update cats.weight
     if (latestLogForCat && latestLogForCat.id === newLog.id) {
       await tx.cats.update({
         where: { id: catId },
-<<<<<<< HEAD
         data: { weight: newLog.weight }, // Update with the new log's weight
-=======
-        data: { weight: newLog.weight }, // Update with the new log\'s weight
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
       });
     }
     
@@ -82,7 +59,6 @@ async function createWeightLogAndUpdateCat(data: CreateWeightLogBody, measuredBy
   });
 }
 
-<<<<<<< HEAD
 // Helper function to find the latest log and update cat's weight
 async function syncCatWeightWithLatestLog(tx: Prisma.TransactionClient, catId: string) {
   const latestLog = await tx.cat_weight_logs.findFirst({
@@ -98,24 +74,15 @@ async function syncCatWeightWithLatestLog(tx: Prisma.TransactionClient, catId: s
   });
 }
 
-=======
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
 // POST handler for creating a new weight log
 export async function POST(request: NextRequest) {
   try {
     // Authentication: Get user ID from header (as per memory.md)
-<<<<<<< HEAD
-    const authUserId = request.headers.get('X-User-ID');
+    const headersList = headers();
+    const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-=======
-    const headersList = headers();
-    const authUserId = headersList.get(\'X-User-ID\');
-
-    if (!authUserId) {
-      return NextResponse.json({ error: \'Not authenticated\' }, { status: 401 });
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
     }
 
     // Parse and validate request body
@@ -123,11 +90,7 @@ export async function POST(request: NextRequest) {
     const validatedBody = CreateWeightLogBodySchema.safeParse(json);
 
     if (!validatedBody.success) {
-<<<<<<< HEAD
       return NextResponse.json({ error: 'Invalid request body', details: validatedBody.error.format() }, { status: 400 });
-=======
-      return NextResponse.json({ error: \'Invalid request body\', details: validatedBody.error.format() }, { status: 400 });
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
     }
 
     // Call business logic function
@@ -136,7 +99,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: 201 });
 
   } catch (error) {
-<<<<<<< HEAD
     console.error('[API POST /api/weight-logs] Error:', error);
     // Distinguish Prisma errors or other specific errors if needed
     if (error instanceof z.ZodError) { // Should be caught by safeParse, but as a fallback
@@ -152,7 +114,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Authentication
-    const authUserId = request.headers.get('X-User-ID');
+    const headersList = headers();
+    const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -191,7 +154,8 @@ export async function GET(request: NextRequest) {
 // PUT handler for updating an existing weight log
 export async function PUT(request: NextRequest) {
   try {
-    const authUserId = request.headers.get('X-User-ID');
+    const headersList = headers();
+    const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -248,7 +212,10 @@ export async function PUT(request: NextRequest) {
           // cat_id: catId, // cat_id should not change here, already verified
         },
       });
+
+      // After updating, sync the cat's weight with the potentially new latest log
       await syncCatWeightWithLatestLog(tx, catId);
+
       return log;
     });
 
@@ -256,10 +223,6 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     console.error('[API PUT /api/weight-logs] Error:', error);
-    if (error instanceof z.ZodError) {
-        return NextResponse.json({ error: 'Invalid request body', details: error.format() }, { status: 400 });
-    }
-    // Add Prisma error handling if needed
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -267,7 +230,8 @@ export async function PUT(request: NextRequest) {
 // DELETE handler for deleting a weight log
 export async function DELETE(request: NextRequest) {
   try {
-    const authUserId = request.headers.get('X-User-ID');
+    const headersList = headers();
+    const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
@@ -279,83 +243,42 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Valid log ID query parameter is required' }, { status: 400 });
     }
 
-    // Authorization: Verify user owns the cat associated with the log being deleted
+    // Find the log to be deleted to get the catId
     const logToDelete = await prisma.cat_weight_logs.findUnique({
       where: { id: logId },
-      select: { cat_id: true, cat: { select: { owner_id: true } } },
+      select: { cat_id: true }
     });
 
     if (!logToDelete) {
       return NextResponse.json({ error: 'Log not found' }, { status: 404 });
     }
-    if (logToDelete.cat.owner_id !== authUserId) {
+
+    const catId = logToDelete.cat_id;
+
+    // Authorization: Check if user owns the cat associated with the log being deleted
+    const cat = await prisma.cats.findUnique({
+      where: { id: catId },
+      select: { owner_id: true }
+    });
+
+    if (!cat || cat.owner_id !== authUserId) {
       return NextResponse.json({ error: 'Forbidden: You do not own the cat associated with this log.' }, { status: 403 });
     }
-    
-    const catIdOfDeletedLog = logToDelete.cat_id;
 
     await prisma.$transaction(async (tx) => {
+      // Delete the log
       await tx.cat_weight_logs.delete({
         where: { id: logId },
       });
-      await syncCatWeightWithLatestLog(tx, catIdOfDeletedLog);
+
+      // After deleting, sync the cat's weight with the new latest log
+      await syncCatWeightWithLatestLog(tx, catId);
     });
 
-    return NextResponse.json({ message: 'Log deleted successfully' }, { status: 200 }); // Or 204 No Content
+    return NextResponse.json({ message: 'Weight log deleted successfully' }, { status: 200 });
 
   } catch (error) {
     console.error('[API DELETE /api/weight-logs] Error:', error);
-    // Add Prisma error handling if needed
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-=======
-    console.error(\'[API POST /api/weight-logs] Error:\', error);
-    // Distinguish Prisma errors or other specific errors if needed
-    if (error instanceof z.ZodError) { // Should be caught by safeParse, but as a fallback
-        return NextResponse.json({ error: \'Invalid request body\', details: error.format() }, { status: 400 });
-    }
-    // Check if it\'s a Prisma known error, e.g., foreign key constraint fail if catId doesn\'t exist
-    // if (error instanceof Prisma.PrismaClientKnownRequestError) { ... }
-    return NextResponse.json({ error: \'Internal Server Error\' }, { status: 500 });
->>>>>>> 37a1589 (feat(weight): implement API for logging weight and update QuickLogPanel)
-  }
-}
-
-// GET handler for fetching weight logs for a cat
-export async function GET(request: NextRequest) {
-  try {
-    // Authentication
-    const headersList = headers();
-    const authUserId = headersList.get(\'X-User-ID\');
-    if (!authUserId) {
-      return NextResponse.json({ error: \'Not authenticated\' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const catId = searchParams.get(\'catId\');
-
-    if (!catId || typeof catId !== \'string\' || !z.string().uuid().safeParse(catId).success) {
-      return NextResponse.json({ error: \'Valid catId query parameter is required\' }, { status: 400 });
-    }
-
-    // Fetch weight logs for the cat, ordered by date descending
-    const weightLogs = await prisma.cat_weight_logs.findMany({
-      where: {
-        cat_id: catId,
-        // Optional: could also verify ownership if measured_by should be the authUserId,
-        // or if cats table has a direct link to user profiles.
-        // For now, just fetching by catId if user is authenticated.
-      },
-      orderBy: {
-        date: \'desc\',
-      },
-      // Optionally, include related data like \'measured_by\' profile if needed for display
-      // include: { measured_by_profile: { select: { username: true } } }
-    });
-
-    return NextResponse.json(weightLogs, { status: 200 });
-
-  } catch (error) {
-    console.error(\'[API GET /api/weight-logs] Error:\', error);
-    return NextResponse.json({ error: \'Internal Server Error\' }, { status: 500 });
   }
 } 

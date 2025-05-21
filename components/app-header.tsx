@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { NotificationBadge } from "@/components/notifications/notification-badge";
+import NotificationBadge from "@/components/notification-badge";
 import {
   DropdownMenu,
   DropdownMenuContent,

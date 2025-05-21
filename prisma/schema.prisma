@@ -2,6 +2,7 @@ generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["multiSchema"]
   output          = "../node_modules/.prisma/client"
+  binaryTargets = ["debian-openssl-3.0.x"]
 }
 
 datasource db {
