@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 import NotificationBadge from "@/components/notification-badge";
+import { NotificationCenter } from "@/components/notifications/notification-center";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -163,7 +164,7 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
             {/* Only show user menu if authenticated */}
             {currentUser && (
               <>
-                <NotificationBadge />
+                <NotificationCenter />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon">
