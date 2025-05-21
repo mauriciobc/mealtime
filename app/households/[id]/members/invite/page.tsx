@@ -114,10 +114,40 @@ export default function HouseholdInvitePage({ params }: PageProps) {
 
     if (foundHousehold) {
       console.log(`HouseholdInvitePage useEffect: Found household ${foundHousehold.id}. Checking authorization...`);
+      console.log("Household details:", JSON.stringify({
+        household_id: foundHousehold.id,
+        name: foundHousehold.name,
+        owner: foundHousehold.owner,
+        owner_id: foundHousehold.owner_id, // Log both to help debugging
+        members: foundHousehold.members,
+        current_user: currentUser.id
+      }, null, 2));
+      
+      // Check if owner is properly set, fallback to owner_id for backwards compatibility
+      if (!foundHousehold.owner && foundHousehold.owner_id) {
+        console.warn(`Owner object missing but owner_id exists: ${foundHousehold.owner_id}. Using as fallback.`);
+        // Create a temporary owner object from owner_id for the check
+        foundHousehold.owner = { 
+          id: foundHousehold.owner_id, 
+          name: 'Unknown Owner', 
+          email: 'unknown@example.com'
+        };
+      }
+      
       const isOwner = String(foundHousehold.owner?.id) === String(currentUser.id);
-      const isAdmin = isOwner || foundHousehold.members?.some(
-        member => String(member.userId) === String(currentUser.id) && member.role?.toLowerCase() === 'admin'
+      console.log(`IsOwner check: ${isOwner} (User: ${currentUser.id}, Owner: ${foundHousehold.owner?.id})`);
+      
+      const relevantMember = foundHousehold.members?.find(
+        member => String(member.userId) === String(currentUser.id)
       );
+      console.log(`Found user as member: ${relevantMember ? 'Yes' : 'No'}`, relevantMember);
+      
+      const isAdmin = isOwner || foundHousehold.members?.some(
+        member => String(member.userId) === String(currentUser.id) && 
+                 member.role?.toLowerCase() === 'admin'
+      );
+      
+      console.log(`Final isAdmin determination: ${isAdmin}`);
       setIsAuthorized(isAdmin);
       if (!isAdmin) {
          console.warn(`HouseholdInvitePage useEffect: User ${currentUser.id} is not admin for household ${householdId}. Redirecting.`);
@@ -142,19 +172,60 @@ export default function HouseholdInvitePage({ params }: PageProps) {
     addLoadingOperation({ id: opId, priority: 1, description: "Sending invite..." });
     setIsSending(true);
     try {
+      console.log("Sending invitation with headers:", {
+        userId: currentUser.id,
+        householdId: householdId
+      });
+      
       const response = await fetch(`/api/households/${householdId}/invite`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-User-ID": currentUser.id
+        },
         body: JSON.stringify({ email: data.email }),
       });
 
+      console.log("Invitation response status:", response.status);
       const result = await response.json();
+      console.log("Invitation response body:", result);
 
       if (!response.ok) {
          throw new Error(result.error || "Falha ao enviar convite por e-mail.");
       }
       
-      toast.success(`Convite enviado para ${data.email}`);
+      // Detailed handling of API responses
+      console.log("DEBUG CLIENT: Invitation response details:", {
+        status: response.status,
+        message: result.message,
+        details: result.details,
+        profile: result.profile
+      });
+      
+      // Check for specific messages in the result
+      if (result.message && result.message.includes("already a member")) {
+        // Provide clear information about the existing membership
+        if (result.profile && result.profile.email) {
+          if (result.profile.email !== data.email) {
+            // Email mismatch case - provide clear explanation
+            toast.info(
+              `Este e-mail (${data.email}) não pode ser adicionado porque o usuário com e-mail ${result.profile.email} já é membro desta residência.`
+            );
+          } else {
+            // Same email case - already a member
+            toast.info(`${data.email} já é um membro desta residência.`);
+          }
+        } else {
+          // Fallback if profile info is missing
+          toast.info(`${data.email} já está associado a um membro desta residência.`);
+        }
+      } else if (result.message && result.message.includes("similar email")) {
+        // Clear information about similar email cases
+        toast.info(result.details || `Encontramos uma variação deste e-mail já cadastrada. Por favor, tente com o email exato.`);
+      } else {
+        // Success case
+        toast.success(`Convite enviado para ${data.email}`);
+      }
       form.reset();
 
     } catch (error: any) {

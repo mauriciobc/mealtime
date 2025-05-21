@@ -103,8 +103,18 @@ export async function GET(request: NextRequest) {
     
     const households = userWithHouseholds.household_members.map(member => {
       const household = member.household;
+      
+      // Find the owner info from members list
+      const ownerMember = household.household_members.find(m => m.user.id === household.owner_id);
+      
       return {
         ...household,
+        // Add owner property mapped from owner_id
+        owner: ownerMember ? {
+          id: ownerMember.user.id,
+          name: ownerMember.user.full_name,
+          email: ownerMember.user.email
+        } : undefined,
         members: household.household_members.map(m => ({
           id: m.id,
           userId: m.user.id,
@@ -203,12 +213,23 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Find the owner info from the members list
+      const ownerMember = newHousehold.household_members.find(
+        m => m.user_id === newHousehold.owner_id
+      );
+      
       return {
         id: newHousehold.id,
         name: newHousehold.name,
         created_at: newHousehold.created_at,
         updated_at: newHousehold.updated_at,
         owner_id: newHousehold.owner_id,
+        // Add owner property for frontend consistency
+        owner: ownerMember ? {
+          id: ownerMember.user_id,
+          name: ownerMember.user.full_name || '',
+          email: ownerMember.user.email || ''
+        } : undefined,
         members: newHousehold.household_members.map((member) => ({
           id: member.id,
           userId: member.user_id,

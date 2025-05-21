@@ -218,7 +218,7 @@ export default function LoginPage() {
           <CardFooter className="flex flex-col items-center space-y-2 text-center text-sm text-muted-foreground">
             <div>
               Não tem uma conta?{' '}
-              <Link href="/signup" className="underline hover:text-primary">
+              <Link href={`/signup${searchParams.toString() ? `?${searchParams.toString()}` : ''}`} className="underline hover:text-primary">
                 Registre-se
               </Link>
             </div>
