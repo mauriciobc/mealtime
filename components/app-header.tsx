@@ -39,6 +39,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import Image from "next/image";
 import { useUserContext } from "@/lib/context/UserContext";
+import { useLoading } from "@/lib/context/LoadingContext";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 
 // Componente para exibir os links de navegação no menu
@@ -82,6 +84,7 @@ interface AppHeaderProps {
 export function AppHeader({ title, showBackButton }: AppHeaderProps) {
   const { theme, setTheme } = useTheme();
   const { state: { currentUser }, authLoading, signOut } = useUserContext();
+  const { isLoading } = useLoading();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -219,18 +222,11 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
         </div>
       </div>
       {/* Loader at the bottom of the header */}
-      {(() => {
-        // Inline hook usage workaround for function components
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        const { isLoading } = require("@/lib/context/LoadingContext").useLoading();
-        if (!isLoading) return null;
-        const Progress = require("@/components/ui/progress").Progress;
-        return (
-          <div className="w-full">
-            <Progress className="h-1 w-full bg-transparent" />
-          </div>
-        );
-      })()}
+      {isLoading && (
+        <div className="w-full">
+          <Progress className="h-1 w-full bg-transparent" />
+        </div>
+      )}
     </header>
   );
 }
