@@ -361,7 +361,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
                 }}
               />
               <Legend wrapperStyle={{ fontSize: '14px'}} verticalAlign="bottom" />
-              <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot} name="Weight (kg)" />
+              <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot} name="Peso (kg)" />
             </LineChart>
           </ResponsiveContainer>
           {/* Absolutely positioned badges for feeding logs */}

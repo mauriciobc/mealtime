@@ -45,6 +45,7 @@ interface WeightGoalWithMilestones {
 interface MilestoneProgressProps {
   activeGoal: WeightGoalWithMilestones | null;
   currentWeight: number | null;
+  currentWeightDate?: string | null;
 }
 
 type MilestoneStatus = 'completed' | 'pending' | 'overdue' | 'upcoming';
@@ -89,24 +90,66 @@ const getMilestoneStatus = (
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--muted))']; // Primary for progress, muted for remainder
 
-export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgressProps) {
+// Traduções e constantes em português
+const STATUS_LABELS: Record<MilestoneStatus, string> = {
+  completed: 'Concluído',
+  pending: 'Pendente',
+  overdue: 'Atrasado',
+  upcoming: 'Futuro',
+};
+
+const SAFETY_BANNER =
+  'Este plano é um guia. Sempre siga a orientação do seu veterinário.';
+const NO_MILESTONES = 'Nenhum marco definido para esta meta.';
+const GOAL_PROGRESS = 'Progresso da Meta';
+const GOAL_ACHIEVED = 'Meta alcançada!';
+const CURRENT_WEIGHT_LABEL = 'Peso atual';
+const GOAL_LABEL = 'Meta';
+const MILESTONES_LABEL = 'Marcos';
+const VET_REMINDER =
+  'Lembrete: agende exames clínicos e ajuste o plano com o veterinário.';
+const PLATEAU_ALERT =
+  'Platô detectado. Reavalie a dieta com um profissional.';
+const ACCELERATED_LOSS_ALERT =
+  'Atenção: perda de peso acelerada! Reduza a meta e consulte o veterinário.';
+const MILESTONE_REACHED = 'Parabéns! Você completou:';
+
+export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate }: MilestoneProgressProps) {
   const [newlyCompletedMilestone, setNewlyCompletedMilestone] = useState<Milestone | null>(null);
   const [prevCurrentWeight, setPrevCurrentWeight] = useState<number | null>(currentWeight);
+  const [prevCurrentWeightDate, setPrevCurrentWeightDate] = useState<string | null | undefined>(currentWeightDate);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedMilestoneForSheet, setSelectedMilestoneForSheet] = useState<Milestone | null>(null);
 
+  // Parse weights as numbers for all logic
+  const parsedInitialWeight = activeGoal ? Number((activeGoal as any).initial_weight ?? (activeGoal as any).start_weight) : null;
+  const parsedTargetWeight = activeGoal ? Number(activeGoal.target_weight) : null;
+
+  // Determine if this is a weight loss or gain goal
   const isWeightLossGoal = useMemo(() => {
-    if (!activeGoal) return false;
-    return activeGoal.target_weight < activeGoal.initial_weight;
-  }, [activeGoal]);
+    if (!activeGoal || parsedInitialWeight === null || parsedTargetWeight === null) return false;
+    return parsedTargetWeight < parsedInitialWeight;
+  }, [activeGoal, parsedInitialWeight, parsedTargetWeight]);
+
+  // Debug logging for all relevant values
+  console.log('[MilestoneProgress] Debug:', {
+    activeGoal,
+    currentWeight,
+    currentWeightDate,
+    prevCurrentWeight,
+    prevCurrentWeightDate,
+    parsedInitialWeight,
+    parsedTargetWeight,
+    isWeightLossGoal
+  });
 
   const processedMilestones = useMemo(() => {
-    if (!activeGoal || currentWeight === null) return [];
+    if (!activeGoal || currentWeight === null || !Array.isArray(activeGoal.milestones) || parsedInitialWeight === null || parsedTargetWeight === null) return [];
     
-    const overallInitialWeight = activeGoal.initial_weight;
-    const overallTargetWeight = activeGoal.target_weight;
+    const overallInitialWeight = parsedInitialWeight;
+    const overallTargetWeight = parsedTargetWeight;
 
-    return activeGoal.milestones
+    const result = (activeGoal.milestones || [])
       .map(milestone => {
         let isConflicting = false;
         if (isWeightLossGoal) { // e.g., initial 10, target 5 (loss)
@@ -124,16 +167,20 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
         };
       })
       .sort((a, b) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime());
-  }, [activeGoal, currentWeight, isWeightLossGoal]);
+    console.log('[MilestoneProgress] processedMilestones:', result);
+    return result;
+  }, [activeGoal, currentWeight, isWeightLossGoal, parsedInitialWeight, parsedTargetWeight]);
 
   useEffect(() => {
-    if (currentWeight !== null && prevCurrentWeight !== null && currentWeight !== prevCurrentWeight && activeGoal) {
+    // Only trigger if both weight and date changed (i.e., a new log was registered)
+    const weightChanged = currentWeight !== null && prevCurrentWeight !== null && currentWeight !== prevCurrentWeight;
+    const dateChanged = currentWeightDate && prevCurrentWeightDate && currentWeightDate !== prevCurrentWeightDate;
+    if (weightChanged && dateChanged && activeGoal) {
       const justCompleted: Milestone[] = [];
-      for (const milestone of activeGoal.milestones) {
-        // Use the new isWeightLossGoal for accurate previous status calculation
+      const milestonesArr = Array.isArray(activeGoal.milestones) ? activeGoal.milestones : [];
+      for (const milestone of milestonesArr) {
         const prevStatus = getMilestoneStatus(milestone, prevCurrentWeight, activeGoal.start_date, isWeightLossGoal);
         const currentProcessedMilestone = processedMilestones.find(pm => pm.id === milestone.id);
-        // Ensure currentStatusValue also uses isWeightLossGoal, which it does via processedMilestones
         const currentStatusValue = currentProcessedMilestone ? currentProcessedMilestone.status : getMilestoneStatus(milestone, currentWeight, activeGoal.start_date, isWeightLossGoal);
         if (prevStatus !== 'completed' && currentStatusValue === 'completed') {
           justCompleted.push(milestone);
@@ -141,13 +188,17 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
       }
       if (justCompleted.length > 0) {
         justCompleted.sort((a, b) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime());
+        console.log('[MilestoneProgress] justCompleted milestones:', justCompleted);
         setNewlyCompletedMilestone(justCompleted[0]);
       }
     }
     if (currentWeight !== prevCurrentWeight) {
       setPrevCurrentWeight(currentWeight);
     }
-  }, [currentWeight, prevCurrentWeight, activeGoal, processedMilestones]);
+    if (currentWeightDate !== prevCurrentWeightDate) {
+      setPrevCurrentWeightDate(currentWeightDate);
+    }
+  }, [currentWeight, prevCurrentWeight, currentWeightDate, prevCurrentWeightDate, activeGoal, processedMilestones]);
 
   useEffect(() => {
     if (newlyCompletedMilestone) {
@@ -163,29 +214,68 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
     setIsSheetOpen(true);
   };
 
+  // --- Algoritmo de monitoramento dinâmico ---
+  // Detecta perda acelerada (>1.5% em 2 semanas) e platô (3 marcos estáveis)
+  const [showVetReminder, setShowVetReminder] = useState(false);
+  const [showPlateauAlert, setShowPlateauAlert] = useState(false);
+  const [showAcceleratedLoss, setShowAcceleratedLoss] = useState(false);
+
+  useEffect(() => {
+    if (!activeGoal || !Array.isArray(activeGoal.milestones) || !currentWeightDate) return;
+    // Vet reminder: a cada 4 semanas (28 dias) desde o início
+    const start = new Date(activeGoal.start_date);
+    const now = new Date(currentWeightDate);
+    const diffDays = Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    setShowVetReminder(diffDays > 0 && diffDays % 28 < 14); // Mostra por 2 semanas a cada ciclo
+
+    // Plateau: peso estável (±0,1kg) por 3 marcos consecutivos
+    const weights = processedMilestones
+      .filter(m => m.status === 'completed')
+      .slice(-3)
+      .map(m => m.target_weight);
+    if (weights.length === 3 && Math.max(...weights) - Math.min(...weights) <= 0.1) {
+      setShowPlateauAlert(true);
+    } else {
+      setShowPlateauAlert(false);
+    }
+
+    // Accelerated loss: perda >1.5% em 2 semanas
+    if (processedMilestones.length >= 2) {
+      const last = processedMilestones[processedMilestones.length - 1];
+      const prev = processedMilestones[processedMilestones.length - 2];
+      if (
+        last && prev &&
+        prev.target_weight > 0 &&
+        (prev.target_weight - last.target_weight) / prev.target_weight > 0.015
+      ) {
+        setShowAcceleratedLoss(true);
+      } else {
+        setShowAcceleratedLoss(false);
+      }
+    }
+  }, [activeGoal, processedMilestones, currentWeightDate]);
+
   if (!activeGoal || currentWeight === null) {
     return (
       <Card>
-        <CardHeader><CardTitle>Milestone Progress</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{GOAL_PROGRESS}</CardTitle></CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            No active weight goal or current weight data available.
-          </p>
+          <p className="text-sm text-muted-foreground">{NO_MILESTONES}</p>
         </CardContent>
       </Card>
     );
   }
 
   let progressValue = 0;
-  if (activeGoal.target_weight !== activeGoal.initial_weight) {
+  if (parsedInitialWeight !== null && parsedTargetWeight !== null && parsedTargetWeight !== parsedInitialWeight) {
     if (isWeightLossGoal) {
-      progressValue = ((activeGoal.initial_weight - currentWeight) / (activeGoal.initial_weight - activeGoal.target_weight)) * 100;
+      progressValue = ((parsedInitialWeight - (currentWeight ?? parsedInitialWeight)) / (parsedInitialWeight - parsedTargetWeight)) * 100;
     } else {
-      progressValue = ((currentWeight - activeGoal.initial_weight) / (activeGoal.target_weight - activeGoal.initial_weight)) * 100;
+      progressValue = (((currentWeight ?? parsedInitialWeight) - parsedInitialWeight) / (parsedTargetWeight - parsedInitialWeight)) * 100;
     }
   }
   const goalProgressPercentage = Math.min(100, Math.max(0, progressValue));
-  const isGoalAchieved = isWeightLossGoal ? currentWeight <= activeGoal.target_weight : currentWeight >= activeGoal.target_weight;
+  const isGoalAchieved = isWeightLossGoal ? (currentWeight ?? parsedInitialWeight) <= parsedTargetWeight : (currentWeight ?? parsedInitialWeight) >= parsedTargetWeight;
 
   const pieData = [
     { name: 'Completed', value: goalProgressPercentage },
@@ -196,29 +286,52 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Goal: {activeGoal.goal_name}</CardTitle>
+          <CardTitle>{GOAL_LABEL}: {activeGoal.goal_name}</CardTitle>
           {activeGoal.description && <p className="text-sm text-muted-foreground pt-1">{activeGoal.description}</p>}
         </CardHeader>
         <CardContent>
+          {/* Banner de segurança */}
+          <Alert className="mb-4 bg-blue-50 border-blue-300 text-blue-900">
+            <AlertTitle className="font-semibold">Atenção</AlertTitle>
+            <AlertDescription>{SAFETY_BANNER}</AlertDescription>
+          </Alert>
+
+          {/* Alertas dinâmicos */}
+          {showVetReminder && (
+            <Alert className="mb-2 bg-yellow-50 border-yellow-300 text-yellow-900">
+              <AlertTitle className="font-semibold">Lembrete Veterinário</AlertTitle>
+              <AlertDescription>{VET_REMINDER}</AlertDescription>
+            </Alert>
+          )}
+          {showPlateauAlert && (
+            <Alert className="mb-2 bg-orange-50 border-orange-300 text-orange-900">
+              <AlertTitle className="font-semibold">Platô Detectado</AlertTitle>
+              <AlertDescription>{PLATEAU_ALERT}</AlertDescription>
+            </Alert>
+          )}
+          {showAcceleratedLoss && (
+            <Alert className="mb-2 bg-red-50 border-red-300 text-red-900">
+              <AlertTitle className="font-semibold">Alerta de Perda Rápida</AlertTitle>
+              <AlertDescription>{ACCELERATED_LOSS_ALERT}</AlertDescription>
+            </Alert>
+          )}
+
           {newlyCompletedMilestone && (
-            <Alert className="mb-4 animate-in fade-in zoom-in-95">
+            <Alert className="mb-4 animate-in fade-in zoom-in-95 bg-green-50 border-green-300 text-green-900">
               <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <AlertTitle className="font-semibold">Milestone Reached!</AlertTitle>
+              <AlertTitle className="font-semibold">{MILESTONE_REACHED}</AlertTitle>
               <AlertDescription>
-                Congratulations! You\\'ve completed: "{newlyCompletedMilestone.name}"
-                (Target: {newlyCompletedMilestone.target_weight}{activeGoal.unit}).
+                {`"${newlyCompletedMilestone.name}" (Alvo: ${newlyCompletedMilestone.target_weight}${activeGoal.unit}).`}
               </AlertDescription>
             </Alert>
           )}
 
           <div className="mb-6 flex flex-col items-center">
             <div className="text-sm font-medium mb-2 text-center">
-               Overall Goal Progress: {" "}
-              <span className="font-semibold">
-                {isGoalAchieved
-                  ? "Goal Achieved!"
-                  : `${currentWeight?.toFixed(1)}${activeGoal.unit} / ${activeGoal.target_weight.toFixed(1)}${activeGoal.unit}`}
-              </span>
+              {GOAL_PROGRESS}: {isGoalAchieved
+                ? <span className="font-semibold text-green-700">{GOAL_ACHIEVED}</span>
+                : <span>{CURRENT_WEIGHT_LABEL}: {currentWeight?.toFixed(1)}{activeGoal.unit} / {GOAL_LABEL}: {parsedTargetWeight !== null ? parsedTargetWeight.toFixed(1) : 'N/A'}{activeGoal.unit}</span>
+              }
             </div>
             <ChartContainer config={{}} className="mx-auto aspect-square h-[160px] w-[160px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -255,7 +368,7 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
             )}
           </div>
 
-          <p className="text-lg font-semibold mb-3 mt-6">Milestones</p>
+          <p className="text-lg font-semibold mb-3 mt-6">{MILESTONES_LABEL}</p>
           {processedMilestones.length > 0 ? (
             <ul className="space-y-3">
               {processedMilestones.map((milestone) => (
@@ -263,7 +376,7 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-primary truncate">{milestone.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Target: {milestone.target_weight}{activeGoal.unit} by {new Date(milestone.target_date).toLocaleDateString()}
+                      Alvo: {milestone.target_weight}{activeGoal.unit} até {new Date(milestone.target_date).toLocaleDateString('pt-BR')}
                       {milestone.description && <span className="block text-xs text-muted-foreground/80 italic mt-0.5 truncate">{milestone.description}</span>}
                     </p>
                   </div>
@@ -289,18 +402,18 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
                           "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200"
                       )}
                     >
-                      {milestone.isConflicting ? 'Conflict' : milestone.status}
+                      {milestone.isConflicting ? 'Conflito' : STATUS_LABELS[milestone.status]}
                     </Badge>
                     <Button variant="ghost" size="sm" onClick={() => handleOpenSheet(milestone)} className="p-1.5 h-auto">
                       <Edit className="h-4 w-4 text-muted-foreground hover:text-primary transition-colors" />
-                      <span className="sr-only">Adjust Feed for {milestone.name}</span>
+                      <span className="sr-only">Ajustar alimentação para {milestone.name}</span>
                     </Button>
                   </div>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No milestones defined for this goal.</p>
+            <p className="text-sm text-muted-foreground">{NO_MILESTONES}</p>
           )}
         </CardContent>
       </Card>
@@ -308,24 +421,23 @@ export function MilestoneProgress({ activeGoal, currentWeight }: MilestoneProgre
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Adjust Feeding for: {selectedMilestoneForSheet?.name}</SheetTitle>
+            <SheetTitle>Ajustar alimentação para: {selectedMilestoneForSheet?.name}</SheetTitle>
             <SheetDescription>
-              Make changes to the feeding plan related to this milestone. 
-              Target: {selectedMilestoneForSheet?.target_weight}{activeGoal?.unit} by {selectedMilestoneForSheet ? new Date(selectedMilestoneForSheet.target_date).toLocaleDateString() : 'N/A'}.
-              {selectedMilestoneForSheet?.description && <p className="mt-2 italic">Notes: {selectedMilestoneForSheet.description}</p>}
+              Alvo: {selectedMilestoneForSheet?.target_weight}{activeGoal?.unit} até {selectedMilestoneForSheet ? new Date(selectedMilestoneForSheet.target_date).toLocaleDateString('pt-BR') : 'N/A'}.
+              {selectedMilestoneForSheet?.description && <p className="mt-2 italic">Notas: {selectedMilestoneForSheet.description}</p>}
             </SheetDescription>
           </SheetHeader>
           <div className="py-4">
-            {/* Placeholder for feeding adjustment form/content */}
+            {/* Placeholder para formulário de ajuste de alimentação */}
             <p className="text-sm text-muted-foreground">
-              Feeding adjustment form or details for "{selectedMilestoneForSheet?.name}" will go here.
+              O formulário de ajuste de alimentação para "{selectedMilestoneForSheet?.name}" será exibido aqui.
             </p>
           </div>
           <SheetFooter>
             <SheetClose asChild>
-              <Button variant="outline">Close</Button>
+              <Button variant="outline">Fechar</Button>
             </SheetClose>
-            {/* <Button type="submit">Save changes</Button> */}
+            {/* <Button type="submit">Salvar alterações</Button> */}
           </SheetFooter>
         </SheetContent>
       </Sheet>

@@ -43,6 +43,12 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
+  // Bypass Supabase Auth requests to avoid CORS and Service Worker interference
+  const url = new URL(event.request.url);
+  if (url.origin === 'https://zzvmyzyszsqptgyqwqwt.supabase.co') {
+    return; // Let the network handle it directly
+  }
+
   if (event.request.mode === 'navigate') {
     // Handle navigation requests: network first, fallback to offline.html
     event.respondWith(
@@ -61,7 +67,10 @@ self.addEventListener('fetch', event => {
             });
           }
           return networkResponse;
-        }).catch(() => undefined);
+        }).catch(() => {
+          // Always return a valid Response on error
+          return new Response('Service Worker fetch error', { status: 500 });
+        });
         // Return cached response immediately, update cache in background
         return cachedResponse || fetchPromise;
       })

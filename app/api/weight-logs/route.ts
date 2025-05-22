@@ -78,7 +78,7 @@ async function syncCatWeightWithLatestLog(tx: Prisma.TransactionClient, catId: s
 export async function POST(request: NextRequest) {
   try {
     // Authentication: Get user ID from header (as per memory.md)
-    const headersList = headers();
+    const headersList = await headers();
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Authentication
-    const headersList = headers();
+    const headersList = await headers();
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
 // PUT handler for updating an existing weight log
 export async function PUT(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
@@ -230,7 +230,7 @@ export async function PUT(request: NextRequest) {
 // DELETE handler for deleting a weight log
 export async function DELETE(request: NextRequest) {
   try {
-    const headersList = headers();
+    const headersList = await headers();
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {

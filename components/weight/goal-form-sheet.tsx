@@ -41,6 +41,7 @@ interface GoalFormSheetProps {
   catId: string | null;
   currentWeight?: number | null;
   defaultUnit?: 'kg' | 'lbs';
+  birthDate?: string | null;
 }
 
 const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
@@ -50,6 +51,7 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
   catId,
   currentWeight,
   defaultUnit = 'kg',
+  birthDate,
 }) => {
   const [goalName, setGoalName] = useState('');
   const [initialWeight, setInitialWeight] = useState<string>('');
@@ -89,6 +91,17 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
     if (isNaN(parsedInitialWeight) || isNaN(parsedTargetWeight) || parsedInitialWeight <= 0 || parsedTargetWeight <= 0) {
       toast.error("Os pesos inicial e alvo devem ser números positivos.");
       return;
+    }
+
+    // Validação de segurança: bloqueia metas com perda semanal >2%
+    if (unit === 'kg' && parsedInitialWeight > parsedTargetWeight) {
+      const weeks = (new Date(targetDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24 * 7);
+      const weeklyLoss = (parsedInitialWeight - parsedTargetWeight) / weeks;
+      const weeklyLossPercent = weeklyLoss / parsedInitialWeight;
+      if (weeklyLossPercent > 0.02) {
+        toast.error("Meta insegura: a perda semanal de peso excede 2%. Por favor, defina um objetivo mais gradual.");
+        return;
+      }
     }
 
     setIsSubmitting(true);

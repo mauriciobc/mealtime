@@ -21,6 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useUserContext } from "@/lib/context/UserContext";
+import { calcularIdadeEmAnos, gerarMarcos } from '@/lib/weight/milestoneUtils';
 
 // Interface for Cat - matches expected API structure from /api/cats
 interface Cat {
@@ -31,6 +32,7 @@ interface Cat {
   targetWeight?: number; // Optional: User-defined target, might be part of goal
   healthTip?: string; // Optional: Could be from another source or generated
   activeGoalId?: string | null; // Optional: Link to an active WeightGoalWithMilestones
+  birth_date?: string | null; // ISO date string for age classification
   // Add other fields like user_id if your API provides/requires them
 }
 
@@ -118,6 +120,7 @@ const WeightPage = () => {
           ...cat,
           weight: typeof cat.weight === 'string' ? parseFloat(cat.weight) : (typeof cat.weight === 'number' ? cat.weight : undefined),
           targetWeight: typeof cat.targetWeight === 'string' ? parseFloat(cat.targetWeight) : (typeof cat.targetWeight === 'number' ? cat.targetWeight : undefined),
+          birth_date: cat.birth_date || cat.birthDate || null, // Normalize field
         }));
         setCats(parsedData);
         if (parsedData.length > 0 && !selectedCatId) {
@@ -373,11 +376,24 @@ const WeightPage = () => {
   };
 
   const handleGoalSubmit = async (formData: GoalFormData) => {
-    if (!userId || !selectedCatId) { // Ensure selectedCatId is also available if needed beyond formData.cat_id
+    if (!userId || !selectedCatId) {
       toast.error("Usuário ou gato não identificado. Não é possível criar a meta.");
       return;
     }
-    
+
+    // Geração automática de marcos (milestones) para metas em kg
+    let milestones = [];
+    if (formData.unit === 'kg') {
+      const cat = cats.find(c => c.id === selectedCatId);
+      const idade = cat?.birth_date ? calcularIdadeEmAnos(cat.birth_date) : 3; // Default: 3 anos
+      milestones = gerarMarcos(
+        formData.initial_weight,
+        formData.target_weight,
+        idade,
+        formData.start_date
+      );
+    }
+
     try {
       const response = await fetch('/api/goals', {
         method: 'POST',
@@ -385,7 +401,7 @@ const WeightPage = () => {
           'Content-Type': 'application/json',
           'X-User-ID': userId,
         },
-        body: JSON.stringify(formData), // formData already includes cat_id
+        body: JSON.stringify({ ...formData, milestones }),
       });
 
       if (!response.ok) {
@@ -521,6 +537,7 @@ const WeightPage = () => {
               unit={activeGoalForSelectedCat?.unit || 'kg'}
               previousWeight={previousLog?.weight}
               previousWeightDate={previousLog?.date}
+              birthDate={selectedCat.birth_date}
             />
             {/* QuickLogPanel is now controlled and its trigger might be elsewhere or used for programmatic opening */}
             {/* We can still render the FAB trigger from within QuickLogPanel, and open it programmatically */}
@@ -544,6 +561,7 @@ const WeightPage = () => {
               <MilestoneProgress 
                 activeGoal={activeGoalForSelectedCat} 
                 currentWeight={currentLog?.weight ?? selectedCat.weight ?? 0}
+                currentWeightDate={currentLog?.date ?? null}
               />
             )}
             {!activeGoalForSelectedCat && !isLoadingGoals && selectedCat && (
@@ -622,6 +640,7 @@ const WeightPage = () => {
           catId={selectedCat.id}
           currentWeight={currentLog?.weight ?? selectedCat.weight}
           defaultUnit={activeGoalForSelectedCat?.unit || 'kg'} // Or a sensible default like 'kg'
+          birthDate={selectedCat.birth_date || null}
         />
       )}
     </div>

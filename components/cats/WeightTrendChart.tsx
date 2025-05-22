@@ -98,7 +98,7 @@ export function WeightTrendChart({ weights, feedings }: WeightTrendChartProps) {
 
   return (
     <div>
-      <H3>Weight Trend</H3>
+      <H3>Tendência de Peso</H3>
       <div className="flex gap-2 mb-4">
         {ranges.map((r) => (
           <Button
@@ -143,7 +143,7 @@ export function WeightTrendChart({ weights, feedings }: WeightTrendChartProps) {
                   </PopoverTrigger>
                   <PopoverContent role="dialog">
                     <div><strong>Date:</strong> {w.date}</div>
-                    <div><strong>Weight:</strong> {w.weight}</div>
+                    <div><strong>Peso:</strong> {w.weight}</div>
                     {feeding && <div><strong>Feedings:</strong> {feeding.count}</div>}
                   </PopoverContent>
                 </Popover>
