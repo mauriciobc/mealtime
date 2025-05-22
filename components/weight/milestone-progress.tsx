@@ -363,7 +363,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
             </ChartContainer>
             {isGoalAchieved && (
               <p className="text-sm text-green-600 mt-3 text-center">
-                Congratulations on reaching your overall goal!
+                Parabéns por atingir sua meta geral!
               </p>
             )}
           </div>

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { differenceInWeeks, parseISO } from 'date-fns'; // For date calculations
+import { differenceInWeeks } from 'date-fns';
+import { parseISO } from 'date-fns/parseISO';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { HeartPulse } from 'lucide-react';
@@ -20,22 +21,31 @@ interface CurrentStatusCardProps {
   birthDate?: string | null; // ISO date string for age-based classification
 }
 
-const classifyWeight = (weight: number, birthDate?: string | null): { label: string, color: 'green'|'yellow'|'red'|undefined } => {
+type WeightUnit = 'kg' | 'lbs';
+const classifyWeight = (
+  weight: number,
+  birthDate?: string | null,
+  unit: WeightUnit = 'kg'
+): { label: string, color: 'green'|'yellow'|'red'|undefined } => {
   if (!weight || !birthDate) return { label: 'Desconhecido', color: undefined };
   const now = new Date();
   const birth = new Date(birthDate);
   if (isNaN(birth.getTime())) return { label: 'Desconhecido', color: undefined };
+  if (birth > now) return { label: 'Desconhecido', color: undefined }; // Future birth date
+  // Convert to kg if needed
+  let w = weight;
+  if (unit === 'lbs') {
+    w = w * 0.453592;
+  }
   const ageMonths = (now.getFullYear() - birth.getFullYear()) * 12 + (now.getMonth() - birth.getMonth());
   // Chart: 0-1 month: 100-450g, 1-2m: 450-900g, 2-3m: 900-1350g, 3-6m: 1.35-2.7kg, 6-12m: 2.7-4.5kg, 1-2y: 3.6-5.4kg, 2+y: 3.6-5.4kg
   let min = 0, max = 0, severe = false;
-  if (ageMonths < 1) { min = 0.1; max = 0.45; severe = weight < 0.08 || weight > 0.5; }
-  else if (ageMonths < 2) { min = 0.45; max = 0.9; severe = weight < 0.35 || weight > 1.1; }
-  else if (ageMonths < 3) { min = 0.9; max = 1.35; severe = weight < 0.7 || weight > 1.6; }
-  else if (ageMonths < 6) { min = 1.35; max = 2.7; severe = weight < 1.0 || weight > 3.2; }
-  else if (ageMonths < 12) { min = 2.7; max = 4.5; severe = weight < 2.2 || weight > 5.2; }
-  else { min = 3.6; max = 5.4; severe = weight < 3.0 || weight > 6.0; }
-  // Convert to kg if needed
-  const w = weight;
+  if (ageMonths < 1) { min = 0.1; max = 0.45; severe = w < 0.08 || w > 0.5; }
+  else if (ageMonths < 2) { min = 0.45; max = 0.9; severe = w < 0.35 || w > 1.1; }
+  else if (ageMonths < 3) { min = 0.9; max = 1.35; severe = w < 0.7 || w > 1.6; }
+  else if (ageMonths < 6) { min = 1.35; max = 2.7; severe = w < 1.0 || w > 3.2; }
+  else if (ageMonths < 12) { min = 2.7; max = 4.5; severe = w < 2.2 || w > 5.2; }
+  else { min = 3.6; max = 5.4; severe = w < 3.0 || w > 6.0; }
   if (w < min) return { label: severe ? 'Muito abaixo do ideal' : 'Abaixo do ideal', color: severe ? 'red' : 'yellow' };
   if (w > max) return { label: severe ? 'Muito acima do ideal' : 'Acima do ideal', color: severe ? 'red' : 'yellow' };
   return { label: 'Peso ideal', color: 'green' };
@@ -74,7 +84,7 @@ const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
         const dateCurrent = parseISO(currentWeightDate);
         const datePrevious = parseISO(previousWeightDate);
         
-        const weeksDifference = differenceInWeeks(dateCurrent, datePrevious, { roundingMethod: 'round' });
+        const weeksDifference = differenceInWeeks(dateCurrent, datePrevious);
 
         if (weeksDifference > 0) {
             const weightDifference = currentWeight - previousWeight;
@@ -107,7 +117,7 @@ const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
     }
   }
 
-  const weightClassification = classifyWeight(currentWeight, birthDate);
+  const weightClassification = classifyWeight(currentWeight, birthDate, unit);
 
   const [isHealthSheetOpen, setIsHealthSheetOpen] = React.useState(false);
 

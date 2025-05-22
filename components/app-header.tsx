@@ -218,6 +218,19 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
           </div>
         </div>
       </div>
+      {/* Loader at the bottom of the header */}
+      {(() => {
+        // Inline hook usage workaround for function components
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const { isLoading } = require("@/lib/context/LoadingContext").useLoading();
+        if (!isLoading) return null;
+        const Progress = require("@/components/ui/progress").Progress;
+        return (
+          <div className="w-full">
+            <Progress className="h-1 w-full bg-transparent" />
+          </div>
+        );
+      })()}
     </header>
   );
 }

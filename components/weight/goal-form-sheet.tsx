@@ -94,10 +94,21 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
     }
 
     // Validação de segurança: bloqueia metas com perda semanal >2%
-    if (unit === 'kg' && parsedInitialWeight > parsedTargetWeight) {
+    if (parsedInitialWeight > parsedTargetWeight) {
       const weeks = (new Date(targetDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24 * 7);
-      const weeklyLoss = (parsedInitialWeight - parsedTargetWeight) / weeks;
-      const weeklyLossPercent = weeklyLoss / parsedInitialWeight;
+      if (weeks <= 0) {
+        toast.error("O período entre as datas deve ser de pelo menos 7 dias para validar a meta de peso.");
+        return;
+      }
+      // Convert to kg if needed
+      let initialKg = parsedInitialWeight;
+      let targetKg = parsedTargetWeight;
+      if (unit === 'lbs') {
+        initialKg = parsedInitialWeight * 0.453592;
+        targetKg = parsedTargetWeight * 0.453592;
+      }
+      const weeklyLoss = (initialKg - targetKg) / weeks;
+      const weeklyLossPercent = weeklyLoss / initialKg;
       if (weeklyLossPercent > 0.02) {
         toast.error("Meta insegura: a perda semanal de peso excede 2%. Por favor, defina um objetivo mais gradual.");
         return;

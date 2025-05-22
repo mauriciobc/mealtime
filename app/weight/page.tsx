@@ -381,17 +381,43 @@ const WeightPage = () => {
       return;
     }
 
-    // Geração automática de marcos (milestones) para metas em kg
-    let milestones = [];
-    if (formData.unit === 'kg') {
-      const cat = cats.find(c => c.id === selectedCatId);
-      const idade = cat?.birth_date ? calcularIdadeEmAnos(cat.birth_date) : 3; // Default: 3 anos
+    // Geração automática de marcos (milestones) para metas
+    let milestones: Milestone[] = [];
+    let usedBirthDate: string | null = null;
+    let usedAge: number | null = null;
+    let initialWeightKg = formData.initial_weight;
+    let targetWeightKg = formData.target_weight;
+
+    const cat = cats.find(c => c.id === selectedCatId);
+    if (cat?.birth_date) {
+      usedBirthDate = cat.birth_date;
+      usedAge = calcularIdadeEmAnos(cat.birth_date);
+    } else {
+      // Prompt user to add birth date for more accurate milestones
+      toast.warning("Data de nascimento do gato não informada. Marque a data para metas mais precisas.");
+      // Use a safer default (e.g., 5 years) instead of 3
+      usedAge = 5;
+    }
+
+    // Convert weights to kg if needed
+    if (formData.unit === 'lbs') {
+      initialWeightKg = formData.initial_weight * 0.453592;
+      targetWeightKg = formData.target_weight * 0.453592;
+    }
+
+    if (formData.unit === 'kg' || formData.unit === 'lbs') {
       milestones = gerarMarcos(
-        formData.initial_weight,
-        formData.target_weight,
-        idade,
+        initialWeightKg,
+        targetWeightKg,
+        usedAge ?? 5,
         formData.start_date
       );
+    }
+
+    // Prepare goal data, omitting milestones if empty
+    const goalPayload: any = { ...formData };
+    if (milestones.length > 0) {
+      goalPayload.milestones = milestones;
     }
 
     try {
@@ -401,7 +427,7 @@ const WeightPage = () => {
           'Content-Type': 'application/json',
           'X-User-ID': userId,
         },
-        body: JSON.stringify({ ...formData, milestones }),
+        body: JSON.stringify(goalPayload),
       });
 
       if (!response.ok) {
