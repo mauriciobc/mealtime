@@ -51,7 +51,10 @@ export function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: Cat
   const { state: userState } = useUserContext();
   const userTimezone = userState.currentUser?.preferences?.timezone;
 
-  const ageString = cat.birthdate ? getAgeString(cat.birthdate, userTimezone) : "Idade desconhecida";
+  const ageString = cat.birthdate ? getAgeString(
+    typeof cat.birthdate === 'string' ? new Date(cat.birthdate) : cat.birthdate,
+    userTimezone
+  ) : "Idade desconhecida";
 
   const lastFed = latestFeedingLog
     ? formatDistanceToNow(new Date(latestFeedingLog.timestamp), {
@@ -116,8 +119,8 @@ export function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: Cat
         className="h-full cursor-pointer"
         onClick={onView}
       >
-        <Card className="h-full overflow-hidden flex flex-col">
-           <div className="relative w-full aspect-[3/1] bg-muted overflow-hidden"> 
+        <Card className="h-full overflow-hidden flex flex-col max-w-[300px] mx-auto">
+           <div className="relative w-full aspect-square bg-muted overflow-hidden"> 
              <SafeImage 
                src={imageUrl}
                alt={`Photo of ${cat.name}`} 

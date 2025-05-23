@@ -258,6 +258,11 @@ const WeightPage = () => {
       return;
     }
 
+    if (!selectedCatId) {
+      toast.error("Nenhum gato selecionado. Por favor, selecione um gato para registrar o peso.");
+      return;
+    }
+
     try {
       const payload = {
         ...formData,
