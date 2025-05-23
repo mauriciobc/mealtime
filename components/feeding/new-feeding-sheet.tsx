@@ -59,7 +59,7 @@ export function NewFeedingSheet({
     initialCatId 
 }: NewFeedingSheetProps) {
   const router = useRouter();
-  const { state: userState } = useUserContext();
+  const { state: userState, refreshUser } = useUserContext();
   const { state: catsState } = useCats();
   const { state: feedingState, dispatch: feedingDispatch } = useFeeding();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
@@ -296,8 +296,8 @@ export function NewFeedingSheet({
       const result = await response.json();
       
       // Trigger a refetch since we only get a count back
-      if (userState.refetchUser) {
-        await userState.refetchUser();
+      if (refreshUser) {
+        await refreshUser();
       }
 
       toast.success(`${result.count} ${result.count === 1 ? 'alimentação registrada' : 'alimentações registradas'} com sucesso!`);
@@ -321,10 +321,10 @@ export function NewFeedingSheet({
     if (householdCats.length === 0) {
       return (
         <EmptyState
-          icon={<Users className="h-12 w-12" />}
+          IconComponent={Users}
           title="Nenhum gato encontrado"
           description="Você ainda não tem gatos cadastrados."
-          action={
+          actionButton={
             <Button asChild>
               <Link href="/cats">Cadastrar Gato</Link>
             </Button>
@@ -365,7 +365,7 @@ export function NewFeedingSheet({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={cat.photoUrl || ""} alt={cat.name} />
+                        <AvatarImage src={cat.photo_url || ""} alt={cat.name} />
                         <AvatarFallback>
                           <CatIcon className="h-6 w-6" />
                         </AvatarFallback>
@@ -415,7 +415,7 @@ export function NewFeedingSheet({
                           </Select>
                         </div>
                         <div className="flex-1">
-                          <Label htmlFor={`meal-type-${cat.id}`}>Tipo de Refeição</Label>
+                          <Label htmlFor={`meal-type-${cat.id}`}>Tipo</Label>
                           <Select value={mealType} onValueChange={(value) => handleMealTypeChange(cat.id, value as any)}>
                             <SelectTrigger id={`meal-type-${cat.id}`}>
                               <SelectValue />
@@ -465,10 +465,10 @@ export function NewFeedingSheet({
            </p>
            <div className="space-x-2">
               <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0}>
-                 Selecionar Todos
+                 Todos
               </Button>
               <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0}>
-                 Limpar Seleção
+                 Limpar
               </Button>
            </div>
         </div>

@@ -53,14 +53,14 @@ export default function Home() {
   const isNewUserFlow = !isDataLoading && !!currentUser && cats && cats.length === 0 && !!currentUser?.householdId;
 
   const colorPalette = [
-    "hsl(var(--primary))",
-    "hsl(var(--secondary))",
-    "hsl(221 83% 53%)",
-    "hsl(142 76% 36%)",
-    "hsl(334 86% 48%)",
-    "hsl(288 95.8% 60.6%)",
-    "hsl(31 97.8% 58.8%)",
-    "hsl(266, 100%, 60%)",
+    "#93c5fd", // Azul pastel
+    "#86efac", // Verde pastel
+    "#fca5a5", // Vermelho pastel
+    "#d8b4fe", // Roxo pastel
+    "#fdba74", // Laranja pastel
+    "#67e8f9", // Ciano pastel
+    "#f9a8d4", // Rosa pastel
+    "#fcd34d", // Amarelo pastel
   ];
 
   const containerVariants = {

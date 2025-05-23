@@ -89,8 +89,7 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
   const catPhotoUrl = useMemo(() => {
     if (isLoadingCats) return "";
     if (!cat) return "";
-    // Handle both photoUrl and photo_url property names
-    return cat.photoUrl || cat.photo_url || "";
+    return cat.photo_url || "";
   }, [isLoadingCats, cat]);
 
   // Show loading state while cats are being loaded
