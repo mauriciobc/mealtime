@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { GlobalLoading } from "@/components/ui/global-loading";
 import { Icons } from "@/components/icons";
 import { useSearchParams } from "next/navigation";
+import { getSiteOrigin } from '@/utils/getSiteOrigin';
 
 export default function SignupPage() {
   console.log("[Signup] Componente SignupPage renderizando");
@@ -50,7 +51,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/api/auth/callback?redirectTo=${encodeURIComponent(searchParams.get("redirectTo") || "/")}`,
+        emailRedirectTo: `${getSiteOrigin()}/api/auth/callback?redirectTo=${encodeURIComponent(searchParams.get("redirectTo") || "/")}`,
         data: {
           full_name: name,
         }
@@ -75,7 +76,7 @@ export default function SignupPage() {
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?redirectTo=${encodeURIComponent(searchParams.get("redirectTo") || "/")}`,
+        redirectTo: `${getSiteOrigin()}/api/auth/callback?redirectTo=${encodeURIComponent(searchParams.get("redirectTo") || "/")}`,
       },
     });
 
