@@ -2,6 +2,7 @@
 
 import { Timeline, TimelineItem } from "@/components/ui/timeline"
 import { CheckCircle, AlertCircle, Ban, AlertTriangle, HelpCircle } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface FeedingEvent {
   id: string
@@ -19,15 +20,15 @@ export function FeedingTimeline({ events }: FeedingTimelineProps) {
   const getStatusIcon = (status: FeedingEvent["status"]) => {
     switch (status) {
       case "Normal":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
+        return <CheckCircle className="h-5 w-5 text-success" />
       case "Comeu Pouco":
-        return <AlertCircle className="h-5 w-5 text-yellow-500" />
+        return <AlertCircle className="h-5 w-5 text-warning" />
       case "Recusou":
-        return <Ban className="h-5 w-5 text-red-500" />
+        return <Ban className="h-5 w-5 text-destructive" />
       case "Vomitou":
-        return <AlertTriangle className="h-5 w-5 text-red-500" />
+        return <AlertTriangle className="h-5 w-5 text-destructive" />
       case "Outro":
-        return <HelpCircle className="h-5 w-5 text-blue-500" />
+        return <HelpCircle className="h-5 w-5 text-primary" />
       default:
         return null
     }

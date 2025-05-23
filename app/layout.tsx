@@ -43,7 +43,7 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="hsl(221.2, 83.2%, 53.3%)" />
       </head>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", fontSans.variable)}>
+      <body className={cn("min-h-screen bg-background antialiased", fontSans.className)}>
         <RootClientLayout>
           {children}
         </RootClientLayout>

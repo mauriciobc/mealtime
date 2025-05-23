@@ -32,11 +32,12 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 
 const weightLogSchema = z.object({
   catId: z.string().uuid({ message: 'Valid Cat ID is required.' }),
   weight: z.coerce.number().positive({ message: 'Weight must be a positive number.' }),
-  date: z.string().min(1, { message: 'Date is required.' }),
+  date: z.date({ required_error: 'Date is required.' }),
   notes: z.string().optional(),
 });
 
@@ -69,14 +70,14 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
         form.reset({
           catId: logToEdit.catId || catId,
           weight: logToEdit.weight,
-          date: logToEdit.date,
+          date: new Date(logToEdit.date),
           notes: logToEdit.notes || '',
         });
       } else {
         form.reset({
           catId: catId,
           weight: NaN,
-          date: new Date().toISOString().split('T')[0],
+          date: new Date(),
           notes: '',
         });
       }
@@ -151,9 +152,15 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
                     name="date"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Data</FormLabel>
+                        <FormLabel>Data e Hora</FormLabel>
                         <FormControl>
-                          <Input type="date" {...field} />
+                          <DateTimePicker
+                            value={field.value}
+                            onChange={(date) => field.onChange(date)}
+                            hourCycle={24}
+                            granularity="minute"
+                            placeholder="Selecione a data e hora"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

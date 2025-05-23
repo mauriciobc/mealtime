@@ -16,7 +16,7 @@ const Timeline = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "relative space-y-4 before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:-translate-x-px before:bg-gray-200 before:dark:bg-gray-800",
+        "relative space-y-4 before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:-translate-x-px before:bg-border",
         className
       )}
       {...props}
@@ -33,7 +33,7 @@ const TimelineItem = React.forwardRef<
     description?: string
     icon?: React.ReactNode
     iconColor?: "primary" | "secondary" | "muted" | "accent"
-    status?: "completed" | "in-progress" | "pending"
+    status?: "completed" | "in-progress" | "pending" | "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro"
     loading?: boolean
     error?: string
   }
@@ -65,34 +65,34 @@ const TimelineItem = React.forwardRef<
         )}
         {...props}
       >
-        <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md dark:bg-gray-900">
+        <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-md">
           {icon}
         </div>
         <div className="space-y-1 pl-14">
           {date && (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-muted-foreground">
               {typeof date === "string" || typeof date === "number"
                 ? new Date(date).toLocaleDateString()
                 : date.toLocaleDateString()}
             </div>
           )}
           {title && (
-            <div className="font-medium text-gray-900 dark:text-gray-100">
+            <div className="font-medium text-foreground">
               {title}
             </div>
           )}
           {description && (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-muted-foreground">
               {description}
             </div>
           )}
           {loading && (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-muted-foreground">
               Carregando...
             </div>
           )}
           {error && (
-            <div className="text-sm text-red-500 dark:text-red-400">
+            <div className="text-sm text-destructive">
               {error}
             </div>
           )}
@@ -114,7 +114,7 @@ const TimelineTime = React.forwardRef<
     <div
       ref={ref}
       className={cn(
-        "text-sm text-gray-500 dark:text-gray-400",
+        "text-sm text-muted-foreground",
         className
       )}
       {...props}

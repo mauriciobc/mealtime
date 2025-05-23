@@ -1,13 +1,10 @@
 /** @type {import('tailwindcss').Config} */
-import { withUt } from "uploadthing/tw";
-
-export default withUt({
+module.exports = {
   content: [
     "./pages/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
-    './node_modules/@uploadthing/react/dist/**',
   ],
   prefix: "",
   theme: {
@@ -76,5 +73,5 @@ export default withUt({
     },
   },
   plugins: [require("tailwindcss-animate")],
-});
+};
 

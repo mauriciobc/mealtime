@@ -4,7 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { add, format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { type Locale, enUS } from "date-fns/locale";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import * as React from "react";
@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DayPicker, DayPickerProps } from "react-day-picker";
 import { useUserContext } from "@/lib/context/UserContext"
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
+import { Calendar } from "@/components/ui/calendar"
 
 // ---------- utils start ----------
 function isValidHour(value: string) {
@@ -157,10 +158,13 @@ function display12HourValue(hours: number) {
   return `0${hours % 12}`;
 }
 function genMonths(locale: Pick<Locale, 'options' | 'localize' | 'formatLong'>) {
-  return Array.from({ length: 12 }, (_, i) => ({
-    value: i,
-    label: format(new Date(2021, i), 'MMMM', { locale }),
-  }));
+  return Array.from({ length: 12 }, (_, i) => {
+    const date = new Date(2021, i);
+    return {
+      value: i,
+      label: format(date, 'MMMM', { locale }),
+    };
+  });
 }
 function genYears(yearRange = 50) {
   const today = new Date();
@@ -171,7 +175,7 @@ function genYears(yearRange = 50) {
 }
 // ---------- utils end ----------
 
-function Calendar({ className, classNames, showOutsideDays = true, yearRange = 50, ...props }: DayPickerProps & { yearRange?: number }) {
+function CalendarPicker({ className, classNames, showOutsideDays = true, yearRange = 50, ...props }: DayPickerProps & { yearRange?: number }) {
   const MONTHS = React.useMemo(() => {
     let locale: Pick<Locale, 'options' | 'localize' | 'formatLong'> = enUS;
     const { options, localize, formatLong } = props.locale || enUS;
@@ -182,18 +186,10 @@ function Calendar({ className, classNames, showOutsideDays = true, yearRange = 5
   }, [props.locale]);
   const YEARS = React.useMemo(() => genYears(yearRange), [yearRange]);
   return (
-    <DayPicker
+    <Calendar
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
-      classNames={{
-        ...classNames,
-      }}
-      components={{
-        Chevron: ({ orientation, ...props }) => {
-          const Icon = orientation === 'left' ? ChevronLeft : ChevronRight;
-          return <Icon className="h-4 w-4" {...props} />;
-        },
-      }}
+      classNames={classNames}
       fromYear={YEARS[0].value}
       toYear={YEARS[YEARS.length - 1].value}
       {...props}
@@ -336,7 +332,7 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
       }
       const diff = newDay.getTime() - defaultPopupValue.getTime();
       const diffInDays = diff / (1000 * 60 * 60 * 24);
-      const newDateFull = add(defaultPopupValue, { days: Math.ceil(diffInDays) });
+      const newDateFull = addDays(defaultPopupValue, Math.ceil(diffInDays));
       newDateFull.setHours(
         month?.getHours() ?? 0,
         month?.getMinutes() ?? 0,
@@ -396,9 +392,7 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
               format(
                 displayDate,
                 hourCycle === 24 ? initHourFormat.hour24 : initHourFormat.hour12,
-                {
-                  locale: userLocale,
-                },
+                { locale: userLocale }
               )
             ) : (
               <span>{placeholder}</span>
@@ -406,7 +400,7 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0">
-          <Calendar
+          <CalendarPicker
             mode="single"
             selected={displayDate}
             month={month}

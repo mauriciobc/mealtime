@@ -253,64 +253,58 @@ const WeightPage = () => {
   };
 
   const handleLogSubmit = async (formData: WeightLogFormValues, logIdToUpdate?: string) => {
-    if (!selectedCatId || !userId) {
-      toast.error("Nenhum gato selecionado ou usuário não identificado.");
+    if (!userId) {
+      toast.error("Você precisa estar logado para registrar pesos.");
       return;
     }
 
-    const apiEndpoint = logIdToUpdate ? `/api/weight-logs?id=${logIdToUpdate}` : '/api/weight-logs';
-    const method = logIdToUpdate ? 'PUT' : 'POST';
-
     try {
-      const response = await fetch(apiEndpoint, {
-        method: method,
+      const payload = {
+        ...formData,
+        date: formData.date.toISOString(), // Convert Date to ISO string for API
+      };
+
+      const url = logIdToUpdate 
+        ? `/api/weight-logs/${logIdToUpdate}`
+        : '/api/weight-logs';
+      
+      const method = logIdToUpdate ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
-          'X-User-ID': userId,
+          'X-User-ID': userId
         },
-        body: JSON.stringify({
-          // For PUT, API might expect full object or only changed fields.
-          // For POST, catId is top-level; for PUT, it might be nested or immutable.
-          // Assuming API expects full object for PUT, with catId correctly sourced.
-          catId: formData.catId || selectedCatId, // Ensure catId is present, prefer form's if available (though likely same)
-          weight: Number(formData.weight),
-          date: formData.date, 
-          notes: formData.notes,
-          // logId is sent via query param for PUT, not in body traditionally
-        }),
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Erro desconhecido." }));
-        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+        throw new Error(`Failed to ${logIdToUpdate ? 'update' : 'create'} weight log: ${response.statusText}`);
       }
 
-      const resultLog: WeightLog = await response.json();
-      
-      let updatedLogs: WeightLog[];
-      if (logIdToUpdate) { // Edit
-        updatedLogs = weightLogs.map(log => (log.id === logIdToUpdate ? resultLog : log));
-        toast.success('Registro de peso atualizado com sucesso!');
-      } else { // Create
-        updatedLogs = [resultLog, ...weightLogs];
-        toast.success('Peso registrado com sucesso!');
-      }
-      
-      // Sort logs by date descending after any update/create
-      updatedLogs.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      // Refresh weight logs
+      const logsResponse = await fetch(`/api/weight-logs?catId=${selectedCatId}`, {
+        headers: { 'X-User-ID': userId }
+      });
+      if (!logsResponse.ok) throw new Error(`Failed to fetch updated logs: ${logsResponse.statusText}`);
+      const updatedLogs: WeightLog[] = await logsResponse.json();
       setWeightLogs(updatedLogs);
-      
-      // Update the cat's weight in the main cats list
-      updateCatWeightFromLogs(resultLog.cat_id, updatedLogs);
-      
-      setLogChangeTimestamp(Date.now()); // Trigger update
 
+      // Update cat's current weight if this is the most recent log
+      if (selectedCatId) {
+        updateCatWeightFromLogs(selectedCatId, updatedLogs);
+      }
+
+      // Update timestamp to trigger child component updates
+      setLogChangeTimestamp(Date.now());
+
+      toast.success(logIdToUpdate ? "Registro atualizado com sucesso!" : "Peso registrado com sucesso!");
       setIsQuickLogPanelOpen(false);
-      setLogToEditData(null);
-
-    } catch (error: any) {
-      console.error(`Falha ao ${logIdToUpdate ? 'atualizar' : 'registrar'} o peso:`, error);
-      toast.error(`Falha ao ${logIdToUpdate ? 'atualizar' : 'registrar'} o peso: ${error.message}`);
+    } catch (error) {
+      console.error("Error saving weight log:", error);
+      toast.error((error as Error)?.message || "Erro ao salvar o registro de peso.");
+      throw error; // Re-throw to let the form handle the error
     }
   };
 
@@ -321,7 +315,7 @@ const WeightPage = () => {
       id: log.id, // log.id is string, matching LogForEditing
       catId: log.cat_id || selectedCat.id, // Ensure catId is present
       weight: log.weight,
-      date: new Date(log.date).toISOString().split('T')[0], // Format for input type="date"
+      date: new Date(log.date), // Use Date object for date
       notes: log.notes || '',
     };
     setLogToEditData(formData);
@@ -620,7 +614,7 @@ const WeightPage = () => {
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="archived-goals">
                 <AccordionTrigger>Metas Arquivadas</AccordionTrigger>
-                <AccordionContent className="space-y-3">
+                <AccordionContent className="space-y-3 pb-20">
                   <div className="flex items-center justify-end space-x-2 mb-2">
                     <Label htmlFor="show-archived-goals" className="text-sm">Mostrar Arquivadas</Label>
                     <Switch 
@@ -631,20 +625,36 @@ const WeightPage = () => {
                   </div>
                   {isLoadingGoals && <p className="text-sm text-muted-foreground">Carregando metas arquivadas...</p>}
                   {!isLoadingGoals && showArchivedGoals && archivedGoalsForSelectedCat.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">Nenhuma meta arquivada para {selectedCat.name}.</p>
+                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma meta arquivada para {selectedCat.name}.</p>
                   )}
-                  {showArchivedGoals && archivedGoalsForSelectedCat.map(goal => (
-                    <div key={goal.id} className="p-3 border rounded-md bg-muted/50 opacity-80 hover:opacity-100 transition-opacity">
-                      <h4 className="font-medium text-sm">{goal.goal_name} (Arquivada)</h4>
-                      <p className="text-xs text-muted-foreground">
-                        Alvo: {goal.target_weight}{goal.unit} (Inicial: {goal.initial_weight}{goal.unit})
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Período: {new Date(goal.start_date).toLocaleDateString()} - {new Date(goal.target_date).toLocaleDateString()}
-                      </p>
-                      {goal.description && <p className="text-xs mt-1">{goal.description}</p>}
-                      {goal.achieved_date && <p className="text-xs mt-1 text-green-600 dark:text-green-400">Alcançada: {new Date(goal.achieved_date).toLocaleDateString()}</p>}
-                      {goal.outcome_notes && <p className="text-xs mt-1">Resultado: {goal.outcome_notes}</p>}
+                  {!isLoadingGoals && showArchivedGoals && archivedGoalsForSelectedCat.map((goal) => (
+                    <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 opacity-80 hover:opacity-100 transition-opacity">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <h4 className="font-medium text-sm">{goal.goal_name} <span className="text-muted-foreground">(Arquivada)</span></h4>
+                        {goal.achieved_date && (
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            Alcançada: {new Date(goal.achieved_date).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <div>
+                          <p>Alvo: {goal.target_weight}{goal.unit}</p>
+                          <p>Inicial: {goal.initial_weight}{goal.unit}</p>
+                        </div>
+                        <div>
+                          <p>Início: {new Date(goal.start_date).toLocaleDateString()}</p>
+                          <p>Fim: {new Date(goal.target_date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      {goal.description && (
+                        <p className="text-xs mt-2 border-t pt-2">{goal.description}</p>
+                      )}
+                      {goal.outcome_notes && (
+                        <p className="text-xs mt-2 border-t pt-2 text-muted-foreground">
+                          Resultado: {goal.outcome_notes}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </AccordionContent>
