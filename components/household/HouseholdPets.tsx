@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Household, Pet } from "@/lib/types"
+import { Household } from "@/lib/types"
 import { useHousehold } from "@/lib/context/HouseholdContext"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -34,7 +34,6 @@ interface HouseholdPetsProps {
 
 export function HouseholdPets({ household }: HouseholdPetsProps) {
   const router = useRouter()
-  const { updateHousehold } = useHousehold()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleAddPet = () => {
@@ -56,8 +55,7 @@ export function HouseholdPets({ household }: HouseholdPetsProps) {
         throw new Error("Failed to delete pet")
       }
 
-      const updatedHousehold = await response.json()
-      updateHousehold(updatedHousehold)
+      router.refresh?.()
       toast.success("Pet deleted successfully")
     } catch (error) {
       toast.error("Failed to delete pet")
@@ -66,13 +64,13 @@ export function HouseholdPets({ household }: HouseholdPetsProps) {
     }
   }
 
-  if (!household.pets?.length) {
+  if (!household.cats?.length) {
     return (
       <EmptyState
-        icon={<Cat className="w-12 h-12" />}
+        IconComponent={Cat}
         title="No pets yet"
         description="Add your pets to keep track of their schedules and needs"
-        action={
+        actionButton={
           <Button onClick={handleAddPet}>
             <Cat className="w-4 h-4 mr-2" />
             Add Pet
@@ -82,6 +80,10 @@ export function HouseholdPets({ household }: HouseholdPetsProps) {
     )
   }
 
+  if (typeof household.cats[0] === 'string') {
+    return null
+  }
+
   return (
     <div className="space-y-4">
       <Button onClick={handleAddPet}>
@@ -89,18 +91,16 @@ export function HouseholdPets({ household }: HouseholdPetsProps) {
         Add Pet
       </Button>
       
-      {household.pets.map((pet) => (
-        <Card key={pet.id}>
+      {(household.cats as any[]).map((cat) => (
+        <Card key={cat.id}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Avatar>
-                  <AvatarImage src={pet.image} />
-                  <AvatarFallback>{pet.name[0]}</AvatarFallback>
+                  <AvatarFallback>{cat.name ? cat.name[0] : '?'}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <CardTitle className="text-base">{pet.name}</CardTitle>
-                  <CardDescription>{pet.breed}</CardDescription>
+                  <CardTitle className="text-base">{cat.name}</CardTitle>
                 </div>
               </div>
 
@@ -113,7 +113,7 @@ export function HouseholdPets({ household }: HouseholdPetsProps) {
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => handleEditPet(pet.id)}>
+                  <DropdownMenuItem onClick={() => handleEditPet(cat.id)}>
                     <Pencil className="w-4 h-4 mr-2" />
                     Edit Pet
                   </DropdownMenuItem>
@@ -134,7 +134,7 @@ export function HouseholdPets({ household }: HouseholdPetsProps) {
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                          onClick={() => handleDeletePet(pet.id)}
+                          onClick={() => handleDeletePet(cat.id)}
                           disabled={isLoading}
                         >
                           Delete

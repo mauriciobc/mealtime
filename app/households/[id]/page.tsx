@@ -230,7 +230,11 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         throw new Error(errorData.error || 'Falha ao remover membro');
       }
 
-      const updatedHousehold = await response.json();
+      // Consume the response body once and store the data
+      const responseData = await response.json();
+
+      // Use the consumed data for the success case
+      const updatedHousehold = responseData; // Use the already parsed data
       householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
       toast.success("Membro removido com sucesso.");
     } catch (error: any) {
@@ -685,7 +689,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
                                                          <AlertDialogDescription>Tem certeza que deseja remover {member.name} desta residência?</AlertDialogDescription>
                                                          <AlertDialogFooter>
                                                              <AlertDialogCancel disabled={isProcessing}>Cancelar</AlertDialogCancel>
-                                                             <AlertDialogAction onClick={() => removeMember(String(member.userId))} disabled={isProcessing} className="bg-destructive hover:bg-destructive/90">
+                                                             <AlertDialogAction onClick={async () => await removeMember(String(member.userId))} disabled={isProcessing} className="bg-destructive hover:bg-destructive/90">
                                                                  {isProcessing ? <Loading text="Removendo..." size="sm"/> : "Remover Membro"}
                                                              </AlertDialogAction>
                                                          </AlertDialogFooter>

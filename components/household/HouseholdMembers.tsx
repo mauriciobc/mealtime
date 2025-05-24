@@ -37,7 +37,7 @@ interface HouseholdMembersProps {
 export function HouseholdMembers({ household }: HouseholdMembersProps) {
   const router = useRouter()
   const { user } = useUserContext()
-  const { updateHousehold } = useHousehold()
+  const { state: householdState, dispatch: householdDispatch } = useHousehold()
   const [isLoading, setIsLoading] = useState(false)
 
   const isAdmin = household.members.find(member => 
@@ -51,15 +51,37 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
         method: "DELETE",
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to remove member")
+      console.log("[DEBUG] Response object:", response);
+      let updatedHousehold;
+      try {
+        updatedHousehold = await response.json();
+        console.log("[DEBUG] Parsed JSON:", updatedHousehold);
+      } catch (jsonErr) {
+        console.error("[DEBUG] Error parsing JSON:", jsonErr);
+        throw jsonErr;
       }
 
-      const updatedHousehold = await response.json()
-      updateHousehold(updatedHousehold)
+      if (!response.ok) {
+        let errorMessage = "Failed to remove member"
+        try {
+          const errorData = updatedHousehold;
+          if (errorData?.error) {
+            if (Array.isArray(errorData.error)) {
+              errorMessage = errorData.error.map((err: any) => err.message || JSON.stringify(err)).join(", ")
+            } else if (typeof errorData.error === "object") {
+              errorMessage = Object.values(errorData.error).join(", ")
+            } else {
+              errorMessage = errorData.error
+            }
+          }
+        } catch {}
+        throw new Error(errorMessage)
+      }
+
+      householdDispatch({ type: 'SET_HOUSEHOLD', payload: updatedHousehold })
       toast.success("Member removed successfully")
-    } catch (error) {
-      toast.error("Failed to remove member")
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to remove member")
     } finally {
       setIsLoading(false)
     }
@@ -81,7 +103,7 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
       }
 
       const updatedHousehold = await response.json()
-      updateHousehold(updatedHousehold)
+      householdDispatch({ type: 'SET_HOUSEHOLD', payload: updatedHousehold })
       toast.success("Member role updated successfully")
     } catch (error) {
       toast.error("Failed to update member role")
