@@ -281,7 +281,8 @@ export default function Home() {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <BarChart3 className="mr-2 h-5 w-5 text-primary" />
-                  Alimentações (Últimos 7 dias)
+                  Alimentações
+                  <span className="ml-1 text-xs text-muted-foreground whitespace-nowrap">(Últimos 7 dias)</span>
                 </CardTitle>
                 <CardDescription>Total de ração (gramas) por gato por dia</CardDescription>
               </CardHeader>

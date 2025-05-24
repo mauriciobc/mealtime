@@ -36,12 +36,13 @@ interface HouseholdMembersProps {
 
 export function HouseholdMembers({ household }: HouseholdMembersProps) {
   const router = useRouter()
-  const { user } = useUserContext()
+  const { state: userState } = useUserContext()
+  const user = userState.currentUser
   const { state: householdState, dispatch: householdDispatch } = useHousehold()
   const [isLoading, setIsLoading] = useState(false)
 
-  const isAdmin = household.members.find(member => 
-    member.userId === user?.id && member.role === "admin"
+  const isAdmin = household.members.some(member => 
+    member.userId === user?.id && member.role === "Admin"
   )
 
   const handleRemoveMember = async (memberId: string) => {
@@ -51,11 +52,15 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
         method: "DELETE",
       })
 
-      console.log("[DEBUG] Response object:", response);
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[DEBUG] Response object:", response);
+      }
       let updatedHousehold;
       try {
         updatedHousehold = await response.json();
-        console.log("[DEBUG] Parsed JSON:", updatedHousehold);
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[DEBUG] Parsed JSON:", updatedHousehold);
+        }
       } catch (jsonErr) {
         console.error("[DEBUG] Error parsing JSON:", jsonErr);
         throw jsonErr;
@@ -87,7 +92,7 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
     }
   }
 
-  const handleUpdateRole = async (memberId: string, newRole: "admin" | "member") => {
+  const handleUpdateRole = async (memberId: string, newRole: "Admin" | "Member") => {
     try {
       setIsLoading(true)
       const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
@@ -119,10 +124,10 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
   if (!household.members.length) {
     return (
       <EmptyState
-        icon={<UserPlus className="w-12 h-12" />}
+        IconComponent={UserPlus}
         title="No members yet"
         description="Invite members to your household to get started"
-        action={
+        actionButton={
           <Button onClick={handleInviteMember}>
             <UserPlus className="w-4 h-4 mr-2" />
             Invite Member
@@ -147,14 +152,14 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Avatar>
-                  <AvatarImage src={member.user.image} />
-                  <AvatarFallback>{member.user.name?.[0]}</AvatarFallback>
+                  <AvatarImage src={member.avatar} />
+                  <AvatarFallback>{member.name?.[0]}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <CardTitle className="text-base">{member.user.name}</CardTitle>
-                  <CardDescription>{member.user.email}</CardDescription>
+                  <CardTitle className="text-base">{member.name}</CardTitle>
+                  <CardDescription>{member.email}</CardDescription>
                 </div>
-                <Badge variant={member.role === "admin" ? "default" : "secondary"}>
+                <Badge variant={member.role === "Admin" ? "default" : "secondary"}>
                   {member.role}
                 </Badge>
               </div>
@@ -170,9 +175,9 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={() => handleUpdateRole(member.userId, member.role === "admin" ? "member" : "admin")}
+                      onClick={() => handleUpdateRole(member.userId, member.role === "Admin" ? "Member" : "Admin")}
                     >
-                      {member.role === "admin" ? (
+                      {member.role === "Admin" ? (
                         <>
                           <ShieldX className="w-4 h-4 mr-2" />
                           Remove Admin

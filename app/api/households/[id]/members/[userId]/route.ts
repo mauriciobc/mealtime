@@ -19,6 +19,14 @@ const PatchBodySchema = z.object({
 
 // --- Authorization Helpers ---
 
+// Debug utility: logs only in development
+function debugLog(...args: any[]) {
+  if (process.env.NODE_ENV === 'development') {
+    // eslint-disable-next-line no-console
+    console.log(...args);
+  }
+}
+
 // Checks if the requesting user is an admin of the specified household
 async function authorizeAdminAction(supabaseUser: any, householdId: string): Promise<{ authorized: boolean; prismaUserId?: string; error?: NextResponse }> {
   if (!supabaseUser) {
@@ -56,9 +64,9 @@ async function authorizeAdminOrSelfAction(supabaseUser: any, householdId: string
         return { authorized: false, isSelf: false, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
     }
     try {
-        console.log('[AUTH DEBUG] supabaseUser.id:', supabaseUser.id);
-        console.log('[AUTH DEBUG] householdId:', householdId);
-        console.log('[AUTH DEBUG] targetPrismaUserId:', targetPrismaUserId);
+        debugLog('[AUTH DEBUG] supabaseUser.id:', supabaseUser.id);
+        debugLog('[AUTH DEBUG] householdId:', householdId);
+        debugLog('[AUTH DEBUG] targetPrismaUserId:', targetPrismaUserId);
         // Fetch requesting user profile and include household_members relation
         const requestingPrismaUser = await prisma.profiles.findUnique({
           where: { id: supabaseUser.id }, // auth_id maps to profile.id (string)
@@ -70,12 +78,12 @@ async function authorizeAdminOrSelfAction(supabaseUser: any, householdId: string
             },
           },
         });
-        console.log('[AUTH DEBUG] requestingPrismaUser:', requestingPrismaUser);
+        debugLog('[AUTH DEBUG] requestingPrismaUser:', requestingPrismaUser);
         
         if (!requestingPrismaUser) return { authorized: false, isSelf: false, error: NextResponse.json({ error: 'Usuário solicitante não encontrado' }, { status: 404 }) };
         
         const membership = requestingPrismaUser.household_members[0];
-        console.log('[AUTH DEBUG] membership:', membership);
+        debugLog('[AUTH DEBUG] membership:', membership);
         if (!membership) return { authorized: false, isSelf: false, error: NextResponse.json({ error: 'Usuário solicitante não pertence a este domicílio' }, { status: 403 }) };
 
         const isSelfAction = requestingPrismaUser.id === targetPrismaUserId; // Compare profile ID (string) with target user ID (string)
@@ -228,10 +236,10 @@ export async function DELETE(
   context: { params: { id: string; userId: string } | Promise<{ id: string; userId: string }> }
 ) {
   const params = await context.params;
-  console.log('[API DEBUG] params:', params, 'type:', typeof params);
+  debugLog('[API DEBUG] params:', params, 'type:', typeof params);
   if (params) {
-    console.log('[API DEBUG] params.id:', params.id, 'type:', typeof params.id);
-    console.log('[API DEBUG] params.userId:', params.userId, 'type:', typeof params.userId);
+    debugLog('[API DEBUG] params.id:', params.id, 'type:', typeof params.id);
+    debugLog('[API DEBUG] params.userId:', params.userId, 'type:', typeof params.userId);
   }
   // Validate route parameters
   const paramsValidation = RouteParamsSchema.safeParse(params);
