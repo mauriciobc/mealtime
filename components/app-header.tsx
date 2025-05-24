@@ -158,7 +158,7 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
                 <ChevronLeft className="h-5 w-5" />
               </Button>
             )}
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2 pl-4">
               <img src="/images/mealtime-logo.svg" alt="MealTime" className="h-8 w-auto" />
             </Link>
           </div>
