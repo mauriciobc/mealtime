@@ -12,7 +12,8 @@ const config: Config = {
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: ['Outfit', 'sans-serif']
+  			sans: ['var(--font-sans)', 'Outfit', 'sans-serif'],
+  			heading: ['var(--font-heading)', 'Atkinson Hyperlegible', 'ui-sans-serif', 'system-ui'],
   		},
   		colors: {
   			border: 'hsl(var(--border))',

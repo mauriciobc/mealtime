@@ -2,7 +2,7 @@ import 'dotenv/config'; // Load environment variables
 import type { Metadata } from 'next'
 import "@/app/globals.css"
 import { cn } from "@/lib/utils"
-import { fontSans } from "@/lib/fonts"
+import { fontSans, fontHeading } from "@/lib/fonts"
 import { RootClientLayout } from "@/components/layout/root-client-layout"
 
 export const metadata: Metadata = {
@@ -34,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
+    <html lang="pt-BR" suppressHydrationWarning className={cn(fontSans.variable, fontHeading.variable)}>
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon-16x16.png" type="image/png" sizes="16x16" />

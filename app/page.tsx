@@ -244,7 +244,7 @@ export default function Home() {
           <motion.div variants={itemVariants}>
             <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="last-feeding">
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle className="flex items-center font-heading">
                   <Clock className="mr-2 h-5 w-5 text-primary" />
                   Última Alimentação
                 </CardTitle>
@@ -279,7 +279,7 @@ export default function Home() {
           <motion.div variants={itemVariants}>
             <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="feeding-chart">
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle className="flex items-center font-heading">
                   <BarChart3 className="mr-2 h-5 w-5 text-primary" />
                   Alimentações
                   <span className="ml-1 text-xs text-muted-foreground whitespace-nowrap">(Últimos 7 dias)</span>
@@ -318,7 +318,7 @@ export default function Home() {
           <motion.div variants={itemVariants} data-tour="recent-logs">
             <Card className="shadow-sm hover:shadow-md transition-shadow">
               <CardHeader>
-                <CardTitle className="flex items-center">
+                <CardTitle className="flex items-center font-heading">
                   <Calendar className="mr-2 h-5 w-5 text-primary" />
                   Registros Recentes
                 </CardTitle>
@@ -333,7 +333,7 @@ export default function Home() {
         <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
           <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="my-cats">
             <CardHeader>
-              <CardTitle className="flex items-center">
+              <CardTitle className="flex items-center font-heading">
                 <Cat className="mr-2 h-5 w-5 text-primary" />
                 Meus Gatos
               </CardTitle>
