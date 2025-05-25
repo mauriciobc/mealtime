@@ -59,9 +59,16 @@ export function useTheme() {
     ACCENT_COLORS.forEach(color => {
       root.classList.remove(`theme-${color}`)
     })
-    // Ensure light class is present for specificity in light mode
-    root.classList.add('light');
-    root.classList.remove('dark');
+
+    // Determine current theme (light/dark) for specificity
+    let currentTheme: Theme;
+    if (theme === 'system') {
+      currentTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } else {
+      currentTheme = theme;
+    }
+    root.classList.remove('light', 'dark');
+    root.classList.add(currentTheme);
 
     if (newAccent !== 'blue') {
       root.classList.add(`theme-${newAccent}`)
