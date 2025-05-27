@@ -6,27 +6,93 @@ import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { FallbackProps } from 'react-error-boundary'
 
+interface ErrorWithDigest extends Error {
+  digest?: string;
+}
+
+const isDevelopment = process.env.NODE_ENV === 'development'
+
+const hasDigest = (error: Error): error is ErrorWithDigest => {
+  return 'digest' in error;
+}
+
+const sanitizeErrorMessage = (error: Error): string => {
+  // Verifica se a mensagem está vazia
+  if (!error.message || error.message.trim() === '') {
+    return 'Ocorreu um erro inesperado. Por favor, tente novamente mais tarde.'
+  }
+
+  if (isDevelopment) {
+    return error.message
+  }
+  
+  // Mensagens genéricas para erros comuns
+  if (error.message.includes('Failed to fetch')) {
+    return 'Não foi possível conectar ao servidor. Por favor, verifique sua conexão.'
+  }
+  
+  if (error.message.includes('unauthorized') || error.message.includes('forbidden')) {
+    return 'Você não tem permissão para acessar este recurso.'
+  }
+  
+  // Mensagem padrão para outros erros
+  return 'Ocorreu um erro inesperado. Por favor, tente novamente mais tarde.'
+}
+
 export default function ErrorPage({ error, resetErrorBoundary }: FallbackProps) {
   useEffect(() => {
-    // Log the error to an error reporting service
-    console.error('[ErrorPage]', {
-      message: error.message,
-      digest: 'digest' in error ? (error as any).digest : undefined,
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    })
+    if (!error) return;
+
+    if (isDevelopment) {
+      // Log detalhado apenas em desenvolvimento
+      console.error('[ErrorPage]', {
+        message: error.message,
+        digest: hasDigest(error) ? error.digest : undefined,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      })
+    } else {
+      // Log sanitizado em produção
+      console.error('[ErrorPage]', {
+        message: sanitizeErrorMessage(error),
+        timestamp: new Date().toISOString()
+      })
+    }
   }, [error])
+
+  if (!error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <Alert variant="destructive" role="alert" aria-live="assertive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Erro Desconhecido</AlertTitle>
+          <AlertDescription>Ocorreu um erro inesperado. Por favor, tente novamente.</AlertDescription>
+        </Alert>
+        <Button
+          onClick={resetErrorBoundary}
+          className="mt-6"
+          variant="default"
+        >
+          Tentar novamente
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <h1 className="text-2xl font-bold text-red-600 mb-4">Algo deu errado!</h1>
-      <p className="text-gray-600 mb-6">{error.message}</p>
-      <button
+      <Alert variant="destructive" role="alert" aria-live="assertive">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Algo deu errado!</AlertTitle>
+        <AlertDescription>{sanitizeErrorMessage(error)}</AlertDescription>
+      </Alert>
+      <Button
         onClick={resetErrorBoundary}
-        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+        className="mt-6"
+        variant="default"
       >
         Tentar novamente
-      </button>
+      </Button>
     </div>
   )
 } 

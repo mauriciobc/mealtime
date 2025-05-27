@@ -82,7 +82,12 @@ export async function POST(request: NextRequest) {
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Not authenticated' }, { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     // Parse and validate request body
@@ -90,23 +95,43 @@ export async function POST(request: NextRequest) {
     const validatedBody = CreateWeightLogBodySchema.safeParse(json);
 
     if (!validatedBody.success) {
-      return NextResponse.json({ error: 'Invalid request body', details: validatedBody.error.format() }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request body', details: validatedBody.error.format() }, { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     // Call business logic function
     const result = await createWeightLogAndUpdateCat(validatedBody.data, authUserId);
     
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(result, { 
+      status: 201,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
   } catch (error) {
     console.error('[API POST /api/weight-logs] Error:', error);
     // Distinguish Prisma errors or other specific errors if needed
     if (error instanceof z.ZodError) { // Should be caught by safeParse, but as a fallback
-        return NextResponse.json({ error: 'Invalid request body', details: error.format() }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid request body', details: error.format() }, { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
     }
     // Check if it's a Prisma known error, e.g., foreign key constraint fail if catId doesn't exist
     // if (error instanceof Prisma.PrismaClientKnownRequestError) { ... }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 }
 
@@ -118,14 +143,24 @@ export async function GET(request: NextRequest) {
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Not authenticated' }, { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const { searchParams } = new URL(request.url);
     const catId = searchParams.get('catId');
 
     if (!catId || typeof catId !== 'string' || !z.string().uuid().safeParse(catId).success) {
-      return NextResponse.json({ error: 'Valid catId query parameter is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Valid catId query parameter is required' }, { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     // Fetch weight logs for the cat, ordered by date descending
@@ -143,11 +178,21 @@ export async function GET(request: NextRequest) {
       // include: { measured_by_profile: { select: { username: true } } }
     });
 
-    return NextResponse.json(weightLogs, { status: 200 });
+    return NextResponse.json(weightLogs, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
   } catch (error) {
     console.error('[API GET /api/weight-logs] Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 }
 
@@ -158,19 +203,34 @@ export async function PUT(request: NextRequest) {
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Not authenticated' }, { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const { searchParams } = new URL(request.url);
     const logId = searchParams.get('id');
     if (!logId || !z.string().uuid().safeParse(logId).success) {
-      return NextResponse.json({ error: 'Valid log ID query parameter is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Valid log ID query parameter is required' }, { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const json = await request.json();
     const validatedBody = UpdateWeightLogBodySchema.safeParse(json);
     if (!validatedBody.success) {
-      return NextResponse.json({ error: 'Invalid request body', details: validatedBody.error.format() }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid request body', details: validatedBody.error.format() }, { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const { catId, weight, date, notes } = validatedBody.data;
@@ -184,7 +244,12 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!catToUpdate || catToUpdate.owner_id !== authUserId) {
-      return NextResponse.json({ error: 'Forbidden: You do not own the cat associated with this log.' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden: You do not own the cat associated with this log.' }, { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
     
     // Also ensure the log being updated actually belongs to the specified catId in the body.
@@ -195,10 +260,20 @@ export async function PUT(request: NextRequest) {
     });
 
     if (!existingLog) {
-      return NextResponse.json({ error: 'Log not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Log not found' }, { 
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
     if (existingLog.cat_id !== catId) {
-      return NextResponse.json({ error: 'Forbidden: Cannot change the cat associated with this log via this operation.' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden: Cannot change the cat associated with this log via this operation.' }, { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const updatedLog = await prisma.$transaction(async (tx) => {
@@ -219,11 +294,21 @@ export async function PUT(request: NextRequest) {
       return log;
     });
 
-    return NextResponse.json(updatedLog, { status: 200 });
+    return NextResponse.json(updatedLog, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
   } catch (error) {
     console.error('[API PUT /api/weight-logs] Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 }
 
@@ -234,13 +319,23 @@ export async function DELETE(request: NextRequest) {
     const authUserId = headersList.get('X-User-ID');
 
     if (!authUserId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return NextResponse.json({ error: 'Not authenticated' }, { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const { searchParams } = new URL(request.url);
     const logId = searchParams.get('id');
     if (!logId || !z.string().uuid().safeParse(logId).success) {
-      return NextResponse.json({ error: 'Valid log ID query parameter is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Valid log ID query parameter is required' }, { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     // Find the log to be deleted to get the catId
@@ -250,7 +345,12 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!logToDelete) {
-      return NextResponse.json({ error: 'Log not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Log not found' }, { 
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const catId = logToDelete.cat_id;
@@ -262,7 +362,12 @@ export async function DELETE(request: NextRequest) {
     });
 
     if (!cat || cat.owner_id !== authUserId) {
-      return NextResponse.json({ error: 'Forbidden: You do not own the cat associated with this log.' }, { status: 403 });
+      return NextResponse.json({ error: 'Forbidden: You do not own the cat associated with this log.' }, { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     await prisma.$transaction(async (tx) => {
@@ -275,10 +380,20 @@ export async function DELETE(request: NextRequest) {
       await syncCatWeightWithLatestLog(tx, catId);
     });
 
-    return NextResponse.json({ message: 'Weight log deleted successfully' }, { status: 200 });
+    return NextResponse.json({ message: 'Weight log deleted successfully' }, { 
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
   } catch (error) {
     console.error('[API DELETE /api/weight-logs] Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal Server Error' }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 } 

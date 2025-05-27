@@ -4,7 +4,6 @@ import { metricsMonitor } from '@/lib/monitoring/metrics';
 import { logger } from '@/lib/monitoring/logger';
 import { redirectionLogger } from '@/lib/monitoring/redirection-logger';
 import { updateSession } from '@/utils/supabase/middleware';
-import { applySecurityHeaders } from '@/lib/utils/security-headers';
 import { handleAuthError } from '@/lib/utils/auth-errors';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createMiddlewareCookieStore } from '@/lib/supabase/cookie-store';
@@ -30,6 +29,8 @@ const apiRoutes = [
   '/api/households',
   '/api/notifications',
   '/api/cats',
+  '/api/goals',
+  '/api/weight-logs'
 ];
 
 // Initialize metrics
@@ -62,21 +63,8 @@ function isPathMatch(path: string, pattern: string): boolean {
   return path === pattern || path.startsWith(pattern + '/');
 }
 
-// Helper function to create Supabase client (reuse from API routes)
-function createSupabaseRouteClient(request: NextRequest) {
-  const cookieStore = createMiddlewareCookieStore(request);
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: cookieStore,
-    }
-  );
-}
-
 // Function to apply security headers to a response
-function applySecurityHeaders(response: NextResponse, request: NextRequest): NextResponse {
+function applySecurityHeadersToResponse(response: NextResponse, request: NextRequest): NextResponse {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL) : null;
   const supabaseDomain = supabaseUrl ? supabaseUrl.hostname : '';
   const supabaseStorageDomain = supabaseDomain ? `*.${supabaseDomain.split('.').slice(1).join('.')}` : '';
@@ -104,6 +92,26 @@ function applySecurityHeaders(response: NextResponse, request: NextRequest): Nex
   return response;
 }
 
+// Helper function to create Supabase client (reuse from API routes)
+function createSupabaseRouteClient(request: NextRequest) {
+  const cookieStore = createMiddlewareCookieStore(request, {
+    name: 'sb-auth-token',
+    options: {
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production'
+    }
+  });
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: cookieStore,
+    }
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const startTime = Date.now();
   const { pathname } = request.nextUrl;
@@ -115,31 +123,49 @@ export async function middleware(request: NextRequest) {
 
     // For API routes, handle auth differently
     if (isApiRoute) {
-      const supabase = createSupabaseRouteClient(request);
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      try {
+        const supabase = createSupabaseRouteClient(request);
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-      if (userError || !user) {
+        if (userError || !user) {
+          return NextResponse.json(
+            { error: 'Unauthorized' },
+            { 
+              status: 401,
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            }
+          );
+        }
+
+        // User is authenticated, proceed with the request
+        let response = NextResponse.next();
+        
+        // Apply API-specific headers
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+        response.headers.set('Access-Control-Allow-Origin', request.headers.get('origin') || '*');
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        response.headers.set('Access-Control-Allow-Headers', 'X-User-ID, Content-Type, Authorization');
+        response.headers.set('Content-Type', 'application/json');
+        
+        return applySecurityHeadersToResponse(response, request);
+      } catch (error) {
+        logger.error('[Middleware API] Error handling API request:', { 
+          error: error.message,
+          path: pathname 
+        });
+        
         return NextResponse.json(
-          { error: 'Unauthorized' },
+          { error: 'Internal server error' },
           { 
-            status: 401,
+            status: 500,
             headers: {
-              'Content-Type': 'application/json',
+              'Content-Type': 'application/json'
             }
           }
         );
       }
-
-      // User is authenticated, proceed with the request
-      let response = NextResponse.next();
-      
-      // Apply API-specific headers
-      response.headers.set('Access-Control-Allow-Credentials', 'true');
-      response.headers.set('Access-Control-Allow-Origin', request.headers.get('origin') || '*');
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'X-User-ID, Content-Type, Authorization');
-      
-      return applySecurityHeaders(response, request);
     }
 
     // --- Delegate Core Auth Logic to updateSession for non-API routes ---
@@ -147,7 +173,7 @@ export async function middleware(request: NextRequest) {
     // -------------------------------------------------
 
     // Apply security headers to the response from updateSession
-    response = applySecurityHeaders(response, request);
+    response = applySecurityHeadersToResponse(response, request);
 
     return response;
 
@@ -162,14 +188,19 @@ export async function middleware(request: NextRequest) {
     if (apiRoutes.some(route => pathname.startsWith(route))) {
       return NextResponse.json(
         { error: 'Internal server error' },
-        { status: 500 }
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       );
     }
     
     // For non-API routes, redirect to error page
     const url = request.nextUrl.clone();
     url.pathname = '/error';
-    return applySecurityHeaders(NextResponse.redirect(url), request);
+    return applySecurityHeadersToResponse(NextResponse.redirect(url), request);
   }
 }
 

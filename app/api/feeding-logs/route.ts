@@ -8,19 +8,35 @@ const CatIdQuerySchema = z.object({
   catId: z.string().uuid(),
 });
 
+// Função auxiliar para criar respostas JSON padronizadas
+function createJSONResponse(data: any, status: number) {
+  return new NextResponse(
+    JSON.stringify(data),
+    {
+      status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-ID'
+      }
+    }
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Authentication
     const headersList = await headers();
     const authUserId = headersList.get('X-User-ID');
     if (!authUserId) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+      return createJSONResponse({ error: 'Not authenticated' }, 401);
     }
 
     const { searchParams } = new URL(request.url);
     const parseResult = CatIdQuerySchema.safeParse(Object.fromEntries(searchParams));
     if (!parseResult.success) {
-      return NextResponse.json({ error: 'Valid catId query parameter is required' }, { status: 400 });
+      return createJSONResponse({ error: 'Valid catId query parameter is required' }, 400);
     }
     const { catId } = parseResult.data;
 
@@ -42,7 +58,7 @@ export async function GET(request: NextRequest) {
       }
     });
     if (!cat) {
-      return NextResponse.json({ error: 'Cat not found' }, { status: 404 });
+      return createJSONResponse({ error: 'Cat not found' }, 404);
     }
 
     // Check if user is owner or household member
@@ -51,7 +67,7 @@ export async function GET(request: NextRequest) {
       (member) => member.user_id === authUserId
     );
     if (!isOwner && !isHouseholdMember) {
-      return NextResponse.json({ error: 'Forbidden: You do not have access to this cat' }, { status: 403 });
+      return createJSONResponse({ error: 'Forbidden: You do not have access to this cat' }, 403);
     }
 
     const feedingLogs = await prisma.feeding_logs.findMany({
@@ -72,9 +88,9 @@ export async function GET(request: NextRequest) {
       createdAt: log.created_at,
     }));
 
-    return NextResponse.json(formattedLogs, { status: 200 });
+    return createJSONResponse(formattedLogs, 200);
   } catch (error) {
     console.error('[API GET /api/feeding-logs] Error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return createJSONResponse({ error: 'Internal Server Error' }, 500);
   }
 } 

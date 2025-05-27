@@ -28,6 +28,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { ReactQueryProvider } from "@/lib/providers/react-query-provider"
 import { useReportWebVitals } from "next/web-vitals"
 import { ErrorProvider, ErrorBoundary } from "@/lib/context/ErrorContext"
+import { WeightProvider } from "@/lib/context/WeightContext"
 // Removed AuthGuard import
 
 // Removed dynamic import
@@ -55,17 +56,19 @@ export function RootClientLayout({ children }: { children: React.ReactNode }) {
               <UserProvider>
                 <HouseholdProvider>
                   <CatsProvider>
-                    <FeedingProvider>
-                      <ScheduleProvider>
-                        <NotificationProvider>
-                          <ClientLayout>
-                            {children}
-                          </ClientLayout>
-                          <Toaster richColors position="top-center" />
-                          <GlobalLoading />
-                        </NotificationProvider>
-                      </ScheduleProvider>
-                    </FeedingProvider>
+                    <WeightProvider>
+                      <FeedingProvider>
+                        <ScheduleProvider>
+                          <NotificationProvider>
+                            <ClientLayout>
+                              {children}
+                            </ClientLayout>
+                            <Toaster richColors position="top-center" />
+                            <GlobalLoading />
+                          </NotificationProvider>
+                        </ScheduleProvider>
+                      </FeedingProvider>
+                    </WeightProvider>
                   </CatsProvider>
                 </HouseholdProvider>
               </UserProvider>

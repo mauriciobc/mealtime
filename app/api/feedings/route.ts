@@ -41,7 +41,12 @@ export async function POST(request: NextRequest) {
 
   if (!authUserId) {
     console.log("[POST /api/feedings] Failed: Missing X-User-ID header");
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { 
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
   try {
@@ -54,7 +59,12 @@ export async function POST(request: NextRequest) {
       console.error("[POST /api/feedings] Invalid body:", validationResult.error.format());
       return NextResponse.json(
         { error: "Invalid request data", details: validationResult.error.format() },
-        { status: 400 }
+        { 
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
       );
     }
 
@@ -80,15 +90,30 @@ export async function POST(request: NextRequest) {
 
     if (!cat) {
         console.log(`[POST /api/feedings] Cat not found: ${catId}`);
-        return NextResponse.json({ error: 'Cat not found' }, { status: 404 });
+        return NextResponse.json({ error: 'Cat not found' }, { 
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
     }
     if (!userHouseholdId) {
         console.log(`[POST /api/feedings] User ${authUserId} not associated with any household.`);
-        return NextResponse.json({ error: 'User household not found' }, { status: 403 }); 
+        return NextResponse.json({ error: 'User household not found' }, { 
+          status: 403,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }); 
     }
     if (cat.household_id !== userHouseholdId) {
         console.log(`[POST /api/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${authUserId} (household ${userHouseholdId})`);
-        return NextResponse.json({ error: 'Access denied: Cat does not belong to user\'s household' }, { status: 403 });
+        return NextResponse.json({ error: 'Access denied: Cat does not belong to user\'s household' }, { 
+          status: 403,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
     }
     console.log(`[POST /api/feedings] Access granted for user ${authUserId} to cat ${catId} in household ${userHouseholdId}`);
     // --- End Authorization & Validation --- 
@@ -111,7 +136,12 @@ export async function POST(request: NextRequest) {
       } catch (notifyError) {
         console.error('[POST /api/feedings] Failed to create duplicate warning notification:', notifyError);
       }
-      return NextResponse.json({ error: 'Tentativa de alimentação duplicada' }, { status: 409 });
+      return NextResponse.json({ error: 'Tentativa de alimentação duplicada' }, { 
+        status: 409,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
     // --- End Duplicate Feeding Detection ---
 
@@ -238,13 +268,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Return the created record in the format expected by the context
-    return NextResponse.json(feedingLog, { status: 201 }); 
+    return NextResponse.json(feedingLog, { 
+      status: 201,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }); 
 
   } catch (error) {
     console.error("[POST /api/feedings] Error creating feeding log:", error);
     return NextResponse.json(
       { error: "Failed to create feeding log", details: (error instanceof Error) ? error.message : 'Unknown error' },
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
   }
 }
@@ -257,10 +297,20 @@ export async function GET(request: NextRequest) {
   const householdId = searchParams.get('householdId');
 
   if (!authUserId) {
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    return NextResponse.json({ error: 'Authentication required' }, { 
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
   if (!householdId) {
-    return NextResponse.json({ error: 'Household ID is required' }, { status: 400 });
+    return NextResponse.json({ error: 'Household ID is required' }, { 
+      status: 400,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
   // Verify user access
@@ -269,10 +319,20 @@ export async function GET(request: NextRequest) {
       where: { household_id: householdId, user_id: authUserId }
     });
     if (!userAccess) {
-      return NextResponse.json({ error: 'Access denied to this household' }, { status: 403 });
+      return NextResponse.json({ error: 'Access denied to this household' }, { 
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to verify household access', details: (error instanceof Error) ? error.message : 'Unknown error' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to verify household access', details: (error instanceof Error) ? error.message : 'Unknown error' }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
   // Fetch feedings
@@ -285,7 +345,11 @@ export async function GET(request: NextRequest) {
       orderBy: { fed_at: 'desc' },
       take: 50
     });
-    return NextResponse.json(feedings);
+    return NextResponse.json(feedings, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (error) {
     console.error("[GET /api/feedings] Error fetching feeding data:", error);
     return NextResponse.json(
@@ -293,7 +357,12 @@ export async function GET(request: NextRequest) {
         error: 'Failed to fetch feeding data', 
         details: (error instanceof Error) ? error.message : 'Unknown database error' 
       }, 
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
   }
 }

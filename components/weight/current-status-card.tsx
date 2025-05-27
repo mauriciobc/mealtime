@@ -2,13 +2,14 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { differenceInWeeks } from 'date-fns';
+import { Info, TrendingUp, TrendingDown, Minus, Clock } from 'lucide-react';
+import { differenceInWeeks, formatDistanceToNow } from 'date-fns';
 import { parseISO } from 'date-fns/parseISO';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { HeartPulse } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { FeedingLog } from '@/lib/types';
 
 interface CurrentStatusCardProps {
   currentWeight: number;
@@ -19,6 +20,7 @@ interface CurrentStatusCardProps {
   previousWeightDate?: string | null; // Date of the previous weight log (ISO string)
   unit?: 'kg' | 'lbs'; // To display with velocity
   birthDate?: string | null; // ISO date string for age-based classification
+  lastFeeding?: FeedingLog | null;
 }
 
 type WeightUnit = 'kg' | 'lbs';
@@ -60,6 +62,7 @@ const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
   previousWeightDate,
   unit = 'kg',
   birthDate,
+  lastFeeding,
 }) => {
   const progressValue = targetWeight > 0 ? (currentWeight / targetWeight) * 100 : 0;
   const cappedProgressValue = Math.min(100, Math.max(0, progressValue));
@@ -159,6 +162,37 @@ const CurrentStatusCard: React.FC<CurrentStatusCardProps> = ({
           <div className="flex items-center justify-center text-sm text-muted-foreground pt-2">
             <VelocityIcon className={`h-4 w-4 mr-1.5 ${VelocityIcon === TrendingUp ? 'text-green-500' : VelocityIcon === TrendingDown ? 'text-red-500' : 'text-muted-foreground'}`} />
             {velocity}
+          </div>
+        )}
+
+        {lastFeeding && (
+          <div className="flex items-center justify-center text-sm text-muted-foreground pt-2">
+            <Clock className="h-4 w-4 mr-1.5" />
+            {(() => {
+              let date: Date | null = null;
+              if (lastFeeding.timestamp) {
+                try {
+                  date = new Date(lastFeeding.timestamp);
+                  if (isNaN(date.getTime())) {
+                    date = null;
+                  }
+                } catch {
+                  date = null;
+                }
+              }
+              if (date) {
+                return (
+                  <>
+                    Última alimentação: {formatDistanceToNow(date, { addSuffix: true })}
+                    {lastFeeding.amount && ` (${lastFeeding.amount}g)`}
+                  </>
+                );
+              } else {
+                return (
+                  <>Última alimentação: data inválida</>
+                );
+              }
+            })()}
           </div>
         )}
 

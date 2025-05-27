@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import CurrentStatusCard from '@/components/weight/current-status-card';
 import WeightTrendChart from '@/components/weight/weight-trend-chart';
 import QuickLogPanel, { WeightLogFormValues } from '@/components/weight/quick-log-panel';
@@ -20,192 +20,249 @@ import {
 } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useUserContext } from "@/lib/context/UserContext";
+import { useFeeding } from "@/lib/context/FeedingContext";
+import { useWeight, useSelectCurrentWeight, useSelectWeightHistory, useSelectWeightGoals, useSelectWeightProgress } from "@/lib/context/WeightContext";
 import { calcularIdadeEmAnos, gerarMarcos } from '@/lib/weight/milestoneUtils';
+import { handleAsyncError, AppError, ValidationError } from '@/lib/utils/error-handler';
+import { format, parseISO, compareDesc } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import ProtectedRoute from '@/components/auth/protected-route';
+import { GlobalLoading } from "@/components/ui/global-loading";
+import { useLoadingState } from "@/lib/hooks/useLoadingState";
+import { CatsContext } from '@/lib/context/CatsContext';
+import { UserContext } from "@/lib/context/UserContext";
 
 // Interface for Cat - matches expected API structure from /api/cats
 interface Cat {
   id: string;
   name: string;
-  photo_url?: string | null; // This is the field for the avatar
-  weight?: number; // Current weight, ideally from cats.weight updated by API
-  targetWeight?: number; // Optional: User-defined target, might be part of goal
-  healthTip?: string; // Optional: Could be from another source or generated
-  activeGoalId?: string | null; // Optional: Link to an active WeightGoalWithMilestones
-  birth_date?: string | null; // ISO date string for age classification
-  // Add other fields like user_id if your API provides/requires them
+  photo_url?: string | null;
+  weight?: number;
+  targetWeight?: number;
+  healthTip?: string;
+  activeGoalId?: string | null;
+  birthdate?: string | null;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Interface for WeightGoalWithMilestones - matches expected API structure from /api/goals
 interface WeightGoalWithMilestones {
   id: string;
-  cat_id: string; // Foreign key to Cat
+  cat_id: string;
   goal_name: string;
-  start_date: string; // ISO Date string
-  target_date: string; // ISO Date string
+  start_date: string;
+  target_date: string;
   initial_weight: number;
   target_weight: number;
   unit: 'kg' | 'lbs';
-  milestones: Milestone[]; // Define Milestone interface if complex
+  milestones: Milestone[];
   description?: string;
   isArchived?: boolean;
-  achieved_date?: string | null; // ISO Date string
+  achieved_date?: string | null;
   outcome_notes?: string;
 }
 
-// Interface for Milestone - adjust as per your data model
+// Interface for Milestone
 interface Milestone {
   id: string;
   name: string;
   target_weight: number;
-  target_date: string; // ISO Date string
+  target_date: string;
   description?: string;
-  // status?: 'pending' | 'achieved' | 'missed'; // Optional
+  goal_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Interface for WeightLog - matches API structure from /api/weight-logs
 interface WeightLog {
   id: string;
   cat_id: string;
-  date: string; // ISO Date string
+  date: string;
   weight: number;
   notes?: string;
-  measured_by?: string; // User ID of who measured
+  measured_by?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Interface for WeightGoal - matches WeightContext
+interface WeightGoal {
+  id: string;
+  catId: string;
+  targetWeight: number;
+  targetDate?: Date;
+  startWeight?: number;
+  status: 'active' | 'completed' | 'cancelled';
+  notes?: string;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Define a type for the data used specifically when editing a log
 // It combines form values with a mandatory ID.
 type LogForEditing = WeightLogFormValues & { id: string };
 
+// Interface para compatibilidade com o componente MilestoneProgress
+interface WeightLogEntry {
+  id: string;
+  catId: string;
+  weight: number;
+  date: string;
+  notes?: string;
+  measuredBy?: string;
+}
+
+// Interface para o gato com propriedades adicionais
+interface CatWithDetails extends Cat {
+  targetWeight?: number;
+  healthTip?: string;
+  unit?: 'kg' | 'lbs';
+}
+
 const WeightPage = () => {
-  const [cats, setCats] = useState<Cat[]>([]);
-  const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
-  const [goals, setGoals] = useState<WeightGoalWithMilestones[]>([]);
-  
-  const [isLoadingCats, setIsLoadingCats] = useState(true);
-  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [isLoadingGoals, setIsLoadingGoals] = useState(false);
-  
+  // --- HOOKS AND STATE (ALWAYS AT THE TOP) ---
+  // State
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [showArchivedGoals, setShowArchivedGoals] = useState(false);
-
-  // State for QuickLogPanel (edit/create modal)
   const [isQuickLogPanelOpen, setIsQuickLogPanelOpen] = useState(false);
   const [logToEditData, setLogToEditData] = useState<LogForEditing | null>(null);
-
-  // New state to trigger updates in child components
   const [logChangeTimestamp, setLogChangeTimestamp] = useState<number>(Date.now());
-
-  // State for goal form sheet
   const [isGoalFormSheetOpen, setIsGoalFormSheetOpen] = useState(false);
 
-  const { state: userState } = useUserContext();
-  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
+  // Contexts (called unconditionally)
+  const userContext = useContext(UserContext);
+  const catsContext = useContext(CatsContext);
+
+  // --- EARLY RETURNS (ANTES DE QUALQUER DESESTRUTURAÇÃO) ---
+  if (!userContext) {
+    return <div>Carregando contexto do usuário...</div>;
+  }
+
+  if (!catsContext) {
+    return <div>Carregando contexto dos gatos...</div>;
+  }
+
+  // Destructure context results imediatamente após garantir que os contextos existem
+  const { state: userState } = userContext || { state: {} };
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState as any; // Use 'as any' ou refine type se necessário
   const userId = currentUser?.id;
+  const householdId = currentUser?.householdId;
 
-  // --- Data Fetching Effects ---
+  const { state: catsState, forceRefresh } = catsContext || { state: { cats: [] }, forceRefresh: () => {} };
+  const { cats, isLoading: isLoadingCats } = catsState;
+
+  const { state: feedingState } = useFeeding();
+  const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
+
+  const { state: weightState, dispatch: weightDispatch, forceRefresh: refreshWeightData } = useWeight();
+  const { weightLogs, weightGoals, isLoading: isLoadingWeight } = weightState;
+
+  // Custom Hooks depending on ID/state (selectedCatId and context states are defined above)
+  // const currentWeight = useSelectCurrentWeight(selectedCatId || '');
+  // const weightHistory = useSelectWeightHistory(selectedCatId || '', 30);
+  // const activeGoalsHooks = useSelectWeightGoals(selectedCatId || '');
+
+  // Other Hooks (depend on loading states defined above)
+  useLoadingState(isLoadingCats, {
+    description: 'Carregando dados dos gatos...',
+    priority: 1,
+  });
+
+  useLoadingState(isLoadingWeight, {
+    description: 'Carregando dados de peso...',
+    priority: 2,
+  });
+
+  useLoadingState(isLoadingFeedings, {
+    description: 'Carregando dados de alimentação...',
+    priority: 3,
+  });
+
+  // Effects (depend on state and context data defined above)
   useEffect(() => {
-    if (!userId) return;
-
-    const fetchCats = async () => {
-      setIsLoadingCats(true);
-      try {
-        const response = await fetch('/api/cats', { 
-          headers: { 'X-User-ID': userId } 
-        });
-        if (!response.ok) throw new Error(`Failed to fetch cats: ${response.statusText}`);
-        const rawData: any[] = await response.json(); // Fetch as any
-        const parsedData: Cat[] = rawData.map(cat => ({
-          ...cat,
-          weight: typeof cat.weight === 'string' ? parseFloat(cat.weight) : (typeof cat.weight === 'number' ? cat.weight : undefined),
-          targetWeight: typeof cat.targetWeight === 'string' ? parseFloat(cat.targetWeight) : (typeof cat.targetWeight === 'number' ? cat.targetWeight : undefined),
-          birth_date: cat.birth_date || cat.birthDate || null, // Normalize field
-        }));
-        setCats(parsedData);
-        if (parsedData.length > 0 && !selectedCatId) {
-          setSelectedCatId(parsedData[0].id); // Auto-select first cat
-        }
-      } catch (error) {
-        console.error("Error fetching cats:", error);
-        toast.error("Não foi possível carregar os dados dos seus gatos.");
-      } finally {
-        setIsLoadingCats(false);
-      }
-    };
-    fetchCats();
-  }, [userId]);
-
-  useEffect(() => {
-    if (!selectedCatId || !userId) {
-      setWeightLogs([]);
-      return;
+    if (cats.length > 0 && !selectedCatId) {
+      setSelectedCatId(cats[0].id);
     }
-    const fetchWeightLogs = async () => {
-      setIsLoadingLogs(true);
-      try {
-        const response = await fetch(`/api/weight-logs?catId=${selectedCatId}`, {
-          headers: { 'X-User-ID': userId }
-        });
-        if (!response.ok) throw new Error(`Failed to fetch weight logs: ${response.statusText}`);
-        const rawData: any[] = await response.json(); // Fetch as any
-        const parsedData: WeightLog[] = rawData.map(log => ({
-          ...log,
-          weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0), // Default to 0 if unparsable
-        }));
-        setWeightLogs(parsedData); // API should return logs sorted by date desc
-      } catch (error) {
-        console.error("Error fetching weight logs:", error);
-        toast.error("Não foi possível carregar o histórico de peso do gato selecionado.");
-      } finally {
-        setIsLoadingLogs(false);
-      }
-    };
-    fetchWeightLogs();
-  }, [selectedCatId, userId]);
+  }, [cats, selectedCatId]); // Dependencies are defined
 
-  useEffect(() => {
-    if (!userId) return;
-
-    // Fetch goals relevant to the user. API might support filtering by cat_id or user_id implicitly.
-    const fetchGoals = async () => {
-      setIsLoadingGoals(true);
-      try {
-        // If goals are per cat, endpoint might be /api/goals?catId=${selectedCatId}
-        // Or /api/goals could return all goals for the user, then filter client-side.
-        const response = await fetch(`/api/goals`, { // Assuming /api/goals returns all user goals
-          headers: { 'X-User-ID': userId }
-        });
-        if (!response.ok) throw new Error(`Failed to fetch goals: ${response.statusText}`);
-        const data: WeightGoalWithMilestones[] = await response.json();
-        setGoals(data);
-      } catch (error) {
-        console.error("Error fetching goals:", error);
-        toast.error("Não foi possível carregar os dados das metas.");
-      } finally {
-        setIsLoadingGoals(false);
-      }
-    };
-    fetchGoals();
-  }, [userId]);
-
-  // Onboarding persistence
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hasSeenOnboarding = localStorage.getItem('hasSeenWeightOnboarding');
-      if (!hasSeenOnboarding && cats.length > 0) { // Show onboarding if cats are loaded and not seen before
+      if (!hasSeenOnboarding && cats.length > 0) {
         setIsOnboardingOpen(true);
       }
     }
-  }, [cats]); // Trigger when cats data is available
+  }, [cats]); // Dependency is defined
 
-  const handleSelectCat = (catId: string) => {
-    setSelectedCatId(catId);
-    setLogToEditData(null); // Clear any edit state when changing cat
-    setIsQuickLogPanelOpen(false); // Close panel when changing cat
-  };
 
-  const handleOnboardingComplete = () => {
+  // --- MEMOIZED VALUES (useMemo hooks) ---
+  // Memoize selected cat (depends on selectedCatId, cats which are defined above)
+  // const selectedCat = useMemo(() =>
+  //   cats.find(cat => cat.id === selectedCatId) || null
+  // , [selectedCatId, cats]);
+
+  // Usar snake_case para goals vindos da API (depends on weightGoals which is defined above)
+  const goals = useMemo(() => weightGoals.map(goal => {
+    const g: any = goal;
+    return {
+      ...g,
+      cat_id: g.cat_id || g.catId,
+      goal_name: g.goal_name || g.notes || 'Meta de Peso',
+      start_date: g.start_date || (g.createdAt ? g.createdAt.toISOString() : undefined) || (g.created_at),
+      target_date: g.target_date || (g.targetDate ? g.targetDate.toISOString() : undefined) || (g.target_date),
+      initial_weight: g.initial_weight || g.startWeight || 0,
+      target_weight: g.target_weight || g.targetWeight,
+      unit: g.unit || 'kg',
+      milestones: g.milestones || [],
+      description: g.description || g.notes,
+      isArchived: g.isArchived !== undefined ? g.isArchived : (g.status === 'completed' || g.status === 'cancelled'),
+      achieved_date: g.achieved_date || (g.status === 'completed' ? (g.updatedAt ? g.updatedAt.toISOString() : null) : null),
+      outcome_notes: g.outcome_notes || (g.status === 'completed' ? 'Meta alcançada' : null),
+    };
+  }), [weightGoals]);
+
+  // Memoize weight logs in snake_case (depends on weightLogs which is defined above)
+  const weightLogsSnake = useMemo(() => weightLogs.map(log => {
+    const l: any = log;
+    return {
+      ...l,
+      cat_id: l.cat_id || l.catId,
+      date: l.date instanceof Date ? l.date.toISOString() : l.date,
+      weight: typeof l.weight === 'string' ? parseFloat(l.weight) : (typeof l.weight === 'number' ? l.weight : 0),
+      notes: l.notes,
+      measured_by: l.measured_by || l.measuredBy,
+      created_at: l.created_at || (l.createdAt ? l.createdAt.toISOString() : undefined),
+      updated_at: l.updated_at || (l.updatedAt ? l.updatedAt.toISOString() : undefined),
+    };
+  }), [weightLogs]);
+
+  // Memoize active and archived goals (depend on selectedCat and goals which are defined above)
+  const { activeGoalForSelectedCat, archivedGoalsForSelectedCat } = useMemo(() => {
+    if (!selectedCatId) return { activeGoalForSelectedCat: null, archivedGoalsForSelectedCat: [] };
+    const goalsForThisCat = goals.filter(goal => goal.cat_id === selectedCatId);
+    const active = goalsForThisCat.find(goal => !goal.isArchived) || null;
+    const archived = goalsForThisCat.filter(goal => goal.isArchived);
+    return { activeGoalForSelectedCat: active, archivedGoalsForSelectedCat: archived };
+  }, [selectedCatId, goals]); // Dependencies are defined
+
+  // Memoize current and previous log (depends on weightLogsSnake which is defined above)
+  // const { currentLog, previousLog } = useMemo(() => {
+  //   if (weightLogsSnake.length === 0) return { currentLog: null, previousLog: null };
+  //   const sortedLogs = [...weightLogsSnake].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  //   return {
+  //     currentLog: sortedLogs[0] || null,
+  //     previousLog: sortedLogs[1] || null,
+  //   };
+  // }, [weightLogsSnake]); // Dependency is defined
+
+
+  // --- HANDLERS (useCallback hooks - depend on variables defined above) ---
+  const handleOnboardingComplete = useCallback(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('hasSeenWeightOnboarding', 'true');
     }
@@ -213,135 +270,117 @@ const WeightPage = () => {
     toast("Tour de integração concluído!", {
       description: "Você sempre pode encontrar ajuda clicando no botão 'Ajuda / Tour'.",
     });
-  };
+  }, []); // No dependencies needed here
 
-  const selectedCat = useMemo(() => {
-    return cats.find(cat => cat.id === selectedCatId) || null;
-  }, [selectedCatId, cats]);
+  const handleSelectCat = useCallback((catId: string) => {
+    setSelectedCatId(catId);
+    setLogToEditData(null);
+    setIsQuickLogPanelOpen(false);
+  }, []); // No dependencies needed here
 
-  const { activeGoalForSelectedCat, archivedGoalsForSelectedCat } = useMemo(() => {
-    if (!selectedCat) return { activeGoalForSelectedCat: null, archivedGoalsForSelectedCat: [] };
-    
-    // Filter goals for the selected cat first
-    const goalsForThisCat = goals.filter(goal => goal.cat_id === selectedCat.id);
-
-    const active = goalsForThisCat.find(goal => !goal.isArchived && goal.id === selectedCat.activeGoalId) ||
-                   goalsForThisCat.find(goal => !goal.isArchived); // Fallback to first non-archived for this cat
-    const archived = goalsForThisCat.filter(goal => goal.isArchived);
-    
-    return { activeGoalForSelectedCat: active || null, archivedGoalsForSelectedCat: archived };
-  }, [selectedCat, goals]);
-
-  const { currentLog, previousLog } = useMemo(() => {
-    if (weightLogs.length === 0) return { currentLog: null, previousLog: null };
-    // Assuming API returns logs sorted: newest first OR we sort them after fetch/update
-    const sortedLogs = [...weightLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return {
-      currentLog: sortedLogs[0] || null,
-      previousLog: sortedLogs[1] || null,
-    };
-  }, [weightLogs]);
-
-  // Function to update cat's weight in the 'cats' state based on the latest log
-  const updateCatWeightFromLogs = (catId: string, logs: WeightLog[]) => {
-    const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    const latestWeight = sortedLogs.length > 0 ? sortedLogs[0].weight : undefined; // Use undefined or a default
-    
-    setCats(prevCats => prevCats.map(cat =>
-      cat.id === catId ? { ...cat, weight: latestWeight } : cat
-    ));
-  };
-
-  const handleLogSubmit = async (formData: WeightLogFormValues, logIdToUpdate?: string) => {
-    if (!userId) {
-      toast.error("Você precisa estar logado para registrar pesos.");
-      return;
+  const handleLogSubmit = useCallback(async (catId: string, formData: WeightLogFormValues, logIdToUpdate?: string): Promise<void> => {
+    if (!userId) { // userId is defined above
+      throw new ValidationError("Você precisa estar logado para registrar pesos.", null, "Registro de Peso");
     }
 
-    if (!selectedCatId) {
-      toast.error("Nenhum gato selecionado. Por favor, selecione um gato para registrar o peso.");
-      return;
+    if (!householdId) { // householdId is defined above
+      throw new ValidationError("ID da casa não identificado.", null, "Registro de Peso");
     }
 
-    try {
-      const payload = {
-        ...formData,
-        date: formData.date.toISOString(), // Convert Date to ISO string for API
-      };
+    await handleAsyncError(
+      async () => {
+        const now = new Date();
+        const payload = {
+          ...formData,
+          date: formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date, // YYYY-MM-DD
+          catId: catId, // Use catId parameter
+        };
 
-      const url = logIdToUpdate 
-        ? `/api/weight-logs/${logIdToUpdate}`
-        : '/api/weight-logs';
-      
-      const method = logIdToUpdate ? 'PUT' : 'POST';
+        const url = logIdToUpdate
+          ? `/api/weight/logs?id=${logIdToUpdate}&householdId=${householdId}` // Pass householdId to PUT
+          : `/api/weight/logs?householdId=${householdId}`; // Pass householdId to POST
+        const method = logIdToUpdate ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-ID': userId
-        },
-        body: JSON.stringify(payload)
-      });
+        const response = await fetch(url, {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-ID': userId
+          },
+          body: JSON.stringify(payload)
+        });
 
-      if (!response.ok) {
-        throw new Error(`Failed to ${logIdToUpdate ? 'update' : 'create'} weight log: ${response.statusText}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Erro desconhecido" }));
+          throw new AppError(
+            errorData.error || `Falha ao ${logIdToUpdate ? 'atualizar' : 'criar'} registro de peso`,
+            'API_ERROR',
+            errorData,
+            'Registro de Peso'
+          );
+        }
+
+        // Após criar/editar, buscar logs atualizados e atualizar peso do gato
+        // Refetch logs for the entire household since WeightContext stores all logs
+        const logsResponse = await fetch(`/api/weight/logs?householdId=${householdId}`, {
+          headers: { 'X-User-ID': userId }
+        });
+        if (!logsResponse.ok) throw new Error(`Failed to fetch updated logs: ${logsResponse.statusText}`);
+        const updatedLogs: WeightLog[] = await logsResponse.json();
+        // Mapear para camelCase antes de despachar para o contexto
+        const mappedLogs = updatedLogs.map((log: any) => ({
+          ...log,
+          catId: log.cat_id,
+          createdAt: log.created_at ? new Date(log.created_at) : undefined,
+          updatedAt: log.updated_at ? new Date(log.updated_at) : undefined,
+          measuredBy: log.measured_by,
+          date: new Date(log.date), // Ensure date is a Date object for frontend logic
+        }));
+        weightDispatch({ type: 'FETCH_WEIGHT_LOGS_SUCCESS', payload: mappedLogs });
+
+        // The API should update the cat's weight, so no need to update locally here
+        // If cats context needs updating, consider a separate mechanism or refetch.
+
+        setLogChangeTimestamp(Date.now());
+        setIsQuickLogPanelOpen(false); // This might need adjustment if panel is per-cat
+        setLogToEditData(null); // Clear logToEditData when closing
+      },
+      {
+        context: 'Registro de Peso',
+        successMessage: logIdToUpdate ? "Registro atualizado com sucesso!" : "Peso registrado com sucesso!",
+        onError: (error) => {
+          console.error("Error in handleLogSubmit:", error);
+        }
       }
+    );
+  }, [userId, householdId, weightDispatch]); // Depend on userId, householdId, weightDispatch
 
-      // Refresh weight logs
-      const logsResponse = await fetch(`/api/weight-logs?catId=${selectedCatId}`, {
-        headers: { 'X-User-ID': userId }
-      });
-      if (!logsResponse.ok) throw new Error(`Failed to fetch updated logs: ${logsResponse.statusText}`);
-      const updatedLogs: WeightLog[] = await logsResponse.json();
-      setWeightLogs(updatedLogs);
-
-      // Update cat's current weight if this is the most recent log
-      if (selectedCatId) {
-        updateCatWeightFromLogs(selectedCatId, updatedLogs);
-      }
-
-      // Update timestamp to trigger child component updates
-      setLogChangeTimestamp(Date.now());
-
-      toast.success(logIdToUpdate ? "Registro atualizado com sucesso!" : "Peso registrado com sucesso!");
-      setIsQuickLogPanelOpen(false);
-    } catch (error) {
-      console.error("Error saving weight log:", error);
-      toast.error((error as Error)?.message || "Erro ao salvar o registro de peso.");
-      throw error; // Re-throw to let the form handle the error
-    }
-  };
-
-  const handleRequestEditLog = (log: WeightLog) => { // Log type from RecentHistoryList might be slightly different
-    if (!selectedCat) return;
-    // Map WeightLog to LogForEditing
+  const handleRequestEditLog = useCallback((log: WeightLogEntry) => {
+    // The QuickLogPanel is global, open it and pass the log data
     const formData: LogForEditing = {
-      id: log.id, // log.id is string, matching LogForEditing
-      catId: log.cat_id || selectedCat.id, // Ensure catId is present
+      id: log.id,
+      catId: log.catId, // This is the correct catId from the log
       weight: log.weight,
-      date: new Date(log.date), // Use Date object for date
+      date: new Date(log.date),
       notes: log.notes || '',
     };
     setLogToEditData(formData);
     setIsQuickLogPanelOpen(true);
-    // Optionally, scroll to QuickLogPanel or focus its first field
-  };
+  }, []); // Dependencies: setLogToEditData, setIsQuickLogPanelOpen
 
-  const handleRequestDeleteLog = async (logIdToDelete: string): Promise<boolean> => {
-    if (!selectedCatId || !userId) {
-      toast.error("Nenhum gato selecionado ou usuário não identificado.");
+  const handleRequestDeleteLog = useCallback(async (logIdToDelete: string, catId: string): Promise<boolean> => {
+    if (!userId || !householdId) { // userId and householdId are defined above
+      toast.error("Usuário ou casa não identificada.");
       return false;
     }
 
-    // Confirmation dialog
     const confirmed = window.confirm("Tem certeza que deseja excluir este registro de peso?");
     if (!confirmed) {
       return false;
     }
 
     try {
-      const response = await fetch(`/api/weight-logs?id=${logIdToDelete}`, { // Placeholder, ensure API supports DELETE with id query param
+      const response = await fetch(`/api/weight/logs?id=${logIdToDelete}&householdId=${householdId}`, { // Add householdId to delete
         method: 'DELETE',
         headers: {
           'X-User-ID': userId,
@@ -352,148 +391,153 @@ const WeightPage = () => {
         const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao excluir." }));
         throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
       }
-      
-      // const deletedLogData = await response.json(); // API might return deleted log or { success: true }
-      
-      const updatedLogs = weightLogs.filter(log => log.id !== logIdToDelete);
-      setWeightLogs(updatedLogs);
-      
-      // Update the cat's weight in the main cats list
-      // Ensure selectedCatId is used here as resultLog.cat_id won't be available from DELETE response
-      updateCatWeightFromLogs(selectedCatId, updatedLogs); 
-      
-      setLogChangeTimestamp(Date.now()); // Trigger update
-      
-      toast.success("Registro de peso excluído com sucesso.");
-      return true; // Indicate success to RecentHistoryList for re-fetch
 
+      // After deleting, refetch logs for the household
+      const logsResponse = await fetch(`/api/weight/logs?householdId=${householdId}`, {
+         headers: { 'X-User-ID': userId }
+      });
+      if (!logsResponse.ok) throw new Error(`Failed to fetch updated logs: ${logsResponse.statusText}`);
+       const updatedLogs: WeightLog[] = await logsResponse.json();
+       const mappedLogs = updatedLogs.map((log: any) => ({
+         ...log,
+         catId: log.cat_id,
+         createdAt: log.created_at ? new Date(log.created_at) : undefined,
+         updatedAt: log.updated_at ? new Date(log.updated_at) : undefined,
+         measuredBy: log.measured_by,
+         date: new Date(log.date), // Ensure date is a Date object
+       }));
+       weightDispatch({ type: 'FETCH_WEIGHT_LOGS_SUCCESS', payload: mappedLogs });
+      setLogChangeTimestamp(Date.now());
+      toast.success("Registro de peso excluído com sucesso.");
+      return true;
     } catch (error: any) {
       console.error("Falha ao excluir o registro de peso:", error);
       toast.error(`Falha ao excluir o registro: ${error.message}`);
-      return false; // Indicate failure
+      return false;
     }
-  };
+  }, [userId, householdId, weightDispatch]); // Dependencies are defined
 
-  const handleGoalSubmit = async (formData: GoalFormData) => {
-    if (!userId || !selectedCatId) {
-      toast.error("Usuário ou gato não identificado. Não é possível criar a meta.");
-      return;
-    }
-
-    // Geração automática de marcos (milestones) para metas
-    let milestones: Milestone[] = [];
-    let usedBirthDate: string | null = null;
-    let usedAge: number | null = null;
-    let initialWeightKg = formData.initial_weight;
-    let targetWeightKg = formData.target_weight;
-
-    const cat = cats.find(c => c.id === selectedCatId);
-    if (cat?.birth_date) {
-      usedBirthDate = cat.birth_date;
-      usedAge = calcularIdadeEmAnos(cat.birth_date);
-    } else {
-      // Prompt user to add birth date for more accurate milestones
-      toast.warning("Data de nascimento do gato não informada. Marque a data para metas mais precisas.");
-      // Use a safer default (e.g., 5 years) instead of 3
-      usedAge = 5;
-    }
-
-    // Convert weights to kg if needed
-    if (formData.unit === 'lbs') {
-      initialWeightKg = formData.initial_weight * 0.453592;
-      targetWeightKg = formData.target_weight * 0.453592;
-    }
-
-    if (formData.unit === 'kg' || formData.unit === 'lbs') {
-      milestones = gerarMarcos(
-        initialWeightKg,
-        targetWeightKg,
-        usedAge ?? 5,
-        formData.start_date
+  const handleGoalSubmit = useCallback(async (catId: string, formData: GoalFormData): Promise<void> => {
+    if (!userId || !householdId) { // userId and householdId are defined above
+      throw new ValidationError(
+        "Usuário ou casa não identificada. Não é possível criar a meta.",
+        null,
+        "Criação de Meta"
       );
     }
 
-    // Prepare goal data, omitting milestones if empty
-    const goalPayload: any = { ...formData };
-    if (milestones.length > 0) {
-      goalPayload.milestones = milestones;
-    }
+    await handleAsyncError(
+      async () => {
+        let milestones: Milestone[] = [];
+        let usedBirthdate: string | null = null;
+        let usedAge: number | null = null;
+        let initialWeightKg = formData.initial_weight;
+        let targetWeightKg = formData.target_weight;
 
-    try {
-      const response = await fetch('/api/goals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-ID': userId,
-        },
-        body: JSON.stringify(goalPayload),
-      });
+        // Find the specific cat in the cats array
+        const cat = cats.find(c => c.id === catId); // Use the catId parameter
+        if (cat?.birthdate) {
+          usedBirthdate = typeof cat.birthdate === 'string' ? cat.birthdate : cat.birthdate?.toISOString();
+          usedAge = calcularIdadeEmAnos(usedBirthdate);
+        } else {
+          toast.warning("Data de nascimento do gato não informada. Marque a data para metas mais precisas.");
+          usedAge = 5;
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao criar meta." }));
-        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+        if (formData.unit === 'lbs') {
+          initialWeightKg = formData.initial_weight * 0.453592;
+          targetWeightKg = formData.target_weight * 0.453592;
+        }
+
+        if (formData.unit === 'kg' || formData.unit === 'lbs') {
+          milestones = gerarMarcos(
+            initialWeightKg,
+            targetWeightKg,
+            usedAge ?? 5,
+            formData.start_date
+          ).map(milestone => ({
+            ...milestone,
+            goal_id: '',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }));
+        }
+
+        const goalPayload = {
+          ...formData,
+          user_id: userId,
+          cat_id: catId, // Use the catId parameter
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          milestones: milestones.length > 0 ? milestones : undefined
+        };
+
+        const response = await fetch('/api/goals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-ID': userId,
+          },
+          body: JSON.stringify(goalPayload),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao criar meta." }));
+          throw new AppError(
+            errorData.error || `Falha ao criar meta: ${response.status}`,
+            'API_ERROR',
+            errorData,
+            'Criação de Meta'
+          );
+        }
+
+        // After creating a goal, refetch all goals for the household
+        // The /api/goals route currently doesn't support filtering by household,
+        // so we refetch all and let WeightContext handle filtering.
+        const goalsResponse = await fetch(`/api/goals?householdId=${householdId}`, { // Added householdId param based on analysis of /api/goals GET (although not strictly needed per its current implementation)
+           headers: { 'X-User-ID': userId } // userId is needed for /api/goals
+        });
+        if (!goalsResponse.ok) throw new Error(`Failed to fetch updated goals: ${goalsResponse.statusText}`);
+        const updatedGoals: WeightGoalWithMilestones[] = await goalsResponse.json();
+        // Mapping to camelCase is done in WeightContext's memoized `goals`
+        const mappedGoals = updatedGoals.map((goal: any) => ({
+          id: goal.id,
+          catId: goal.cat_id,
+          targetWeight: goal.target_weight,
+          targetDate: goal.target_date ? new Date(goal.target_date) : undefined,
+          startWeight: goal.initial_weight ?? goal.start_weight,
+          status: goal.status ?? (goal.isArchived ? 'completed' : 'active'),
+          notes: goal.description ?? goal.notes ?? '',
+          createdBy: goal.created_by ?? goal.createdBy ?? '',
+          createdAt: goal.created_at ? new Date(goal.created_at) : new Date(),
+          updatedAt: goal.updated_at ? new Date(goal.updated_at) : new Date(),
+        }));
+        weightDispatch({ type: 'FETCH_WEIGHT_GOALS_SUCCESS', payload: mappedGoals });
+
+        setLogChangeTimestamp(Date.now());
+        setIsGoalFormSheetOpen(false); // This might need adjustment if panel is per-cat
+      },
+      {
+        context: 'Criação de Meta',
+        successMessage: "Nova meta de peso criada com sucesso!",
+        onError: (error) => {
+          console.error("Error in handleGoalSubmit:", error);
+        }
       }
-
-      const newGoal: WeightGoalWithMilestones = await response.json();
-
-      setGoals(prevGoals => {
-        // Add new goal and resort. Consider if activeGoalId on cat needs update.
-        const updatedGoals = [newGoal, ...prevGoals].sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
-        return updatedGoals;
-      });
-      
-      // If the newly created goal should become the active one for the cat, update the cat's state.
-      // This depends on your application logic for how activeGoalId is managed.
-      // For example, if any new non-archived goal for a cat becomes active:
-      if (selectedCat && !newGoal.isArchived) {
-        setCats(prevCats => prevCats.map(cat => 
-          cat.id === selectedCat.id ? { ...cat, activeGoalId: newGoal.id } : cat
-        ));
-      }
-
-      toast.success("Nova meta de peso criada com sucesso!");
-      setIsGoalFormSheetOpen(false); // Close the sheet
-
-    } catch (error: any) {
-      console.error("Falha ao criar a meta de peso:", error);
-      toast.error(`Falha ao criar a meta: ${error.message || 'Erro desconhecido'}`);
-      // Do not close sheet on error, so user can retry or correct.
-    }
-  };
-
-  // --- Render Logic ---
-  if (isLoadingUser) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">Painel de Acompanhamento de Peso</h1>
-        <p>Carregando sessão do usuário...</p>
-      </div>
     );
-  }
 
-  if (errorUser) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">Painel de Acompanhamento de Peso</h1>
-        <p className="text-red-500">Erro ao carregar a sessão do usuário: {typeof errorUser === 'string' ? errorUser : 'Por favor, tente novamente mais tarde.'}</p>
-      </div>
-    );
-  }
+  }, [userId, householdId, cats, weightDispatch]); // Dependencies are defined
 
-  if (!currentUser) {
-    return (
-      <div className="container mx-auto p-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">Painel de Acompanhamento de Peso</h1>
-        <p>Por favor, faça login para ver esta página.</p>
-      </div>
-    );
-  }
 
-  if (isLoadingCats) {
+  // --- EARLY RETURNS (AFTER ALL HOOKS) ---
+
+  if (isLoadingUser || isLoadingCats || !currentUser || typeof currentUser.householdId !== 'string' || currentUser.householdId.length === 0) {
     return (
-      <div className="container mx-auto p-4 text-center">
-        <h1 className="text-2xl font-bold mb-4">Painel de Acompanhamento de Peso</h1>
-        <p>Carregando seus companheiros felinos...</p>
+      <div className="container mx-auto p-4 space-y-6">
+        <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
+        <p className="text-center text-muted-foreground">
+          Carregando dados...
+        </p>
       </div>
     );
   }
@@ -513,179 +557,289 @@ const WeightPage = () => {
     );
   }
 
-  if (!selectedCat && cats.length > 0) {
+  // Early return se selectedCatId ainda não foi definido
+  if (!selectedCatId) {
+    return (
+      <div className="container mx-auto p-4 space-y-6">
+        <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
+        <p className="text-center text-muted-foreground">
+          Carregando gato selecionado...
+        </p>
+      </div>
+    );
+  }
+
+  // Check for selectedCat existence before accessing its properties in render logic
+  if (!selectedCatId) {
+     // This condition might still be possible if selectedCatId is set but the cat isn't found in the cats array.
+     // This return handles that edge case.
     return (
       <div className="container mx-auto p-4 space-y-6">
         <h1 className="text-2xl font-bold">Painel de Acompanhamento de Peso</h1>
         <CatAvatarStack cats={cats} selectedCatId={null} onSelectCat={handleSelectCat} className="mb-6"/>
-        <p className="text-center text-muted-foreground">Por favor, selecione um gato para ver os detalhes.</p>
+        <p className="text-center text-muted-foreground">Por favor, selecione um gato válido para ver os detalhes.</p>
         <OnboardingTour isOpen={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} onComplete={handleOnboardingComplete} />
-         <div className="text-center mt-4">
+        <div className="text-center mt-4">
           <Button variant="outline" onClick={() => setIsOnboardingOpen(true)}>Mostrar Tour Novamente</Button>
         </div>
       </div>
     );
   }
-  
-  // Main content when a cat is selected
+
+
+  // --- RENDER LOGIC ---
+  const selectedCatForForm = selectedCatId ? cats.find(c => c.id === selectedCatId) : null;
+  const selectedCatActiveGoal = selectedCatId ? goals.find(goal => goal.cat_id === selectedCatId && !goal.isArchived) : null;
+  const selectedCatCurrentLog = selectedCatId ? weightLogsSnake.filter(log => log.cat_id === selectedCatId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] || null : null;
+  const catForEditedLog = logToEditData ? cats.find(c => c.id === logToEditData.catId) : null;
+
   return (
-    <div className="container mx-auto p-4 space-y-8">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-1">
-          <Gauge className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Painel de Peso</h1>
-        </div>
-        <p className="text-base text-muted-foreground ml-11">
-          Acompanhe e gerencie o peso de {selectedCat?.name || 'seus gatos'}.
-        </p>
-      </div>
-
-      <div className="flex justify-between items-center mb-6 gap-4">
-        <CatAvatarStack className="flex-grow" cats={cats} selectedCatId={selectedCatId} onSelectCat={handleSelectCat} />
-        <Button variant="ghost" size="icon" onClick={() => setIsOnboardingOpen(true)} aria-label="Ajuda / Tour">
-          <HelpCircle className="h-5 w-5" />
-        </Button>
-      </div>
-      
-      {isLoadingLogs && <p className="text-center text-muted-foreground">Carregando histórico de peso para {selectedCat?.name}...</p>}
-      {isLoadingGoals && <p className="text-center text-muted-foreground">Carregando metas...</p>}
-
-      {selectedCat && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column / Main Info */}
-          <div className="lg:col-span-1 space-y-6">
-            <CurrentStatusCard 
-              currentWeight={currentLog?.weight ?? selectedCat.weight ?? 0} 
-              currentWeightDate={currentLog?.date}
-              targetWeight={activeGoalForSelectedCat?.target_weight ?? selectedCat.targetWeight}
-              healthTip={selectedCat.healthTip}
-              unit={activeGoalForSelectedCat?.unit || 'kg'}
-              previousWeight={previousLog?.weight}
-              previousWeightDate={previousLog?.date}
-              birthDate={selectedCat.birth_date}
-            />
-            {/* QuickLogPanel is now controlled and its trigger might be elsewhere or used for programmatic opening */}
-            {/* We can still render the FAB trigger from within QuickLogPanel, and open it programmatically */}
-            <QuickLogPanel 
-              catId={selectedCat.id} 
-              onLogSubmit={handleLogSubmit}
-              logToEdit={logToEditData}
-              isPanelOpen={isQuickLogPanelOpen}
-              onPanelOpenChange={(isOpen) => {
-                setIsQuickLogPanelOpen(isOpen);
-                if (!isOpen) { // If panel is closed, ensure edit mode is reset
-                  setLogToEditData(null);
-                }
-              }}
-            />
+    <ProtectedRoute children={
+      <div className="container mx-auto p-4 space-y-8">
+        <div className="mb-8">
+          <div className="flex items-center gap-3 mb-1">
+            <Gauge className="h-8 w-8 text-primary" aria-hidden="true" />
+            <h1 className="text-3xl font-bold">Painel de Peso</h1>
           </div>
-
-          {/* Right Column / Charts and Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {activeGoalForSelectedCat && (
-              <MilestoneProgress 
-                activeGoal={activeGoalForSelectedCat} 
-                currentWeight={currentLog?.weight ?? selectedCat.weight ?? 0}
-                currentWeightDate={currentLog?.date ?? null}
-              />
-            )}
-            {!activeGoalForSelectedCat && !isLoadingGoals && selectedCat && (
-              <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                <div className="flex flex-col items-center justify-center space-y-2">
-                  <p className="text-center text-muted-foreground">
-                    Nenhuma meta ativa definida para {selectedCat.name}.
-                  </p>
-                  <Button variant="outline" size="sm" onClick={() => setIsGoalFormSheetOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Definir Nova Meta
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            <WeightTrendChart 
-              catId={selectedCat.id}
-              userId={userId}
-              logChangeTimestamp={logChangeTimestamp} // Pass a trigger prop
-            />
-            <RecentHistoryList 
-              catId={selectedCat.id}
-              userId={userId}
-              onEditRequest={handleRequestEditLog}
-              onDeleteRequest={handleRequestDeleteLog}
-              logChangeTimestamp={logChangeTimestamp} // Pass a trigger prop
-            />
-            
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="archived-goals">
-                <AccordionTrigger>Metas Arquivadas</AccordionTrigger>
-                <AccordionContent className="space-y-3 pb-20">
-                  <div className="flex items-center justify-end space-x-2 mb-2">
-                    <Label htmlFor="show-archived-goals" className="text-sm">Mostrar Arquivadas</Label>
-                    <Switch 
-                      id="show-archived-goals" 
-                      checked={showArchivedGoals}
-                      onCheckedChange={setShowArchivedGoals} 
-                    />
-                  </div>
-                  {isLoadingGoals && <p className="text-sm text-muted-foreground">Carregando metas arquivadas...</p>}
-                  {!isLoadingGoals && showArchivedGoals && archivedGoalsForSelectedCat.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">Nenhuma meta arquivada para {selectedCat.name}.</p>
-                  )}
-                  {!isLoadingGoals && showArchivedGoals && archivedGoalsForSelectedCat.map((goal) => (
-                    <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 opacity-80 hover:opacity-100 transition-opacity">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                        <h4 className="font-medium text-sm">{goal.goal_name} <span className="text-muted-foreground">(Arquivada)</span></h4>
-                        {goal.achieved_date && (
-                          <span className="text-xs text-green-600 dark:text-green-400">
-                            Alcançada: {new Date(goal.achieved_date).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                        <div>
-                          <p>Alvo: {goal.target_weight}{goal.unit}</p>
-                          <p>Inicial: {goal.initial_weight}{goal.unit}</p>
-                        </div>
-                        <div>
-                          <p>Início: {new Date(goal.start_date).toLocaleDateString()}</p>
-                          <p>Fim: {new Date(goal.target_date).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      {goal.description && (
-                        <p className="text-xs mt-2 border-t pt-2">{goal.description}</p>
-                      )}
-                      {goal.outcome_notes && (
-                        <p className="text-xs mt-2 border-t pt-2 text-muted-foreground">
-                          Resultado: {goal.outcome_notes}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </div>
+          <p className="text-base text-muted-foreground ml-11">
+            Acompanhe e gerencie o peso de seus gatos.
+          </p>
         </div>
-      )}
-      <OnboardingTour 
-        isOpen={isOnboardingOpen} 
-        onOpenChange={setIsOnboardingOpen} 
-        onComplete={handleOnboardingComplete} 
-      />
-      {selectedCat && (
-        <GoalFormSheet 
-          isOpen={isGoalFormSheetOpen}
-          onOpenChange={setIsGoalFormSheetOpen}
-          onSubmit={handleGoalSubmit}
-          catId={selectedCat.id}
-          currentWeight={currentLog?.weight ?? selectedCat.weight}
-          defaultUnit={activeGoalForSelectedCat?.unit || 'kg'} // Or a sensible default like 'kg'
-          birthDate={selectedCat.birth_date || null}
+
+        <div className="flex justify-between items-center mb-6 gap-4">
+          <CatAvatarStack
+            className="flex-grow"
+            cats={cats} // cats defined above
+            selectedCatId={selectedCatId} // selectedCatId defined above
+            onSelectCat={handleSelectCat} // handleSelectCat defined above
+            aria-label="Seleção de gatos"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOnboardingOpen(true)} // setIsOnboardingOpen defined above
+            aria-label="Abrir tour de ajuda"
+            aria-haspopup="dialog"
+          >
+            <HelpCircle className="h-5 w-5" aria-hidden="true" />
+          </Button>
+        </div>
+
+        {/* isLoadingWeight and selectedCat?.name defined above */}
+        {isLoadingWeight && <p className="text-center text-muted-foreground">Carregando histórico de peso para {selectedCatForForm?.name ?? ''}...</p>}
+
+        {/* Iterate over cats and render details for each */}
+        {cats.map(cat => {
+           // Call hooks and derive data for *this specific cat* within the loop
+          const currentWeightForCat = useSelectCurrentWeight(cat.id);
+          const weightHistoryForCat = useSelectWeightHistory(cat.id, 30); // Use 30 days as before
+
+           // Find the active goal for this cat from the memoized goals array
+          const activeGoalForCat = goals.find(goal => goal.cat_id === cat.id && !goal.isArchived) || null;
+          // Find archived goals for this cat from the memoized goals array
+          const archivedGoalsForCat = goals.filter(goal => goal.cat_id === cat.id && goal.isArchived);
+
+
+           // Find the latest feeding log for this cat
+           const lastFeedingForCat = feedingLogs.find(log => log.catId === cat.id); // feedingLogs defined above
+
+           // Find current and previous weight logs for this cat from the memoized weightLogsSnake array
+           const logsForCat = weightLogsSnake.filter(log => log.cat_id === cat.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+           const currentLogForCat = logsForCat[0] || null;
+           const previousLogForCat = logsForCat[1] || null;
+
+
+          return (
+            <div key={cat.id} className={`space-y-6 border p-4 rounded-lg ${selectedCatId === cat.id ? 'border-primary' : ''}`}> {/* Add a border for selected cat */}
+                <h2 className="text-xl font-semibold">{cat.name}</h2> {/* Display cat's name */}
+
+              {/* isLoadingWeight applies to all, consider how to show loading per cat if needed */}
+              {isLoadingWeight && <p className="text-center text-muted-foreground">Carregando dados de peso para {cat.name}...</p>}
+
+              {/* Render detail components for this specific cat */}
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6"> {/* Keep grid layout - maybe adjust columns */}
+                 {/* Left Column / Main Info */}
+                 <div className="lg:col-span-1 space-y-6">
+                   <CurrentStatusCard
+                     currentWeight={currentLogForCat?.weight ?? cat.weight ?? 0}
+                     currentWeightDate={currentLogForCat?.date ?? null}
+                     targetWeight={activeGoalForCat?.target_weight}
+                     healthTip={undefined} // Assuming healthTip is not needed or derived elsewhere
+                     unit={activeGoalForCat?.unit || 'kg'}
+                     previousWeight={previousLogForCat?.weight}
+                     previousWeightDate={previousLogForCat?.date ?? null}
+                     birthDate={typeof cat.birthdate === 'string' ? cat.birthdate : cat.birthdate?.toISOString() || null}
+                     lastFeeding={lastFeedingForCat}
+                     aria-label={`Status atual de peso de ${cat.name}`}
+                   />
+                   {/* QuickLogPanel - Needs catId to log for this specific cat */}
+                    {/* Render QuickLogPanel inside the loop, but manage its open state and logToEditData globally or per-cat */}
+                    {/* For simplicity now, let's keep it potentially global but ensure it gets the correct catId */}
+                    {/* If the QuickLogPanel is opened via the RecentHistoryList, it will receive the specific log with its catId */}
+                    {/* If it's opened via a general button, it needs to know which cat it's for. This might require a per-cat open state or passing the catId when opening. */}
+                    {/* Let's assume for now QuickLogPanel open state is linked to the selectedCatId for simplicity of this refactor */}
+                    {/* If QuickLogPanel should be usable for ANY cat shown, its state management needs to be per-cat */}
+                    {/* Reverting QuickLogPanel and GoalFormSheet back to outside the loop for now, linked to selectedCatId, as refactoring them to be per-cat is a larger task. */}
+                 </div>
+
+                 {/* Right Column / Charts and Details */}
+                 <div className="lg:col-span-2 space-y-6">
+                   {activeGoalForCat && (
+                     <MilestoneProgress
+                       activeGoal={activeGoalForCat}
+                       currentWeight={currentLogForCat?.weight ?? cat.weight ?? 0}
+                       currentWeightDate={currentLogForCat?.date ?? null}
+                       aria-label={`Progresso da meta de peso de ${cat.name}`}
+                     />
+                   )}
+                   {!activeGoalForCat && !isLoadingWeight && (
+                     <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
+                       <div className="flex flex-col items-center justify-center space-y-2">
+                         <p className="text-center text-muted-foreground">
+                           Nenhuma meta ativa definida para {cat.name}.
+                         </p>
+                          {/* Button to open goal form for this specific cat */}
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           onClick={() => {
+                              setSelectedCatId(cat.id); // Select this cat when opening goal form
+                              setIsGoalFormSheetOpen(true);
+                           }}
+                           aria-label={`Definir nova meta de peso para ${cat.name}`}
+                           aria-haspopup="dialog"
+                         >
+                           <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+                           Definir Nova Meta
+                         </Button>
+                       </div>
+                     </div>
+                   )}
+
+                   <WeightTrendChart
+                     catId={cat.id} // Pass the current cat's ID
+                     userId={userId} // userId defined above
+                     logChangeTimestamp={logChangeTimestamp} // logChangeTimestamp defined above
+                     aria-label={`Gráfico de tendência de peso de ${cat.name}`}
+                   />
+                   <RecentHistoryList
+                     catId={cat.id} // Pass the current cat's ID
+                     userId={userId} // userId defined above
+                     onEditRequest={handleRequestEditLog} // handleRequestEditLog uses global logToEditData state
+                     onDeleteRequest={(logId) => handleRequestDeleteLog(logId, cat.id)} // Pass cat.id to delete handler
+                     logChangeTimestamp={logChangeTimestamp} // logChangeTimestamp defined above
+                     aria-label={`Histórico recente de peso de ${cat.name}`}
+                   />
+
+                    {/* Archived Goals - Display for each cat */}
+                    <Accordion type="single" collapsible className="w-full" aria-label={`Metas arquivadas para ${cat.name}`}>
+                      <AccordionItem value={`archived-goals-${cat.id}`}> {/* Unique value */}
+                        <AccordionTrigger>Metas Arquivadas</AccordionTrigger>
+                        <AccordionContent className="space-y-3 pb-20">
+                           {isLoadingWeight && <p className="text-sm text-muted-foreground">Carregando metas arquivadas para {cat.name}...</p>}
+                          {!isLoadingWeight && archivedGoalsForCat.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-4">Nenhuma meta arquivada para {cat.name}.</p>
+                          )}
+                          {!isLoadingWeight && archivedGoalsForCat.map((goal) => (
+                             <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 opacity-80 hover:opacity-100 transition-opacity">
+                                {/* ... Archived Goal Display Logic (same as before) ... */}
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                  <h4 className="font-medium text-sm">{goal.goal_name} <span className="text-muted-foreground">(Arquivada)</span></h4>
+                                  {goal.achieved_date && (
+                                    <span className="text-xs text-green-600 dark:text-green-400">
+                                      Alcançada: {goal.achieved_date ? new Date(goal.achieved_date).toLocaleDateString() : ''}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                  <div>
+                                    <p>Alvo: {goal.target_weight}{goal.unit}</p>
+                                    <p>Inicial: {goal.initial_weight}{goal.unit}</p>
+                                  </div>
+                                  <div>
+                                    <p>Início: {goal.start_date ? new Date(goal.start_date).toLocaleDateString() : ''}</p>
+                                    <p>Fim: {goal.target_date ? new Date(goal.target_date).toLocaleDateString() : ''}</p>
+                                  </div>
+                                </div>
+                                {goal.description && (
+                                  <p className="text-xs mt-2 border-t pt-2">{goal.description}</p>
+                                )}
+                                {goal.outcome_notes && (
+                                  <p className="text-xs mt-2 border-t pt-2 text-muted-foreground">
+                                    Resultado: {goal.outcome_notes}
+                                  </p>
+                                )}
+                             </div>
+                           ))}
+                           {/* Keep the global showArchivedGoals switch if desired, maybe move it outside the loop */}
+                            {/* Removing the global switch here to avoid confusion, the Accordion handles visibility per cat */}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                 </div>
+               </div>
+            </div>
+          );
+        })}
+
+        {/* Onboarding Tour (Keep outside the loop as it's global) */}
+        <OnboardingTour
+          isOpen={isOnboardingOpen}
+          onOpenChange={setIsOnboardingOpen}
+          onComplete={handleOnboardingComplete}
+          aria-label="Tour de introdução"
         />
-      )}
-    </div>
+        {/* GoalFormSheet - Renderização condicional corrigida */}
+        {selectedCatId && (
+          <GoalFormSheet
+            isOpen={isGoalFormSheetOpen}
+            onOpenChange={setIsGoalFormSheetOpen}
+            onSubmit={(formData) => handleGoalSubmit(selectedCatId, formData)}
+            catId={selectedCatId}
+            currentWeight={selectedCatCurrentLog?.weight ?? selectedCatForForm?.weight}
+            defaultUnit={selectedCatActiveGoal?.unit || 'kg'}
+            birthDate={typeof selectedCatForForm?.birthdate === 'string' ? selectedCatForForm?.birthdate : selectedCatForForm?.birthdate?.toISOString() || null}
+            aria-label="Formulário de meta de peso"
+          />
+        )}
+        {/* QuickLogPanel - permanece igual */}
+        {isQuickLogPanelOpen && logToEditData && (
+          <QuickLogPanel
+            catId={logToEditData.catId}
+            onLogSubmit={(formData) => handleLogSubmit(logToEditData.catId, formData, logToEditData.id)}
+            logToEdit={logToEditData}
+            isPanelOpen={isQuickLogPanelOpen}
+            onPanelOpenChange={(isOpen) => {
+              setIsQuickLogPanelOpen(isOpen);
+              if (!isOpen) {
+                setLogToEditData(null);
+              }
+            }}
+            aria-label={`Painel de edição de registro de peso para ${catForEditedLog?.name || ''}`}
+          />
+        )}
+
+        {/* Global "Mostrar Arquivadas" switch - Re-adding outside the loop if needed */}
+        {/* <div className="flex items-center justify-center space-x-2 mt-4">
+            <Label htmlFor="show-archived-goals" className="text-sm">Mostrar Metas Arquivadas (Todos os Gatos)</Label>
+              <Switch
+                id="show-archived-goals"
+                checked={showArchivedGoals}
+                onCheckedChange={setShowArchivedGoals}
+                aria-label="Mostrar metas arquivadas para todos os gatos"
+              />
+          </div> */}
+
+
+      </div>
+    } />
   );
 };
+
+// Helper to find a cat by ID (can be used if needed)
+// const findCatById = (cats: Cat[], catId: string | null) => {
+//   if (!catId) return null;
+//   return cats.find(cat => cat.id === catId);
+// };
 
 export default WeightPage;

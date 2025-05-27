@@ -17,6 +17,11 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import EventsList from "@/components/events-list";
 import { useState, useMemo } from "react";
 
+interface ChartDataPoint {
+  name: string;
+  [catId: string]: string | number;
+}
+
 const colorPalette = [
   "#93c5fd", // Azul pastel
   "#86efac", // Verde pastel
@@ -51,7 +56,7 @@ export interface DashboardContentProps {
   todayFeedingCount: number;
   averagePortionSize: number | null;
   lastFeedingLog: FeedingLog | null;
-  recentFeedingsData: any[];
+  recentFeedingsData: ChartDataPoint[];
 }
 
 export default function DashboardContent({

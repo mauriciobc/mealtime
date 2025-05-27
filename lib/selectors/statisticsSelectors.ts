@@ -26,6 +26,7 @@ export interface TimeSeriesDataPoint {
 export interface CatPortion {
   name: string;
   value: number;
+  percent?: number;
 }
 
 // Helper function to calculate date range

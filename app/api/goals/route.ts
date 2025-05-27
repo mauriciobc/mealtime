@@ -1,32 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
+import { Prisma } from '@prisma/client';
 
 // Placeholder for WeightGoal and Milestone interfaces if not centrally defined
 // You should import these from a shared types definition if available
 interface Milestone {
   id: string;
-  name: string;
-  target_weight: number;
-  target_date: string;
-  description?: string;
+  goal_id: string;
+  weight: number;
+  date: string;
+  notes?: string | null;
+  created_at: string;
 }
 
 interface WeightGoal {
   id: string;
   cat_id: string;
   goal_name: string;
-  start_date: string;
-  target_date: string;
-  initial_weight: number;
   target_weight: number;
-  unit: 'kg' | 'lbs';
+  target_date: string | null;
+  start_weight: number | null;
+  unit: string;
+  status: string;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
   milestones: Milestone[];
-  description?: string;
-  isArchived?: boolean;
-  achieved_date?: string | null;
-  outcome_notes?: string;
-  user_id?: string; // Assuming goals might be linked to a user directly or via cat
+  cat?: any; // Relação com cats
+  createdBy?: any; // Relação com profiles
 }
 
 // Define the expected structure for a new goal, similar to WeightGoalWithMilestones but without ID for creation
@@ -34,8 +37,8 @@ interface WeightGoal {
 interface NewGoalData {
   cat_id: string;
   goal_name: string;
-  start_date: string; // ISO Date string
-  target_date: string; // ISO Date string
+  start_date: string;
+  target_date: string;
   initial_weight: number;
   target_weight: number;
   unit: 'kg' | 'lbs';
@@ -58,152 +61,213 @@ interface WeightGoalDbRecord extends NewGoalData {
 }
 
 export async function GET(request: NextRequest) {
-  const authUserId = request.headers.get('X-User-ID');
-
-  if (!authUserId) {
-    logger.warn('[GET /api/goals] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
-    return NextResponse.json({ error: 'Not authorized - User ID header is missing' }, { status: 401 });
-  }
-
-  logger.debug(`[GET /api/goals] Authenticated User ID: ${authUserId}`);
-
   try {
-    // TODO: Implement actual logic to fetch goals for the authenticated user.
-    // This might involve: 
-    // 1. Fetching cats associated with the user (if goals are per-cat and not directly linked to user).
-    //    const userCats = await prisma.cats.findMany({ where: { owner_id: authUserId }, select: { id: true } });
-    //    const catIds = userCats.map(cat => cat.id);
-    // 2. Querying goals based on user ID or their cat IDs.
-    //    Adjust the Prisma query according to your schema (e.g., weight_goals table).
-    
-    const goals: WeightGoal[] = await prisma.weight_goals.findMany({
-      where: {
-        // Example: If goals have a direct user_id field
-        // user_id: authUserId,
+    const authUserId = request.headers.get('X-User-ID');
 
-        // Example: If goals are linked via cats owned by the user
-        // cat: { owner_id: authUserId }
-
-        // Example: If goals are linked to a household and user is part of household (more complex query)
-        // For now, assuming goals might have a cat_id and cats have an owner_id.
-        // This requires that your `weight_goals` table can be related back to `authUserId`.
-        // This is a placeholder, update with your actual schema relationship!
-        cat: {
-            owner_id: authUserId 
-            // OR, if your cats are linked to households and users to households:
-            // household: {
-            //   household_members: {
-            //     some: { user_id: authUserId }
-            //   }
-            // }
+    if (!authUserId) {
+      logger.warn('[GET /api/goals] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
+      return NextResponse.json(
+        { error: 'Not authorized - User ID header is missing' }, 
+        { 
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
-      },
-      include: {
-        // Include milestones if they are a separate related table and you want to nest them.
-        // If milestones are a JSONB field, this might not be needed here.
-        // weight_goal_milestones: true, // Adjust if your relation name is different
-      },
-      orderBy: {
-        target_date: 'desc', // Example ordering
-      },
-    });
+      );
+    }
 
-    // If your milestones are a separate table and included, you might need to map them
-    // to match the WeightGoalWithMilestones interface used in the frontend.
-    // const formattedGoals = goals.map(goal => ({
-    //   ...goal,
-    //   milestones: goal.weight_goal_milestones || [] 
-    // }));
+    logger.debug(`[GET /api/goals] Authenticated User ID: ${authUserId}`);
 
-    logger.info(`[GET /api/goals] Found ${goals.length} goals for user ${authUserId}`);
-    return NextResponse.json(goals); // Return formattedGoals if you transformed them
+    try {
+      const goals = await prisma.weight_goals.findMany({
+        where: {
+          cat: {
+            owner_id: authUserId
+          }
+        },
+        include: {
+          milestones: true
+        },
+        orderBy: {
+          target_date: 'desc',
+        },
+      });
 
-  } catch (error: any) {
-    logger.logError(error, { 
-      message: 'Error fetching weight goals', 
-      userId: authUserId, 
-      requestUrl: request.nextUrl.toString() 
-    });
-    return NextResponse.json({ error: 'An error occurred while fetching weight goals' }, { status: 500 });
+      logger.info(`[GET /api/goals] Found ${goals.length} goals for user ${authUserId}`);
+      return NextResponse.json(goals, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+    } catch (error: any) {
+      logger.logError(error, { 
+        message: 'Error fetching weight goals', 
+        userId: authUserId, 
+        requestUrl: request.nextUrl.toString() 
+      });
+      return NextResponse.json(
+        { error: 'An error occurred while fetching weight goals' }, 
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
+  } catch (err: any) {
+    logger.error('[GET /api/goals] Unhandled Exception', err);
+    return NextResponse.json(
+      { error: 'Internal server error', details: err?.message || err },
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 }
 
 export async function POST(request: Request) {
-  const userId = request.headers.get('X-User-ID');
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User not authenticated' }, { status: 401 });
-  }
-
   try {
-    const body = await request.json();
-    const {
-      cat_id,
-      goal_name,
-      start_date,
-      target_date,
-      initial_weight,
-      target_weight,
-      unit,
-      description,
-    } = body as NewGoalData;
+    const userId = request.headers.get('X-User-ID');
 
-    // --- Basic Validation ---
-    if (!cat_id || !goal_name || !start_date || !target_date || !initial_weight || !target_weight || !unit) {
-      return NextResponse.json({ error: 'Missing required goal fields' }, { status: 400 });
-    }
-    if (typeof initial_weight !== 'number' || typeof target_weight !== 'number' || initial_weight <= 0 || target_weight <= 0) {
-      return NextResponse.json({ error: 'Weights must be positive numbers' }, { status: 400 });
-    }
-    if (new Date(target_date) <= new Date(start_date)) {
-      return NextResponse.json({ error: 'Target date must be after start date' }, { status: 400 });
-    }
-    if (!['kg', 'lbs'].includes(unit)) {
-      return NextResponse.json({ error: 'Invalid unit. Must be kg or lbs' }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User not authenticated' }, 
+        { 
+          status: 401,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
     }
 
-    // --- Actual Database Interaction using Prisma ---
-    const newGoalDataFromPrisma = await prisma.weight_goals.create({
-      data: {
-        created_by: userId, // Changed from user_id to match schema (relation createdBy)
+    try {
+      const body = await request.json();
+      const {
         cat_id,
-        goal_name: goal_name, // Added: Assumes 'goal_name' will be added to schema.prisma
-        // start_date is not directly in schema, created_at will serve this purpose.
-        target_date: target_date ? new Date(target_date) : null, // Handle optional target_date from schema
-        start_weight: initial_weight, // Changed from initial_weight to match schema (start_weight Decimal?)
-        target_weight, // Matches schema (target_weight Decimal)
-        unit: unit, // Added: Assumes 'unit' will be added to schema.prisma (e.g., unit String)
-        notes: description || null, // Changed from description to notes to match schema (notes String?)
-        status: "active", // Changed from isArchived: false to match schema (status String)
-      },
-    });
-    // --- End of Actual Database Interaction ---
+        goal_name,
+        start_date,
+        target_date,
+        initial_weight,
+        target_weight,
+        unit,
+        description,
+      } = body as NewGoalData;
 
-    // Ensure the returned object matches what the frontend expects (WeightGoalWithMilestones)
-    const responseGoal = { 
-      id: newGoalDataFromPrisma.id,
-      cat_id: newGoalDataFromPrisma.cat_id,
-      goal_name: newGoalDataFromPrisma.goal_name, // Assuming goal_name is now in the DB record
-      start_date: newGoalDataFromPrisma.created_at.toISOString(), // Use created_at for start_date
-      target_date: newGoalDataFromPrisma.target_date ? newGoalDataFromPrisma.target_date.toISOString() : null,
-      initial_weight: newGoalDataFromPrisma.start_weight ? Number(newGoalDataFromPrisma.start_weight) : 0, // Map start_weight back
-      target_weight: Number(newGoalDataFromPrisma.target_weight),
-      unit: newGoalDataFromPrisma.unit, // Assuming unit is now in the DB record
-      description: newGoalDataFromPrisma.notes, // Map notes back to description
-      isArchived: newGoalDataFromPrisma.status !== "active", // Map status back to isArchived
-      achieved_date: null, // Default for new goals, schema does not have this directly. Potentially new field or derived.
-      outcome_notes: null, // Default for new goals, schema does not have this directly.
-      milestones: [] // Assuming new goals start with no milestones
-    };
+      // --- Basic Validation ---
+      if (!cat_id || !goal_name || !start_date || !target_date || !initial_weight || !target_weight || !unit) {
+        return NextResponse.json(
+          { error: 'Missing required goal fields' }, 
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+      if (typeof initial_weight !== 'number' || typeof target_weight !== 'number' || initial_weight <= 0 || target_weight <= 0) {
+        return NextResponse.json(
+          { error: 'Weights must be positive numbers' }, 
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+      if (new Date(target_date) <= new Date(start_date)) {
+        return NextResponse.json(
+          { error: 'Target date must be after start date' }, 
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+      if (!['kg', 'lbs'].includes(unit)) {
+        return NextResponse.json(
+          { error: 'Invalid unit. Must be kg or lbs' }, 
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
 
-    return NextResponse.json(responseGoal, { status: 201 });
+      // --- Actual Database Interaction using Prisma ---
+      const data: Prisma.weight_goalsCreateInput = {
+        goal_name,
+        target_weight: new Prisma.Decimal(target_weight),
+        target_date: target_date ? new Date(target_date) : null,
+        start_weight: initial_weight ? new Prisma.Decimal(initial_weight) : null,
+        unit,
+        status: "active",
+        notes: description || null,
+        cat: { connect: { id: cat_id } },
+        createdBy: { connect: { id: userId } }
+        // Não inclua milestones aqui, pois normalmente são criados separadamente
+      };
 
-  } catch (error) {
-    console.error('[API_GOALS_POST]', error);
-    if (error instanceof SyntaxError) { // JSON parsing error
-        return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+      const newGoal = await prisma.weight_goals.create({
+        data,
+        include: {
+          milestones: true
+        }
+      });
+
+      return NextResponse.json(newGoal, { 
+        status: 201,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+    } catch (error) {
+      console.error('[API_GOALS_POST]', error);
+      if (error instanceof SyntaxError) {
+        return NextResponse.json(
+          { error: 'Invalid request body' }, 
+          { 
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
+      return NextResponse.json(
+        { error: 'Failed to create goal', details: error?.message || error }, 
+        { 
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
     }
-    return NextResponse.json({ error: 'Failed to create goal' }, { status: 500 });
+  } catch (err: any) {
+    logger.error('[POST /api/goals] Unhandled Exception', err);
+    return NextResponse.json(
+      { error: 'Internal server error', details: err?.message || err },
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 }
 

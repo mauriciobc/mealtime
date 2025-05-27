@@ -52,11 +52,21 @@ export const GET = withError(async (request: Request, { params }: { params: Prom
 
     if (authError) {
       console.error(`[GET /api/cats/${catId}] Auth error:`, authError);
-      return new NextResponse("Authentication failed", { status: 401 });
+      return new NextResponse("Authentication failed", { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     if (!user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return new NextResponse("Unauthorized", { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     console.log(`[GET /api/cats/${catId}] Fetching cat for user ${user.id}`);
@@ -82,16 +92,30 @@ export const GET = withError(async (request: Request, { params }: { params: Prom
 
     if (!cat) {
       console.log(`[GET /api/cats/${catId}] Cat not found or access denied for user ${user.id}`);
-      return new NextResponse("Cat not found or access denied", { status: 404 });
+      return new NextResponse("Cat not found or access denied", { 
+        status: 404,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     console.log(`[GET /api/cats/${catId}] Successfully fetched cat for user ${user.id}`);
-    return NextResponse.json(cat);
+    return NextResponse.json(cat, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (error) {
     console.error(`[GET /api/cats/${catId}] Error:`, error);
     return new NextResponse(
       "Internal Server Error", 
-      { status: 500 }
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
   }
 });
@@ -104,7 +128,12 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    return new NextResponse("Unauthorized", { 
+      status: 401,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
   const body = await request.json();
@@ -124,7 +153,12 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
   });
 
   if (!cat) {
-    return new NextResponse("Cat not found or access denied", { status: 404 });
+    return new NextResponse("Cat not found or access denied", { 
+      status: 404,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   }
 
   // Update the cat
@@ -145,7 +179,11 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
     }
   });
 
-  return NextResponse.json(updatedCat);
+  return NextResponse.json(updatedCat, {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
 });
 
 // DELETE /api/cats/[catId] - Delete a cat

@@ -63,6 +63,7 @@ const CatsContext = createContext<{
   dispatch: React.Dispatch<CatsAction>;
   forceRefresh: () => void;
 }>({ state: initialState, dispatch: () => null, forceRefresh: () => null });
+export { CatsContext };
 
 export const CatsProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(catsReducer, initialState);
