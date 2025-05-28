@@ -266,56 +266,66 @@ export function UserProvider({ children }: { children: ReactNode }) {
       clearTimeout(authChangeTimeoutRef.current);
     }
 
-    // Adicionar um pequeno delay para evitar chamadas múltiplas
-    authChangeTimeoutRef.current = setTimeout(async () => {
-      try {
-        logger.info(`[UserProvider][Request ${requestId}] Calling supabase.auth.getUser()`);
-        const authPromise = supabase.auth.getUser();
-        const authResult = await Promise.race([
-          authPromise,
-          new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('Auth check timeout')), 5_000)
-          )
-        ]);
-        if (!mountedRef.current) return;
+    let didTimeout = false;
+    let finished = false;
 
-        if ('data' in authResult) {
-          const {
-            data: { user: verifiedUser },
-            error: userError
-          } = authResult;
+    authChangeTimeoutRef.current = setTimeout(() => {
+      didTimeout = true;
+      logger.warn(`[UserProvider][Request ${requestId}] Auth check timed out`);
+      if (mountedRef.current) {
+        setProfile(null);
+        dispatch({ type: "CLEAR_USER" });
+        lastProfileFetchRef.current = null;
+        setAuthLoading(false);
+      }
+    }, 5000);
 
-          logger.info(`[UserProvider][Request ${requestId}] supabase.auth.getUser() result: user=${verifiedUser ? verifiedUser.id : 'null'}, error=${userError ? JSON.stringify(userError) : 'null'}`);
+    try {
+      logger.info(`[UserProvider][Request ${requestId}] Calling supabase.auth.getUser()`);
+      const authResult = await supabase.auth.getUser();
+      finished = true;
+      clearTimeout(authChangeTimeoutRef.current);
 
-          if (userError) {
-            logger.error(`[UserProvider][Request ${requestId}] Auth error:`, { error: userError });
-            throw userError;
-          }
+      if (didTimeout || !mountedRef.current) return;
 
-          if (!verifiedUser) {
-            logger.warn(`[UserProvider][Request ${requestId}] No verified user found. Clearing user state.`);
-            setProfile(null);
-            dispatch({ type: "CLEAR_USER" });
-            lastProfileFetchRef.current = null;
-            setAuthLoading(false);
-            return;
-          }
+      if ('data' in authResult) {
+        const {
+          data: { user: verifiedUser },
+          error: userError
+        } = authResult;
 
-          logger.info(`[UserProvider][Request ${requestId}] Verified user found: ${verifiedUser.id}. Calling loadUserData.`);
-          await loadUserData(verifiedUser);
-        } else {
-          // timeout já tratado pelo catch
+        logger.info(`[UserProvider][Request ${requestId}] supabase.auth.getUser() result: user=${verifiedUser ? verifiedUser.id : 'null'}, error=${userError ? JSON.stringify(userError) : 'null'}`);
+
+        if (userError) {
+          logger.error(`[UserProvider][Request ${requestId}] Auth error:`, { error: userError });
+          throw userError;
         }
-      } catch (error) {
-        logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, error);
-        if (mountedRef.current) {
+
+        if (!verifiedUser) {
+          logger.warn(`[UserProvider][Request ${requestId}] No verified user found. Clearing user state.`);
           setProfile(null);
           dispatch({ type: "CLEAR_USER" });
           lastProfileFetchRef.current = null;
           setAuthLoading(false);
+          return;
         }
+
+        logger.info(`[UserProvider][Request ${requestId}] Verified user found: ${verifiedUser.id}. Calling loadUserData.`);
+        await loadUserData(verifiedUser);
+      } else {
+        // timeout já tratado pelo catch
       }
-    }, 300); // Delay de 300ms para debounce
+    } catch (error) {
+      finished = true;
+      clearTimeout(authChangeTimeoutRef.current);
+      logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, error);
+      if (!didTimeout && mountedRef.current) {
+        setProfile(null);
+        dispatch({ type: "CLEAR_USER" });
+        lastProfileFetchRef.current = null;
+        setAuthLoading(false);
+      }
+    }
   }, [supabase.auth, loadUserData]);
 
   // Remover o debounce memoizado já que agora está integrado no handleAuthChange

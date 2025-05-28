@@ -63,12 +63,25 @@ import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import { DateTimePicker } from "@/components/ui/datetime-picker"
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
+import { useMemo } from "react"
 
 interface PageProps {
   params: Promise<{
     id: string;
   }>;
 }
+
+// Definição dos tipos de estado da página
+
+type EditCatPageState =
+  | { type: 'LOADING_USER' }
+  | { type: 'ERROR_USER'; error: string }
+  | { type: 'NO_USER' }
+  | { type: 'ERROR_CATS'; error: string }
+  | { type: 'LOADING_CAT' }
+  | { type: 'ERROR_CAT'; error: string }
+  | { type: 'NO_CAT' }
+  | { type: 'READY'; cat: CatType };
 
 export default function EditCatPage({ params }: PageProps) {
   const resolvedParams = use(params);
@@ -251,7 +264,7 @@ export default function EditCatPage({ params }: PageProps) {
         notes: formData.notes?.trim() || null,
       }
       
-      if (updatedData.feeding_interval !== null && (isNaN(updatedData.feeding_interval) || updatedData.feeding_interval < 1 || updatedData.feeding_interval > 24)) {
+      if (updatedData.feeding_interval !== null && (isNaN(Number(updatedData.feeding_interval)) || Number(updatedData.feeding_interval) < 1 || Number(updatedData.feeding_interval) > 24)) {
         toast.error("Intervalo de alimentação deve ser entre 1 e 24 horas.")
         setIsSubmitting(false)
         removeLoadingOperation(opId)
@@ -304,53 +317,54 @@ export default function EditCatPage({ params }: PageProps) {
     }
   }
 
-  // All hooks are now declared, we can do conditional returns
-  if (isLoadingUser) {
-    return <Loading text="Verificando usuário..." />;
-  }
+  // Centralização do estado da página
+  const pageState = useMemo<EditCatPageState>(() => {
+    if (isLoadingUser) return { type: 'LOADING_USER' };
+    if (errorUser) return { type: 'ERROR_USER', error: errorUser };
+    if (!currentUser) return { type: 'NO_USER' };
+    if (errorCats) return { type: 'ERROR_CATS', error: errorCats };
+    if (isLoadingData && !error) return { type: 'LOADING_CAT' };
+    if (error) return { type: 'ERROR_CAT', error };
+    if (!cat) return { type: 'NO_CAT' };
+    return { type: 'READY', cat };
+  }, [isLoadingUser, errorUser, currentUser, errorCats, isLoadingData, error, cat]);
 
-  if (errorUser) {
-    return (
-      <PageTransition>
-        <div className="p-4 text-center">
-          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
-          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
-        </div>
-      </PageTransition>
-    );
-  }
-
-  if (!currentUser) {
-    return <Loading text="Redirecionando para login..." />;
-  }
-
-  if (errorCats) {
-    return (
-      <PageTransition>
-        <div className="p-4 text-center">
-          <p className="text-destructive">Erro ao carregar lista de gatos: {errorCats}. Tente recarregar a página.</p>
-          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
-        </div>
-      </PageTransition>
-    );
-  }
-  
-  if (isLoadingData && !error) {
-    return <Loading text="Carregando dados do gato..." />;
-  }
-
-  if (error) {
-    return (
-      <PageTransition>
-        <div className="p-4 text-center">
-          <p className="text-destructive">{error}</p>
-          <Button onClick={() => router.push('/cats')} className="mt-4">Voltar para Meus Gatos</Button>
-        </div>
-      </PageTransition>
-    );
-  }
-
-  if (!cat) {
+  // Renderização baseada no estado
+  switch (pageState.type) {
+    case 'LOADING_USER':
+      return <Loading text="Verificando usuário..." />;
+    case 'ERROR_USER':
+      return (
+        <PageTransition>
+          <div className="p-4 text-center">
+            <p className="text-destructive">Erro ao carregar dados do usuário: {pageState.error}. Tente recarregar a página.</p>
+            <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+          </div>
+        </PageTransition>
+      );
+    case 'NO_USER':
+      return <Loading text="Redirecionando para login..." />;
+    case 'ERROR_CATS':
+      return (
+        <PageTransition>
+          <div className="p-4 text-center">
+            <p className="text-destructive">Erro ao carregar lista de gatos: {pageState.error}. Tente recarregar a página.</p>
+            <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+          </div>
+        </PageTransition>
+      );
+    case 'LOADING_CAT':
+      return <Loading text="Carregando dados do gato..." />;
+    case 'ERROR_CAT':
+      return (
+        <PageTransition>
+          <div className="p-4 text-center">
+            <p className="text-destructive">{pageState.error}</p>
+            <Button onClick={() => router.push('/cats')} className="mt-4">Voltar para Meus Gatos</Button>
+          </div>
+        </PageTransition>
+      );
+    case 'NO_CAT':
       return (
         <PageTransition>
           <div className="p-4 text-center">
@@ -359,153 +373,153 @@ export default function EditCatPage({ params }: PageProps) {
           </div>
         </PageTransition>
       );
-  }
-  
-  return (
-    <PageTransition>
-      <div className="container max-w-md py-6 pb-28">
-        <PageHeader title={`Editar ${cat.name || "Gato"}`} />
-        
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                required
-              />
-            </div>
+    case 'READY':
+      return (
+        <PageTransition>
+          <div className="container max-w-md p-4 pb-28">
+            <PageHeader title={`Editar ${pageState.cat.name || "Gato"}`} />
+            
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="photoUrl">Foto</Label>
-              <div className="w-64 aspect-square flex items-center justify-center">
-                <ImageUpload
-                  type="cat"
-                  userId={currentUser.id}
-                  value={formData.photoUrl || ''}
-                  onChange={(url) => setFormData(prev => ({ ...prev, photoUrl: url }))}
-                  maxSizeMB={50}
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="photoUrl">Foto</Label>
+                  <div className="w-64 aspect-square flex items-center justify-center mx-auto">
+                    <ImageUpload
+                      type="cat"
+                      userId={currentUser.id}
+                      value={formData.photoUrl || ''}
+                      onChange={(url) => setFormData(prev => ({ ...prev, photoUrl: url }))}
+                      maxSizeMB={50}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="birthdate">Data de Nascimento</Label>
+                  <DateTimePicker
+                    value={formData.birthdate ? new Date(formData.birthdate) : undefined}
+                    onChange={date => setFormData(prev => ({ ...prev, birthdate: date ? date.toISOString().split('T')[0] : "" }))}
+                    disabled={isSubmitting}
+                    locale={ptBR}
+                    yearRange={35}
+                    granularity="day"
+                    placeholder="Selecione uma data"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="weight">Peso (kg)</Label>
+                  <Input
+                    id="weight"
+                    type="number"
+                    step="0.01"
+                    value={formData.weight || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="restrictions">Restrições Alimentares</Label>
+                  <Textarea
+                    id="restrictions"
+                    value={formData.restrictions || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, restrictions: e.target.value }))}
+                    placeholder="Alergias, intolerâncias..."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="feedingInterval">Intervalo de Alimentação (horas)</Label>
+                  <Input
+                    id="feedingInterval"
+                    type="number"
+                    min="1"
+                    max="24"
+                    value={formData.feedingInterval || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, feedingInterval: e.target.value }))}
+                    placeholder="6"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="portion_size">Tamanho da Porção (gramas)</Label>
+                  <Input
+                    id="portion_size"
+                    type="number"
+                    step="0.1"
+                    value={formData.portion_size || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, portion_size: e.target.value }))}
+                    placeholder="0.0"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Observações</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Outras informações importantes..."
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="birthdate">Data de Nascimento</Label>
-              <DateTimePicker
-                value={formData.birthdate ? new Date(formData.birthdate) : undefined}
-                onChange={date => setFormData(prev => ({ ...prev, birthdate: date ? date.toISOString().split('T')[0] : "" }))}
-                disabled={isSubmitting}
-                locale={ptBR}
-                yearRange={35}
-                granularity="day"
-                placeholder="Selecione uma data"
-              />
-            </div>
+              <div className="flex flex-col gap-2">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || isLoadingData}
+                  className="w-full"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    'Salvar Alterações'
+                  )}
+                </Button>
 
-            <div className="space-y-2">
-              <Label htmlFor="weight">Peso (kg)</Label>
-              <Input
-                id="weight"
-                type="number"
-                step="0.01"
-                value={formData.weight || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
-                placeholder="0.00"
-              />
-            </div>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={isDeleting || isLoadingData}
+                  onClick={handleDelete}
+                  className="w-full"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Excluindo...
+                    </>
+                  ) : (
+                    'Excluir Gato'
+                  )}
+                </Button>
 
-            <div className="space-y-2">
-              <Label htmlFor="restrictions">Restrições Alimentares</Label>
-              <Textarea
-                id="restrictions"
-                value={formData.restrictions || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, restrictions: e.target.value }))}
-                placeholder="Alergias, intolerâncias..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="feedingInterval">Intervalo de Alimentação (horas)</Label>
-              <Input
-                id="feedingInterval"
-                type="number"
-                min="1"
-                max="24"
-                value={formData.feedingInterval || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, feedingInterval: e.target.value }))}
-                placeholder="6"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="portion_size">Tamanho da Porção (gramas)</Label>
-              <Input
-                id="portion_size"
-                type="number"
-                step="0.1"
-                value={formData.portion_size || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, portion_size: e.target.value }))}
-                placeholder="0.0"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observações</Label>
-              <Textarea
-                id="notes"
-                value={formData.notes || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                placeholder="Outras informações importantes..."
-              />
-            </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => router.back()}
+                  className="w-full"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
           </div>
-
-          <div className="flex flex-col gap-2">
-            <Button
-              type="submit"
-              disabled={isSubmitting || isLoadingData}
-              className="w-full"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar Alterações'
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={isDeleting || isLoadingData}
-              onClick={handleDelete}
-              className="w-full"
-            >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Excluindo...
-                </>
-              ) : (
-                'Excluir Gato'
-              )}
-            </Button>
-
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-              className="w-full"
-            >
-              Cancelar
-            </Button>
-          </div>
-        </form>
-      </div>
-    </PageTransition>
-  );
+        </PageTransition>
+      );
+  }
 }

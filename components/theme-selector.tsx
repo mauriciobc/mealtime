@@ -1,5 +1,5 @@
-import { Moon, Sun, Monitor, Palette } from "lucide-react"
-import { useTheme } from "@/hooks/use-theme"
+import { Moon, Sun, Monitor, Palette, Cat } from "lucide-react"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -9,6 +9,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import clsx from "clsx"
+import { useEffect, useState } from "react"
 
 const ACCENT_COLORS = [
   { value: "red", label: "Vermelho", color: "#ef4444" },
@@ -21,7 +22,7 @@ const ACCENT_COLORS = [
 ]
 
 export function ThemeSelector() {
-  const { theme, changeTheme } = useTheme()
+  const { theme, setTheme, resolvedTheme } = useTheme()
 
   return (
     <DropdownMenu>
@@ -34,25 +35,54 @@ export function ThemeSelector() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Tema</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => changeTheme("light")}> 
+        <DropdownMenuItem onClick={() => setTheme("light")}> 
           <Sun className="mr-2 h-4 w-4" />
           <span>Claro</span>
+          {resolvedTheme === "light" && <span className="ml-auto">✓</span>}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => changeTheme("dark")}> 
+        <DropdownMenuItem onClick={() => setTheme("dark")}> 
           <Moon className="mr-2 h-4 w-4" />
           <span>Escuro</span>
+          {resolvedTheme === "dark" && <span className="ml-auto">✓</span>}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => changeTheme("system")}> 
+        <DropdownMenuItem onClick={() => setTheme("system")}> 
           <Monitor className="mr-2 h-4 w-4" />
           <span>Sistema</span>
+          {theme === "system" && <span className="ml-auto">✓</span>}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
+// Novo hook para accent, separado do tema
+function useAccent() {
+  const [accent, setAccent] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("accent") || "blue"
+    }
+    return "blue"
+  })
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    // Remove todas as classes de accent
+    const root = window.document.documentElement
+    ACCENT_COLORS.forEach(color => {
+      root.classList.remove(`theme-${color.value}`)
+    })
+    if (accent !== "blue") {
+      root.classList.add(`theme-${accent}`)
+    }
+    localStorage.setItem("accent", accent)
+  }, [accent])
+
+  return { accent, setAccent }
+}
+
 export function AccentColorSelector() {
-  const { accent, changeAccent } = useTheme()
+  const { accent, setAccent } = useAccent()
+  const accentColor = ACCENT_COLORS.find(c => c.value === accent)?.color || "#3b82f6"
 
   return (
     <DropdownMenu>
@@ -64,10 +94,13 @@ export function AccentColorSelector() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Cor de destaque</DropdownMenuLabel>
+        <div className="flex justify-center my-2">
+          <Cat className="h-8 w-8" style={{ color: accentColor }} />
+        </div>
         {ACCENT_COLORS.map((accentOpt) => (
           <DropdownMenuItem
             key={accentOpt.value}
-            onClick={() => changeAccent(accentOpt.value)}
+            onClick={() => setAccent(accentOpt.value)}
             className={clsx("flex items-center gap-2", accent === accentOpt.value && "font-semibold")}
           >
             <span

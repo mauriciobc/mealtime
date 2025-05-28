@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -62,6 +62,15 @@ const formSchema = z.object({
   }),
 });
 
+// 1. Definição dos tipos de estado da página
+
+type NewCatPageState =
+  | { type: 'LOADING_USER' }
+  | { type: 'ERROR_USER'; error: string }
+  | { type: 'NO_USER' }
+  | { type: 'NO_HOUSEHOLD' }
+  | { type: 'READY' };
+
 export default function NewCatPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +78,15 @@ export default function NewCatPage() {
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
+
+  // 2. Cálculo do estado da página
+  const pageState: NewCatPageState = useMemo(() => {
+    if (isLoadingUser) return { type: 'LOADING_USER' };
+    if (errorUser) return { type: 'ERROR_USER', error: errorUser };
+    if (!currentUser) return { type: 'NO_USER' };
+    if (!currentUser.householdId) return { type: 'NO_HOUSEHOLD' };
+    return { type: 'READY' };
+  }, [isLoadingUser, errorUser, currentUser]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -84,12 +102,13 @@ export default function NewCatPage() {
     },
   });
 
+  // Redirecionamento para login se necessário
   useEffect(() => {
-    if (currentUser === null && !isLoadingUser) {
+    if (pageState.type === 'NO_USER') {
       toast.error("Você precisa estar conectado para adicionar um gato");
       router.replace("/login?callbackUrl=/cats/new");
     }
-  }, [currentUser, isLoadingUser, router]);
+  }, [pageState.type, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!currentUser?.householdId) {
@@ -181,37 +200,33 @@ export default function NewCatPage() {
     }
   }
 
-  if (isLoadingUser) {
-     return (
-        <div className="container max-w-md py-6 pb-28 flex justify-center items-center min-h-[300px]">
+  // 3. Renderização baseada no estado
+  switch (pageState.type) {
+    case 'LOADING_USER':
+      return (
+        <div className="container max-w-md p-4 pb-28 flex justify-center items-center min-h-[300px]">
           <Loading text="Carregando dados do usuário..." />
         </div>
-     );
-  }
-
-  if (errorUser) {
-    return (
-      <div className="container max-w-md py-6 pb-28">
-        <PageHeader title="Adicionar Novo Gato" />
-        <div className="mt-6 text-center">
-          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
-          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (currentUser === null) {
+      );
+    case 'ERROR_USER':
       return (
-        <div className="container max-w-md py-6 pb-28 flex justify-center items-center min-h-[300px]">
-            <Loading text="Redirecionando para login..." />
+        <div className="container max-w-md p-4 pb-28">
+          <PageHeader title="Adicionar Novo Gato" />
+          <div className="mt-6 text-center">
+            <p className="text-destructive">Erro ao carregar dados do usuário: {pageState.error}. Tente recarregar a página.</p>
+            <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+          </div>
         </div>
       );
-  }
-
-   if (!currentUser.householdId) {
-     return (
-        <div className="container max-w-md py-6 pb-28">
+    case 'NO_USER':
+      return (
+        <div className="container max-w-md p-4 pb-28 flex justify-center items-center min-h-[300px]">
+          <Loading text="Redirecionando para login..." />
+        </div>
+      );
+    case 'NO_HOUSEHOLD':
+      return (
+        <div className="container max-w-md p-4 pb-28">
           <PageHeader title="Adicionar Novo Gato" />
           <div className="mt-6">
             <EmptyState 
@@ -219,190 +234,181 @@ export default function NewCatPage() {
               title="Nenhum domicílio encontrado"
               description="Você precisa pertencer a um domicílio para adicionar um gato. Crie ou junte-se a um domicílio nas configurações."
               actionButton={<Button asChild><a href="/settings">Ir para Configurações</a></Button>}
-             />
+            />
           </div>
         </div>
-     );
-   }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="container max-w-md py-6 pb-28"
-    >
-      <PageHeader title="Adicionar Novo Gato" />
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-6">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nome do gato" {...field} id="name" required disabled={isSubmitting}/>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-          <FormField
-            control={form.control}
-            name="photoUrl"
-            render={({ field }) => {
-              return (
-                <FormItem>
-                  <FormLabel>Foto</FormLabel>
-                  <FormControl>
-                    <ImageUpload
-                      value={field.value || ""}
-                      onChange={(url: string) => field.onChange(url)}
-                      type="cat"
-                      userId={currentUser.id}
-                      maxSizeMB={50}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )
-            }}
-            />
-
-          <FormField
-            control={form.control}
-            name="birthdate"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>Data de Nascimento</FormLabel>
-                <FormControl>
-                  <DateTimePicker
-                    value={field.value}
-                    onChange={field.onChange}
-                    disabled={isSubmitting}
-                    locale={ptBR}
-                    yearRange={35}
-                    granularity="day"
-                    placeholder="Selecione uma data"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="weight"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Peso (kg)</FormLabel>
-                <FormControl>
-                  <Input 
-                      type="number" 
-                      step="0.1" 
-                      placeholder="Ex: 4.5" 
-                      {...field} 
-                      id="weight"
-                      disabled={isSubmitting}
-                   />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="feedingInterval"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Intervalo Ideal Entre Refeições (horas) *</FormLabel>
-                <FormControl>
-                   <Input 
-                      type="number" 
-                      min="1" 
-                      max="24" 
-                      placeholder="Ex: 8" 
-                      {...field} 
-                      id="feedingInterval"
-                      required 
-                      disabled={isSubmitting}
-                   />
-                </FormControl>
-                 <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="portion_size"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Porção Recomendada (gramas)</FormLabel>
-                <FormControl>
-                  <Input 
-                      type="number" 
-                      step="1" 
-                      placeholder="Ex: 50" 
-                      {...field} 
-                      id="portion_size"
-                      disabled={isSubmitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="restrictions"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Restrições Alimentares</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Ex: Alergia a frango, sensível a grãos"
-                    className="resize-none"
-                    {...field}
-                    id="restrictions"
-                    disabled={isSubmitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="notes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Observações Adicionais</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Ex: Prefere comer no quarto, só come ração úmida"
-                    className="resize-none"
-                    {...field}
-                    id="notes"
-                    disabled={isSubmitting}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? <Loading text="Adicionando..." size="sm" /> : "Adicionar Gato"}
-          </Button>
-        </form>
-      </Form>
-    </motion.div>
-  );
+      );
+    case 'READY':
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="container max-w-md p-4 pb-28"
+        >
+          <PageHeader title="Adicionar Novo Gato" />
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-6">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nome *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Nome do gato" {...field} id="name" required disabled={isSubmitting}/>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="photoUrl"
+                render={({ field }) => {
+                  return (
+                    <FormItem>
+                      <FormLabel>Foto</FormLabel>
+                      <FormControl>
+                        <ImageUpload
+                          value={field.value || ""}
+                          onChange={(url: string) => field.onChange(url)}
+                          type="cat"
+                          userId={currentUser!.id}
+                          maxSizeMB={50}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )
+                }}
+              />
+              <FormField
+                control={form.control}
+                name="birthdate"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Data de Nascimento</FormLabel>
+                    <FormControl>
+                      <DateTimePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        disabled={isSubmitting}
+                        locale={ptBR}
+                        yearRange={35}
+                        granularity="day"
+                        placeholder="Selecione uma data"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="weight"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Peso (kg)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.1" 
+                        placeholder="Ex: 4.5" 
+                        {...field} 
+                        id="weight"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="feedingInterval"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Intervalo Ideal Entre Refeições (horas) *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        min="1" 
+                        max="24" 
+                        placeholder="Ex: 8" 
+                        {...field} 
+                        id="feedingInterval"
+                        required 
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="portion_size"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Porção Recomendada (gramas)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="1" 
+                        placeholder="Ex: 50" 
+                        {...field} 
+                        id="portion_size"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="restrictions"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Restrições Alimentares</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ex: Alergia a frango, sensível a grãos"
+                        className="resize-none"
+                        {...field}
+                        id="restrictions"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Observações Adicionais</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Ex: Prefere comer no quarto, só come ração úmida"
+                        className="resize-none"
+                        {...field}
+                        id="notes"
+                        disabled={isSubmitting}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loading text="Adicionando..." size="sm" /> : "Adicionar Gato"}
+              </Button>
+            </form>
+          </Form>
+        </motion.div>
+      );
+  }
 }

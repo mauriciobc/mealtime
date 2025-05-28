@@ -7,7 +7,7 @@ import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { PlusCircle, Search, SortDesc, Utensils, CheckCircle2, AlertCircle, Ban, AlertTriangle, HelpCircle, Users, Trash2 } from "lucide-react"
+import { PlusCircle, Search, SortDesc, Utensils, CheckCircle2, AlertCircle, Ban, AlertTriangle, HelpCircle, Users, Trash2, Edit } from "lucide-react"
 import Link from "next/link"
 import PageTransition from "@/components/page-transition"
 import BottomNav from "@/components/bottom-nav"
@@ -26,17 +26,19 @@ import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { groupLogsByDate } from "@/lib/utils/feedingUtils"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerClose
+} from "@/components/ui/drawer"
+import {
+  DrawerTrigger
+} from "@/components/ui/drawer"
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
+import { NewFeedingSheet } from "@/components/feeding/new-feeding-sheet"
 
 // Helper functions for status display
 const getStatusIcon = (status: string | undefined) => {
@@ -95,6 +97,7 @@ export default function FeedingsPage() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [logToDelete, setLogToDelete] = useState<FeedingLog | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [logToEdit, setLogToEdit] = useState<FeedingLog | null>(null)
 
   const userLanguage = userState.currentUser?.preferences?.language;
   const userLocale = resolveDateFnsLocale(userLanguage);
@@ -329,7 +332,7 @@ export default function FeedingsPage() {
                 <React.Fragment key={date}>
                   {/* Date Header */}
                   <h2 className="text-lg font-semibold my-4 sticky top-[68px] bg-background py-2 z-10"> {/* Adjusted sticky top */}
-                    {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy")}
+                    {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: userLocale })}
                   </h2>
                   {/* Logs for the Date */}
                   {logsOnDate.map((log) => {
@@ -355,7 +358,7 @@ export default function FeedingsPage() {
                         <div className="flex items-start gap-8 w-full">
                            {/* Time Column */}
                           <div className="text-right text-sm text-muted-foreground pt-1 w-16 flex-shrink-0 tabular-nums -ml-[58px] pl-12"> {/* Use negative margin to pull time back into the padding space */}
-                            {format(new Date(log.timestamp), "HH:mm")}
+                            {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
                           </div>
 
                           {/* Main Content Card (moves to the right of the Avatar/dot) */}
@@ -389,41 +392,56 @@ export default function FeedingsPage() {
                                       {displayStatusText}
                                     </Badge>
                                   )}
-                                  {/* Delete Button with Dialog */}
-                                  <AlertDialog open={logToDelete?.id === log.id} onOpenChange={(open) => { if (!open) setLogToDelete(null) }}>
-                                    <AlertDialogTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                        onClick={(e) => { e.stopPropagation(); setLogToDelete(log); }}
-                                        aria-label="Excluir registro"
-                                      >
+                                  {/* Edit Button */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                    onClick={(e) => { e.stopPropagation(); setLogToEdit(log); }}
+                                    aria-label="Editar registro"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  {/* Delete Button with Drawer (BottomSheet) */}
+                                  <Drawer open={logToDelete?.id === log.id} onOpenChange={(open) => { if (!open) setLogToDelete(null) }}>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10 p-1"
+                                      onClick={(e) => { e.stopPropagation(); setLogToDelete(log); }}
+                                      aria-label="Excluir registro"
+                                      asChild
+                                    >
+                                      <DrawerTrigger asChild>
                                         <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
-                                        <AlertDialogDescription>
+                                      </DrawerTrigger>
+                                    </Button>
+                                    <DrawerContent>
+                                      <DrawerHeader>
+                                        <DrawerTitle>Confirmar Exclusão</DrawerTitle>
+                                        <DrawerDescription>
                                           Tem certeza que deseja excluir este registro de alimentação?
-                                          {log && ` (Gato: ${cats.find(c => String(c.id) === String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm')})`}
+                                          {log && ` (Gato: ${cats.find(c => String(c.id) === String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: userLocale })})`}
                                           <br />
                                           Esta ação não pode ser desfeita.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel onClick={() => setLogToDelete(null)} disabled={isDeleting}>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction
+                                        </DrawerDescription>
+                                      </DrawerHeader>
+                                      <DrawerFooter>
+                                        <Button variant="outline" onClick={() => setLogToDelete(null)} disabled={isDeleting} asChild>
+                                          <DrawerClose asChild>
+                                            <span>Cancelar</span>
+                                          </DrawerClose>
+                                        </Button>
+                                        <Button
                                           onClick={() => handleDeleteFeedingLog(log.id ? String(log.id) : undefined)}
                                           disabled={isDeleting || !logToDelete || logToDelete.id !== log.id}
-                                          className="bg-destructive hover:bg-destructive/90 focus-visible:ring-destructive"
+                                          className="bg-destructive hover:bg-destructive/90 focus-visible:ring-destructive text-white"
                                         >
                                           {isDeleting && logToDelete?.id === log.id ? <Loading text="Excluindo..." size="sm" className="text-white"/> : "Excluir"}
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
+                                        </Button>
+                                      </DrawerFooter>
+                                    </DrawerContent>
+                                  </Drawer>
                                 </div>
                               </div>
                               {/* Notes */}
@@ -446,6 +464,15 @@ export default function FeedingsPage() {
 
         <BottomNav />
       </div>
+
+      {/* Drawer de edição de alimentação */}
+      {logToEdit && (
+        <NewFeedingSheet
+          isOpen={!!logToEdit}
+          onOpenChange={(open) => { if (!open) setLogToEdit(null) }}
+          initialFeedingLog={logToEdit}
+        />
+      )}
     </PageTransition>
   )
 } 

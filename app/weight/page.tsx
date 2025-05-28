@@ -44,6 +44,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet";
+import { logger } from '@/lib/monitoring/logger';
 
 // Interface for Cat - matches expected API structure from /api/cats
 interface Cat {
@@ -135,6 +136,17 @@ interface CatWithDetails extends Cat {
   healthTip?: string;
   unit?: 'kg' | 'lbs';
 }
+
+// Adicionando tipo centralizado de estado da página para refatoração futura
+
+type WeightPageState =
+  | { type: 'LOADING' }
+  | { type: 'ERROR'; error: string }
+  | { type: 'NO_USER' }
+  | { type: 'NO_HOUSEHOLD' }
+  | { type: 'NO_CATS' }
+  | { type: 'NO_SELECTED_CAT' }
+  | { type: 'READY' };
 
 const WeightPage = () => {
   // --- HOOKS AND STATE (ALWAYS AT THE TOP) ---
@@ -307,6 +319,20 @@ const WeightPage = () => {
 
   // Última alimentação do gato selecionado
   const lastFeedingForCat = feedingLogs.find(log => log.catId === selectedCatId);
+
+  // --- NOVO: cálculo centralizado do estado da página (não altera renderização ainda) ---
+  const pageState = useMemo<WeightPageState>(() => {
+    if (isLoadingUser || isLoadingCats || isLoadingWeight || isLoadingFeedings) return { type: 'LOADING' };
+    const errorCat = catsState && 'error' in catsState ? catsState.error : undefined;
+    const errorWeight = weightState && 'error' in weightState ? weightState.error : undefined;
+    const errorFeeding = feedingState && 'error' in feedingState ? feedingState.error : undefined;
+    if (errorUser || errorCat || errorWeight || errorFeeding) return { type: 'ERROR', error: errorUser || errorCat || errorWeight || errorFeeding || 'Erro desconhecido' };
+    if (!currentUser) return { type: 'NO_USER' };
+    if (!currentUser.householdId) return { type: 'NO_HOUSEHOLD' };
+    if (cats.length === 0) return { type: 'NO_CATS' };
+    if (!selectedCatId) return { type: 'NO_SELECTED_CAT' };
+    return { type: 'READY' };
+  }, [isLoadingUser, isLoadingCats, isLoadingWeight, isLoadingFeedings, errorUser, catsState, weightState, feedingState, currentUser, cats, selectedCatId]);
 
   // --- HANDLERS (useCallback hooks - depend on variables defined above) ---
   const handleOnboardingComplete = useCallback(() => {
@@ -578,61 +604,78 @@ const WeightPage = () => {
 
   // --- EARLY RETURNS (AFTER ALL HOOKS) ---
 
-  if (isLoadingUser || isLoadingCats || !currentUser || typeof currentUser.householdId !== 'string' || currentUser.householdId.length === 0) {
-    return (
-      <div className="container mx-auto p-4 space-y-6">
-        <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
-        <p className="text-center text-muted-foreground">
-          Carregando dados...
-        </p>
-      </div>
-    );
-  }
-
-  if (cats.length === 0) {
-    return (
-      <div className="container mx-auto p-4 space-y-6">
-        <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
-        <p className="text-center text-muted-foreground">
-          Nenhum gato encontrado. Adicione um gato para começar a acompanhar o peso dele.
-        </p>
-        <OnboardingTour isOpen={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} onComplete={handleOnboardingComplete} />
-        <div className="text-center mt-4">
-          <Button variant="outline" onClick={() => setIsOnboardingOpen(true)}>Mostrar Tour Novamente</Button>
+  // --- NOVO: Renderização centralizada baseada em pageState ---
+  switch (pageState.type) {
+    case 'LOADING':
+      logger.info('Página de peso em estado LOADING');
+      return (
+        <div className="container mx-auto p-4 space-y-6">
+          <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
+          <GlobalLoading text="Carregando dados do painel de peso..." />
         </div>
-      </div>
-    );
-  }
-
-  // Early return se selectedCatId ainda não foi definido
-  if (!selectedCatId) {
-    return (
-      <div className="container mx-auto p-4 space-y-6">
-        <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
-        <p className="text-center text-muted-foreground">
-          Carregando gato selecionado...
-        </p>
-      </div>
-    );
-  }
-
-  // Check for selectedCat existence before accessing its properties in render logic
-  if (!selectedCatId) {
-     // This condition might still be possible if selectedCatId is set but the cat isn't found in the cats array.
-     // This return handles that edge case.
-    return (
-      <div className="container mx-auto p-4 space-y-6">
-        <h1 className="text-2xl font-bold">Painel de Acompanhamento de Peso</h1>
-        <CatAvatarStack cats={cats} selectedCatId={null} onSelectCat={handleSelectCat} className="mb-6"/>
-        <p className="text-center text-muted-foreground">Por favor, selecione um gato válido para ver os detalhes.</p>
-        <OnboardingTour isOpen={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} onComplete={handleOnboardingComplete} />
-        <div className="text-center mt-4">
-          <Button variant="outline" onClick={() => setIsOnboardingOpen(true)}>Mostrar Tour Novamente</Button>
+      );
+    case 'ERROR':
+      logger.error('Erro ao carregar dados na página de peso', { error: pageState.error });
+      return (
+        <div className="container mx-auto p-4 space-y-6">
+          <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
+          <p className="text-center text-destructive">
+            Erro ao carregar dados: {pageState.error}
+          </p>
         </div>
-      </div>
-    );
+      );
+    case 'NO_USER':
+      logger.warn('Usuário não autenticado na página de peso');
+      return (
+        <div className="container mx-auto p-4 space-y-6">
+          <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
+          <GlobalLoading text="Redirecionando para login..." />
+        </div>
+      );
+    case 'NO_HOUSEHOLD':
+      logger.warn('Usuário sem householdId na página de peso');
+      return (
+        <div className="container mx-auto p-4 space-y-6">
+          <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
+          <p className="text-center text-muted-foreground">
+            Você precisa criar ou juntar-se a uma residência para usar o painel.
+          </p>
+          <Button asChild>
+            <a href="/households">Ir para Configurações de Residência</a>
+          </Button>
+        </div>
+      );
+    case 'NO_CATS':
+      logger.info('Nenhum gato cadastrado para o usuário');
+      return (
+        <div className="container mx-auto p-4 space-y-6">
+          <h1 className="text-2xl font-bold text-center">Painel de Acompanhamento de Peso</h1>
+          <p className="text-center text-muted-foreground">
+            Nenhum gato encontrado. Adicione um gato para começar a acompanhar o peso dele.
+          </p>
+          <OnboardingTour isOpen={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} onComplete={handleOnboardingComplete} />
+          <div className="text-center mt-4">
+            <Button variant="outline" onClick={() => setIsOnboardingOpen(true)}>Mostrar Tour Novamente</Button>
+          </div>
+        </div>
+      );
+    case 'NO_SELECTED_CAT':
+      logger.warn('selectedCatId inválido ou não encontrado');
+      return (
+        <div className="container mx-auto p-4 space-y-6">
+          <h1 className="text-2xl font-bold">Painel de Acompanhamento de Peso</h1>
+          <CatAvatarStack cats={cats} selectedCatId={null} onSelectCat={handleSelectCat} className="mb-6"/>
+          <p className="text-center text-muted-foreground">Por favor, selecione um gato válido para ver os detalhes.</p>
+          <OnboardingTour isOpen={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} onComplete={handleOnboardingComplete} />
+          <div className="text-center mt-4">
+            <Button variant="outline" onClick={() => setIsOnboardingOpen(true)}>Mostrar Tour Novamente</Button>
+          </div>
+        </div>
+      );
+    case 'READY':
+    default:
+      break;
   }
-
 
   // --- RENDER LOGIC ---
   const selectedCatCurrentLog = selectedCatId ? weightLogsSnake.filter(log => log.cat_id === selectedCatId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] || null : null;
@@ -640,7 +683,7 @@ const WeightPage = () => {
 
   return (
     <ProtectedRoute children={
-      <div className="min-h-screen bg-gray-50 p-4 pb-24">
+      <div className="min-h-screen bg-white p-4 pb-24">
         <motion.div
           className="mx-auto max-w-md lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6"
           initial={{ opacity: 0, y: 16 }}
@@ -664,13 +707,13 @@ const WeightPage = () => {
               </div>
               {/* Botão de adicionar meta */}
               <Button
-                size="icon"
-                variant="ghost"
-                className=""
+                variant="outline"
+                className="flex items-center gap-2"
                 onClick={() => setIsGoalFormSheetOpen(true)}
                 aria-label="Nova Meta de Peso"
               >
-                <Scale className="h-6 w-6 text-primary" />
+                <Target className="h-5 w-5 text-primary" />
+                Nova Meta
               </Button>
             </div>
             <div className="w-full flex justify-center mt-4">
@@ -849,28 +892,94 @@ const WeightPage = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentHistory.map((entry, index) => (
-                      <div
-                        key={entry.id}
-                        className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                          <div>
-                            <div className="font-medium text-foreground">{entry.weight} kg</div>
-                            <div className="text-sm text-muted-foreground">
-                              {new Date(entry.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {recentHistory.map((entry, index) => {
+                      // Calcula a diferença de peso em relação ao registro anterior
+                      const prevEntry = recentHistory[index + 1];
+                      let diff = null;
+                      let diffType: 'up' | 'down' | 'none' = 'none';
+                      if (prevEntry) {
+                        const delta = entry.weight - prevEntry.weight;
+                        if (delta > 0) {
+                          diff = `+${delta.toFixed(2)} kg`;
+                          diffType = 'up';
+                        } else if (delta < 0) {
+                          diff = `${delta.toFixed(2)} kg`;
+                          diffType = 'down';
+                        } else {
+                          diff = '0 kg';
+                          diffType = 'none';
+                        }
+                      }
+
+                      // Data: sempre pelo campo 'date' (dia/mês)
+                      let dataMedida = '';
+                      let dataValida = false;
+                      try {
+                        const d = entry.date instanceof Date ? entry.date : new Date(entry.date);
+                        if (!isNaN(d.getTime())) {
+                          dataValida = true;
+                          dataMedida = d.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' });
+                        }
+                      } catch (e) {
+                        dataValida = false;
+                      }
+
+                      // Horário: usar createdAt, se não existir usar updatedAt, se não existir não exibe
+                      let horaMedida = '';
+                      let horaValida = false;
+                      let horaFonte = null;
+                      if (entry.createdAt && !isNaN(new Date(entry.createdAt).getTime())) {
+                        horaFonte = entry.createdAt;
+                      } else if (entry.updatedAt && !isNaN(new Date(entry.updatedAt).getTime())) {
+                        horaFonte = entry.updatedAt;
+                      }
+                      if (horaFonte) {
+                        try {
+                          const d = horaFonte instanceof Date ? horaFonte : new Date(horaFonte);
+                          if (!isNaN(d.getTime())) {
+                            horaValida = true;
+                            horaMedida = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                          }
+                        } catch (e) {
+                          horaValida = false;
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                            <div>
+                              <div className="font-medium text-foreground flex items-center gap-2">
+                                {entry.weight} kg
+                                {prevEntry && diffType !== 'none' && (
+                                  <span className={`text-xs flex items-center gap-0.5 ${diffType === 'up' ? 'text-green-600' : 'text-red-600'}`}
+                                        title={diffType === 'up' ? 'Ganho de peso' : 'Perda de peso'}>
+                                    {diffType === 'up' ? (
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                                    ) : (
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                                    )}
+                                    {diff}
+                                  </span>
+                                )}
+                              </div>
+                              {horaValida && (
+                                <div className="text-sm text-muted-foreground">
+                                  {horaMedida}
+                                </div>
+                              )}
                             </div>
                           </div>
+                          <div className="text-sm text-muted-foreground">
+                            {dataValida ? dataMedida : ''}
+                          </div>
                         </div>
-                        <div className="text-sm text-muted-foreground">
-                          {new Date(entry.date).toLocaleDateString("pt-BR", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>

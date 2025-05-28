@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { Database } from '@/lib/database.types';
 import { createRouteHandlerCookieStore } from '@/lib/supabase/cookie-store';
 import { createClient as createServerSupabaseClient } from '@/utils/supabase/server';
+import { z } from 'zod';
 
 export async function GET(request: Request) {
   try {
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-    if (!cats) {
+    if (!cats || cats.length === 0) {
       return NextResponse.json(
         { error: 'Nenhum gato encontrado para esta casa' },
         { status: 404 }
@@ -139,15 +140,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validação com Zod
     const body = await request.json();
-    const { catId, targetWeight, targetDate, startWeight, notes, goalName, unit } = body;
-
-    if (!catId || !targetWeight || !goalName || !unit) {
+    const weightGoalSchema = z.object({
+      catId: z.string().min(1, 'catId é obrigatório'),
+      targetWeight: z.number({ invalid_type_error: 'targetWeight deve ser número' }),
+      targetDate: z.string().optional().nullable(),
+      startWeight: z.number({ invalid_type_error: 'startWeight deve ser número' }).optional().nullable(),
+      notes: z.string().optional().nullable(),
+      goalName: z.string(),
+      unit: z.string(),
+    });
+    const parseResult = weightGoalSchema.safeParse(body);
+    if (!parseResult.success) {
       return NextResponse.json(
-        { error: 'Dados incompletos' },
+        { error: 'Dados inválidos', details: parseResult.error.flatten() },
         { status: 400 }
       );
     }
+    const { catId, targetWeight, targetDate, startWeight, notes, goalName, unit } = parseResult.data;
 
     // Corrigir uso de cookies para o client
     const cookieStore = cookies;

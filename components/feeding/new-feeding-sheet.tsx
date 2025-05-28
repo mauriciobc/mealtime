@@ -51,12 +51,14 @@ interface NewFeedingSheetProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   initialCatId?: number;
+  initialFeedingLog?: FeedingLog;
 }
 
 export function NewFeedingSheet({ 
     isOpen, 
     onOpenChange, 
-    initialCatId 
+    initialCatId,
+    initialFeedingLog
 }: NewFeedingSheetProps) {
   const router = useRouter();
   const { state: userState, refreshUser } = useUserContext();
@@ -134,24 +136,32 @@ export function NewFeedingSheet({
   useEffect(() => {
     if (isOpen) {
       setError(null);
-      const initialPortions: { [key: string]: string } = {};
-      householdCats.forEach((cat: CatType) => {
-        initialPortions[cat.id] = cat.portion_size?.toString() || "";
-      });
-      setPortions(initialPortions);
-      setNotes({});
-      
-      const initialCatIdStr = initialCatId?.toString();
-      if (initialCatIdStr && householdCats.some(cat => cat.id === initialCatIdStr)) {
-          setSelectedCats([initialCatIdStr]);
-          setFeedingStatus({ [initialCatIdStr]: "Normal" });
-          setMealTypes({ [initialCatIdStr]: "dry" }); // Default to dry food
+      if (initialFeedingLog) {
+        // Edição: preencher campos com dados do log
+        setSelectedCats([initialFeedingLog.catId]);
+        setPortions({ [initialFeedingLog.catId]: initialFeedingLog.portionSize?.toString() || "" });
+        setNotes({ [initialFeedingLog.catId]: initialFeedingLog.notes || "" });
+        setFeedingStatus({ [initialFeedingLog.catId]: initialFeedingLog.status || "Normal" });
+        setMealTypes({ [initialFeedingLog.catId]: initialFeedingLog.mealType || "dry" });
       } else {
-          setSelectedCats([]);
-          setFeedingStatus({});
-          setMealTypes({});
+        // Criação padrão
+        const initialPortions: { [key: string]: string } = {};
+        householdCats.forEach((cat: CatType) => {
+          initialPortions[cat.id] = cat.portion_size?.toString() || "";
+        });
+        setPortions(initialPortions);
+        setNotes({});
+        const initialCatIdStr = initialCatId?.toString();
+        if (initialCatIdStr && householdCats.some(cat => cat.id === initialCatIdStr)) {
+            setSelectedCats([initialCatIdStr]);
+            setFeedingStatus({ [initialCatIdStr]: "Normal" });
+            setMealTypes({ [initialCatIdStr]: "dry" });
+        } else {
+            setSelectedCats([]);
+            setFeedingStatus({});
+            setMealTypes({});
+        }
       }
-      
     } else {
       setSelectedCats([]);
       setPortions({});
@@ -161,7 +171,7 @@ export function NewFeedingSheet({
       setIsSubmitting(false);
       setError(null);
     }
-  }, [isOpen, householdCats, initialCatId, cats]);
+  }, [isOpen, householdCats, initialCatId, cats, initialFeedingLog]);
 
   const formatRelativeTime = useCallback((utcDateTime: Date | string | null | undefined) => {
     if (!utcDateTime) return "Nunca";
@@ -234,12 +244,12 @@ export function NewFeedingSheet({
       return;
     }
 
-    const opId = "submit-feeding-logs";
+    const opId = initialFeedingLog ? `edit-feeding-${initialFeedingLog.id}` : "submit-feeding-logs";
     setIsSubmitting(true);
     setError(null);
-    addLoadingOperation({ id: opId, description: "Registrando alimentações..." });
+    addLoadingOperation({ id: opId, description: initialFeedingLog ? "Editando alimentação..." : "Registrando alimentações..." });
 
-    const timestamp = new Date();
+    const timestamp = initialFeedingLog ? initialFeedingLog.timestamp : new Date();
     const logsToCreate = [];
     let validationError = null;
 
@@ -248,8 +258,6 @@ export function NewFeedingSheet({
       const note = notes[catId] || "";
       const status = feedingStatus[catId] || "Normal";
       const mealType = mealTypes[catId] || "dry";
-      
-      // Validate portion size
       let portionNum = null;
       if (portion) {
         portionNum = parseFloat(portion);
@@ -258,12 +266,10 @@ export function NewFeedingSheet({
           break;
         }
       }
-
-      // Create payload matching FeedingBatchSchema
       logsToCreate.push({
         catId,
         portionSize: portionNum || 0,
-        timestamp: timestamp.toISOString(),
+        timestamp: typeof timestamp === 'string' ? timestamp : timestamp.toISOString(),
         notes: note,
         status,
         mealType,
@@ -280,33 +286,42 @@ export function NewFeedingSheet({
     }
 
     try {
-      const response = await fetch("/api/feedings/batch", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ logs: logsToCreate }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Falha ao registrar (${response.status})`);
+      let response, result;
+      if (initialFeedingLog) {
+        // Edição: PUT em /api/feedings/[id]
+        response = await fetch(`/api/feedings/${initialFeedingLog.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(logsToCreate[0]),
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Falha ao editar (${response.status})`);
+        }
+        result = await response.json();
+        toast.success("Alimentação editada com sucesso!");
+      } else {
+        // Criação padrão
+        response = await fetch("/api/feedings/batch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ logs: logsToCreate }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Falha ao registrar (${response.status})`);
+        }
+        result = await response.json();
+        if (refreshUser) {
+          await refreshUser();
+        }
+        toast.success(`${result.count} ${result.count === 1 ? 'alimentação registrada' : 'alimentações registradas'} com sucesso!`);
       }
-
-      const result = await response.json();
-      
-      // Trigger a refetch since we only get a count back
-      if (refreshUser) {
-        await refreshUser();
-      }
-
-      toast.success(`${result.count} ${result.count === 1 ? 'alimentação registrada' : 'alimentações registradas'} com sucesso!`);
       onOpenChange(false);
-
     } catch (err: any) {
       console.error("Error submitting feeding logs:", err);
       setError(err.message || "Ocorreu um erro desconhecido.");
-      toast.error("Erro ao Registrar", { description: err.message || "Ocorreu um erro desconhecido." });
+      toast.error(initialFeedingLog ? "Erro ao Editar" : "Erro ao Registrar", { description: err.message || "Ocorreu um erro desconhecido." });
     } finally {
       setIsSubmitting(false);
       removeLoadingOperation(opId);

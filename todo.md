@@ -242,3 +242,63 @@ Implementar um serviço backend que escuta eventos pg_notify no canal 'send-sche
   - [ ] Adicionar instruções de deploy e variáveis de ambiente
   - [ ] Atualizar diagramas de arquitetura (se aplicável)
   - [ ] Incluir exemplos de logs e troubleshooting
+
+# weight loading refactor
+
+## Objetivo
+Centralizar e padronizar o controle de carregamento, erro e ausência de dados na página de peso (`app/weight/page.tsx`), alinhando com o padrão da Home. Garantir robustez, fácil manutenção e experiência consistente para o usuário.
+
+## Plano Detalhado
+
+### 1. Mapear Estados Possíveis
+- [x] Carregando usuário
+- [x] Carregando gatos
+- [x] Carregando logs de peso/alimentação
+- [x] Erro ao carregar qualquer dado
+- [x] Usuário não autenticado
+- [x] Usuário sem householdId
+- [x] Nenhum gato cadastrado
+- [x] Nenhum gato selecionado
+- [x] Pronto para renderizar painel
+
+### 2. Criar Enum/Type para Estado da Página
+```ts
+type WeightPageState =
+  | 'LOADING'
+  | 'ERROR'
+  | 'NO_USER'
+  | 'NO_HOUSEHOLD'
+  | 'NO_CATS'
+  | 'NO_SELECTED_CAT'
+  | 'READY';
+```
+
+### 3. Calcular Estado Centralizado
+- [x] Utilizar `useMemo` para decidir o estado da página com base nos contextos e variáveis
+
+### 4. Renderização Única via Switch
+- [x] Substituir early returns por um único switch
+
+### 5. Padronizar Feedback Visual
+- [x] Sempre usar `<GlobalLoading />` para carregamento.
+- [x] Usar `<EmptyState />` ou `<Alert />` para erros e estados vazios.
+
+### 6. Estratégias para Casos de Exceção
+- [ ] Implementar logs e mensagens para cada exceção
+
+### 7. Uso do Logger
+- [x] Adicionar logs com `logger` nos pontos de decisão do switch
+- [x] Para erros com stack trace, usar `logger.logError(error)`
+- [x] Garantir logs em produção no formato JSON
+
+### 8. Testes e Documentação
+- [ ] Testar todos os fluxos de exceção e loading
+- [ ] Documentar os estados e mensagens para facilitar manutenção
+
+---
+
+**Próximo milestone:**
+Testar todos os fluxos de exceção e loading, garantindo logs e feedbacks visuais corretos (etapa 8).
+
+**Responsável:** Squad Frontend
+**Status:** Em andamento
