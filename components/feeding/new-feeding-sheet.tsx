@@ -300,6 +300,7 @@ export function NewFeedingSheet({
         }
         result = await response.json();
         toast.success("Alimentação editada com sucesso!");
+        feedingDispatch({ type: "UPDATE_FEEDING", payload: result });
       } else {
         // Criação padrão
         response = await fetch("/api/feedings/batch", {

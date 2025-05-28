@@ -404,18 +404,17 @@ export default function FeedingsPage() {
                                   </Button>
                                   {/* Delete Button with Drawer (BottomSheet) */}
                                   <Drawer open={logToDelete?.id === log.id} onOpenChange={(open) => { if (!open) setLogToDelete(null) }}>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10 p-1"
-                                      onClick={(e) => { e.stopPropagation(); setLogToDelete(log); }}
-                                      aria-label="Excluir registro"
-                                      asChild
-                                    >
-                                      <DrawerTrigger asChild>
+                                    <DrawerTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10 p-1"
+                                        onClick={(e) => { e.stopPropagation(); setLogToDelete(log); }}
+                                        aria-label="Excluir registro"
+                                      >
                                         <Trash2 className="h-4 w-4" />
-                                      </DrawerTrigger>
-                                    </Button>
+                                      </Button>
+                                    </DrawerTrigger>
                                     <DrawerContent>
                                       <DrawerHeader>
                                         <DrawerTitle>Confirmar Exclusão</DrawerTitle>
@@ -427,11 +426,11 @@ export default function FeedingsPage() {
                                         </DrawerDescription>
                                       </DrawerHeader>
                                       <DrawerFooter>
-                                        <Button variant="outline" onClick={() => setLogToDelete(null)} disabled={isDeleting} asChild>
-                                          <DrawerClose asChild>
-                                            <span>Cancelar</span>
-                                          </DrawerClose>
-                                        </Button>
+                                        <DrawerClose asChild>
+                                          <Button variant="outline" onClick={() => setLogToDelete(null)} disabled={isDeleting}>
+                                            Cancelar
+                                          </Button>
+                                        </DrawerClose>
                                         <Button
                                           onClick={() => handleDeleteFeedingLog(log.id ? String(log.id) : undefined)}
                                           disabled={isDeleting || !logToDelete || logToDelete.id !== log.id}
