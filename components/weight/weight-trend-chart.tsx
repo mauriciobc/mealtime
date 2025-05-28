@@ -72,9 +72,10 @@ interface ProcessedFeedingLog extends FeedingLog {
 }
 
 interface WeightTrendChartProps {
-  catId: string; 
-  userId: string; // Added userId prop
-  logChangeTimestamp: number; // Added to trigger re-fetch
+  catId: string;
+  userId: string;
+  logChangeTimestamp: number;
+  period?: number;
 }
 
 // Custom Active Dot for Popover Trigger
@@ -131,7 +132,7 @@ const CustomActiveDot: React.FC<CustomActiveDotProps> = (props) => {
   );
 };
 
-const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logChangeTimestamp }) => {
+const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logChangeTimestamp, period }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
   const [isLoading, setIsLoading] = useState(true);
   const [chartData, setChartData] = useState<WeightLog[]>([]);
@@ -240,6 +241,12 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
     };
   }, []);
 
+  useEffect(() => {
+    if (period && [30, 60, 90].includes(period) && period !== timeRange) {
+      setTimeRange(period as TimeRange);
+    }
+  }, [period]);
+
   const formatDateTick = (tickItem: string) => {
     const date = new Date(tickItem);
     return date.toLocaleDateString('pt-BR', { month: 'short', day: 'numeric' });
@@ -255,166 +262,108 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-8 w-1/3" />
-            <div className="flex space-x-2">
-              <Skeleton className="h-8 w-10" />
-              <Skeleton className="h-8 w-10" />
-              <Skeleton className="h-8 w-10" />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-[300px] w-full" />
-        </CardContent>
-      </Card>
+      <div className="w-full">
+        <Skeleton className="h-[300px] w-full" />
+      </div>
     );
   }
 
   // Empty state condition
   if (!isLoading && chartData.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle>Tendência de Peso</CardTitle>
-              <CardDescription>Últimos {timeRange} dias</CardDescription>
-            </div>
-            <div className="flex space-x-2">
-              {([30, 60, 90] as TimeRange[]).map((range) => (
-                <Button
-                  key={range}
-                  variant={timeRange === range ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTimeRange(range)}
-                  disabled // Disable buttons if no data to prevent re-fetch simulation for empty state
-                >
-                  {range}D
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="h-[320px] flex items-center justify-center"> {/* Adjusted height for EmptyState */}
-          <EmptyState
-            IconComponent={BarChartBig}
-            title="Nenhum Dado Disponível"
-            description="Não há dados de peso para exibir para o período selecionado. Tente ajustar o intervalo de tempo ou adicione novos registros de peso."
-            className="mt-8 mb-4" // Added margin for better spacing
-          />
-        </CardContent>
-      </Card>
+      <div className="h-[320px] flex items-center justify-center w-full">
+        <EmptyState
+          IconComponent={BarChartBig}
+          title="Nenhum Dado Disponível"
+          description="Não há dados de peso para exibir para o período selecionado. Tente ajustar o intervalo de tempo ou adicione novos registros de peso."
+          className="mt-8 mb-4"
+        />
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle>Tendência de Peso</CardTitle>
-            <CardDescription>Últimos {timeRange} dias</CardDescription>
-          </div>
-          <div className="flex space-x-2">
-            {([30, 60, 90] as TimeRange[]).map((range) => (
-              <Button
-                key={range}
-                variant={timeRange === range ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTimeRange(range)}
-              >
-                {range}D
-              </Button>
-            ))}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div ref={chartContainerRef} style={{ position: 'relative', width: '100%', height: '300px', overflowX: 'auto' }}>
-          <ResponsiveContainer width="100%" height="100%" minWidth={500}>
-            <LineChart data={chartData} margin={chartMargins}>
-              <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5} />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={formatDateTick} 
-                tick={{ fontSize: 12 }}
-                stroke="hsl(var(--muted-foreground))"
-                domain={dateRange ? [dateRange.start, dateRange.end] : undefined} // Apply date range to XAxis if needed, or handle via data
-                type="number" // If dateRange.start/end are timestamps
-                scale="time" // If XAxis should scale as time
-              />
-              <YAxis 
-                domain={yAxisDomain as [number,number]} 
-                tick={{ fontSize: 12 }} 
-                stroke="hsl(var(--muted-foreground))"
-                tickFormatter={(value) => `${value.toFixed(1)}kg`} 
-              />
-              <RechartsTooltip 
-                contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
-                labelFormatter={formatDateTick}
-                formatter={(value: number | string) => { // Allow string for initial safety, parse to number
-                  const numValue = typeof value === 'string' ? parseFloat(value) : value;
-                  return [`${numValue.toFixed(2)} kg`, 'Weight'];
+    <div className="w-full">
+      <div ref={chartContainerRef} style={{ position: 'relative', width: '100%', height: '300px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={chartMargins}>
+            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5} />
+            <XAxis 
+              dataKey="date" 
+              tickFormatter={formatDateTick} 
+              tick={{ fontSize: 12 }}
+              stroke="hsl(var(--muted-foreground))"
+              domain={dateRange ? [dateRange.start, dateRange.end] : undefined}
+              type="number"
+              scale="time"
+            />
+            <YAxis 
+              domain={yAxisDomain as [number,number]} 
+              tick={{ fontSize: 12 }} 
+              stroke="hsl(var(--muted-foreground))"
+              tickFormatter={(value) => `${value.toFixed(1)}kg`} 
+            />
+            <RechartsTooltip 
+              contentStyle={{ backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}
+              labelFormatter={formatDateTick}
+              formatter={(value: number | string) => {
+                const numValue = typeof value === 'string' ? parseFloat(value) : value;
+                return [`${numValue.toFixed(2)} kg`, 'Weight'];
+              }}
+            />
+            <Legend wrapperStyle={{ fontSize: '14px'}} verticalAlign="bottom" />
+            <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot} name="Peso (kg)" />
+          </LineChart>
+        </ResponsiveContainer>
+        {/* Absolutely positioned badges for feeding logs */}
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+          {chartData.map((log, index) => {
+            const dateKey = new Date(log.date).toISOString().split('T')[0];
+            const feedingCount = feedingDataMap.get(dateKey);
+            if (!feedingCount) return null;
+
+            // Approximate positioning logic
+            const chartRenderWidth = chartWidth;
+            const chartRenderHeight = 300;
+            
+            const plotAreaWidth = chartRenderWidth - chartMargins.left - chartMargins.right;
+            const plotAreaHeight = chartRenderHeight - chartMargins.top - chartMargins.bottom;
+
+            const logTime = new Date(log.date).getTime();
+            const xRatio = (logTime - dateRange.start) / (dateRange.end - dateRange.start);
+            let xPos = chartMargins.left + xRatio * plotAreaWidth;
+            
+            const [yMin, yMax] = yAxisDomain;
+            const yRatio = (log.weight - yMin) / (yMax - yMin);
+            let yPos = chartMargins.top + (1 - yRatio) * plotAreaHeight;
+
+            xPos = Math.max(chartMargins.left, Math.min(xPos, chartRenderWidth - chartMargins.right - 10));
+            yPos = Math.max(chartMargins.top, Math.min(yPos, chartRenderHeight - chartMargins.bottom - 10));
+
+            return (
+              <Badge
+                key={`feeding-badge-${index}`}
+                variant="secondary"
+                className="absolute text-xs px-1 py-0.5"
+                style={{
+                  left: `${xPos}px`,
+                  top: `${yPos - 20}px`,
+                  transform: 'translateX(-50%)',
+                  pointerEvents: 'none'
                 }}
-              />
-              <Legend wrapperStyle={{ fontSize: '14px'}} verticalAlign="bottom" />
-              <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot} name="Peso (kg)" />
-            </LineChart>
-          </ResponsiveContainer>
-          {/* Absolutely positioned badges for feeding logs */}
-          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            {chartData.map((log, index) => {
-              const dateKey = new Date(log.date).toISOString().split('T')[0];
-              const feedingCount = feedingDataMap.get(dateKey);
-              if (!feedingCount) return null;
-
-              // Approximate positioning logic
-              const chartRenderWidth = chartWidth; // Use measured width from state
-              const chartRenderHeight = 300; // Keep consistent with ResponsiveContainer height
-              
-              const plotAreaWidth = chartRenderWidth - chartMargins.left - chartMargins.right;
-              const plotAreaHeight = chartRenderHeight - chartMargins.top - chartMargins.bottom;
-
-              const logTime = new Date(log.date).getTime();
-              const xRatio = (logTime - dateRange.start) / (dateRange.end - dateRange.start);
-              let xPos = chartMargins.left + xRatio * plotAreaWidth;
-              
-              const [yMin, yMax] = yAxisDomain;
-              const yRatio = (log.weight - yMin) / (yMax - yMin);
-              let yPos = chartMargins.top + (1 - yRatio) * plotAreaHeight; // Y is inverted
-
-              // Clamp positions to be within the plot area to avoid overflow with badges
-              xPos = Math.max(chartMargins.left, Math.min(xPos, chartRenderWidth - chartMargins.right - 10)); // -10 for badge width
-              yPos = Math.max(chartMargins.top, Math.min(yPos, chartRenderHeight - chartMargins.bottom - 10)); // -10 for badge height
-
-              return (
-                <Badge
-                  key={`feeding-badge-${index}`}
-                  variant="secondary" // Or other variants
-                  className="absolute text-xs px-1 py-0.5"
-                  style={{
-                    left: `${xPos}px`,
-                    top: `${yPos - 20}px`, // Position badge slightly above the point
-                    transform: 'translateX(-50%)', // Center badge
-                    pointerEvents: 'none' // So they don't interfere with chart interactions
-                  }}
-                >
-                  {feedingCount > 1 ? `${feedingCount}x Fed` : 'Fed'}
-                </Badge>
-              );
-            })}
-          </div>
+              >
+                {feedingCount > 1 ? `${feedingCount}x Fed` : 'Fed'}
+              </Badge>
+            );
+          })}
         </div>
-        {chartData.length === 0 && (
-          <div className="flex items-center justify-center h-[300px] bg-muted rounded-md">
-            <p className="text-muted-foreground">No weight data available for the selected period.</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+      {chartData.length === 0 && (
+        <div className="flex items-center justify-center h-[300px] bg-muted rounded-md">
+          <p className="text-muted-foreground">No weight data available for the selected period.</p>
+        </div>
+      )}
+    </div>
   );
 };
 

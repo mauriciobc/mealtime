@@ -6,7 +6,6 @@ import { format, startOfDay, isEqual, addHours, isBefore, compareAsc, endOfDay, 
 import { toDate } from 'date-fns-tz';
 import { getUserTimezone } from "../utils/dateUtils";
 import { resolveDateFnsLocale } from "../utils/dateFnsLocale";
-import { useUserContext as useUserContextLib } from "@/lib/context/UserContext";
 
 // Adicione no topo do arquivo
 console.log('[WeightContext][DEBUG] Arquivo importado');
@@ -132,8 +131,7 @@ export const WeightProvider = ({ children }: { children: ReactNode }) => {
   const loadingIdRef = useRef<string | null>(null);
   const hasAttemptedLoadRef = useRef(false);
   const isMountedRef = useRef(true);
-  const { state: userStateLib } = useUserContextLib();
-  const userLanguage = userStateLib.currentUser?.preferences?.language;
+  const userLanguage = userState.currentUser?.preferences?.language;
   const userLocale = resolveDateFnsLocale(userLanguage);
 
   const cleanupLoading = useCallback(() => {
@@ -331,7 +329,9 @@ export const useWeightSelector = <T,>(selector: (state: WeightState) => T): T =>
 // Hooks específicos
 export const useSelectCurrentWeight = (catId: string): number | null => {
   const { state } = useWeight();
-  const catLogs = state.weightLogs.filter(log => log.catId === catId);
+  const catLogs = state.weightLogs
+    .filter(log => log.catId === catId)
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
   if (catLogs.length === 0) return null;
   return catLogs[0].weight;
 };

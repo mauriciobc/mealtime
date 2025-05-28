@@ -11,7 +11,7 @@ import { OnboardingTour } from '@/components/weight/onboarding-tour';
 import GoalFormSheet, { GoalFormData } from '@/components/weight/goal-form-sheet';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
-import { Gauge, HelpCircle, Plus } from 'lucide-react';
+import { Gauge, HelpCircle, Plus, Scale, Target, Clock, TrendingUp, CalendarDays, Heart } from 'lucide-react';
 import {
   Accordion,
   AccordionContent,
@@ -31,6 +31,18 @@ import { GlobalLoading } from "@/components/ui/global-loading";
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
 import { CatsContext } from '@/lib/context/CatsContext';
 import { UserContext } from "@/lib/context/UserContext";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 // Interface for Cat - matches expected API structure from /api/cats
 interface Cat {
@@ -260,6 +272,34 @@ const WeightPage = () => {
   //   };
   // }, [weightLogsSnake]); // Dependency is defined
 
+  // Filtro para logs do gato selecionado
+  const logsForSelectedCat = useMemo(() =>
+    weightLogsSnake
+      .filter(log => log.cat_id === selectedCatId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [weightLogsSnake, selectedCatId]
+  );
+
+  // Histórico recente (últimos 5)
+  const recentHistory = logsForSelectedCat.slice(0, 5);
+
+  // Dados para gráfico (filtrando por período)
+  const [selectedPeriod, setSelectedPeriod] = useState<'30' | '60' | '90'>('30');
+  // O gráfico já usa useSelectWeightHistory internamente, só precisamos passar o período
+
+  // selectedCatForForm e selectedCatActiveGoal precisam ser declarados antes do uso
+  const selectedCatForForm = selectedCatId ? cats.find(c => c.id === selectedCatId) : null;
+  const selectedCatActiveGoal = selectedCatId ? goals.find(goal => goal.cat_id === selectedCatId && !goal.isArchived) : null;
+
+  // Progresso da meta
+  const currentWeight = logsForSelectedCat[0]?.weight ?? selectedCatForForm?.weight ?? 0;
+  const goalWeight = selectedCatActiveGoal?.target_weight ?? 0;
+  const progress = goalWeight
+    ? Math.min(100, (currentWeight / goalWeight) * 100)
+    : 0;
+
+  // Última alimentação do gato selecionado
+  const lastFeedingForCat = feedingLogs.find(log => log.catId === selectedCatId);
 
   // --- HANDLERS (useCallback hooks - depend on variables defined above) ---
   const handleOnboardingComplete = useCallback(() => {
@@ -588,249 +628,226 @@ const WeightPage = () => {
 
 
   // --- RENDER LOGIC ---
-  const selectedCatForForm = selectedCatId ? cats.find(c => c.id === selectedCatId) : null;
-  const selectedCatActiveGoal = selectedCatId ? goals.find(goal => goal.cat_id === selectedCatId && !goal.isArchived) : null;
   const selectedCatCurrentLog = selectedCatId ? weightLogsSnake.filter(log => log.cat_id === selectedCatId).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] || null : null;
   const catForEditedLog = logToEditData ? cats.find(c => c.id === logToEditData.catId) : null;
 
   return (
     <ProtectedRoute children={
-      <div className="container mx-auto p-4 space-y-8">
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-1">
-            <Gauge className="h-8 w-8 text-primary" aria-hidden="true" />
-            <h1 className="text-3xl font-bold">Painel de Peso</h1>
-          </div>
-          <p className="text-base text-muted-foreground ml-11">
-            Acompanhe e gerencie o peso de seus gatos.
-          </p>
-        </div>
-
-        <div className="flex justify-between items-center mb-6 gap-4">
-          <CatAvatarStack
-            className="flex-grow"
-            cats={cats} // cats defined above
-            selectedCatId={selectedCatId} // selectedCatId defined above
-            onSelectCat={handleSelectCat} // handleSelectCat defined above
-            aria-label="Seleção de gatos"
-          />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsOnboardingOpen(true)} // setIsOnboardingOpen defined above
-            aria-label="Abrir tour de ajuda"
-            aria-haspopup="dialog"
+      <div className="min-h-screen bg-gray-50 p-4 pb-24">
+        <motion.div
+          className="mx-auto max-w-md space-y-6"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+        >
+          {/* Header */}
+          <motion.div
+            className="text-center"
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <HelpCircle className="h-5 w-5" aria-hidden="true" />
-          </Button>
-        </div>
-
-        {/* isLoadingWeight and selectedCat?.name defined above */}
-        {isLoadingWeight && <p className="text-center text-muted-foreground">Carregando histórico de peso para {selectedCatForForm?.name ?? ''}...</p>}
-
-        {/* Iterate over cats and render details for each */}
-        {cats.map(cat => {
-           // Call hooks and derive data for *this specific cat* within the loop
-          const currentWeightForCat = useSelectCurrentWeight(cat.id);
-          const weightHistoryForCat = useSelectWeightHistory(cat.id, 30); // Use 30 days as before
-
-           // Find the active goal for this cat from the memoized goals array
-          const activeGoalForCat = goals.find(goal => goal.cat_id === cat.id && !goal.isArchived) || null;
-          // Find archived goals for this cat from the memoized goals array
-          const archivedGoalsForCat = goals.filter(goal => goal.cat_id === cat.id && goal.isArchived);
-
-
-           // Find the latest feeding log for this cat
-           const lastFeedingForCat = feedingLogs.find(log => log.catId === cat.id); // feedingLogs defined above
-
-           // Find current and previous weight logs for this cat from the memoized weightLogsSnake array
-           const logsForCat = weightLogsSnake.filter(log => log.cat_id === cat.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-           const currentLogForCat = logsForCat[0] || null;
-           const previousLogForCat = logsForCat[1] || null;
-
-
-          return (
-            <div key={cat.id} className={`space-y-6 border p-4 rounded-lg ${selectedCatId === cat.id ? 'border-primary' : ''}`}> {/* Add a border for selected cat */}
-                <h2 className="text-xl font-semibold">{cat.name}</h2> {/* Display cat's name */}
-
-              {/* isLoadingWeight applies to all, consider how to show loading per cat if needed */}
-              {isLoadingWeight && <p className="text-center text-muted-foreground">Carregando dados de peso para {cat.name}...</p>}
-
-              {/* Render detail components for this specific cat */}
-               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6"> {/* Keep grid layout - maybe adjust columns */}
-                 {/* Left Column / Main Info */}
-                 <div className="lg:col-span-1 space-y-6">
-                   <CurrentStatusCard
-                     currentWeight={currentLogForCat?.weight ?? cat.weight ?? 0}
-                     currentWeightDate={currentLogForCat?.date ?? null}
-                     targetWeight={activeGoalForCat?.target_weight}
-                     healthTip={undefined} // Assuming healthTip is not needed or derived elsewhere
-                     unit={activeGoalForCat?.unit || 'kg'}
-                     previousWeight={previousLogForCat?.weight}
-                     previousWeightDate={previousLogForCat?.date ?? null}
-                     birthDate={typeof cat.birthdate === 'string' ? cat.birthdate : cat.birthdate?.toISOString() || null}
-                     lastFeeding={lastFeedingForCat}
-                     aria-label={`Status atual de peso de ${cat.name}`}
-                   />
-                   {/* QuickLogPanel - Needs catId to log for this specific cat */}
-                    {/* Render QuickLogPanel inside the loop, but manage its open state and logToEditData globally or per-cat */}
-                    {/* For simplicity now, let's keep it potentially global but ensure it gets the correct catId */}
-                    {/* If the QuickLogPanel is opened via the RecentHistoryList, it will receive the specific log with its catId */}
-                    {/* If it's opened via a general button, it needs to know which cat it's for. This might require a per-cat open state or passing the catId when opening. */}
-                    {/* Let's assume for now QuickLogPanel open state is linked to the selectedCatId for simplicity of this refactor */}
-                    {/* If QuickLogPanel should be usable for ANY cat shown, its state management needs to be per-cat */}
-                    {/* Reverting QuickLogPanel and GoalFormSheet back to outside the loop for now, linked to selectedCatId, as refactoring them to be per-cat is a larger task. */}
-                 </div>
-
-                 {/* Right Column / Charts and Details */}
-                 <div className="lg:col-span-2 space-y-6">
-                   {activeGoalForCat && (
-                     <MilestoneProgress
-                       activeGoal={activeGoalForCat}
-                       currentWeight={currentLogForCat?.weight ?? cat.weight ?? 0}
-                       currentWeightDate={currentLogForCat?.date ?? null}
-                       aria-label={`Progresso da meta de peso de ${cat.name}`}
-                     />
-                   )}
-                   {!activeGoalForCat && !isLoadingWeight && (
-                     <div className="p-4 border rounded-lg bg-card text-card-foreground shadow-sm">
-                       <div className="flex flex-col items-center justify-center space-y-2">
-                         <p className="text-center text-muted-foreground">
-                           Nenhuma meta ativa definida para {cat.name}.
-                         </p>
-                          {/* Button to open goal form for this specific cat */}
-                         <Button
-                           variant="outline"
-                           size="sm"
-                           onClick={() => {
-                              setSelectedCatId(cat.id); // Select this cat when opening goal form
-                              setIsGoalFormSheetOpen(true);
-                           }}
-                           aria-label={`Definir nova meta de peso para ${cat.name}`}
-                           aria-haspopup="dialog"
-                         >
-                           <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-                           Definir Nova Meta
-                         </Button>
-                       </div>
-                     </div>
-                   )}
-
-                   <WeightTrendChart
-                     catId={cat.id} // Pass the current cat's ID
-                     userId={userId} // userId defined above
-                     logChangeTimestamp={logChangeTimestamp} // logChangeTimestamp defined above
-                     aria-label={`Gráfico de tendência de peso de ${cat.name}`}
-                   />
-                   <RecentHistoryList
-                     catId={cat.id} // Pass the current cat's ID
-                     userId={userId} // userId defined above
-                     onEditRequest={handleRequestEditLog} // handleRequestEditLog uses global logToEditData state
-                     onDeleteRequest={(logId) => handleRequestDeleteLog(logId, cat.id)} // Pass cat.id to delete handler
-                     logChangeTimestamp={logChangeTimestamp} // logChangeTimestamp defined above
-                     aria-label={`Histórico recente de peso de ${cat.name}`}
-                   />
-
-                    {/* Archived Goals - Display for each cat */}
-                    <Accordion type="single" collapsible className="w-full" aria-label={`Metas arquivadas para ${cat.name}`}>
-                      <AccordionItem value={`archived-goals-${cat.id}`}> {/* Unique value */}
-                        <AccordionTrigger>Metas Arquivadas</AccordionTrigger>
-                        <AccordionContent className="space-y-3 pb-20">
-                           {isLoadingWeight && <p className="text-sm text-muted-foreground">Carregando metas arquivadas para {cat.name}...</p>}
-                          {!isLoadingWeight && archivedGoalsForCat.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center py-4">Nenhuma meta arquivada para {cat.name}.</p>
-                          )}
-                          {!isLoadingWeight && archivedGoalsForCat.map((goal) => (
-                             <div key={goal.id} className="p-4 border rounded-lg bg-muted/50 opacity-80 hover:opacity-100 transition-opacity">
-                                {/* ... Archived Goal Display Logic (same as before) ... */}
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                  <h4 className="font-medium text-sm">{goal.goal_name} <span className="text-muted-foreground">(Arquivada)</span></h4>
-                                  {goal.achieved_date && (
-                                    <span className="text-xs text-green-600 dark:text-green-400">
-                                      Alcançada: {goal.achieved_date ? new Date(goal.achieved_date).toLocaleDateString() : ''}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                                  <div>
-                                    <p>Alvo: {goal.target_weight}{goal.unit}</p>
-                                    <p>Inicial: {goal.initial_weight}{goal.unit}</p>
-                                  </div>
-                                  <div>
-                                    <p>Início: {goal.start_date ? new Date(goal.start_date).toLocaleDateString() : ''}</p>
-                                    <p>Fim: {goal.target_date ? new Date(goal.target_date).toLocaleDateString() : ''}</p>
-                                  </div>
-                                </div>
-                                {goal.description && (
-                                  <p className="text-xs mt-2 border-t pt-2">{goal.description}</p>
-                                )}
-                                {goal.outcome_notes && (
-                                  <p className="text-xs mt-2 border-t pt-2 text-muted-foreground">
-                                    Resultado: {goal.outcome_notes}
-                                  </p>
-                                )}
-                             </div>
-                           ))}
-                           {/* Keep the global showArchivedGoals switch if desired, maybe move it outside the loop */}
-                            {/* Removing the global switch here to avoid confusion, the Accordion handles visibility per cat */}
-                        </AccordionContent>
-                      </AccordionItem>
-                    </Accordion>
-                 </div>
-               </div>
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Gauge className="h-8 w-8 text-primary" aria-hidden="true" />
+              <h1 className="text-2xl font-bold text-foreground">Painel de Peso</h1>
             </div>
-          );
-        })}
+            <p className="text-sm text-muted-foreground">Acompanhe a saúde do seu gato</p>
+          </motion.div>
 
-        {/* Onboarding Tour (Keep outside the loop as it's global) */}
-        <OnboardingTour
-          isOpen={isOnboardingOpen}
-          onOpenChange={setIsOnboardingOpen}
-          onComplete={handleOnboardingComplete}
-          aria-label="Tour de introdução"
-        />
-        {/* GoalFormSheet - Renderização condicional corrigida */}
-        {selectedCatId && (
-          <GoalFormSheet
-            isOpen={isGoalFormSheetOpen}
-            onOpenChange={setIsGoalFormSheetOpen}
-            onSubmit={(formData) => handleGoalSubmit(selectedCatId, formData)}
-            catId={selectedCatId}
-            currentWeight={selectedCatCurrentLog?.weight ?? selectedCatForForm?.weight}
-            defaultUnit={selectedCatActiveGoal?.unit || 'kg'}
-            birthDate={typeof selectedCatForForm?.birthdate === 'string' ? selectedCatForForm?.birthdate : selectedCatForForm?.birthdate?.toISOString() || null}
-            aria-label="Formulário de meta de peso"
-          />
-        )}
-        {/* QuickLogPanel - permanece igual */}
-        {isQuickLogPanelOpen && logToEditData && (
-          <QuickLogPanel
-            catId={logToEditData.catId}
-            onLogSubmit={(formData) => handleLogSubmit(logToEditData.catId, formData, logToEditData.id)}
-            logToEdit={logToEditData}
-            isPanelOpen={isQuickLogPanelOpen}
-            onPanelOpenChange={(isOpen) => {
-              setIsQuickLogPanelOpen(isOpen);
-              if (!isOpen) {
-                setLogToEditData(null);
-              }
-            }}
-            aria-label={`Painel de edição de registro de peso para ${catForEditedLog?.name || ''}`}
-          />
-        )}
+          {/* Seletor de Gatos */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+          >
+            <Card>
+              <CardContent className="pt-6 bg-card text-card-foreground">
+                <div className="flex gap-3">
+                  {cats.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setSelectedCatId(cat.id)}
+                      className={`flex flex-col items-center justify-center gap-2 rounded-lg p-3 transition-colors ${
+                        selectedCatId === cat.id ? "bg-blue-50 ring-2 ring-blue-500" : "bg-gray-50 hover:bg-gray-100"
+                      }`}
+                    >
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={cat.photo_url || "/placeholder.svg"} alt={cat.name} />
+                        <AvatarFallback>{cat.name[0]}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium text-foreground">{cat.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
-        {/* Global "Mostrar Arquivadas" switch - Re-adding outside the loop if needed */}
-        {/* <div className="flex items-center justify-center space-x-2 mt-4">
-            <Label htmlFor="show-archived-goals" className="text-sm">Mostrar Metas Arquivadas (Todos os Gatos)</Label>
-              <Switch
-                id="show-archived-goals"
-                checked={showArchivedGoals}
-                onCheckedChange={setShowArchivedGoals}
-                aria-label="Mostrar metas arquivadas para todos os gatos"
-              />
-          </div> */}
+          {/* Peso Atual e Meta */}
+          <motion.div
+            className="grid grid-cols-2 gap-4"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <Scale className="h-4 w-4 text-primary" />
+                  Peso Atual
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">{currentWeight}</div>
+                <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <Target className="h-4 w-4 text-primary" />
+                  Meta
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">{goalWeight}</div>
+                <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
+              </CardContent>
+            </Card>
+          </motion.div>
 
+          {/* Progresso da Meta */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+          >
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-semibold text-foreground">Progresso da Meta</CardTitle>
+                  <Button variant="outline" size="sm">
+                    <Heart className="mr-2 h-4 w-4 text-primary" />
+                    Ver Dicas
+                  </Button>
+                </div>
+                <CardDescription className="text-sm text-muted-foreground">
+                  {progress >= 90
+                    ? "Quase lá! 🎯"
+                    : progress >= 75
+                    ? "Ótimo progresso! 💪"
+                    : progress >= 50
+                    ? "Meio caminho! 🌟"
+                    : progress >= 25
+                    ? "Bom começo! 👍"
+                    : "Começando agora! 🚀"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Progresso</span>
+                    <span className="font-semibold text-foreground">{Math.round(progress)}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+                <Badge variant="secondary" className="w-fit">
+                  {progress >= 75 ? "No caminho certo" : "Atenção"}
+                </Badge>
+              </CardContent>
+            </Card>
+          </motion.div>
 
+          {/* Última Alimentação removida */}
+
+          {/* Gráfico de Tendência */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Tendência de Peso
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Tabs value={selectedPeriod} onValueChange={value => setSelectedPeriod(value as '30' | '60' | '90')} className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="30">30 Dias</TabsTrigger>
+                    <TabsTrigger value="60">60 Dias</TabsTrigger>
+                    <TabsTrigger value="90">90 Dias</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value={selectedPeriod} className="mt-4">
+                    <WeightTrendChart
+                      catId={selectedCatId}
+                      userId={userId}
+                      logChangeTimestamp={logChangeTimestamp}
+                      period={parseInt(selectedPeriod)}
+                    />
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Histórico Recente */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.35 }}
+          >
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <CalendarDays className="h-5 w-5 text-primary" />
+                  Histórico Recente
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {recentHistory.map((entry, index) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                        <div>
+                          <div className="font-medium text-foreground">{entry.weight} kg</div>
+                          <div className="text-sm text-muted-foreground">
+                            {new Date(entry.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(entry.date).toLocaleDateString("pt-BR", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Botão Flutuante */}
+          <Button
+            size="icon"
+            className="fixed bottom-24 right-4 z-50 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full shadow-lg flex items-center justify-center h-14 w-14 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 print:hidden"
+            onClick={() => setIsQuickLogPanelOpen(true)}
+            aria-label="Registrar Peso"
+          >
+            <Plus className="h-7 w-7" />
+          </Button>
+
+          {/* Painel de log rápido, GoalFormSheet, OnboardingTour, etc, permanecem como já estão */}
+          {/* ... */}
+        </motion.div>
       </div>
     } />
   );

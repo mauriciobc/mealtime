@@ -161,7 +161,7 @@ export async function POST(request: Request) {
       } = body as NewGoalData;
 
       // --- Basic Validation ---
-      if (!cat_id || !goal_name || !start_date || !target_date || !initial_weight || !target_weight || !unit) {
+      if (!cat_id || !goal_name || !start_date || !target_date || initial_weight === undefined || target_weight === undefined || !unit) {
         return NextResponse.json(
           { error: 'Missing required goal fields' }, 
           { 
@@ -218,6 +218,7 @@ export async function POST(request: Request) {
         cat: { connect: { id: cat_id } },
         createdBy: { connect: { id: userId } }
         // Não inclua milestones aqui, pois normalmente são criados separadamente
+        // start_date: start_date ? new Date(start_date) : undefined, // Não existe no schema
       };
 
       const newGoal = await prisma.weight_goals.create({
