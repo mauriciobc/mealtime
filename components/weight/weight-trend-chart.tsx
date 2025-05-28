@@ -55,7 +55,7 @@ const sampleFeedingLogs = [
 type TimeRange = 30 | 60 | 90;
 
 interface WeightLog {
-  date: string; // Should be ISO date string for easier manipulation
+  date: string | number; // Aceita string (ISO) ou timestamp numérico
   weight: number;
   notes?: string; // Added notes
 }
@@ -182,7 +182,11 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
             const logDate = new Date(log.date);
             return logDate >= startDate && logDate <= endDate;
           })
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .map(log => ({
+            ...log,
+            date: new Date(log.date).getTime(), // Agora 'date' é um timestamp numérico
+          }));
         let minWeight = Infinity, maxWeight = -Infinity;
         if (filteredLogs.length > 0) {
           filteredLogs.forEach(log => {
@@ -196,6 +200,8 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
           setDateRange(null);
         }
         setChartData(filteredLogs);
+        // LOG DE DEBUG DOS DADOS DO GRÁFICO
+        console.log('[WeightTrendChart] Dados do gráfico (chartData):', filteredLogs);
 
         // Fetch feeding logs for the cat
         const feedingResp = await fetch(`/api/feeding-logs?catId=${catId}`, {
@@ -321,6 +327,9 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
             const dateKey = new Date(log.date).toISOString().split('T')[0];
             const feedingCount = feedingDataMap.get(dateKey);
             if (!feedingCount) return null;
+
+            // Não renderiza o badge se dateRange for nulo
+            if (!dateRange) return null;
 
             // Approximate positioning logic
             const chartRenderWidth = chartWidth;

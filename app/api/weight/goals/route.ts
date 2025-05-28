@@ -9,7 +9,6 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const householdId = searchParams.get('householdId');
-    const userId = request.headers.get('X-User-ID');
 
     if (!householdId) {
       return NextResponse.json(
@@ -18,24 +17,24 @@ export async function GET(request: Request) {
       );
     }
 
-    if (!userId) {
+    // Obter usuário autenticado via sessão Supabase
+    const supabaseCheck = await createServerSupabaseClient();
+    const { data: { user }, error: userError } = await supabaseCheck.auth.getUser();
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Usuário não autenticado' },
         { status: 401 }
       );
     }
+    const userId = user.id;
 
-    // Usar o client padrão do projeto, que já pega os cookies do request
-    const supabase = await createServerSupabaseClient();
-
-    // Verificar se o usuário tem acesso à casa
-    const { data: householdAccess, error: accessError } = await supabase
+    // Checar se o usuário é membro da household
+    const { data: householdAccess, error: accessError } = await supabaseCheck
       .from('household_members')
       .select('id')
       .eq('household_id', householdId)
       .eq('user_id', userId)
       .single();
-
     if (accessError || !householdAccess) {
       return NextResponse.json(
         { error: 'Acesso não autorizado' },
@@ -43,7 +42,32 @@ export async function GET(request: Request) {
       );
     }
 
+    // Usar o client padrão do projeto, que já pega os cookies do request
+    const supabase = await createServerSupabaseClient();
+
     // Buscar metas de peso
+    // Primeiro, buscar os gatos da household
+    const { data: cats, error: catsError } = await supabase
+      .from('cats')
+      .select('id')
+      .eq('household_id', householdId);
+
+    if (catsError) {
+      console.error('Erro ao buscar gatos:', catsError);
+      return NextResponse.json(
+        { error: 'Erro ao buscar gatos' },
+        { status: 500 }
+      );
+    }
+    if (!cats) {
+      return NextResponse.json(
+        { error: 'Nenhum gato encontrado para esta casa' },
+        { status: 404 }
+      );
+    }
+
+    const catIds = cats.map(cat => cat.id);
+
     const { data: weightGoals, error: weightError } = await supabase
       .from('weight_goals')
       .select(`
@@ -58,12 +82,7 @@ export async function GET(request: Request) {
         created_at,
         updated_at
       `)
-      .in('cat_id', (
-        await supabase
-          .from('cats')
-          .select('id')
-          .eq('household_id', householdId)
-      ).data?.map(cat => cat.id) || []);
+      .in('cat_id', catIds);
 
     if (weightError) {
       console.error('Erro ao buscar metas de peso:', weightError);
@@ -87,7 +106,6 @@ export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const householdId = searchParams.get('householdId');
-    const userId = request.headers.get('X-User-ID');
 
     if (!householdId) {
       return NextResponse.json(
@@ -96,25 +114,44 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!userId) {
+    // Obter usuário autenticado via sessão Supabase
+    const supabaseCheck = await createServerSupabaseClient();
+    const { data: { user }, error: userError } = await supabaseCheck.auth.getUser();
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Usuário não autenticado' },
         { status: 401 }
       );
     }
+    const userId = user.id;
+
+    // Checar se o usuário é membro da household
+    const { data: householdAccess, error: accessError } = await supabaseCheck
+      .from('household_members')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('user_id', userId)
+      .single();
+    if (accessError || !householdAccess) {
+      return NextResponse.json(
+        { error: 'Acesso não autorizado' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
-    const { catId, targetWeight, targetDate, startWeight, notes } = body;
+    const { catId, targetWeight, targetDate, startWeight, notes, goalName, unit } = body;
 
-    if (!catId || !targetWeight) {
+    if (!catId || !targetWeight || !goalName || !unit) {
       return NextResponse.json(
         { error: 'Dados incompletos' },
         { status: 400 }
       );
     }
 
-    const cookieStore = await createRouteHandlerCookieStore();
-    const supabase = createRouteHandlerClient<Database>({ cookies: cookieStore });
+    // Corrigir uso de cookies para o client
+    const cookieStore = cookies;
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore() });
 
     // Verificar se o gato pertence à casa
     const { data: cat, error: catError } = await supabase
@@ -136,9 +173,11 @@ export async function POST(request: Request) {
       .from('weight_goals')
       .insert({
         cat_id: catId,
+        goal_name: goalName,
         target_weight: targetWeight,
         target_date: targetDate,
         start_weight: startWeight,
+        unit: unit,
         status: 'active',
         notes,
         created_by: userId
@@ -169,7 +208,6 @@ export async function PUT(request: Request) {
     const { searchParams } = new URL(request.url);
     const goalId = searchParams.get('id');
     const householdId = searchParams.get('householdId');
-    const userId = request.headers.get('X-User-ID');
 
     if (!goalId || !householdId) {
       return NextResponse.json(
@@ -178,18 +216,37 @@ export async function PUT(request: Request) {
       );
     }
 
-    if (!userId) {
+    // Obter usuário autenticado via sessão Supabase
+    const supabaseCheck = await createServerSupabaseClient();
+    const { data: { user }, error: userError } = await supabaseCheck.auth.getUser();
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Usuário não autenticado' },
         { status: 401 }
       );
     }
+    const userId = user.id;
+
+    // Checar se o usuário é membro da household
+    const { data: householdAccess, error: accessError } = await supabaseCheck
+      .from('household_members')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('user_id', userId)
+      .single();
+    if (accessError || !householdAccess) {
+      return NextResponse.json(
+        { error: 'Acesso não autorizado' },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
-    const { targetWeight, targetDate, startWeight, status, notes } = body;
+    const { targetWeight, targetDate, startWeight, status, notes, goalName, unit } = body;
 
-    const cookieStore = await createRouteHandlerCookieStore();
-    const supabase = createRouteHandlerClient<Database>({ cookies: cookieStore });
+    // Corrigir uso de cookies para o client
+    const cookieStore = cookies;
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore() });
 
     // Verificar se a meta pertence a um gato da casa
     const { data: goal, error: goalError } = await supabase
@@ -198,7 +255,7 @@ export async function PUT(request: Request) {
       .eq('id', goalId)
       .single();
 
-    if (goalError || !goal) {
+    if (goalError || !goal || !('cat_id' in goal)) {
       return NextResponse.json(
         { error: 'Meta não encontrada' },
         { status: 404 }
@@ -227,7 +284,9 @@ export async function PUT(request: Request) {
         target_date: targetDate,
         start_weight: startWeight,
         status,
-        notes
+        notes,
+        goal_name: goalName,
+        unit: unit
       })
       .eq('id', goalId)
       .select()
@@ -256,7 +315,6 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const goalId = searchParams.get('id');
     const householdId = searchParams.get('householdId');
-    const userId = request.headers.get('X-User-ID');
 
     if (!goalId || !householdId) {
       return NextResponse.json(
@@ -265,15 +323,34 @@ export async function DELETE(request: Request) {
       );
     }
 
-    if (!userId) {
+    // Obter usuário autenticado via sessão Supabase
+    const supabaseCheck = await createServerSupabaseClient();
+    const { data: { user }, error: userError } = await supabaseCheck.auth.getUser();
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'Usuário não autenticado' },
         { status: 401 }
       );
     }
+    const userId = user.id;
 
-    const cookieStore = await createRouteHandlerCookieStore();
-    const supabase = createRouteHandlerClient<Database>({ cookies: cookieStore });
+    // Checar se o usuário é membro da household
+    const { data: householdAccess, error: accessError } = await supabaseCheck
+      .from('household_members')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('user_id', userId)
+      .single();
+    if (accessError || !householdAccess) {
+      return NextResponse.json(
+        { error: 'Acesso não autorizado' },
+        { status: 403 }
+      );
+    }
+
+    // Corrigir uso de cookies para o client
+    const cookieStore = cookies;
+    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore() });
 
     // Verificar se a meta pertence a um gato da casa
     const { data: goal, error: goalError } = await supabase
@@ -282,7 +359,7 @@ export async function DELETE(request: Request) {
       .eq('id', goalId)
       .single();
 
-    if (goalError || !goal) {
+    if (goalError || !goal || !('cat_id' in goal)) {
       return NextResponse.json(
         { error: 'Meta não encontrada' },
         { status: 404 }

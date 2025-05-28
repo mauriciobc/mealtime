@@ -94,14 +94,8 @@ function applySecurityHeadersToResponse(response: NextResponse, request: NextReq
 
 // Helper function to create Supabase client (reuse from API routes)
 function createSupabaseRouteClient(request: NextRequest) {
-  const cookieStore = createMiddlewareCookieStore(request, {
-    name: 'sb-auth-token',
-    options: {
-      path: '/',
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production'
-    }
-  });
+  const response = NextResponse.next();
+  const cookieStore = createMiddlewareCookieStore(request, response);
 
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -146,7 +140,7 @@ export async function middleware(request: NextRequest) {
         response.headers.set('Access-Control-Allow-Credentials', 'true');
         response.headers.set('Access-Control-Allow-Origin', request.headers.get('origin') || '*');
         response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        response.headers.set('Access-Control-Allow-Headers', 'X-User-ID, Content-Type, Authorization');
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         response.headers.set('Content-Type', 'application/json');
         
         return applySecurityHeadersToResponse(response, request);

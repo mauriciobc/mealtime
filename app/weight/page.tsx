@@ -43,6 +43,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet";
 
 // Interface for Cat - matches expected API structure from /api/cats
 interface Cat {
@@ -145,6 +146,7 @@ const WeightPage = () => {
   const [logToEditData, setLogToEditData] = useState<LogForEditing | null>(null);
   const [logChangeTimestamp, setLogChangeTimestamp] = useState<number>(Date.now());
   const [isGoalFormSheetOpen, setIsGoalFormSheetOpen] = useState(false);
+  const [isTipsSheetOpen, setIsTipsSheetOpen] = useState(false);
 
   // Contexts (called unconditionally)
   const userContext = useContext(UserContext);
@@ -294,9 +296,14 @@ const WeightPage = () => {
   // Progresso da meta
   const currentWeight = logsForSelectedCat[0]?.weight ?? selectedCatForForm?.weight ?? 0;
   const goalWeight = selectedCatActiveGoal?.target_weight ?? 0;
-  const progress = goalWeight
-    ? Math.min(100, (currentWeight / goalWeight) * 100)
-    : 0;
+  const initialWeight = selectedCatActiveGoal?.initial_weight ?? selectedCatActiveGoal?.startWeight ?? 0;
+  let progress = 0;
+  if (selectedCatActiveGoal && initialWeight !== goalWeight) {
+    const totalDistance = goalWeight - initialWeight;
+    const currentDistance = currentWeight - initialWeight;
+    // Progresso é a fração do caminho percorrido, limitado entre 0 e 100
+    progress = Math.min(Math.max((currentDistance / totalDistance) * 100, 0), 100);
+  }
 
   // Última alimentação do gato selecionado
   const lastFeedingForCat = feedingLogs.find(log => log.catId === selectedCatId);
@@ -635,205 +642,240 @@ const WeightPage = () => {
     <ProtectedRoute children={
       <div className="min-h-screen bg-gray-50 p-4 pb-24">
         <motion.div
-          className="mx-auto max-w-md space-y-6"
+          className="mx-auto max-w-md lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
         >
-          {/* Header */}
+          {/* Header (agora span em todas as colunas) */}
           <motion.div
-            className="text-center"
+            className="text-center lg:col-span-3"
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Gauge className="h-8 w-8 text-primary" aria-hidden="true" />
-              <h1 className="text-2xl font-bold text-foreground">Painel de Peso</h1>
+            <div className="flex items-center justify-between gap-2 mb-1 relative">
+              <div className="flex flex-col items-center gap-1">
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-8 w-8 text-primary" aria-hidden="true" />
+                  <h1 className="text-2xl font-bold text-foreground">Painel de Peso</h1>
+                </div>
+                <p className="text-sm text-muted-foreground">Acompanhe a saúde do seu gato</p>
+              </div>
+              {/* Botão de adicionar meta */}
+              <Button
+                size="icon"
+                variant="ghost"
+                className=""
+                onClick={() => setIsGoalFormSheetOpen(true)}
+                aria-label="Nova Meta de Peso"
+              >
+                <Scale className="h-6 w-6 text-primary" />
+              </Button>
             </div>
-            <p className="text-sm text-muted-foreground">Acompanhe a saúde do seu gato</p>
+            <div className="w-full flex justify-center mt-4">
+              <div className="border-b border-gray-200 w-full max-w-4xl" />
+            </div>
           </motion.div>
 
-          {/* Seletor de Gatos */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
-          >
-            <Card>
-              <CardContent className="pt-6 bg-card text-card-foreground">
-                <div className="flex gap-3">
-                  {cats.map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setSelectedCatId(cat.id)}
-                      className={`flex flex-col items-center justify-center gap-2 rounded-lg p-3 transition-colors ${
-                        selectedCatId === cat.id ? "bg-blue-50 ring-2 ring-blue-500" : "bg-gray-50 hover:bg-gray-100"
-                      }`}
-                    >
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={cat.photo_url || "/placeholder.svg"} alt={cat.name} />
-                        <AvatarFallback>{cat.name[0]}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium text-foreground">{cat.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Peso Atual e Meta */}
-          <motion.div
-            className="grid grid-cols-2 gap-4"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                  <Scale className="h-4 w-4 text-primary" />
-                  Peso Atual
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">{currentWeight}</div>
-                <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                  <Target className="h-4 w-4 text-primary" />
-                  Meta
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-foreground">{goalWeight}</div>
-                <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Progresso da Meta */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.25 }}
-          >
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold text-foreground">Progresso da Meta</CardTitle>
-                  <Button variant="outline" size="sm">
-                    <Heart className="mr-2 h-4 w-4 text-primary" />
-                    Ver Dicas
-                  </Button>
-                </div>
-                <CardDescription className="text-sm text-muted-foreground">
-                  {progress >= 90
-                    ? "Quase lá! 🎯"
-                    : progress >= 75
-                    ? "Ótimo progresso! 💪"
-                    : progress >= 50
-                    ? "Meio caminho! 🌟"
-                    : progress >= 25
-                    ? "Bom começo! 👍"
-                    : "Começando agora! 🚀"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Progresso</span>
-                    <span className="font-semibold text-foreground">{Math.round(progress)}%</span>
+          {/* Coluna 1: Seletor de Gatos */}
+          <div className="lg:col-span-1 flex flex-col gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+            >
+              <Card>
+                <CardContent className="pt-6 bg-card text-card-foreground">
+                  <div className="flex gap-3 px-2 overflow-x-auto lg:overflow-visible p-[2px]">
+                    {cats.map((cat) => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSelectedCatId(cat.id)}
+                        className={`flex flex-col items-center justify-center gap-2 rounded-lg p-3 transition-colors ${
+                          selectedCatId === cat.id ? "bg-blue-50 ring-2 ring-blue-500" : "bg-gray-50 hover:bg-gray-100"
+                        }`}
+                      >
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={cat.photo_url || "/placeholder.svg"} alt={cat.name} />
+                          <AvatarFallback>{cat.name[0]}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm font-medium text-foreground">{cat.name}</span>
+                      </button>
+                    ))}
                   </div>
-                  <Progress value={progress} className="h-2" />
-                </div>
-                <Badge variant="secondary" className="w-fit">
-                  {progress >= 75 ? "No caminho certo" : "Atenção"}
-                </Badge>
-              </CardContent>
-            </Card>
-          </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
 
-          {/* Última Alimentação removida */}
+          {/* Coluna 2: Peso Atual, Meta, Progresso da Meta */}
+          <div className="lg:col-span-1 flex flex-col gap-6">
+            <motion.div
+              className="grid grid-cols-2 gap-4"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <Scale className="h-4 w-4 text-primary" />
+                    Peso Atual
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-foreground">{currentWeight}</div>
+                  <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <Target className="h-4 w-4 text-primary" />
+                    Meta
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedCatActiveGoal ? (
+                    <>
+                      <div className="text-2xl font-bold text-foreground">{goalWeight}</div>
+                      <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-4">
+                      <span className="text-xs text-muted-foreground text-center">Nenhuma meta definida.</span>
+                      <Button
+                        className="mt-3"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsGoalFormSheetOpen(true)}
+                      >
+                        Definir Meta
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+            >
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-semibold text-foreground">Progresso da Meta</CardTitle>
+                    <Button variant="outline" size="sm" onClick={() => setIsTipsSheetOpen(true)}>
+                      <Heart className="mr-2 h-4 w-4 text-primary" />
+                      Ver Dicas
+                    </Button>
+                  </div>
+                  <CardDescription className="text-sm text-muted-foreground">
+                    {progress >= 100
+                      ? "Parabéns! Meta alcançada! 🎉"
+                      : progress >= 90
+                      ? "Quase lá! 🎯"
+                      : progress >= 75
+                      ? "Ótimo progresso! 💪"
+                      : progress >= 50
+                      ? "Meio caminho! 🌟"
+                      : progress >= 25
+                      ? "Bom começo! 👍"
+                      : "Começando agora! 🚀"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Progresso</span>
+                      <span className="font-semibold text-foreground">{Math.round(progress)}%</span>
+                    </div>
+                    <Progress value={progress} className="h-2" />
+                  </div>
+                  <Badge variant="secondary" className="w-fit">
+                    {progress >= 75 ? "No caminho certo" : "Atenção"}
+                  </Badge>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
 
-          {/* Gráfico de Tendência */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Tendência de Peso
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={selectedPeriod} onValueChange={value => setSelectedPeriod(value as '30' | '60' | '90')} className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="30">30 Dias</TabsTrigger>
-                    <TabsTrigger value="60">60 Dias</TabsTrigger>
-                    <TabsTrigger value="90">90 Dias</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value={selectedPeriod} className="mt-4">
-                    <WeightTrendChart
-                      catId={selectedCatId}
-                      userId={userId}
-                      logChangeTimestamp={logChangeTimestamp}
-                      period={parseInt(selectedPeriod)}
-                    />
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Histórico Recente */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.35 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                  <CalendarDays className="h-5 w-5 text-primary" />
-                  Histórico Recente
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {recentHistory.map((entry, index) => (
-                    <div
-                      key={entry.id}
-                      className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                        <div>
-                          <div className="font-medium text-foreground">{entry.weight} kg</div>
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(entry.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+          {/* Coluna 3: Gráfico de Tendência + Histórico Recente */}
+          <div className="lg:col-span-1 flex flex-col gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Tendência de Peso
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Tabs value={selectedPeriod} onValueChange={value => setSelectedPeriod(value as '30' | '60' | '90')} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="30">30 Dias</TabsTrigger>
+                      <TabsTrigger value="60">60 Dias</TabsTrigger>
+                      <TabsTrigger value="90">90 Dias</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value={selectedPeriod} className="mt-4">
+                      <WeightTrendChart
+                        catId={selectedCatId}
+                        userId={userId}
+                        logChangeTimestamp={logChangeTimestamp}
+                        period={parseInt(selectedPeriod)}
+                      />
+                    </TabsContent>
+                  </Tabs>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.35 }}
+            >
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <CalendarDays className="h-5 w-5 text-primary" />
+                    Histórico Recente
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentHistory.map((entry, index) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 w-2 rounded-full bg-blue-500"></div>
+                          <div>
+                            <div className="font-medium text-foreground">{entry.weight} kg</div>
+                            <div className="text-sm text-muted-foreground">
+                              {new Date(entry.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            </div>
                           </div>
                         </div>
+                        <div className="text-sm text-muted-foreground">
+                          {new Date(entry.date).toLocaleDateString("pt-BR", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(entry.date).toLocaleDateString("pt-BR", {
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
 
           {/* Botão Flutuante */}
           <Button
@@ -845,8 +887,76 @@ const WeightPage = () => {
             <Plus className="h-7 w-7" />
           </Button>
 
-          {/* Painel de log rápido, GoalFormSheet, OnboardingTour, etc, permanecem como já estão */}
-          {/* ... */}
+          {/* Painel de log rápido (QuickLogPanel) */}
+          <QuickLogPanel
+            catId={selectedCatId || ''}
+            onLogSubmit={async (data, logIdToUpdate) => {
+              if (selectedCatId) {
+                await handleLogSubmit(selectedCatId, data, logIdToUpdate);
+              }
+            }}
+            logToEdit={logToEditData || undefined}
+            isPanelOpen={isQuickLogPanelOpen}
+            onPanelOpenChange={setIsQuickLogPanelOpen}
+          />
+
+          {/* Bottom Sheet de Dicas */}
+          <Sheet open={isTipsSheetOpen} onOpenChange={setIsTipsSheetOpen}>
+            <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>⚖️ Dicas para Controle de Peso</SheetTitle>
+                <SheetDescription>
+                  Recomendações para um acompanhamento saudável do peso do seu gato.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="space-y-4 mt-2 text-base text-foreground">
+                <div className="space-y-2">
+                  <p className="font-semibold">🩺 Consulte sempre o veterinário:</p>
+                  <p>Antes de iniciar qualquer plano de perda ou ganho de peso, busque orientação profissional.</p>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold">📊 Use o app a seu favor:</p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>Registre o peso regularmente para acompanhar tendências.</li>
+                    <li>Compartilhe os dados com o veterinário.</li>
+                    <li>Fique atento a alertas de mudanças bruscas.</li>
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold text-yellow-700 dark:text-yellow-400">⚠️ Atenção:</p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>Evite dietas restritivas sem acompanhamento.</li>
+                    <li>Perda de peso rápida pode ser perigosa.</li>
+                  </ul>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold">💡 Dica extra:</p>
+                  <p>Combine os registros do app com exames clínicos para um cuidado completo.</p>
+                </div>
+                <div className="pt-2 border-t text-sm text-muted-foreground">
+                  O app é um apoio, mas não substitui o veterinário. Priorize sempre a saúde do seu gato!
+                </div>
+              </div>
+              <SheetClose asChild>
+                <Button className="mt-6 w-full" variant="default">Fechar</Button>
+              </SheetClose>
+            </SheetContent>
+          </Sheet>
+
+          {/* Bottom Sheet de Nova Meta */}
+          <GoalFormSheet
+            isOpen={isGoalFormSheetOpen}
+            onOpenChange={setIsGoalFormSheetOpen}
+            onSubmit={async (data) => {
+              if (selectedCatId) {
+                await handleGoalSubmit(selectedCatId, data);
+              }
+            }}
+            catId={selectedCatId}
+            currentWeight={currentWeight}
+            defaultUnit={selectedCatActiveGoal?.unit || 'kg'}
+            birthDate={selectedCatForForm?.birthdate}
+          />
         </motion.div>
       </div>
     } />

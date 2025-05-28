@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 
-interface FetchOptions {
+interface FetchOptions<T> {
   url: string;
   userId: string;
-  onSuccess?: (data: any) => void;
+  onSuccess?: (data: T[]) => void;
   errorMessage?: string;
-  transformData?: (data: any) => any;
+  transformData?: (data: any) => T[];
   retryCount?: number;
   retryDelay?: number;
   cacheTime?: number;
@@ -28,7 +28,7 @@ export function useDataFetching<T>({
   retryCount = 3,
   retryDelay = 1000,
   cacheTime = 5 * 60 * 1000 // 5 minutos
-}: FetchOptions) {
+}: FetchOptions<T>) {
   const [data, setData] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -149,9 +149,9 @@ export function useDataFetching<T>({
       } catch (error) {
         console.error(`[useDataFetching] Erro ao buscar dados de ${url}:`, error);
         if (isMounted) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          setError(new Error(errorMessage));
-          toast.error(errorMessage);
+          const fallbackMessage = errorMessage || (error instanceof Error ? error.message : String(error));
+          setError(new Error(fallbackMessage));
+          toast.error(fallbackMessage);
         }
       } finally {
         if (isMounted) {

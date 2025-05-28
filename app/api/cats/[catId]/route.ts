@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { withError } from "@/lib/utils/api-middleware";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { cookies } from 'next/headers';
 
 // Helper function to create Supabase client in API routes using async cookie store
 async function createSupabaseRouteClient() {
@@ -52,7 +53,7 @@ export const GET = withError(async (request: Request, { params }: { params: Prom
 
     if (authError) {
       console.error(`[GET /api/cats/${catId}] Auth error:`, authError);
-      return new NextResponse("Authentication failed", { 
+      return new NextResponse(JSON.stringify({ error: "Authentication failed" }), { 
         status: 401,
         headers: {
           'Content-Type': 'application/json'
@@ -61,7 +62,7 @@ export const GET = withError(async (request: Request, { params }: { params: Prom
     }
 
     if (!user) {
-      return new NextResponse("Unauthorized", { 
+      return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { 
         status: 401,
         headers: {
           'Content-Type': 'application/json'
@@ -92,7 +93,7 @@ export const GET = withError(async (request: Request, { params }: { params: Prom
 
     if (!cat) {
       console.log(`[GET /api/cats/${catId}] Cat not found or access denied for user ${user.id}`);
-      return new NextResponse("Cat not found or access denied", { 
+      return new NextResponse(JSON.stringify({ error: "Cat not found or access denied" }), { 
         status: 404,
         headers: {
           'Content-Type': 'application/json'
@@ -128,7 +129,7 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    return new NextResponse("Unauthorized", { 
+    return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { 
       status: 401,
       headers: {
         'Content-Type': 'application/json'
@@ -153,7 +154,7 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
   });
 
   if (!cat) {
-    return new NextResponse("Cat not found or access denied", { 
+    return new NextResponse(JSON.stringify({ error: "Cat not found or access denied" }), { 
       status: 404,
       headers: {
         'Content-Type': 'application/json'
@@ -195,7 +196,7 @@ export const DELETE = withError(async (request: NextRequest, { params }: { param
 
   if (authError || !user) {
     console.log(`[DELETE /api/cats/${catId}] Failed: Authentication error`);
-    return new NextResponse("Unauthorized", { status: 401 });
+    return new NextResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
 
   console.log(`[DELETE /api/cats/${catId}] Attempting delete by user ${user.id}`);

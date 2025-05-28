@@ -29,11 +29,12 @@ export type PeriodType = 'hoje' | '7dias' | '30dias' | 'mesAtual' | 'mesPassado'
  */
 export function safeParseISO(timestamp: string | Date | unknown): Date | null {
   try {
+    if (timestamp instanceof Date) {
+      return isValid(timestamp) ? timestamp : null
+    }
     const timestampStr = typeof timestamp === 'string'
       ? timestamp
-      : timestamp instanceof Date
-        ? timestamp.toISOString()
-        : String(timestamp)
+      : String(timestamp)
 
     if (!timestampStr) return null
     const date = parseISO(timestampStr)

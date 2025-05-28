@@ -15,14 +15,7 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
 } from "@/components/ui/drawer";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import {
   Form,
@@ -95,26 +88,6 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
   return (
     <>
       <Drawer open={isPanelOpen} onOpenChange={onPanelOpenChange}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DrawerTrigger asChild>
-                <Button 
-                  className="fixed bottom-24 right-6 h-14 w-14 rounded-full shadow-lg flex items-center justify-center text-2xl z-30 print:hidden"
-                  variant="default" 
-                  size="icon"
-                  aria-label={isEditing ? "Editar registro de peso" : "Registrar novo peso"}
-                >
-                  +
-                </Button>
-              </DrawerTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isEditing ? "Editar Registro" : "Registrar Novo Peso"}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
         <DrawerContent>
           <div className="mx-auto w-full max-w-md">
             <DrawerHeader className="text-left">

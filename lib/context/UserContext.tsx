@@ -270,35 +270,42 @@ export function UserProvider({ children }: { children: ReactNode }) {
     authChangeTimeoutRef.current = setTimeout(async () => {
       try {
         logger.info(`[UserProvider][Request ${requestId}] Calling supabase.auth.getUser()`);
+        const authPromise = supabase.auth.getUser();
         const authResult = await Promise.race([
-          supabase.auth.getUser(),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+          authPromise,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Auth check timeout')), 5_000)
           )
         ]);
-
         if (!mountedRef.current) return;
 
-        const { data: { user: verifiedUser }, error: userError } = authResult as Awaited<ReturnType<typeof supabase.auth.getUser>>;
-        
-        logger.info(`[UserProvider][Request ${requestId}] supabase.auth.getUser() result: user=${verifiedUser ? verifiedUser.id : 'null'}, error=${userError ? JSON.stringify(userError) : 'null'}`);
-        
-        if (userError) {
-          logger.error(`[UserProvider][Request ${requestId}] Auth error:`, { error: userError });
-          throw userError;
-        }
+        if ('data' in authResult) {
+          const {
+            data: { user: verifiedUser },
+            error: userError
+          } = authResult;
 
-        if (!verifiedUser) {
-          logger.warn(`[UserProvider][Request ${requestId}] No verified user found. Clearing user state.`);
-          setProfile(null);
-          dispatch({ type: "CLEAR_USER" });
-          lastProfileFetchRef.current = null;
-          setAuthLoading(false);
-          return;
-        }
+          logger.info(`[UserProvider][Request ${requestId}] supabase.auth.getUser() result: user=${verifiedUser ? verifiedUser.id : 'null'}, error=${userError ? JSON.stringify(userError) : 'null'}`);
 
-        logger.info(`[UserProvider][Request ${requestId}] Verified user found: ${verifiedUser.id}. Calling loadUserData.`);
-        await loadUserData(verifiedUser);
+          if (userError) {
+            logger.error(`[UserProvider][Request ${requestId}] Auth error:`, { error: userError });
+            throw userError;
+          }
+
+          if (!verifiedUser) {
+            logger.warn(`[UserProvider][Request ${requestId}] No verified user found. Clearing user state.`);
+            setProfile(null);
+            dispatch({ type: "CLEAR_USER" });
+            lastProfileFetchRef.current = null;
+            setAuthLoading(false);
+            return;
+          }
+
+          logger.info(`[UserProvider][Request ${requestId}] Verified user found: ${verifiedUser.id}. Calling loadUserData.`);
+          await loadUserData(verifiedUser);
+        } else {
+          // timeout já tratado pelo catch
+        }
       } catch (error) {
         logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, error);
         if (mountedRef.current) {
