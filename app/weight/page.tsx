@@ -683,7 +683,7 @@ const WeightPage = () => {
 
   return (
     <ProtectedRoute children={
-      <div className="min-h-screen bg-white p-4 pb-24">
+      <div className="min-h-screen bg-background p-4 pb-24">
         <motion.div
           className="mx-auto max-w-md lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6"
           initial={{ opacity: 0, y: 16 }}
