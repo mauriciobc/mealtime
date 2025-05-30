@@ -32,7 +32,6 @@ function EnhancedCalendar({
   ...props
 }: EnhancedCalendarProps) {
   const [month, setMonth] = React.useState<Date>(selected || new Date())
-  const [showYearSelect, setShowYearSelect] = React.useState(false)
 
   // Generate year options
   const years = React.useMemo(() => {
@@ -62,7 +61,6 @@ function EnhancedCalendar({
     const newDate = new Date(month)
     newDate.setFullYear(yearNum)
     setMonth(newDate)
-    setShowYearSelect(false)
   }
 
   const handleMonthChange = (monthIndex: string) => {
@@ -222,7 +220,6 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
   align = "start",
 }) => {
   const [month, setMonth] = React.useState<Date>(value || new Date())
-  const [showYearSelect, setShowYearSelect] = React.useState(false)
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 
   // Generate year options
@@ -253,7 +250,6 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     const newDate = new Date(month)
     newDate.setFullYear(yearNum)
     setMonth(newDate)
-    setShowYearSelect(false)
   }
 
   const handleMonthChange = (monthIndex: string) => {

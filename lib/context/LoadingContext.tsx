@@ -54,9 +54,11 @@ export const LoadingProvider = ({ children }: { children: ReactNode }) => {
 
   // Novo: função para atualizar progresso de uma operação
   const setOperationProgress = useCallback((id: string, progress: number) => {
+    // Garante que progress esteja entre 0 e 100
+    const clampedProgress = Math.max(0, Math.min(100, progress));
     setState((prevState) => ({
       operations: prevState.operations.map((op) =>
-        op.id === id ? { ...op, progressPercentage: progress } : op
+        op.id === id ? { ...op, progressPercentage: clampedProgress } : op
       ),
     }));
   }, []);

@@ -96,7 +96,7 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
 
     // Validação de segurança: bloqueia metas com perda semanal >2%
     if (parsedInitialWeight > parsedTargetWeight) {
-      const weeks = (new Date(targetDate ?? '').getTime() - new Date(startDate ?? '').getTime()) / (1000 * 60 * 60 * 24 * 7);
+      const weeks = (targetDate!.getTime() - startDate!.getTime()) / (1000 * 60 * 60 * 24 * 7);
       if (weeks <= 0) {
         toast.error("O período entre as datas deve ser de pelo menos 7 dias para validar a meta de peso.");
         return;
