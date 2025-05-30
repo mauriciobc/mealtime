@@ -81,27 +81,29 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
 
           {mode === 'spinner' && (
             <div
+              className="flex items-center gap-2"
               role="status"
               aria-live="polite"
               aria-label="Carregando"
             >
-              <Spinner size={size} text={displayText} className="ml-2" />
+              <Spinner size={size} text={displayText} />
             </div>
           )}
 
           {mode === 'progress' && (
-            <div
-              role="status"
-              aria-live="polite"
-              aria-label="Carregando"
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
               <Progress 
                 className="h-1" 
                 aria-label="Progresso de carregamento"
                 aria-valuetext="Carregando..."
                 role="progressbar"
+                value={currentOperation?.progressPercentage ?? 0}
               />
-            </div>
+            </motion.div>
           )}
         </motion.div>
       )}

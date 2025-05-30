@@ -3,14 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetClose,
-} from "@/components/ui/sheet";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerClose
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from 'sonner';
+import { DateTimePicker } from "@/components/ui/datetime-picker-new";
 
 export interface GoalFormData {
   cat_id: string;
@@ -57,8 +58,8 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
   const [initialWeight, setInitialWeight] = useState<string>('');
   const [targetWeight, setTargetWeight] = useState<string>('');
   const [unit, setUnit] = useState<'kg' | 'lbs'>(defaultUnit);
-  const [startDate, setStartDate] = useState('');
-  const [targetDate, setTargetDate] = useState('');
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [targetDate, setTargetDate] = useState<Date | null>(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,7 +68,7 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
       setInitialWeight(String(currentWeight));
     }
     // Set default start date to today
-    setStartDate(new Date().toISOString().split('T')[0]);
+    setStartDate(new Date());
   }, [currentWeight, isOpen]); // Reset/initialize when sheet opens or currentWeight changes
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -80,7 +81,7 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
       toast.error("Por favor, dê um nome para sua meta.");
       return;
     }
-    if (new Date(targetDate) <= new Date(startDate)) {
+    if (new Date(targetDate ?? '') <= new Date(startDate ?? '')) {
       toast.error("A data alvo deve ser posterior à data de início.");
       return;
     }
@@ -95,7 +96,7 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
 
     // Validação de segurança: bloqueia metas com perda semanal >2%
     if (parsedInitialWeight > parsedTargetWeight) {
-      const weeks = (new Date(targetDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24 * 7);
+      const weeks = (new Date(targetDate ?? '').getTime() - new Date(startDate ?? '').getTime()) / (1000 * 60 * 60 * 24 * 7);
       if (weeks <= 0) {
         toast.error("O período entre as datas deve ser de pelo menos 7 dias para validar a meta de peso.");
         return;
@@ -123,8 +124,8 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
         initial_weight: parsedInitialWeight,
         target_weight: parsedTargetWeight,
         unit,
-        start_date: startDate,
-        target_date: targetDate,
+        start_date: startDate ? startDate.toISOString().split('T')[0] : '',
+        target_date: targetDate ? targetDate.toISOString().split('T')[0] : '',
         description: description.trim() || undefined,
       });
       // Clear form on successful submit (parent component will close sheet)
@@ -132,8 +133,8 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
       setInitialWeight(currentWeight ? String(currentWeight) : '');
       setTargetWeight('');
       setUnit(defaultUnit);
-      setStartDate(new Date().toISOString().split('T')[0]);
-      setTargetDate('');
+      setStartDate(null);
+      setTargetDate(null);
       setDescription('');
     } catch (error) {
       // Error is handled by the parent onSubmit usually, but a local log can be useful
@@ -144,112 +145,112 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
     }
   };
 
-  if (!catId) return null; // Don't render if no catId is provided (or handle more gracefully)
+  if (!catId) return null;
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[90vh] flex flex-col sm:max-w-lg mx-auto">
-        <SheetHeader className="px-4 pt-4">
-          <SheetTitle>Definir Nova Meta de Peso</SheetTitle>
-          <SheetDescription>
-            Preencha os detalhes da nova meta de peso para seu gato.
-          </SheetDescription>
-        </SheetHeader>
-        <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto px-4 py-2 space-y-4">
-          <div>
-            <Label htmlFor="goalName">Nome da Meta</Label>
-            <Input 
-              id="goalName" 
-              value={goalName} 
-              onChange={(e) => setGoalName(e.target.value)} 
-              placeholder="Ex: Chegar ao peso ideal"
-              required 
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+    <Drawer open={isOpen} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <div className="mx-auto w-full max-w-lg">
+          <DrawerHeader className="px-4 pt-4">
+            <DrawerTitle>Definir Nova Meta de Peso</DrawerTitle>
+            <DrawerDescription>
+              Preencha os detalhes da nova meta de peso para seu gato.
+            </DrawerDescription>
+          </DrawerHeader>
+          <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto px-4 py-2 space-y-4">
             <div>
-              <Label htmlFor="initialWeight">Peso Inicial</Label>
+              <Label htmlFor="goalName">Nome da Meta</Label>
               <Input 
-                id="initialWeight" 
-                type="number" 
-                step="0.01" 
-                value={initialWeight} 
-                onChange={(e) => setInitialWeight(e.target.value)} 
+                id="goalName" 
+                value={goalName} 
+                onChange={(e) => setGoalName(e.target.value)} 
+                placeholder="Ex: Chegar ao peso ideal"
                 required 
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="initialWeight">Peso Inicial</Label>
+                <Input 
+                  id="initialWeight" 
+                  type="number" 
+                  step="0.01" 
+                  value={initialWeight} 
+                  onChange={(e) => setInitialWeight(e.target.value)} 
+                  required 
+                />
+              </div>
+              <div>
+                <Label htmlFor="targetWeight">Peso Alvo</Label>
+                <Input 
+                  id="targetWeight" 
+                  type="number" 
+                  step="0.01" 
+                  value={targetWeight} 
+                  onChange={(e) => setTargetWeight(e.target.value)} 
+                  required 
+                />
+              </div>
+            </div>
+
             <div>
-              <Label htmlFor="targetWeight">Peso Alvo</Label>
-              <Input 
-                id="targetWeight" 
-                type="number" 
-                step="0.01" 
-                value={targetWeight} 
-                onChange={(e) => setTargetWeight(e.target.value)} 
-                required 
+              <Label htmlFor="unit">Unidade</Label>
+              <Select value={unit} onValueChange={(value: 'kg' | 'lbs') => setUnit(value)}>
+                <SelectTrigger id="unit">
+                  <SelectValue placeholder="Selecione a unidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kg">Quilogramas (kg)</SelectItem>
+                  <SelectItem value="lbs">Libras (lbs)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="startDate">Data de Início</Label>
+                <DateTimePicker
+                  value={startDate ?? undefined}
+                  onChange={(date) => setStartDate(date ?? null)}
+                  placeholder="Selecione a data de início"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <Label htmlFor="targetDate">Data Alvo</Label>
+                <DateTimePicker
+                  value={targetDate ?? undefined}
+                  onChange={(date) => setTargetDate(date ?? null)}
+                  placeholder="Selecione a data alvo"
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="description">Descrição (Opcional)</Label>
+              <Textarea 
+                id="description" 
+                value={description} 
+                onChange={(e) => setDescription(e.target.value)} 
+                placeholder="Alguma observação sobre a meta?"
               />
             </div>
-          </div>
-
-          <div>
-            <Label htmlFor="unit">Unidade</Label>
-            <Select value={unit} onValueChange={(value: 'kg' | 'lbs') => setUnit(value)}>
-              <SelectTrigger id="unit">
-                <SelectValue placeholder="Selecione a unidade" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="kg">Quilogramas (kg)</SelectItem>
-                <SelectItem value="lbs">Libras (lbs)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="startDate">Data de Início</Label>
-              <Input 
-                id="startDate" 
-                type="date" 
-                value={startDate} 
-                onChange={(e) => setStartDate(e.target.value)} 
-                required 
-              />
-            </div>
-            <div>
-              <Label htmlFor="targetDate">Data Alvo</Label>
-              <Input 
-                id="targetDate" 
-                type="date" 
-                value={targetDate} 
-                onChange={(e) => setTargetDate(e.target.value)} 
-                required 
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="description">Descrição (Opcional)</Label>
-            <Textarea 
-              id="description" 
-              value={description} 
-              onChange={(e) => setDescription(e.target.value)} 
-              placeholder="Alguma observação sobre a meta?"
-            />
-          </div>
-        </form>
-        <SheetFooter className="px-4 pb-4 pt-2 border-t">
-          <SheetClose asChild>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-              Cancelar
+          </form>
+          <DrawerFooter className="px-4 pb-4 pt-2 border-t">
+            <DrawerClose asChild>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+                Cancelar
+              </Button>
+            </DrawerClose>
+            <Button type="submit" onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Salvando Meta...' : 'Salvar Meta'}
             </Button>
-          </SheetClose>
-          <Button type="submit" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Salvando Meta...' : 'Salvar Meta'}
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+          </DrawerFooter>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 };
 

@@ -13,6 +13,7 @@ interface LoadingOperation {
   id: string;
   description?: string;
   priority?: number; // Lower number means higher priority
+  progressPercentage?: number; // 0 a 100, opcional
 }
 
 interface LoadingState {
@@ -24,6 +25,7 @@ interface LoadingContextType {
   isLoading: boolean;
   addLoadingOperation: (operation: LoadingOperation) => void;
   removeLoadingOperation: (id: string) => void;
+  setOperationProgress?: (id: string, progress: number) => void;
 }
 
 const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
@@ -50,6 +52,15 @@ export const LoadingProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, []);
 
+  // Novo: função para atualizar progresso de uma operação
+  const setOperationProgress = useCallback((id: string, progress: number) => {
+    setState((prevState) => ({
+      operations: prevState.operations.map((op) =>
+        op.id === id ? { ...op, progressPercentage: progress } : op
+      ),
+    }));
+  }, []);
+
   // isLoading is true if there are any active operations
   const isLoading = state.operations.length > 0;
 
@@ -60,8 +71,9 @@ export const LoadingProvider = ({ children }: { children: ReactNode }) => {
       isLoading,
       addLoadingOperation,
       removeLoadingOperation,
+      setOperationProgress,
     }),
-    [state, isLoading, addLoadingOperation, removeLoadingOperation]
+    [state, isLoading, addLoadingOperation, removeLoadingOperation, setOperationProgress]
   );
 
   return (
