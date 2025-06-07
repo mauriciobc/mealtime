@@ -1,3 +1,5 @@
+import withSerwist from '@serwist/next';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
@@ -108,4 +110,10 @@ const nextConfig = {
   },
 }
 
-export default nextConfig
+export default withSerwist({
+  swSrc: 'app/sw.ts',
+  swDest: 'public/sw.js',
+  disable: process.env.NODE_ENV === 'development',
+  register: true,
+  scope: '/',
+})(nextConfig);
