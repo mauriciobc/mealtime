@@ -17,10 +17,6 @@ export function LottieLoading({ text, className }: LottieLoadingProps) {
   const currentOperation = hasOperations ? state.operations[0] : null;
   const displayText = text || currentOperation?.description || "Carregando...";
 
-  if (isLoading && !hasOperations) {
-    return null;
-  }
-
   return (
     <AnimatePresence>
       {isLoading && (

@@ -7,10 +7,4 @@ export function LoadingSkeleton() {
   );
 }
 
-export default function RootLoading() {
-  return (
-    <Suspense fallback={<LoadingSkeleton />}>
-      <LoadingSkeleton />
-    </Suspense>
-  );
-} 
+export default LoadingSkeleton; 
