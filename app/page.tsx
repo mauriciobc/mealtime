@@ -69,7 +69,7 @@ export default function Home() {
   // Renderização baseada no estado
   switch (appState.type) {
     case 'LOADING_USER':
-      return <GlobalLoading text="Carregando dados do usuário..." />;
+      return <GlobalLoading mode="lottie" text="Carregando dados do usuário..." />;
     
     case 'ERROR_USER':
       return (
@@ -79,7 +79,7 @@ export default function Home() {
       );
     
     case 'NO_USER':
-      return <GlobalLoading text="Redirecionando para login..." />;
+      return <GlobalLoading mode="lottie" text="Redirecionando para login..." />;
     
     case 'NO_HOUSEHOLD':
       return (
@@ -99,7 +99,7 @@ export default function Home() {
       );
     
     case 'LOADING_DASHBOARD':
-      return <GlobalLoading text="Carregando dados do painel..." />;
+      return <GlobalLoading mode="lottie" text="Carregando dados do painel..." />;
     
     case 'ERROR_DASHBOARD':
       return (
