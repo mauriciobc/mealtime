@@ -53,7 +53,10 @@ export function CatAvatarStack({
                 aria-label={`Select ${cat.name}`}
                 aria-pressed={selectedCatId === cat.id}
               >
-                <Avatar className={cn("h-12 w-12 border-2", selectedCatId === cat.id ? "border-primary" : "border-transparent")}>
+                <Avatar className={cn(
+                  "h-12 w-12 border-2",
+                  selectedCatId === cat.id ? "border-primary bg-blue-50 dark:bg-blue-900/60" : "border-transparent"
+                )}>
                   {cat.photo_url && <AvatarImage src={cat.photo_url} alt={cat.name} />}
                   <AvatarFallback className="text-sm">
                     {cat.name

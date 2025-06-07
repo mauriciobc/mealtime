@@ -736,7 +736,7 @@ const WeightPage = () => {
                         key={cat.id}
                         onClick={() => setSelectedCatId(cat.id)}
                         className={`flex flex-col items-center justify-center gap-2 rounded-lg p-3 transition-colors ${
-                          selectedCatId === cat.id ? "bg-blue-50 ring-2 ring-blue-500" : "bg-gray-50 hover:bg-gray-100"
+                          selectedCatId === cat.id ? "bg-accent dark:bg-accent/40 ring-2 ring-blue-500" : "bg-background hover:bg-accent/60"
                         }`}
                       >
                         <Avatar className="h-12 w-12">

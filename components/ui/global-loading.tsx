@@ -5,6 +5,8 @@ import { useLoading } from "@/lib/context/LoadingContext";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
+import Lottie from "lottie-react";
+import catAnimation from "@/lottie/Animation - 1749307481722.json";
 
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -33,7 +35,7 @@ function Spinner({ size = 'md', text, className }: SpinnerProps) {
 }
 
 interface GlobalLoadingProps {
-  mode?: 'progress' | 'spinner' | 'overlay';
+  mode?: 'progress' | 'spinner' | 'overlay' | 'lottie';
   text?: string;
   size?: 'sm' | 'md' | 'lg';
 }
@@ -63,7 +65,7 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
           exit={{ opacity: 0 }}
           className={cn(
             "z-50",
-            mode === 'overlay' && "fixed inset-0 flex min-h-screen w-full items-center justify-center bg-background/80 backdrop-blur-sm",
+            (mode === 'overlay' || mode === 'lottie') && "fixed inset-0 flex min-h-screen w-full items-center justify-center bg-background/80 backdrop-blur-sm",
             mode === 'spinner' && "flex items-center justify-center",
             mode === 'progress' && "fixed top-0 left-0 right-0 pt-[56px]"
           )}
@@ -87,6 +89,26 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
               aria-label="Carregando"
             >
               <Spinner size={size} text={displayText} />
+            </div>
+          )}
+
+          {mode === 'lottie' && (
+            <div 
+              className="flex flex-col items-center gap-4"
+              role="status"
+              aria-live="polite"
+              aria-label="Carregando"
+            >
+              <div className="w-48 h-48">
+                <Lottie
+                  animationData={catAnimation}
+                  loop={true}
+                  autoplay={true}
+                />
+              </div>
+              {displayText && (
+                <p className="text-sm text-muted-foreground">{displayText}</p>
+              )}
             </div>
           )}
 
