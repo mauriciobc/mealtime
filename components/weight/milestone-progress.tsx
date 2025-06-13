@@ -46,7 +46,7 @@ interface MilestoneProgressProps {
   activeGoal: WeightGoalWithMilestones | null;
   currentWeight: number | null;
   currentWeightDate?: string | null;
-  householdId: string | null;
+  householdId: string;
   onGoalArchived?: () => void;
 }
 
