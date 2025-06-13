@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -46,6 +46,8 @@ interface MilestoneProgressProps {
   activeGoal: WeightGoalWithMilestones | null;
   currentWeight: number | null;
   currentWeightDate?: string | null;
+  householdId: string | null;
+  onGoalArchived?: () => void;
 }
 
 type MilestoneStatus = 'completed' | 'pending' | 'overdue' | 'upcoming';
@@ -114,12 +116,14 @@ const ACCELERATED_LOSS_ALERT =
   'Atenção: perda de peso acelerada! Reduza a meta e consulte o veterinário.';
 const MILESTONE_REACHED = 'Parabéns! Você completou:';
 
-export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate }: MilestoneProgressProps) {
+export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate, householdId, onGoalArchived }: MilestoneProgressProps) {
   const [newlyCompletedMilestone, setNewlyCompletedMilestone] = useState<Milestone | null>(null);
   const [prevCurrentWeight, setPrevCurrentWeight] = useState<number | null>(currentWeight);
   const [prevCurrentWeightDate, setPrevCurrentWeightDate] = useState<string | null | undefined>(currentWeightDate);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedMilestoneForSheet, setSelectedMilestoneForSheet] = useState<Milestone | null>(null);
+  const hasArchived = useRef(false);
+  const refreshCounter = useRef(0);
 
   // Parse weights as numbers for all logic
   const parsedInitialWeight = activeGoal ? Number((activeGoal as any).initial_weight ?? (activeGoal as any).start_weight) : null;
@@ -255,17 +259,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
     }
   }, [activeGoal, processedMilestones, currentWeightDate]);
 
-  if (!activeGoal || currentWeight === null) {
-    return (
-      <Card>
-        <CardHeader><CardTitle>{GOAL_PROGRESS}</CardTitle></CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{NO_MILESTONES}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
+  // Calculo de progresso e status da meta (escopo global do componente)
   let progressValue = 0;
   if (parsedInitialWeight !== null && parsedTargetWeight !== null && parsedTargetWeight !== parsedInitialWeight) {
     if (isWeightLossGoal) {
@@ -276,11 +270,61 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
   }
   const goalProgressPercentage = Math.min(100, Math.max(0, progressValue));
   const isGoalAchieved = isWeightLossGoal ? (currentWeight ?? parsedInitialWeight) <= parsedTargetWeight : (currentWeight ?? parsedInitialWeight) >= parsedTargetWeight;
-
   const pieData = [
     { name: 'Completed', value: goalProgressPercentage },
     { name: 'Remaining', value: 100 - goalProgressPercentage },
   ];
+
+  useEffect(() => {
+    // Só arquiva se a meta não estiver arquivada/completed/cancelled
+    const isGoalAlreadyArchived =
+      (typeof (activeGoal as any).status === 'string' && ((activeGoal as any).status === 'completed' || (activeGoal as any).status === 'cancelled')) ||
+      (typeof (activeGoal as any).isArchived === 'boolean' && (activeGoal as any).isArchived === true);
+    if (
+      activeGoal &&
+      isGoalAchieved &&
+      !hasArchived.current &&
+      householdId &&
+      !isGoalAlreadyArchived
+    ) {
+      hasArchived.current = true;
+      fetch(`/api/weight/goals?id=${activeGoal.id}&householdId=${householdId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "completed",
+        }),
+      })
+      .then((res) => {
+        if (!res.ok) {
+          console.error(`[MilestoneProgress] PUT falhou com status ${res.status}. Não tentará novamente até reload manual.`);
+          return;
+        }
+        refreshCounter.current += 1;
+        console.log(`[MilestoneProgress] Arquivamento automático disparado. Contador de refresh: ${refreshCounter.current}`);
+        if (onGoalArchived) onGoalArchived();
+      })
+      .catch((err) => {
+        console.error("Erro ao arquivar meta automaticamente:", err);
+      });
+    }
+    if (!isGoalAchieved) {
+      hasArchived.current = false;
+    }
+  }, [activeGoal, isGoalAchieved, householdId, onGoalArchived]);
+
+  if (!activeGoal || currentWeight === null) {
+    return (
+      <Card>
+        <CardHeader><CardTitle>{GOAL_PROGRESS}</CardTitle></CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">{NO_MILESTONES}</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>

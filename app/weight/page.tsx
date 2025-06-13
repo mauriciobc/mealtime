@@ -159,6 +159,7 @@ const WeightPage = () => {
   const [logChangeTimestamp, setLogChangeTimestamp] = useState<number>(Date.now());
   const [isGoalFormSheetOpen, setIsGoalFormSheetOpen] = useState(false);
   const [isTipsSheetOpen, setIsTipsSheetOpen] = useState(false);
+  const [autoRefreshCount, setAutoRefreshCount] = useState(0); // contador de refresh automático
 
   // Contexts (called unconditionally)
   const userContext = useContext(UserContext);
@@ -271,10 +272,19 @@ const WeightPage = () => {
   const { activeGoalForSelectedCat, archivedGoalsForSelectedCat } = useMemo(() => {
     if (!selectedCatId) return { activeGoalForSelectedCat: null, archivedGoalsForSelectedCat: [] };
     const goalsForThisCat = goals.filter(goal => goal.cat_id === selectedCatId);
-    const active = goalsForThisCat.find(goal => !goal.isArchived) || null;
-    const archived = goalsForThisCat.filter(goal => goal.isArchived);
+    // Considere arquivada se status for completed/cancelled ou isArchived true
+    const isArchived = (g: any) =>
+      (typeof g.status === 'string' && (g.status === 'completed' || g.status === 'cancelled')) ||
+      (typeof g.isArchived === 'boolean' && g.isArchived === true);
+    const active = goalsForThisCat.find(goal => !isArchived(goal)) || null;
+    const archived = goalsForThisCat.filter(goal => isArchived(goal));
     return { activeGoalForSelectedCat: active, archivedGoalsForSelectedCat: archived };
-  }, [selectedCatId, goals]); // Dependencies are defined
+  }, [selectedCatId, goals]);
+
+  // selectedCatActiveGoal agora sempre reflete a meta ativa, nunca arquivada
+  const selectedCatActiveGoal = activeGoalForSelectedCat;
+  // Nova lógica: se não houver meta ativa, exiba a última meta arquivada
+  const selectedCatLastArchivedGoal = archivedGoalsForSelectedCat.length > 0 ? archivedGoalsForSelectedCat[0] : null;
 
   // Memoize current and previous log (depends on weightLogsSnake which is defined above)
   // const { currentLog, previousLog } = useMemo(() => {
@@ -303,7 +313,6 @@ const WeightPage = () => {
 
   // selectedCatForForm e selectedCatActiveGoal precisam ser declarados antes do uso
   const selectedCatForForm = selectedCatId ? cats.find(c => c.id === selectedCatId) : null;
-  const selectedCatActiveGoal = selectedCatId ? goals.find(goal => goal.cat_id === selectedCatId && !goal.isArchived) : null;
 
   // Progresso da meta
   const currentWeight = logsForSelectedCat[0]?.weight ?? selectedCatForForm?.weight ?? 0;
@@ -601,6 +610,15 @@ const WeightPage = () => {
 
   }, [userId, householdId, cats, weightDispatch]); // Dependencies are defined
 
+  // handler para passar para MilestoneProgress
+  const handleGoalArchived = useCallback(() => {
+    setAutoRefreshCount((c) => {
+      const next = c + 1;
+      console.log(`[WeightPage] Refresh automático disparado após arquivamento de meta. Contador: ${next}`);
+      return next;
+    });
+    refreshWeightData();
+  }, [refreshWeightData]);
 
   // --- EARLY RETURNS (AFTER ALL HOOKS) ---
 
@@ -816,29 +834,51 @@ const WeightPage = () => {
                     </Button>
                   </div>
                   <CardDescription className="text-sm text-muted-foreground">
-                    {progress >= 100
-                      ? "Parabéns! Meta alcançada! 🎉"
-                      : progress >= 90
-                      ? "Quase lá! 🎯"
-                      : progress >= 75
-                      ? "Ótimo progresso! 💪"
-                      : progress >= 50
-                      ? "Meio caminho! 🌟"
-                      : progress >= 25
-                      ? "Bom começo! 👍"
-                      : "Começando agora! 🚀"}
+                    {selectedCatActiveGoal ? (
+                      progress >= 100
+                        ? "Parabéns! Meta alcançada! 🎉"
+                        : progress >= 90
+                        ? "Quase lá! 🎯"
+                        : progress >= 75
+                        ? "Ótimo progresso! 💪"
+                        : progress >= 50
+                        ? "Meio caminho! 🌟"
+                        : progress >= 25
+                        ? "Bom começo! 👍"
+                        : "Começando agora! 🚀"
+                    ) : selectedCatLastArchivedGoal ? (
+                      "Parabéns por atingir sua meta geral!"
+                    ) : (
+                      "Nenhuma meta definida."
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Progresso</span>
-                      <span className="font-semibold text-foreground">{Math.round(progress)}%</span>
+                  {selectedCatActiveGoal ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Progresso</span>
+                        <span className="font-semibold text-foreground">{Math.round(progress)}%</span>
+                      </div>
+                      <Progress value={progress} className="h-2" />
                     </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
+                  ) : selectedCatLastArchivedGoal ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Progresso</span>
+                        <span className="font-semibold text-foreground">100%</span>
+                      </div>
+                      <Progress value={100} className="h-2" />
+                    </div>
+                  ) : null}
                   <Badge variant="secondary" className="w-fit">
-                    {progress >= 75 ? "No caminho certo" : "Atenção"}
+                    {selectedCatActiveGoal
+                      ? (typeof progress === 'number' && progress >= 75
+                        ? "No caminho certo"
+                        : "Atenção")
+                      : selectedCatLastArchivedGoal
+                      ? "Meta concluída"
+                      : "Sem meta"}
                   </Badge>
                 </CardContent>
               </Card>
@@ -1065,6 +1105,15 @@ const WeightPage = () => {
             currentWeight={currentWeight}
             defaultUnit={selectedCatActiveGoal?.unit || 'kg'}
             birthDate={selectedCatForForm?.birthdate}
+          />
+
+          {/* Milestone Progress */}
+          <MilestoneProgress
+            activeGoal={selectedCatActiveGoal || selectedCatLastArchivedGoal}
+            currentWeight={currentWeight}
+            currentWeightDate={logsForSelectedCat[0]?.date || null}
+            householdId={currentUser?.householdId || null}
+            onGoalArchived={handleGoalArchived}
           />
         </motion.div>
       </div>
