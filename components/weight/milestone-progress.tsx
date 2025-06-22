@@ -276,6 +276,11 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
   ];
 
   useEffect(() => {
+    // Adiciona uma guarda para garantir que activeGoal não seja nulo
+    if (!activeGoal) {
+      return;
+    }
+    
     // Só arquiva se a meta não estiver arquivada/completed/cancelled
     const isGoalAlreadyArchived =
       (typeof (activeGoal as any).status === 'string' && ((activeGoal as any).status === 'completed' || (activeGoal as any).status === 'cancelled')) ||
