@@ -12,7 +12,7 @@ const nextConfig = {
       // Production domain from environment variable
       {
         protocol: process.env.NEXT_PUBLIC_APP_URL?.startsWith('https') ? 'https' : 'http',
-        hostname: process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'localhost',
+        hostname: safeGetHostname(process.env.NEXT_PUBLIC_APP_URL) || 'localhost',
       },
       // Avatar generation domain from environment variable
       {
@@ -39,7 +39,7 @@ const nextConfig = {
       // Supabase domain from environment variable
       {
         protocol: 'https',
-        hostname: process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^https?:\/\//, '') || 'zzvmyzyszsqptgyqwqwt.supabase.co',
+        hostname: safeGetHostname(process.env.NEXT_PUBLIC_SUPABASE_URL) || 'zzvmyzyszsqptgyqwqwt.supabase.co',
       }
     ],
     dangerouslyAllowSVG: true,
@@ -129,6 +129,16 @@ const nextConfig = {
       },
     ]
   },
+}
+
+// Função utilitária para extrair hostname de uma URL de forma segura
+function safeGetHostname(urlString) {
+  if (!urlString) return null;
+  try {
+    return new URL(urlString).hostname;
+  } catch {
+    return null;
+  }
 }
 
 export default nextConfig

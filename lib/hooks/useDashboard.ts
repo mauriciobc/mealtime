@@ -20,12 +20,17 @@ export type DashboardState =
   | { type: 'NEW_USER_FLOW' }
   | { type: 'DASHBOARD' };
 
+export interface FeedingChartDataPoint {
+  name: string;
+  [catId: string]: number | string;
+}
+
 export interface DashboardData {
   cats: CatType[];
   todayFeedingCount: number;
   averagePortionSize: number | null;
   lastFeedingLog: FeedingLog | null;
-  recentFeedingsData: any[];
+  recentFeedingsData: FeedingChartDataPoint[];
 }
 
 export function useDashboard() {
