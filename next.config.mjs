@@ -8,15 +8,38 @@ const nextConfig = {
   },
   productionBrowserSourceMaps: true,
   images: {
-    domains: ['localhost', 'mealtime.local', 'zzvmyzyszsqptgyqwqwt.supabase.co'],
     remotePatterns: [
+      // Production domain from environment variable
+      {
+        protocol: process.env.NEXT_PUBLIC_APP_URL?.startsWith('https') ? 'https' : 'http',
+        hostname: process.env.NEXT_PUBLIC_APP_URL?.replace(/^https?:\/\//, '') || 'localhost',
+      },
+      // Avatar generation domain from environment variable
       {
         protocol: 'https',
-        hostname: '**',
+        hostname: process.env.NEXT_PUBLIC_AVATAR_DOMAIN || 'api.dicebear.com',
+      },
+      // Placeholder image domain from environment variable
+      {
+        protocol: 'https',
+        hostname: process.env.NEXT_PUBLIC_PLACEHOLDER_DOMAIN || 'placekitten.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.googleusercontent.com', // For Google profile images
       },
       {
         protocol: 'http',
         hostname: 'localhost',
+      },
+      {
+        protocol: 'http',
+        hostname: 'mealtime.local',
+      },
+      // Supabase domain from environment variable
+      {
+        protocol: 'https',
+        hostname: process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/^https?:\/\//, '') || 'zzvmyzyszsqptgyqwqwt.supabase.co',
       }
     ],
     dangerouslyAllowSVG: true,

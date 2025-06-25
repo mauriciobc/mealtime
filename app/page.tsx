@@ -1,64 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { Cat, Users } from "lucide-react";
-import { useUserContext } from "@/lib/context/UserContext";
-import { useCats } from "@/lib/context/CatsContext";
-import {
-  useFeeding,
-  useSelectTodayFeedingCount,
-  useSelectLastFeedingLog,
-  useSelectRecentFeedingsChartData,
-  useSelectAveragePortionSize
-} from "@/lib/context/FeedingContext";
 import { Button } from "@/components/ui/button";
 import { GlobalLoading } from "@/components/ui/global-loading";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useRouter } from "next/navigation";
 import DashboardContent from "./components/dashboard/dashboard-content";
-
-type AppState = 
-  | { type: 'LOADING_USER' }
-  | { type: 'ERROR_USER'; error: string }
-  | { type: 'NO_USER' }
-  | { type: 'NO_HOUSEHOLD' }
-  | { type: 'LOADING_DASHBOARD' }
-  | { type: 'ERROR_DASHBOARD'; error: { cats?: string; feedings?: string } }
-  | { type: 'NEW_USER_FLOW' }
-  | { type: 'DASHBOARD' };
+import { useDashboard } from "@/lib/hooks/useDashboard";
 
 export default function Home() {
-  const { state: userState } = useUserContext();
-  const { state: catsState } = useCats();
-  const { state: feedingState } = useFeeding();
-  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
-  const { cats, isLoading: isLoadingCats, error: errorCats } = catsState;
-  const { isLoading: isLoadingFeedings, error: errorFeedings } = feedingState;
-
-  const todayFeedingCount = useSelectTodayFeedingCount();
-  const recentFeedingsData = useSelectRecentFeedingsChartData();
-  const lastFeedingLog = useSelectLastFeedingLog();
-  const averagePortionSize = useSelectAveragePortionSize();
-
+  const { state: appState, data, currentUser } = useDashboard();
   const router = useRouter();
-
-  const appState = useMemo<AppState>(() => {
-    if (isLoadingUser) return { type: 'LOADING_USER' };
-    if (errorUser) return { type: 'ERROR_USER', error: errorUser };
-    if (!currentUser) return { type: 'NO_USER' };
-    if (!currentUser.householdId) return { type: 'NO_HOUSEHOLD' };
-    if (isLoadingCats || isLoadingFeedings) return { type: 'LOADING_DASHBOARD' };
-    if (errorCats || errorFeedings) return { 
-      type: 'ERROR_DASHBOARD', 
-      error: {
-        cats: errorCats || undefined,
-        feedings: errorFeedings || undefined
-      }
-    };
-    if ((cats || []).length === 0) return { type: 'NEW_USER_FLOW' };
-    return { type: 'DASHBOARD' };
-  }, [isLoadingUser, errorUser, currentUser, isLoadingCats, isLoadingFeedings, errorCats, errorFeedings, cats]);
 
   useEffect(() => {
     if (appState.type === 'NO_USER') {
@@ -133,11 +87,11 @@ export default function Home() {
     case 'DASHBOARD':
       return (
         <DashboardContent
-          cats={cats || []}
-          todayFeedingCount={todayFeedingCount}
-          averagePortionSize={averagePortionSize}
-          lastFeedingLog={lastFeedingLog}
-          recentFeedingsData={recentFeedingsData}
+          cats={data.cats}
+          todayFeedingCount={data.todayFeedingCount}
+          averagePortionSize={data.averagePortionSize}
+          lastFeedingLog={data.lastFeedingLog}
+          recentFeedingsData={data.recentFeedingsData}
         />
       );
   }
