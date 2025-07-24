@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">15.55% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>14/90</span>
+                <span class='fraction'>0/90</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">9.75% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>8/82</span>
+                <span class='fraction'>0/82</span>
             </div>
         
             
@@ -305,7 +305,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -314,7 +314,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -328,11 +328,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -342,7 +342,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -408,7 +408,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -454,7 +454,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -511,7 +511,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -521,7 +521,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -540,7 +540,7 @@ import { getUserTimezone, calculateNextFeeding } from '../utils/dateUtils';
 import { toDate } from 'date-fns-tz';
 import { BaseCat, BaseFeedingLog, ID } from '../types/common';
 import { Notification } from '../types/notification';
-import { 
+<span class="cstat-no" title="statement not covered" >import { </span>
   generateFeedingNotifications,
   isDuplicateFeeding
 } from './feeding-notification-service';
@@ -549,7 +549,7 @@ import { getData, setData, delay } from './apiService';
 /**
  * Busca a última alimentação de um gato
  */
-export const getLastFeeding = <span class="fstat-no" title="function not covered" >async </span>(catId: string): Promise&lt;BaseFeedingLog | null&gt; =&gt; {
+export const <span class="cstat-no" title="statement not covered" >getLastFeeding = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string): Promise&lt;BaseFeedingLog | null&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const response = <span class="cstat-no" title="statement not covered" >await fetch(`/api/feedings/last/${catId}`);</span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!response.ok) <span class="cstat-no" title="statement not covered" >return null;</span></span>
@@ -563,7 +563,7 @@ export const getLastFeeding = <span class="fstat-no" title="function not covered
 /**
  * Busca um gato específico
  */
-export const getCat = <span class="fstat-no" title="function not covered" >async </span>(catId: string): Promise&lt;BaseCat | null&gt; =&gt; {
+export const <span class="cstat-no" title="statement not covered" >getCat = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string): Promise&lt;BaseCat | null&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const response = <span class="cstat-no" title="statement not covered" >await fetch(`/api/cats/${catId}`);</span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!response.ok) <span class="cstat-no" title="statement not covered" >return null;</span></span>
@@ -577,7 +577,7 @@ export const getCat = <span class="fstat-no" title="function not covered" >async
 /**
  * Registra uma nova alimentação
  */
-export const registerFeeding = <span class="fstat-no" title="function not covered" >async </span>(
+export const <span class="cstat-no" title="statement not covered" >registerFeeding = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(</span>
   catId: string,
   userId: string,
   portionSize: number,
@@ -643,7 +643,7 @@ export const registerFeeding = <span class="fstat-no" title="function not covere
 /**
  * Atualiza o horário de alimentação de um gato
  */
-export const updateFeedingSchedule = <span class="fstat-no" title="function not covered" >async </span>(
+export const <span class="cstat-no" title="statement not covered" >updateFeedingSchedule = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(</span>
   catId: string,
   userId: string,
   newSchedule: {
@@ -689,7 +689,7 @@ export const updateFeedingSchedule = <span class="fstat-no" title="function not 
 /**
  * Busca a próxima alimentação de um gato via API.
  */
-export const getNextFeedingTime = <span class="fstat-no" title="function not covered" >async </span>(catId: string, userId?: string): Promise&lt;Date | null&gt; =&gt; {
+export const <span class="cstat-no" title="statement not covered" >getNextFeedingTime = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string, userId?: string): Promise&lt;Date | null&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  console.log(`[getNextFeedingTime] Fetching next feeding for cat: ${catId}, user: ${userId}`);</span>
 <span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!catId) {</span>
 <span class="cstat-no" title="statement not covered" >    throw new Error('Cat ID is required');</span>
@@ -746,7 +746,7 @@ export const getNextFeedingTime = <span class="fstat-no" title="function not cov
  * Busca os logs de alimentação de um gato
  */
 // THIS FUNCTION IS FLAWED (uses localStorage) - Needs refactoring or removal
-export const getFeedingLogs = <span class="fstat-no" title="function not covered" >async </span>(catId: string, userTimezone?: string): Promise&lt;FeedingLog[]&gt; =&gt; {
+export const <span class="cstat-no" title="statement not covered" >getFeedingLogs = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string, userTimezone?: string): Promise&lt;FeedingLog[]&gt; =&gt; {</span>
   // ... existing flawed implementation ...
 <span class="cstat-no" title="statement not covered" >  console.warn("[getFeedingLogs] THIS FUNCTION IS USING LOCALSTORAGE AND IS LIKELY INCORRECT - Needs refactoring to use API");</span>
   // ... 
@@ -756,7 +756,7 @@ export const getFeedingLogs = <span class="fstat-no" title="function not covered
 /**
  * Salva notificações no banco de dados
  */
-const saveNotifications = <span class="fstat-no" title="function not covered" >async </span>(notifications: Notification[]): Promise&lt;void&gt; =&gt; {
+const saveNotifications = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async </span>(notifications: Notification[]): Promise&lt;void&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
 <span class="cstat-no" title="statement not covered" >    await fetch('/api/notifications', {</span>
       method: 'POST',
@@ -775,7 +775,7 @@ const saveNotifications = <span class="fstat-no" title="function not covered" >a
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-24T22:10:24.106Z
+                at 2025-07-24T22:33:28.191Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

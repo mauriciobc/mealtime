@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">14% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>14/100</span>
+                <span class='fraction'>0/100</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">8.33% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/12</span>
+                <span class='fraction'>0/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">11.82% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>11/93</span>
+                <span class='fraction'>0/93</span>
             </div>
         
             
@@ -262,10 +262,10 @@
 <a name='L197'></a><a href='#L197'>197</a>
 <a name='L198'></a><a href='#L198'>198</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -282,7 +282,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -324,19 +324,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -452,17 +452,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">"use client";
 &nbsp;
-import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useUserContext } from './UserContext'; // Assuming UserContext provides currentUser
-import { useLoading } from './LoadingContext';
-import { toast } from 'sonner';
+<span class="cstat-no" title="statement not covered" >import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';</span>
+<span class="cstat-no" title="statement not covered" >import { useUserContext } from './UserContext'; </span>// Assuming UserContext provides currentUser
+<span class="cstat-no" title="statement not covered" >import { useLoading } from './LoadingContext';</span>
+<span class="cstat-no" title="statement not covered" >import { toast } from 'sonner';</span>
 import { Household } from "@/lib/types"; // Assuming Household type definition exists
 &nbsp;
 interface Member {
@@ -479,7 +479,7 @@ interface HouseholdState {
   error: string | null;
 }
 &nbsp;
-const initialState: HouseholdState = {
+const initialState: HouseholdState = <span class="cstat-no" title="statement not covered" >{</span>
   currentHousehold: null,
   households: [],
   members: [],
@@ -521,14 +521,14 @@ function <span class="fstat-no" title="function not covered" >householdReducer(<
   }
 }
 &nbsp;
-const HouseholdContext = createContext&lt;{
+const HouseholdContext = <span class="cstat-no" title="statement not covered" >createContext&lt;{</span>
   state: HouseholdState;
   dispatch: React.Dispatch&lt;HouseholdAction&gt;;
 }&gt;({ state: initialState, dispatch: <span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >null </span>});
 &nbsp;
-export const HouseholdProvider = ({ children }: { children: ReactNode }) =&gt; {
-  const [state, dispatch] = useReducer(householdReducer, initialState);
-  const { state: userState } = useUserContext();
+export const <span class="cstat-no" title="statement not covered" >HouseholdProvider = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>{</span> children }: { children: ReactNode }) =&gt; {</span>
+  const [state, dispatch] = <span class="cstat-no" title="statement not covered" >useReducer(householdReducer, initialState);</span>
+  const { state: userState } = <span class="cstat-no" title="statement not covered" >useUserContext();</span>
   const { currentUser } = <span class="cstat-no" title="statement not covered" >userState;</span>
   const { addLoadingOperation, removeLoadingOperation } = <span class="cstat-no" title="statement not covered" >useLoading();</span>
   const abortControllerRef = <span class="cstat-no" title="statement not covered" >useRef&lt;AbortController | null&gt;(null);</span>
@@ -649,9 +649,9 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) =&gt; {
   );
 };
 &nbsp;
-export const useHousehold = <span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useContext(HouseholdContext);</span>
+export const <span class="cstat-no" title="statement not covered" >useHousehold = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useContext(HouseholdContext);</span></span>
 &nbsp;
-export const useHouseholdSelector = <span class="fstat-no" title="function not covered" >&lt;T, &gt;(s</span>elector: (state: HouseholdState) =&gt; T): T =&gt; {
+export const <span class="cstat-no" title="statement not covered" >useHouseholdSelector = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >&lt;</span>T, &gt;(s</span>elector: (state: HouseholdState) =&gt; T): T =&gt; {</span>
   const { state } = <span class="cstat-no" title="statement not covered" >useHousehold();</span>
 <span class="cstat-no" title="statement not covered" >  return selector(state);</span>
 };</pre></td></tr></table></pre>
@@ -661,7 +661,7 @@ export const useHouseholdSelector = <span class="fstat-no" title="function not c
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-24T22:10:24.106Z
+                at 2025-07-24T22:33:28.191Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -32,7 +32,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/199</span>
+                <span class='fraction'>0/209</span>
             </div>
         
             
@@ -539,7 +539,19 @@
 <a name='L474'></a><a href='#L474'>474</a>
 <a name='L475'></a><a href='#L475'>475</a>
 <a name='L476'></a><a href='#L476'>476</a>
-<a name='L477'></a><a href='#L477'>477</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L477'></a><a href='#L477'>477</a>
+<a name='L478'></a><a href='#L478'>478</a>
+<a name='L479'></a><a href='#L479'>479</a>
+<a name='L480'></a><a href='#L480'>480</a>
+<a name='L481'></a><a href='#L481'>481</a>
+<a name='L482'></a><a href='#L482'>482</a>
+<a name='L483'></a><a href='#L483'>483</a>
+<a name='L484'></a><a href='#L484'>484</a>
+<a name='L485'></a><a href='#L485'>485</a>
+<a name='L486'></a><a href='#L486'>486</a>
+<a name='L487'></a><a href='#L487'>487</a>
+<a name='L488'></a><a href='#L488'>488</a>
+<a name='L489'></a><a href='#L489'>489</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -884,6 +896,18 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1364,12 +1388,18 @@ const getStatusText = <span class="cstat-no" title="statement not covered" ><spa
                       &lt;div key={log.id} className="relative pl-[58px] mb-4 group"&gt; {/* Adjust left padding to make space for the absolute positioned Avatar */}
                         {/* Manual Timeline Dot/Icon (Avatar) */}
                         &lt;div className="absolute left-0 top-0 flex-shrink-0"&gt; {/* Position Avatar absolutely to the left */}
-                          &lt;Link href={`/cats/${cat?.id}`} aria-label={`Ver perfil de ${cat?.name}`}&gt;
-                            &lt;Avatar className="h-10 w-10 border shadow-md"&gt; {/* Match icon size from original TimelineItem */}
-                              &lt;AvatarImage src={cat?.photo_url || undefined} alt={cat?.name} /&gt;
-                              &lt;AvatarFallback&gt;{cat?.name?.substring(0, 1).toUpperCase() || "?"}&lt;/AvatarFallback&gt;
+                          {cat?.id ? (
+                            &lt;Link href={`/cats/${cat.id}`} aria-label={`Ver perfil de ${cat?.name}`}&gt;
+                              &lt;Avatar className="h-10 w-10 border shadow-md"&gt; {/* Match icon size from original TimelineItem */}
+                                &lt;AvatarImage src={cat?.photo_url || undefined} alt={cat?.name} /&gt;
+                                &lt;AvatarFallback&gt;{cat?.name?.substring(0, 1).toUpperCase() || "?"}&lt;/AvatarFallback&gt;
+                              &lt;/Avatar&gt;
+                            &lt;/Link&gt;
+                          ) : (
+                            &lt;Avatar className="h-10 w-10 border shadow-md"&gt;
+                              &lt;AvatarFallback&gt;?&lt;/AvatarFallback&gt;
                             &lt;/Avatar&gt;
-                          &lt;/Link&gt;
+                          )}
                         &lt;/div&gt;
                         {/* Custom content layout */}
                         &lt;div className="flex items-start gap-8 w-full"&gt;
@@ -1384,9 +1414,15 @@ const getStatusText = <span class="cstat-no" title="statement not covered" ><spa
                               &lt;div className="flex items-center justify-between gap-2"&gt;
                                 {/* Cat Name/User (No Avatar needed here anymore) */}
                                 &lt;div className="min-w-0"&gt;
-                                  &lt;Link href={`/cats/${cat?.id}`} className="font-medium truncate hover:underline text-sm sm:text-base"&gt;
-                                    {cat?.name || "Gato Desconhecido"}
-                                  &lt;/Link&gt;
+                                  {cat?.id ? (
+                                    &lt;Link href={`/cats/${cat.id}`} className="font-medium truncate hover:underline text-sm sm:text-base"&gt;
+                                      {cat?.name || "Gato Desconhecido"}
+                                    &lt;/Link&gt;
+                                  ) : (
+                                    &lt;span className="font-medium truncate text-sm sm:text-base text-muted-foreground"&gt;
+                                      {cat?.name || "Gato Desconhecido"}
+                                    &lt;/span&gt;
+                                  )}
                                   {log.user &amp;&amp; (
                                     &lt;p className="text-xs text-muted-foreground truncate" title={`Registrado por ${log.user?.name}`}&gt;
                                       por {log.user?.name || "Usuário Desconhecido"}
@@ -1498,7 +1534,7 @@ const getStatusText = <span class="cstat-no" title="statement not covered" ><spa
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-24T22:10:24.106Z
+                at 2025-07-24T22:33:28.191Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

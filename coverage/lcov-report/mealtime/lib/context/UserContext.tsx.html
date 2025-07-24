@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.91% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>13/188</span>
+                <span class='fraction'>0/188</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">1.02% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/98</span>
+                <span class='fraction'>0/98</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">5.26% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/19</span>
+                <span class='fraction'>0/19</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">7.1% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>13/183</span>
+                <span class='fraction'>0/183</span>
             </div>
         
             
@@ -455,14 +455,14 @@
 <a name='L390'></a><a href='#L390'>390</a>
 <a name='L391'></a><a href='#L391'>391</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -470,7 +470,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -510,8 +510,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -535,7 +535,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -837,22 +837,22 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">"use client";
 &nbsp;
-import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef, useCallback, useState } from "react";
-import { createClient } from '@/utils/supabase/client'; // Import Supabase client
+<span class="cstat-no" title="statement not covered" >import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef, useCallback, useState } from "react";</span>
+<span class="cstat-no" title="statement not covered" >import { createClient } from '@/utils/supabase/client'; </span>// Import Supabase client
 import { User as SupabaseUser } from '@supabase/supabase-js'; // Import Supabase types
 import { useLoading } from "./LoadingContext";
-import { toast } from "sonner";
+<span class="cstat-no" title="statement not covered" >import { toast } from "sonner";</span>
 import { User as CurrentUserType, NotificationSettings } from "@/lib/types";
-import { getUserProfile, getFirstHouseholdMembership } from '@/lib/actions/userActions'; // Import the Server Actions
-import { logger } from '@/lib/monitoring/logger'; // Import logger
+<span class="cstat-no" title="statement not covered" >import { getUserProfile, getFirstHouseholdMembership } from '@/lib/actions/userActions'; </span>// Import the Server Actions
+<span class="cstat-no" title="statement not covered" >import { logger } from '@/lib/monitoring/logger'; </span>// Import logger
 &nbsp;
 interface UserState {
   currentUser: CurrentUserType | null;
@@ -860,7 +860,7 @@ interface UserState {
   error: string | null;
 }
 &nbsp;
-const initialState: UserState = {
+const initialState: UserState = <span class="cstat-no" title="statement not covered" >{</span>
   currentUser: null,
   isLoading: true,
   error: null,
@@ -900,8 +900,8 @@ interface UserContextValue {
   refreshUser: () =&gt; Promise&lt;void&gt;;
 }
 &nbsp;
-const UserContext = createContext&lt;UserContextValue | undefined&gt;(undefined);
-export { UserContext };
+const UserContext = <span class="cstat-no" title="statement not covered" >createContext&lt;UserContextValue | undefined&gt;(undefined);</span>
+export { <span class="cstat-no" title="statement not covered" >UserContext </span>};
 &nbsp;
 // Add debounce utility
 function <span class="fstat-no" title="function not covered" >debounce&lt;</span>T extends (...args: any[]) =&gt; any&gt;(
@@ -925,7 +925,7 @@ function <span class="fstat-no" title="function not covered" >isErrorWithMessage
   );
 }
 &nbsp;
-export function <span class="fstat-no" title="function not covered" >UserProvider(</span>{ children }: { children: ReactNode }) {
+<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >U</span>serProvider(</span>{ children }: { children: ReactNode }) {
   const [state, dispatch] = <span class="cstat-no" title="statement not covered" >useReducer(userReducer, initialState);</span>
   const [supabase] = <span class="cstat-no" title="statement not covered" >useState(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    logger.info("[UserProvider] Initializing Supabase client");</span>
@@ -1227,10 +1227,10 @@ export function <span class="fstat-no" title="function not covered" >UserProvide
 <span class="cstat-no" title="statement not covered" >  return &lt;UserContext.Provider value={value}&gt;{children}&lt;/UserContext.Provider&gt;;</span>
 }
 &nbsp;
-export function useUserContext() {
-  const context = useContext(UserContext);
-  if (!context) {
-    throw new Error("useUserContext must be used within a UserProvider");
+<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >u</span>seUserContext(</span>) {
+  const context = <span class="cstat-no" title="statement not covered" >useContext(UserContext);</span>
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!context) {</span>
+<span class="cstat-no" title="statement not covered" >    throw new Error("useUserContext must be used within a UserProvider");</span>
   }
 <span class="cstat-no" title="statement not covered" >  return context;</span>
 }</pre></td></tr></table></pre>
@@ -1240,7 +1240,7 @@ export function useUserContext() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-07-24T22:10:24.106Z
+                at 2025-07-24T22:33:28.191Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -347,12 +347,18 @@ export default function FeedingsPage() {
                       <div key={log.id} className="relative pl-[58px] mb-4 group"> {/* Adjust left padding to make space for the absolute positioned Avatar */}
                         {/* Manual Timeline Dot/Icon (Avatar) */}
                         <div className="absolute left-0 top-0 flex-shrink-0"> {/* Position Avatar absolutely to the left */}
-                          <Link href={`/cats/${cat?.id}`} aria-label={`Ver perfil de ${cat?.name}`}>
-                            <Avatar className="h-10 w-10 border shadow-md"> {/* Match icon size from original TimelineItem */}
-                              <AvatarImage src={cat?.photo_url || undefined} alt={cat?.name} />
-                              <AvatarFallback>{cat?.name?.substring(0, 1).toUpperCase() || "?"}</AvatarFallback>
+                          {cat?.id ? (
+                            <Link href={`/cats/${cat.id}`} aria-label={`Ver perfil de ${cat?.name}`}>
+                              <Avatar className="h-10 w-10 border shadow-md"> {/* Match icon size from original TimelineItem */}
+                                <AvatarImage src={cat?.photo_url || undefined} alt={cat?.name} />
+                                <AvatarFallback>{cat?.name?.substring(0, 1).toUpperCase() || "?"}</AvatarFallback>
+                              </Avatar>
+                            </Link>
+                          ) : (
+                            <Avatar className="h-10 w-10 border shadow-md">
+                              <AvatarFallback>?</AvatarFallback>
                             </Avatar>
-                          </Link>
+                          )}
                         </div>
                         {/* Custom content layout */}
                         <div className="flex items-start gap-8 w-full">
@@ -367,9 +373,15 @@ export default function FeedingsPage() {
                               <div className="flex items-center justify-between gap-2">
                                 {/* Cat Name/User (No Avatar needed here anymore) */}
                                 <div className="min-w-0">
-                                  <Link href={`/cats/${cat?.id}`} className="font-medium truncate hover:underline text-sm sm:text-base">
-                                    {cat?.name || "Gato Desconhecido"}
-                                  </Link>
+                                  {cat?.id ? (
+                                    <Link href={`/cats/${cat.id}`} className="font-medium truncate hover:underline text-sm sm:text-base">
+                                      {cat?.name || "Gato Desconhecido"}
+                                    </Link>
+                                  ) : (
+                                    <span className="font-medium truncate text-sm sm:text-base text-muted-foreground">
+                                      {cat?.name || "Gato Desconhecido"}
+                                    </span>
+                                  )}
                                   {log.user && (
                                     <p className="text-xs text-muted-foreground truncate" title={`Registrado por ${log.user?.name}`}>
                                       por {log.user?.name || "Usuário Desconhecido"}
