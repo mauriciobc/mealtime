@@ -214,7 +214,22 @@
 <a name='L149'></a><a href='#L149'>149</a>
 <a name='L150'></a><a href='#L150'>150</a>
 <a name='L151'></a><a href='#L151'>151</a>
-<a name='L152'></a><a href='#L152'>152</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a>
+<a name='L154'></a><a href='#L154'>154</a>
+<a name='L155'></a><a href='#L155'>155</a>
+<a name='L156'></a><a href='#L156'>156</a>
+<a name='L157'></a><a href='#L157'>157</a>
+<a name='L158'></a><a href='#L158'>158</a>
+<a name='L159'></a><a href='#L159'>159</a>
+<a name='L160'></a><a href='#L160'>160</a>
+<a name='L161'></a><a href='#L161'>161</a>
+<a name='L162'></a><a href='#L162'>162</a>
+<a name='L163'></a><a href='#L163'>163</a>
+<a name='L164'></a><a href='#L164'>164</a>
+<a name='L165'></a><a href='#L165'>165</a>
+<a name='L166'></a><a href='#L166'>166</a>
+<a name='L167'></a><a href='#L167'>167</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -302,7 +317,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -370,36 +400,36 @@
 export const <span class="cstat-no" title="statement not covered" >FeedingRepository = {</span>
   // Buscar todos os registros de alimentação
   getAll: <span class="fstat-no" title="function not covered" >async </span>() =&gt; {
-<span class="cstat-no" title="statement not covered" >    return prisma.feedingLog.findMany({</span>
+<span class="cstat-no" title="statement not covered" >    return prisma.feeding_logs.findMany({</span>
       include: {
         cat: true,
-        user: true,
+        feeder: true, // 'feeder' is the user who fed
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
     });
   },
 &nbsp;
   // Buscar registros de alimentação de um gato
-  getByCat: <span class="fstat-no" title="function not covered" >async </span>(catId: number, limit = <span class="branch-0 cbranch-no" title="branch not covered" >20,</span> offset = <span class="branch-0 cbranch-no" title="branch not covered" >0)</span> =&gt; {
-<span class="cstat-no" title="statement not covered" >    return prisma.feedingLog.findMany({</span>
-      where: { catId },
+  getByCat: <span class="fstat-no" title="function not covered" >async </span>(catId: string, limit = <span class="branch-0 cbranch-no" title="branch not covered" >20,</span> offset = <span class="branch-0 cbranch-no" title="branch not covered" >0)</span> =&gt; {
+<span class="cstat-no" title="statement not covered" >    return prisma.feeding_logs.findMany({</span>
+      where: { cat_id: catId },
       include: {
-        user: true,
+        feeder: true,
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
       skip: offset,
       take: limit,
     });
   },
 &nbsp;
   // Buscar registros de alimentação de um domicílio
-  getByHousehold: <span class="fstat-no" title="function not covered" >async </span>(householdId: number, limit?: number, offset?: number) =&gt; {
+  getByHousehold: <span class="fstat-no" title="function not covered" >async </span>(householdId: string, limit?: number, offset?: number) =&gt; {
 <span class="cstat-no" title="statement not covered" >    console.log("Buscando logs de alimentação para household:", householdId);</span>
     
     const query = <span class="cstat-no" title="statement not covered" >{</span>
       where: {
         cat: {
-          householdId: Number(householdId),
+          household_id: householdId,
         },
       },
       include: {
@@ -407,17 +437,17 @@ export const <span class="cstat-no" title="statement not covered" >FeedingReposi
           select: {
             id: true,
             name: true,
-            householdId: true
+            household_id: true
           }
         },
-        user: true,
+        feeder: true,
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
     };
 &nbsp;
     // Se limit e offset forem fornecidos, adiciona paginação
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (typeof limit === 'number' &amp;&amp; typeof offset === 'number') {</span>
-      const result = <span class="cstat-no" title="statement not covered" >await prisma.feedingLog.findMany({</span>
+      const result = <span class="cstat-no" title="statement not covered" >await prisma.feeding_logs.findMany({</span>
         ...query,
         skip: offset,
         take: limit,
@@ -427,19 +457,19 @@ export const <span class="cstat-no" title="statement not covered" >FeedingReposi
     }
 &nbsp;
     // Caso contrário, retorna todos os registros
-    const result = <span class="cstat-no" title="statement not covered" >await prisma.feedingLog.findMany(query);</span>
+    const result = <span class="cstat-no" title="statement not covered" >await prisma.feeding_logs.findMany(query);</span>
 <span class="cstat-no" title="statement not covered" >    console.log(`Encontrados ${result.length} logs sem paginação`);</span>
 <span class="cstat-no" title="statement not covered" >    return result;</span>
   },
 &nbsp;
-  // Buscar registros de alimentação de um usuário
-  getByUser: <span class="fstat-no" title="function not covered" >async </span>(userId: number, limit = <span class="branch-0 cbranch-no" title="branch not covered" >20,</span> offset = <span class="branch-0 cbranch-no" title="branch not covered" >0)</span> =&gt; {
-<span class="cstat-no" title="statement not covered" >    return prisma.feedingLog.findMany({</span>
-      where: { userId },
+  // Buscar registros de alimentação de um usuário (feeder)
+  getByUser: <span class="fstat-no" title="function not covered" >async </span>(userId: string, limit = <span class="branch-0 cbranch-no" title="branch not covered" >20,</span> offset = <span class="branch-0 cbranch-no" title="branch not covered" >0)</span> =&gt; {
+<span class="cstat-no" title="statement not covered" >    return prisma.feeding_logs.findMany({</span>
+      where: { fed_by: userId },
       include: {
         cat: true,
       },
-      orderBy: { timestamp: 'desc' as const },
+      orderBy: { fed_at: 'desc' as const },
       skip: offset,
       take: limit,
     });
@@ -447,72 +477,87 @@ export const <span class="cstat-no" title="statement not covered" >FeedingReposi
 &nbsp;
   // Criar um novo registro de alimentação
   create: <span class="fstat-no" title="function not covered" >async </span>(data: {
-    catId: number;
-    userId: number;
-    timestamp: Date;
-    portionSize?: number;
+    cat_id: string;
+    fed_by: string;
+    fed_at: Date;
+    amount: number;
+    unit: string;
     notes?: string;
+    meal_type: string;
+    household_id: string;
   }) =&gt; {
-<span class="cstat-no" title="statement not covered" >    return prisma.feedingLog.create({</span>
-      data,
+    // Only pass the fields that are part of the Prisma model
+<span class="cstat-no" title="statement not covered" >    return prisma.feeding_logs.create({</span>
+      data: {
+        cat_id: data.cat_id,
+        fed_by: data.fed_by,
+        fed_at: data.fed_at,
+        amount: data.amount,
+        unit: data.unit,
+        notes: data.notes,
+        meal_type: data.meal_type,
+        household_id: data.household_id,
+      },
       include: {
         cat: true,
-        user: true,
+        feeder: true,
       },
     });
   },
 &nbsp;
   // Atualizar um registro de alimentação
   update: <span class="fstat-no" title="function not covered" >async </span>(
-    id: number,
+    id: string,
     data: {
-      timestamp?: Date;
-      portionSize?: number;
+      fed_at?: Date;
+      amount?: number;
+      unit?: string;
       notes?: string;
+      meal_type?: string;
     }
   ) =&gt; {
-<span class="cstat-no" title="statement not covered" >    return prisma.feedingLog.update({</span>
+<span class="cstat-no" title="statement not covered" >    return prisma.feeding_logs.update({</span>
       where: { id },
       data,
       include: {
         cat: true,
-        user: true,
+        feeder: true,
       },
     });
   },
 &nbsp;
   // Excluir um registro de alimentação
-  delete: <span class="fstat-no" title="function not covered" >async </span>(id: number) =&gt; {
-<span class="cstat-no" title="statement not covered" >    return prisma.feedingLog.delete({</span>
+  delete: <span class="fstat-no" title="function not covered" >async </span>(id: string) =&gt; {
+<span class="cstat-no" title="statement not covered" >    return prisma.feeding_logs.delete({</span>
       where: { id },
     });
   },
 &nbsp;
   // Buscar estatísticas de alimentação para um gato
-  getStatsByCat: <span class="fstat-no" title="function not covered" >async </span>(catId: number, days = <span class="branch-0 cbranch-no" title="branch not covered" >30)</span> =&gt; {
+  getStatsByCat: <span class="fstat-no" title="function not covered" >async </span>(catId: string, days = <span class="branch-0 cbranch-no" title="branch not covered" >30)</span> =&gt; {
     const startDate = <span class="cstat-no" title="statement not covered" >new Date();</span>
 <span class="cstat-no" title="statement not covered" >    startDate.setDate(startDate.getDate() - days);</span>
 &nbsp;
-    const logs = <span class="cstat-no" title="statement not covered" >await prisma.feedingLog.findMany({</span>
+    const logs = <span class="cstat-no" title="statement not covered" >await prisma.feeding_logs.findMany({</span>
       where: {
-        catId,
-        timestamp: {
+        cat_id: catId,
+        fed_at: {
           gte: startDate,
         },
       },
-      orderBy: { timestamp: 'asc' },
+      orderBy: { fed_at: 'asc' },
     });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    return logs;</span>
   },
 &nbsp;
   // Buscar a última alimentação de um gato
-  getLastFeeding: <span class="fstat-no" title="function not covered" >async </span>(catId: number) =&gt; {
-<span class="cstat-no" title="statement not covered" >    return prisma.feedingLog.findFirst({</span>
-      where: { catId },
-      orderBy: { timestamp: 'desc' },
+  getLastFeeding: <span class="fstat-no" title="function not covered" >async </span>(catId: string) =&gt; {
+<span class="cstat-no" title="statement not covered" >    return prisma.feeding_logs.findFirst({</span>
+      where: { cat_id: catId },
+      orderBy: { fed_at: 'desc' },
       include: {
-        user: true,
+        feeder: true,
       },
     });
   },
@@ -523,7 +568,7 @@ export const <span class="cstat-no" title="statement not covered" >FeedingReposi
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

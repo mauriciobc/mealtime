@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/29</span>
+                <span class='fraction'>0/30</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/16</span>
+                <span class='fraction'>0/24</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/3</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/29</span>
+                <span class='fraction'>0/30</span>
             </div>
         
             
@@ -141,7 +141,8 @@
 <a name='L76'></a><a href='#L76'>76</a>
 <a name='L77'></a><a href='#L77'>77</a>
 <a name='L78'></a><a href='#L78'>78</a>
-<a name='L79'></a><a href='#L79'>79</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -179,6 +180,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -232,14 +234,14 @@ async function <span class="fstat-no" title="function not covered" >isUserAdmin(
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const membership = <span class="cstat-no" title="statement not covered" >await prisma.household_members.findUnique({</span>
       where: {
-        user_id_household_id: {
-          user_id: userId,
+        household_id_user_id: {
           household_id: householdId,
+          user_id: userId,
         },
       },
       select: { role: true },
     });
-<span class="cstat-no" title="statement not covered" >    return membership?.role === 'admin' || membership?.role === 'owner';</span>
+<span class="cstat-no" title="statement not covered" >    return membership?.role?.toLowerCase() === 'admin' || membership?.role?.toLowerCase() === 'owner';</span>
   } catch (error) {
 <span class="cstat-no" title="statement not covered" >    console.error('Error checking admin status:', error);</span>
 <span class="cstat-no" title="statement not covered" >    return false;</span>
@@ -253,11 +255,12 @@ function <span class="fstat-no" title="function not covered" >generateInviteCode
 <span class="cstat-no" title="statement not covered" >  return uuidv4().substring(0, 8);</span>
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export a</span>sync function <span class="fstat-no" title="function not covered" >PATCH(</span>
+<span class="cstat-no" title="statement not covered" >export a</span>sync function PATCH(
   request: NextRequest, // request is unused but required by the signature
-  { params }: { params: { id: string } },
+  context: { params: { id: string } } // context instead of destructuring params
 ) {
   const headersList = <span class="cstat-no" title="statement not covered" >await headers();</span>
+  const params = <span class="cstat-no" title="statement not covered" >await context.params;</span> // Await params as required by Next.js
   const authUserId = <span class="cstat-no" title="statement not covered" >headersList.get('X-User-ID');</span>
   const householdId = <span class="cstat-no" title="statement not covered" >params.id;</span>
 &nbsp;
@@ -280,8 +283,8 @@ function <span class="fstat-no" title="function not covered" >generateInviteCode
     // Update the household with the new invite code
     const updatedHousehold = <span class="cstat-no" title="statement not covered" >await prisma.households.update({</span>
       where: { id: householdId },
-      data: { invite_code: newInviteCode },
-      select: { invite_code: true }, // Only select the field we need to return
+      data: { inviteCode: newInviteCode },
+      select: { inviteCode: true }, // Only select the field we need to return
     });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!updatedHousehold) {</span>
@@ -289,7 +292,7 @@ function <span class="fstat-no" title="function not covered" >generateInviteCode
 <span class="cstat-no" title="statement not covered" >        return NextResponse.json({ error: 'Household not found' }, { status: 404 });</span>
     }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    return NextResponse.json({ inviteCode: updatedHousehold.invite_code }, { status: 200 });</span>
+<span class="cstat-no" title="statement not covered" >    return NextResponse.json({ inviteCode: updatedHousehold.inviteCode }, { status: 200 });</span>
 &nbsp;
   } catch (error) {
 <span class="cstat-no" title="statement not covered" >    console.error('Error regenerating invite code:', error);</span>
@@ -304,7 +307,7 @@ function <span class="fstat-no" title="function not covered" >generateInviteCode
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../../../../prettify.js"></script>
         <script>

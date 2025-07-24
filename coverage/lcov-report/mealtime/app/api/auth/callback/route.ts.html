@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/59</span>
+                <span class='fraction'>0/57</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/59</span>
+                <span class='fraction'>0/57</span>
             </div>
         
             
@@ -180,9 +180,12 @@
 <a name='L115'></a><a href='#L115'>115</a>
 <a name='L116'></a><a href='#L116'>116</a>
 <a name='L117'></a><a href='#L117'>117</a>
-<a name='L118'></a><a href='#L118'>118</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -213,7 +216,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -234,6 +236,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -299,7 +305,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { createServerClient } from '@supabase/ssr';</span>
 <span class="cstat-no" title="statement not covered" >import { NextResponse } from 'next/server';</span>
-<span class="cstat-no" title="statement not covered" >import { cookies } from 'next/headers';</span>
+import { cookies } from 'next/headers';
 <span class="cstat-no" title="statement not covered" >import { logger } from '@/lib/monitoring/logger';</span>
 <span class="cstat-no" title="statement not covered" >import { createRouteHandlerCookieStore } from '@/lib/supabase/cookie-store';</span>
 &nbsp;
@@ -328,11 +334,10 @@
 <span class="cstat-no" title="statement not covered" >      return NextResponse.redirect(new URL('/auth/auth-code-error', request.url));</span>
     }
 &nbsp;
-    // Create cookie store
-    const cookieStore = <span class="cstat-no" title="statement not covered" >cookies();</span>
-    const asyncCookieStore = <span class="cstat-no" title="statement not covered" >createRouteHandlerCookieStore(cookieStore);</span>
+    // Create cookie stores
+    const asyncCookieStore = <span class="cstat-no" title="statement not covered" >await createRouteHandlerCookieStore();</span>
 &nbsp;
-    // Verify environment variables
+    // Verify environment variables and initialize Supabase client
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {</span>
 <span class="cstat-no" title="statement not covered" >      logger.error('[Auth Callback] Missing required environment variables');</span>
 <span class="cstat-no" title="statement not covered" >      throw new Error('Missing required environment variables');</span>
@@ -350,7 +355,11 @@
     const { data: exchangeData, error: exchangeError } = <span class="cstat-no" title="statement not covered" >await supabase.auth.exchangeCodeForSession(code);</span>
     
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (exchangeError) {</span>
-<span class="cstat-no" title="statement not covered" >      logger.error('[Auth Callback] Error exchanging code for session:', exchangeError);</span>
+<span class="cstat-no" title="statement not covered" >      logger.error('[Auth Callback] Error exchanging code for session:', {</span>
+        message: exchangeError.message,
+        name: exchangeError.name,
+        status: exchangeError.status
+      });
 <span class="cstat-no" title="statement not covered" >      return NextResponse.redirect(new URL(`/auth/auth-code-error?error=${encodeURIComponent(exchangeError.message)}`, request.url));</span>
     }
 &nbsp;
@@ -390,7 +399,7 @@
     
     // Check each cookie asynchronously
 <span class="cstat-no" title="statement not covered" >    for (const name of requiredCookies) {</span>
-      const value = <span class="cstat-no" title="statement not covered" >await cookieStore.get(name);</span>
+      const value = <span class="cstat-no" title="statement not covered" >await asyncCookieStore.get(name);</span>
 <span class="cstat-no" title="statement not covered" >      <span class="missing-if-branch" title="if path not taken" >I</span>if (!value) {</span>
 <span class="cstat-no" title="statement not covered" >        missingCookies.push(name);</span>
       }
@@ -421,7 +430,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../../../prettify.js"></script>
         <script>

@@ -239,10 +239,7 @@
 <a name='L174'></a><a href='#L174'>174</a>
 <a name='L175'></a><a href='#L175'>175</a>
 <a name='L176'></a><a href='#L176'>176</a>
-<a name='L177'></a><a href='#L177'>177</a>
-<a name='L178'></a><a href='#L178'>178</a>
-<a name='L179'></a><a href='#L179'>179</a>
-<a name='L180'></a><a href='#L180'>180</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L177'></a><a href='#L177'>177</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -271,9 +268,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -428,7 +422,7 @@ import { Notification } from '../types/notification';
 /**
  * Busca a última alimentação de um gato
  */
-export const <span class="cstat-no" title="statement not covered" >getLastFeeding = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: number): Promise&lt;BaseFeedingLog | null&gt; =&gt; {</span>
+export const <span class="cstat-no" title="statement not covered" >getLastFeeding = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string): Promise&lt;BaseFeedingLog | null&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const response = <span class="cstat-no" title="statement not covered" >await fetch(`/api/feedings/last/${catId}`);</span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!response.ok) <span class="cstat-no" title="statement not covered" >return null;</span></span>
@@ -442,7 +436,7 @@ export const <span class="cstat-no" title="statement not covered" >getLastFeedin
 /**
  * Busca um gato específico
  */
-export const <span class="cstat-no" title="statement not covered" >getCat = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: number): Promise&lt;BaseCat | null&gt; =&gt; {</span>
+export const <span class="cstat-no" title="statement not covered" >getCat = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string): Promise&lt;BaseCat | null&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const response = <span class="cstat-no" title="statement not covered" >await fetch(`/api/cats/${catId}`);</span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!response.ok) <span class="cstat-no" title="statement not covered" >return null;</span></span>
@@ -453,12 +447,9 @@ export const <span class="cstat-no" title="statement not covered" >getCat = <spa
   }
 };
 &nbsp;
-/**
- * Registra uma nova alimentação
- */
 export const <span class="cstat-no" title="statement not covered" >registerFeeding = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(</span>
-  catId: number,
-  userId: number,
+  catId: string,
+  userId: string,
   portionSize: number,
   notes?: string
 ): Promise&lt;Response&gt; =&gt; {
@@ -488,8 +479,8 @@ export const <span class="cstat-no" title="statement not covered" >registerFeedi
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        catId: catId.toString(),
-        userId: userId.toString(),
+        catId,
+        userId,
         portionSize,
         notes,
         timestamp: new Date().toISOString(),
@@ -523,8 +514,8 @@ export const <span class="cstat-no" title="statement not covered" >registerFeedi
  * Atualiza o horário de alimentação de um gato
  */
 export const <span class="cstat-no" title="statement not covered" >updateFeedingSchedule = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(</span>
-  catId: number,
-  userId: number,
+  catId: string,
+  userId: string,
   newSchedule: {
     type: 'interval' | 'fixedTime';
     interval?: number;
@@ -547,7 +538,7 @@ export const <span class="cstat-no" title="statement not covered" >updateFeeding
     // Buscar informações do gato para notificação
     const cat = <span class="cstat-no" title="statement not covered" >await getCat(catId);</span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (cat) {</span>
-      const nextFeedingTime = <span class="cstat-no" title="statement not covered" >await getNextFeedingTime(catId.toString(), userId);</span>
+      const nextFeedingTime = <span class="cstat-no" title="statement not covered" >await getNextFeedingTime(catId, userId);</span>
 <span class="cstat-no" title="statement not covered" >      <span class="missing-if-branch" title="if path not taken" >I</span>if (nextFeedingTime) {</span>
         const notifications = <span class="cstat-no" title="statement not covered" >generateFeedingNotifications(</span>
           cat,
@@ -568,7 +559,7 @@ export const <span class="cstat-no" title="statement not covered" >updateFeeding
 /**
  * Busca a próxima alimentação de um gato
  */
-export const <span class="cstat-no" title="statement not covered" >getNextFeedingTime = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string, userId: number): Promise&lt;Date | null&gt; =&gt; {</span>
+export const <span class="cstat-no" title="statement not covered" >getNextFeedingTime = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >a</span>sync </span>(catId: string, userId: string): Promise&lt;Date | null&gt; =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  try {</span>
     const response = <span class="cstat-no" title="statement not covered" >await fetch(`/api/cats/${catId}/next-feeding`, {</span>
       method: 'GET',
@@ -607,7 +598,7 @@ const saveNotifications = <span class="cstat-no" title="statement not covered" >
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/89</span>
+                <span class='fraction'>0/91</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/30</span>
+                <span class='fraction'>0/93</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/15</span>
+                <span class='fraction'>0/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/84</span>
+                <span class='fraction'>0/85</span>
             </div>
         
             
@@ -242,7 +242,28 @@
 <a name='L177'></a><a href='#L177'>177</a>
 <a name='L178'></a><a href='#L178'>178</a>
 <a name='L179'></a><a href='#L179'>179</a>
-<a name='L180'></a><a href='#L180'>180</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -277,6 +298,27 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -454,14 +496,35 @@
 <span class="cstat-no" title="statement not covered" >    console.log("Período de busca:", { startDate, endDate });</span>
 &nbsp;
     // Buscar logs de alimentação
-    const logs = <span class="cstat-no" title="statement not covered" >await FeedingRepository.getByHousehold(Number(householdId));</span>
-<span class="cstat-no" title="statement not covered" >    console.log("Logs encontrados:", logs.length);</span>
+    const rawLogs = <span class="cstat-no" title="statement not covered" >await FeedingRepository.getByHousehold(String(householdId));</span>
+<span class="cstat-no" title="statement not covered" >    console.log("Logs encontrados:", rawLogs.length);</span>
+&nbsp;
+    // Map raw logs to FeedingLog type
+    const logs: FeedingLog[] = <span class="cstat-no" title="statement not covered" >rawLogs.map(<span class="fstat-no" title="function not covered" >(l</span>og: any) =&gt; <span class="cstat-no" title="statement not covered" >({</span></span>
+      id: log.id,
+      catId: log.cat_id,
+      userId: log.fed_by || log.feeder?.id || log.user_id,
+      timestamp: log.fed_at || log.timestamp,
+      amount: log.amount ?? log.portion_size ?? null,
+      portionSize: log.amount ?? log.portion_size ?? null,
+      notes: log.notes ?? null,
+      createdAt: log.created_at ?? null,
+      status: log.status ?? undefined,
+      mealType: log.meal_type ?? undefined,
+      householdId: log.household_id ?? undefined,
+      cat: log.cat,
+      user: log.feeder ? {
+        id: log.feeder.id,
+        name: log.feeder.full_name ?? log.feeder.username ?? null,
+        avatar: log.feeder.avatar_url ?? null,
+      } : undefined,
+    }));
     
     // Filtrar logs pelo período e gato (se especificado)
     const filteredLogs = <span class="cstat-no" title="statement not covered" >logs.filter(<span class="fstat-no" title="function not covered" >log </span>=&gt; {</span>
       const logDate = <span class="cstat-no" title="statement not covered" >new Date(log.timestamp);</span>
       const dateInRange = <span class="cstat-no" title="statement not covered" >logDate &gt;= startDate &amp;&amp; logDate &lt;= endDate;</span>
-      const catMatch = <span class="cstat-no" title="statement not covered" >catId === "all" || log.catId.toString() === catId;</span>
+      const catMatch = <span class="cstat-no" title="statement not covered" >catId === "all" || log.catId?.toString() === catId;</span>
 <span class="cstat-no" title="statement not covered" >      console.log("Filtrando log:", { </span>
         logDate, 
         dateInRange, 
@@ -607,7 +670,7 @@ function <span class="fstat-no" title="function not covered" >calculateConsecuti
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

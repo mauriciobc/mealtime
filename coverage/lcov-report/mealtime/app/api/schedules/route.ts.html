@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/52</span>
+                <span class='fraction'>0/54</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/2</span>
+                <span class='fraction'>0/3</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/52</span>
+                <span class='fraction'>0/53</span>
             </div>
         
             
@@ -191,7 +191,23 @@
 <a name='L126'></a><a href='#L126'>126</a>
 <a name='L127'></a><a href='#L127'>127</a>
 <a name='L128'></a><a href='#L128'>128</a>
-<a name='L129'></a><a href='#L129'>129</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -229,7 +245,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -330,7 +362,7 @@
   const authUserId = <span class="cstat-no" title="statement not covered" >headersList.get('X-User-ID');</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!authUserId) {</span>
-<span class="cstat-no" title="statement not covered" >    return handleAuthError('Missing X-User-ID header');</span>
+<span class="cstat-no" title="statement not covered" >    return handleAuthError('Missing X-User-ID header', 'GET /api/schedules');</span>
   }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  try {</span>
@@ -338,7 +370,7 @@
     const householdId = <span class="cstat-no" title="statement not covered" >searchParams.get('householdId');</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!householdId) {</span>
-<span class="cstat-no" title="statement not covered" >      return handleValidationError('Household ID is required');</span>
+<span class="cstat-no" title="statement not covered" >      return handleValidationError('Household ID is required', 'GET /api/schedules');</span>
     }
 &nbsp;
     // --- Authorization Check --- 
@@ -351,15 +383,31 @@
     });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!userAccess) {</span>
-<span class="cstat-no" title="statement not covered" >      return handleAuthError('Access denied to this household', 403);</span>
+<span class="cstat-no" title="statement not covered" >      return handleAuthError('Access denied to this household', 'GET /api/schedules');</span>
     }
 &nbsp;
     // Fetch schedules for the specified household
-<span class="cstat-no" title="statement not covered" >    console.log(`[GET /api/schedules] Fetching schedules for household ${householdId} - NOTE: schedules model does not exist in schema.`);</span>
-    const schedules: unknown[] = <span class="cstat-no" title="statement not covered" >[];</span> // Return empty array as model doesn't exist
-<span class="cstat-no" title="statement not covered" >    console.log(`[GET /api/schedules] Found ${schedules.length} schedules for household ${householdId} (model missing)`);</span>
+<span class="cstat-no" title="statement not covered" >    console.log(`[GET /api/schedules] Fetching schedules for household ${householdId}`);</span>
+    const schedules = <span class="cstat-no" title="statement not covered" >await prisma.schedules.findMany({</span>
+      where: {
+        cat: {
+          household_id: householdId
+        }
+      },
+      include: {
+        cat: {
+          select: { id: true, name: true }
+        }
+      }
+    });
+<span class="cstat-no" title="statement not covered" >    console.log(`[GET /api/schedules] Found ${schedules.length} schedules for household ${householdId}`);</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    return NextResponse.json(schedules);</span>
+    // Always include a 'days' property (empty array) for frontend compatibility
+    const mappedSchedules = <span class="cstat-no" title="statement not covered" >schedules.map(<span class="fstat-no" title="function not covered" >s </span>=&gt; <span class="cstat-no" title="statement not covered" >({</span></span>
+      ...s,
+      days: [], // fallback, since the DB does not have this field
+    }));
+<span class="cstat-no" title="statement not covered" >    return NextResponse.json(mappedSchedules);</span>
   } catch (error) {
 <span class="cstat-no" title="statement not covered" >    return handleApiError(error, 'Failed to fetch schedules');</span>
   }
@@ -371,7 +419,7 @@
   const authUserId = <span class="cstat-no" title="statement not covered" >headersList.get('X-User-ID');</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!authUserId) {</span>
-<span class="cstat-no" title="statement not covered" >    return handleAuthError('Authentication required');</span>
+<span class="cstat-no" title="statement not covered" >    return handleAuthError('Authentication required', 'POST /api/schedules');</span>
   }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  try {</span>
@@ -385,7 +433,7 @@
     } = <span class="cstat-no" title="statement not covered" >body;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!catId || !type) {</span>
-<span class="cstat-no" title="statement not covered" >      return handleValidationError('Cat ID and schedule type are required');</span>
+<span class="cstat-no" title="statement not covered" >      return handleValidationError('Cat ID and schedule type are required', 'POST /api/schedules');</span>
     }
     
     // --- Authorization &amp; Validation --- 
@@ -397,26 +445,26 @@
     const userHouseholdId = <span class="cstat-no" title="statement not covered" >userProfile?.household_members[0]?.household_id;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!cat) {</span>
-<span class="cstat-no" title="statement not covered" >        return handleApiError(new Error('Cat not found'), 'Cat not found', 404);</span>
+<span class="cstat-no" title="statement not covered" >        return handleApiError(new Error('Cat not found'), 'POST /api/schedules');</span>
     }
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!userHouseholdId) {</span>
-<span class="cstat-no" title="statement not covered" >        return handleAuthError('User profile or household not found', 403);</span>
+<span class="cstat-no" title="statement not covered" >        return handleAuthError('User profile or household not found', 'POST /api/schedules');</span>
     }
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (cat.household_id !== userHouseholdId) {</span>
-<span class="cstat-no" title="statement not covered" >        return handleAuthError('Access denied: Cat does not belong to user\'s household', 403);</span>
+<span class="cstat-no" title="statement not covered" >        return handleAuthError('Access denied: Cat does not belong to user\'s household', 'POST /api/schedules');</span>
     }
 &nbsp;
     // Validate schedule type
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (type !== 'interval' &amp;&amp; type !== 'fixedTime') {</span>
-<span class="cstat-no" title="statement not covered" >      return handleValidationError('Invalid schedule type');</span>
+<span class="cstat-no" title="statement not covered" >      return handleValidationError('Invalid schedule type', 'POST /api/schedules');</span>
     }
 &nbsp;
     // Validate type-specific data
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (type === 'interval' &amp;&amp; (!interval || interval &lt;= 0)) {</span>
-<span class="cstat-no" title="statement not covered" >      return handleValidationError('Interval must be greater than zero');</span>
+<span class="cstat-no" title="statement not covered" >      return handleValidationError('Interval must be greater than zero', 'POST /api/schedules');</span>
     }
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (type === 'fixedTime' &amp;&amp; (!Array.isArray(times) || times.length === 0)) {</span>
-<span class="cstat-no" title="statement not covered" >      return handleValidationError('Times array is required for fixed time schedules');</span>
+<span class="cstat-no" title="statement not covered" >      return handleValidationError('Times array is required for fixed time schedules', 'POST /api/schedules');</span>
     }
 &nbsp;
     // Create the schedule
@@ -454,7 +502,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

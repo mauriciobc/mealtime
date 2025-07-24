@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/61</span>
+                <span class='fraction'>0/66</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/67</span>
+                <span class='fraction'>0/74</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/51</span>
+                <span class='fraction'>0/56</span>
             </div>
         
             
@@ -299,28 +299,19 @@
 <a name='L234'></a><a href='#L234'>234</a>
 <a name='L235'></a><a href='#L235'>235</a>
 <a name='L236'></a><a href='#L236'>236</a>
-<a name='L237'></a><a href='#L237'>237</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L237'></a><a href='#L237'>237</a>
+<a name='L238'></a><a href='#L238'>238</a>
+<a name='L239'></a><a href='#L239'>239</a>
+<a name='L240'></a><a href='#L240'>240</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -335,6 +326,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -386,7 +393,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -540,7 +546,6 @@
 <span class="cstat-no" title="statement not covered" >import { useState, useMemo } from "react";</span>
 <span class="cstat-no" title="statement not covered" >import { motion } from "framer-motion";</span>
 <span class="cstat-no" title="statement not covered" >import { format } from "date-fns";</span>
-import { ptBR } from "date-fns/locale";
 <span class="cstat-no" title="statement not covered" >import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";</span>
 <span class="cstat-no" title="statement not covered" >import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";</span>
 <span class="cstat-no" title="statement not covered" >import { Button } from "@/components/ui/button";</span>
@@ -563,6 +568,8 @@ import { ptBR } from "date-fns/locale";
 } from "@/components/ui/alert-dialog";
 import { FeedingLog } from "@/lib/types";
 <span class="cstat-no" title="statement not covered" >import { useCats } from "@/lib/context/CatsContext";</span>
+<span class="cstat-no" title="statement not covered" >import { useUserContext } from "@/lib/context/UserContext";</span>
+<span class="cstat-no" title="statement not covered" >import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";</span>
 &nbsp;
 interface FeedingLogItemProps {
   log: FeedingLog;
@@ -575,6 +582,9 @@ interface FeedingLogItemProps {
   const [showDeleteDialog, setShowDeleteDialog] = <span class="cstat-no" title="statement not covered" >useState(false);</span>
   const { state: catsState } = <span class="cstat-no" title="statement not covered" >useCats();</span>
   const { cats, isLoading: isLoadingCats } = <span class="cstat-no" title="statement not covered" >catsState;</span>
+  const { state: userState } = <span class="cstat-no" title="statement not covered" >useUserContext();</span>
+  const userLanguage = <span class="cstat-no" title="statement not covered" >userState.currentUser?.preferences?.language;</span>
+  const userLocale = <span class="cstat-no" title="statement not covered" >resolveDateFnsLocale(userLanguage);</span>
 &nbsp;
   // --- DEBUGGING LOGS START ---
 <span class="cstat-no" title="statement not covered" >  console.log('[FeedingLogItem] Rendering log:', log);</span>
@@ -622,8 +632,7 @@ interface FeedingLogItemProps {
   const catPhotoUrl = <span class="cstat-no" title="statement not covered" >useMemo(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (isLoadingCats) <span class="cstat-no" title="statement not covered" >return "";</span></span>
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!cat) <span class="cstat-no" title="statement not covered" >return "";</span></span>
-    // Handle both photoUrl and photo_url property names
-<span class="cstat-no" title="statement not covered" >    return cat.photoUrl || cat.photo_url || "";</span>
+<span class="cstat-no" title="statement not covered" >    return cat.photo_url || "";</span>
   }, [isLoadingCats, cat]);
 &nbsp;
   // Show loading state while cats are being loaded
@@ -778,7 +787,7 @@ interface FeedingLogItemProps {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

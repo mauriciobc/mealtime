@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/26</span>
+                <span class='fraction'>0/24</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/26</span>
+                <span class='fraction'>0/24</span>
             </div>
         
             
@@ -133,20 +133,18 @@
 <a name='L68'></a><a href='#L68'>68</a>
 <a name='L69'></a><a href='#L69'>69</a>
 <a name='L70'></a><a href='#L70'>70</a>
-<a name='L71'></a><a href='#L71'>71</a>
-<a name='L72'></a><a href='#L72'>72</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L71'></a><a href='#L71'>71</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -210,15 +208,14 @@
 // import { authOptions } from '@/lib/auth';
 <span class="cstat-no" title="statement not covered" >import prisma from '@/lib/prisma';</span>
 <span class="cstat-no" title="statement not covered" >import { createClient } from '@/utils/supabase/server'; </span>// Import Supabase client
-<span class="cstat-no" title="statement not covered" >import { cookies } from 'next/headers'; </span>// Import cookies
+import { cookies } from 'next/headers'; // Import cookies
 &nbsp;
 <span class="cstat-no" title="statement not covered" >export a</span>sync function <span class="fstat-no" title="function not covered" >GET(</span>
   request: Request,
   { params }: { params: { catId: string } }
 ) {
   // const session = await getServerSession(authOptions);
-  const cookieStore = <span class="cstat-no" title="statement not covered" >cookies();</span> // Get cookies
-  const supabase = <span class="cstat-no" title="statement not covered" >createClient(cookieStore);</span> // Create Supabase client
+  const supabase = <span class="cstat-no" title="statement not covered" >await createClient();</span> // Create Supabase client
   const { data: { user: supabaseUser }, error: authError } = <span class="cstat-no" title="statement not covered" >await supabase.auth.getUser();</span> // Get Supabase user
 &nbsp;
   // if (!session?.user?.id) {
@@ -226,30 +223,30 @@
 <span class="cstat-no" title="statement not covered" >    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });</span>
   }
 &nbsp;
-  const catId = <span class="cstat-no" title="statement not covered" >parseInt(params.catId);</span>
+  const catId = <span class="cstat-no" title="statement not covered" >params.catId;</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (isNaN(catId)) {</span>
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!catId) {</span>
 <span class="cstat-no" title="statement not covered" >    return NextResponse.json({ error: 'ID do gato inválido' }, { status: 400 });</span>
   }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  try {</span>
-    // Fetch the user's household ID from Prisma using Supabase ID
-    const prismaUser = <span class="cstat-no" title="statement not covered" >await prisma.user.findUnique({</span>
-      where: { auth_id: supabaseUser.id },
-      select: { householdId: true }
+    // Find the user's household via household_members
+    const householdMember = <span class="cstat-no" title="statement not covered" >await prisma.household_members.findFirst({</span>
+      where: { user_id: supabaseUser.id },
+      select: { household_id: true }
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!prismaUser?.householdId) {</span>
+<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!householdMember?.household_id) {</span>
 <span class="cstat-no" title="statement not covered" >      return NextResponse.json({ error: 'Usuário não associado a uma residência' }, { status: 403 });</span>
     }
 &nbsp;
-    // Verify the cat belongs to the user's household *before* querying logs
-    const cat = <span class="cstat-no" title="statement not covered" >await prisma.cat.findUnique({</span>
+    // Verify the cat belongs to the user's household
+    const cat = <span class="cstat-no" title="statement not covered" >await prisma.cats.findUnique({</span>
       where: {
         id: catId,
-        householdId: prismaUser.householdId
+        household_id: householdMember.household_id
       },
-      select: { id: true } // Only need ID for verification
+      select: { id: true }
     });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!cat) {</span>
@@ -257,13 +254,13 @@
 <span class="cstat-no" title="statement not covered" >      return NextResponse.json({ error: 'Gato não encontrado ou acesso não autorizado' }, { status: 404 });</span>
     }
 &nbsp;
-    // Now that access is confirmed, find the last feeding log for this specific cat
-    const lastFeeding = <span class="cstat-no" title="statement not covered" >await prisma.feedingLog.findFirst({</span>
+    // Find the last feeding log for this cat
+    const lastFeeding = <span class="cstat-no" title="statement not covered" >await prisma.feeding_logs.findFirst({</span>
       where: {
-        catId: catId, // Already verified this cat belongs to the user's household
+        cat_id: catId,
       },
       orderBy: {
-        timestamp: 'desc',
+        fed_at: 'desc',
       },
     });
 &nbsp;
@@ -283,7 +280,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../../../../prettify.js"></script>
         <script>

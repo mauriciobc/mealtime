@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/59</span>
+                <span class='fraction'>0/64</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/25</span>
+                <span class='fraction'>0/33</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/58</span>
+                <span class='fraction'>0/63</span>
             </div>
         
             
@@ -340,7 +340,12 @@
 <a name='L275'></a><a href='#L275'>275</a>
 <a name='L276'></a><a href='#L276'>276</a>
 <a name='L277'></a><a href='#L277'>277</a>
-<a name='L278'></a><a href='#L278'>278</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L278'></a><a href='#L278'>278</a>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -364,6 +369,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -392,6 +399,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -621,7 +631,7 @@
 &nbsp;
 <span class="cstat-no" title="statement not covered" >import { useState, useEffect } from "react"</span>
 <span class="cstat-no" title="statement not covered" >import { useRouter } from "next/navigation"</span>
-<span class="cstat-no" title="statement not covered" >import { format, formatDistanceToNow } from "date-fns"</span>
+<span class="cstat-no" title="statement not covered" >import { format } from "date-fns"</span>
 import { ptBR } from "date-fns/locale"
 <span class="cstat-no" title="statement not covered" >import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"</span>
 <span class="cstat-no" title="statement not covered" >import { Button } from "@/components/ui/button"</span>
@@ -641,6 +651,8 @@ import { ptBR } from "date-fns/locale"
   SelectValue,
 } from "@/components/ui/select"
 <span class="cstat-no" title="statement not covered" >import { getCats } from "@/lib/data"</span>
+<span class="cstat-no" title="statement not covered" >import { useUserContext } from "@/lib/context/UserContext"</span>
+<span class="cstat-no" title="statement not covered" >import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"</span>
 &nbsp;
 // Definindo a interface para o registro de alimentação
 interface FeedingLogType {
@@ -678,6 +690,9 @@ interface CatType {
   const [selectedCat, setSelectedCat] = <span class="cstat-no" title="statement not covered" >useState&lt;string&gt;("all")</span>
   const [sortOrder, setSortOrder] = <span class="cstat-no" title="statement not covered" >useState&lt;"asc" | "desc"&gt;("desc")</span>
   const [cats, setCats] = <span class="cstat-no" title="statement not covered" >useState&lt;CatType[]&gt;([])</span>
+  const { state: userState } = <span class="cstat-no" title="statement not covered" >useUserContext();</span>
+  const userLanguage = <span class="cstat-no" title="statement not covered" >userState.currentUser?.preferences?.language;</span>
+  const userLocale = <span class="cstat-no" title="statement not covered" >resolveDateFnsLocale(userLanguage);</span>
   
 <span class="cstat-no" title="statement not covered" >  useEffect(<span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
     async function <span class="fstat-no" title="function not covered" >loadData(</span>) {
@@ -901,7 +916,7 @@ interface CatType {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

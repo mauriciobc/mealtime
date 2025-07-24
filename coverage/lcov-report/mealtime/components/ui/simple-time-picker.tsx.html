@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/139</span>
+                <span class='fraction'>0/144</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/91</span>
+                <span class='fraction'>0/99</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/130</span>
+                <span class='fraction'>0/135</span>
             </div>
         
             
@@ -429,7 +429,12 @@
 <a name='L364'></a><a href='#L364'>364</a>
 <a name='L365'></a><a href='#L365'>365</a>
 <a name='L366'></a><a href='#L366'>366</a>
-<a name='L367'></a><a href='#L367'>367</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L367'></a><a href='#L367'>367</a>
+<a name='L368'></a><a href='#L368'>368</a>
+<a name='L369'></a><a href='#L369'>369</a>
+<a name='L370'></a><a href='#L370'>370</a>
+<a name='L371'></a><a href='#L371'>371</a>
+<a name='L372'></a><a href='#L372'>372</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -456,6 +461,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -484,6 +491,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -822,6 +832,8 @@
   subHours,
   setMilliseconds,
 } from 'date-fns';
+<span class="cstat-no" title="statement not covered" >import { useUserContext } from "@/lib/context/UserContext"</span>
+<span class="cstat-no" title="statement not covered" >import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"</span>
 &nbsp;
 interface SimpleTimeOption {
   value: any;
@@ -850,6 +862,9 @@ const PM_VALUE = <span class="cstat-no" title="statement not covered" >1;</span>
   className?: string;
   modal?: boolean;
 }) {
+  const { state: userState } = <span class="cstat-no" title="statement not covered" >useUserContext();</span>
+  const userLanguage = <span class="cstat-no" title="statement not covered" >userState.currentUser?.preferences?.language;</span>
+  const userLocale = <span class="cstat-no" title="statement not covered" >resolveDateFnsLocale(userLanguage);</span>
   // hours24h = HH
   // hours12h = hh
   const formatStr = <span class="cstat-no" title="statement not covered" >useMemo(</span>
@@ -950,7 +965,7 @@ const PM_VALUE = <span class="cstat-no" title="statement not covered" >1;</span>
       }
     }, 1);
 <span class="cstat-no" title="statement not covered" >    return <span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >clearTimeout(timeoutId);</span></span>
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open]);
   const onHourChange = <span class="cstat-no" title="statement not covered" >useCallback(</span>
 <span class="fstat-no" title="function not covered" >    (v</span>: SimpleTimeOption) =&gt; {
@@ -1156,7 +1171,7 @@ function <span class="fstat-no" title="function not covered" >buildTime(</span>o
 <span class="cstat-no" title="statement not covered" >    dateStr = dateStr.slice(0, 14) + minute.toString().padStart(2, '0') + dateStr.slice(16);</span>
 <span class="cstat-no" title="statement not covered" >    dateStr = dateStr.slice(0, 17) + second.toString().padStart(2, '0') + dateStr.slice(19);</span>
 <span class="cstat-no" title="statement not covered" >    dateStr = dateStr.slice(0, 24) + (ampm == AM_VALUE ? 'AM' : 'PM') + dateStr.slice(26);</span>
-<span class="cstat-no" title="statement not covered" >    date = parse(dateStr, formatStr, value);</span>
+<span class="cstat-no" title="statement not covered" >    date = parse(dateStr, formatStr, { locale: userLocale });</span>
   } else {
 <span class="cstat-no" title="statement not covered" >    date = setHours(setMinutes(setSeconds(setMilliseconds(value, 0), second), minute), hour);</span>
   }
@@ -1168,7 +1183,7 @@ function <span class="fstat-no" title="function not covered" >buildTime(</span>o
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/77</span>
+                <span class='fraction'>0/79</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/73</span>
+                <span class='fraction'>0/75</span>
             </div>
         
             
@@ -278,7 +278,11 @@
 <a name='L213'></a><a href='#L213'>213</a>
 <a name='L214'></a><a href='#L214'>214</a>
 <a name='L215'></a><a href='#L215'>215</a>
-<a name='L216'></a><a href='#L216'>216</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -296,13 +300,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -445,7 +448,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -511,19 +519,18 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
   PlusCircle,
   AlertCircle
 } from "lucide-react"
-import Link from "next/link"
+<span class="cstat-no" title="statement not covered" >import Link from "next/link"</span>
 import { AnimatedCard } from "@/components/ui/animated-card"
-import { Button } from "@/components/ui/button"
+<span class="cstat-no" title="statement not covered" >import { Button } from "@/components/ui/button"</span>
 import { Badge } from "@/components/ui/badge"
 <span class="cstat-no" title="statement not covered" >import BottomNav from "@/components/bottom-nav"</span>
 <span class="cstat-no" title="statement not covered" >import PageTransition from "@/components/page-transition"</span>
 import { motion } from "framer-motion"
 import { CatType, FeedingLog } from "@/lib/types"
 import { getAgeString, getScheduleText } from "@/lib/utils/dateUtils"
-import { AnimatedButton } from "@/components/ui/animated-button"
 import { AppHeader } from "@/components/app-header"
 <span class="cstat-no" title="statement not covered" >import { useRouter } from "next/navigation"</span>
-import { formatDistanceToNow } from "date-fns"
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow"
 import { ptBR } from "date-fns/locale"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 <span class="cstat-no" title="statement not covered" >import { PageHeader } from "@/components/page-header"</span>
@@ -646,11 +653,14 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
                 icon={&lt;Users className="h-6 w-6" /&gt;}
               /&gt;
              &lt;EmptyState
-                icon={Users}
+                IconComponent={Users}
                 title="Sem Residência Associada"
                 description="Você precisa criar ou juntar-se a uma residência para adicionar e gerenciar gatos."
-                actionLabel="Ir para Configurações"
-                actionHref="/settings"
+                actionButton={
+                  &lt;Link href="/settings"&gt;
+                    &lt;Button variant="outline"&gt;Ir para Configurações&lt;/Button&gt;
+                  &lt;/Link&gt;
+                }
                 className="max-w-xl mx-auto my-12"
              /&gt;
            &lt;/div&gt;
@@ -676,16 +686,18 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
           {catsToDisplay.length === 0 ? (
              &lt;div className="mt-6"&gt;
                &lt;EmptyState
-                 icon={CatIcon}
+                 IconComponent={CatIcon}
                  title="Nenhum gato cadastrado"
                  description="Você ainda não adicionou nenhum gato a esta residência. Que tal adicionar o primeiro?"
-                 actionLabel="Adicionar Meu Primeiro Gato"
-                 actionHref="/cats/new"
-                 variant="cat"
+                 actionButton={
+                   &lt;Link href="/cats/new"&gt;
+                     &lt;Button variant="outline"&gt;Adicionar Meu Primeiro Gato&lt;/Button&gt;
+                   &lt;/Link&gt;
+                 }
                /&gt;
              &lt;/div&gt;
           ) : (
-            &lt;div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-6"&gt;
+            &lt;div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 mt-6"&gt;
               {catsToDisplay.map(<span class="fstat-no" title="function not covered" >(c</span>at: CatType) =&gt; {
                 const latestLog = <span class="cstat-no" title="statement not covered" >latestLogMap.get(String(cat.id)) ?? null;</span>
 <span class="cstat-no" title="statement not covered" >                return (</span>
@@ -715,7 +727,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

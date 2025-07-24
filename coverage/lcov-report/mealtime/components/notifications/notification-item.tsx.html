@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/32</span>
+                <span class='fraction'>0/37</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/28</span>
+                <span class='fraction'>0/32</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/32</span>
+                <span class='fraction'>0/37</span>
             </div>
         
             
@@ -188,7 +188,14 @@
 <a name='L123'></a><a href='#L123'>123</a>
 <a name='L124'></a><a href='#L124'>124</a>
 <a name='L125'></a><a href='#L125'>125</a>
-<a name='L126'></a><a href='#L126'>126</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -223,6 +230,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -346,8 +360,15 @@ interface NotificationItemProps {
   const { removeNotification, isLoading, error } = <span class="cstat-no" title="statement not covered" >useNotifications();</span>
   const { id, title, message, type, is_read, created_at, metadata } = <span class="cstat-no" title="statement not covered" >notification;</span>
   
-  // Format the time
-  const timeAgo = <span class="cstat-no" title="statement not covered" >formatDistanceToNow(new Date(created_at), { addSuffix: true });</span>
+  // Defensive date formatting
+  let timeAgo = <span class="cstat-no" title="statement not covered" >'';</span>
+  const dateValue = <span class="cstat-no" title="statement not covered" >notification.createdAt || notification.created_at;</span>
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (dateValue) {</span>
+    const dateObj = <span class="cstat-no" title="statement not covered" >new Date(dateValue);</span>
+<span class="cstat-no" title="statement not covered" >    <span class="missing-if-branch" title="if path not taken" >I</span>if (!isNaN(dateObj.getTime())) {</span>
+<span class="cstat-no" title="statement not covered" >      timeAgo = formatDistanceToNow(dateObj, { addSuffix: true });</span>
+    }
+  }
   
   // Get the icon based on type
   const getIcon = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; {</span>
@@ -389,11 +410,11 @@ interface NotificationItemProps {
 <span class="cstat-no" title="statement not covered" >    &lt;div </span>
       className={cn(
         "flex items-start gap-4 p-4 cursor-pointer hover:bg-muted/50 transition-colors",
-        !is_read &amp;&amp; "bg-muted/30"
+        !notification.isRead &amp;&amp; "bg-muted/30"
       )}
       onClick={<span class="fstat-no" title="function not covered" >() =</span>&gt; {
-<span class="cstat-no" title="statement not covered" >        <span class="missing-if-branch" title="if path not taken" >I</span>if (metadata?.action_url) {</span>
-<span class="cstat-no" title="statement not covered" >          window.location.href = metadata.action_url;</span>
+<span class="cstat-no" title="statement not covered" >        <span class="missing-if-branch" title="if path not taken" >I</span>if (notification.metadata?.actionUrl) {</span>
+<span class="cstat-no" title="statement not covered" >          window.location.href = notification.metadata.actionUrl;</span>
         }
 <span class="cstat-no" title="statement not covered" >        onClick?.(notification);</span>
       }}
@@ -403,15 +424,15 @@ interface NotificationItemProps {
         &lt;div className="flex items-center justify-between gap-4"&gt;
           &lt;p className={cn(
             "text-sm font-medium leading-none",
-            !is_read &amp;&amp; "font-semibold"
+            !notification.isRead &amp;&amp; "font-semibold"
           )}&gt;
-            {title}
+            {notification.title}
           &lt;/p&gt;
           &lt;span className="text-xs text-muted-foreground whitespace-nowrap"&gt;
             {timeAgo}
           &lt;/span&gt;
         &lt;/div&gt;
-        &lt;p className="text-sm text-muted-foreground"&gt;{message}&lt;/p&gt;
+        &lt;p className="text-sm text-muted-foreground"&gt;{notification.message}&lt;/p&gt;
       &lt;/div&gt;
       {showActions &amp;&amp; (
         &lt;Button
@@ -428,9 +449,9 @@ interface NotificationItemProps {
     &lt;/div&gt;
   );
   
-<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (metadata?.action_url) {</span>
+<span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (notification.metadata?.actionUrl) {</span>
 <span class="cstat-no" title="statement not covered" >    return (</span>
-      &lt;Link href={metadata.action_url} className="block"&gt;
+      &lt;Link href={notification.metadata.actionUrl} className="block"&gt;
         {content}
       &lt;/Link&gt;
     );
@@ -445,7 +466,7 @@ interface NotificationItemProps {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

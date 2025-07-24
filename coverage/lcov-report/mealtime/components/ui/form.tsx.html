@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/61</span>
+                <span class='fraction'>0/60</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/24</span>
+                <span class='fraction'>0/16</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/57</span>
+                <span class='fraction'>0/56</span>
             </div>
         
             
@@ -241,18 +241,11 @@
 <a name='L176'></a><a href='#L176'>176</a>
 <a name='L177'></a><a href='#L177'>177</a>
 <a name='L178'></a><a href='#L178'>178</a>
-<a name='L179'></a><a href='#L179'>179</a>
-<a name='L180'></a><a href='#L180'>180</a>
-<a name='L181'></a><a href='#L181'>181</a>
-<a name='L182'></a><a href='#L182'>182</a>
-<a name='L183'></a><a href='#L183'>183</a>
-<a name='L184'></a><a href='#L184'>184</a>
-<a name='L185'></a><a href='#L185'>185</a>
-<a name='L186'></a><a href='#L186'>186</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L179'></a><a href='#L179'>179</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -297,18 +290,11 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -436,15 +422,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">"use client"
 &nbsp;
 <span class="cstat-no" title="statement not covered" >import * as React from "react"</span>
-import * as LabelPrimitive from "@radix-ui/react-label"
-<span class="cstat-no" title="statement not covered" >import { Slot } from "@radix-ui/react-slot"</span>
+<span class="cstat-no" title="statement not covered" >import { Label as LabelPrimitive, Slot as SlotPrimitive } from "radix-ui"</span>
+&nbsp;
 <span class="cstat-no" title="statement not covered" >import {</span>
   Controller,
-  ControllerProps,
-  FieldPath,
-  FieldValues,
   FormProvider,
   useFormContext,
+  type ControllerProps,
+  type FieldPath,
+  type FieldValues,
 } from "react-hook-form"
 &nbsp;
 <span class="cstat-no" title="statement not covered" >import { cn } from "@/lib/utils"</span>
@@ -481,20 +467,13 @@ const useFormField = <span class="cstat-no" title="statement not covered" ><span
   const itemContext = <span class="cstat-no" title="statement not covered" >React.useContext(FormItemContext)</span>
   const { getFieldState, formState } = <span class="cstat-no" title="statement not covered" >useFormContext()</span>
 &nbsp;
+  const fieldState = <span class="cstat-no" title="statement not covered" >getFieldState(fieldContext.name, formState)</span>
+&nbsp;
 <span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!fieldContext) {</span>
-<span class="cstat-no" title="statement not covered" >    console.warn("useFormField should be used within &lt;FormField&gt;")</span>
-<span class="cstat-no" title="statement not covered" >    return {</span>
-      id: itemContext?.id ?? "",
-      name: "",
-      formItemId: "",
-      formDescriptionId: "",
-      formMessageId: "",
-      error: undefined
-    }
+<span class="cstat-no" title="statement not covered" >    throw new Error("useFormField should be used within &lt;FormField&gt;")</span>
   }
 &nbsp;
-  const fieldState = <span class="cstat-no" title="statement not covered" >getFieldState(fieldContext.name, formState)</span>
-  const { id } = <span class="cstat-no" title="statement not covered" >itemContext ?? { id: "" }</span>
+  const { id } = <span class="cstat-no" title="statement not covered" >itemContext</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return {</span>
     id,
@@ -546,13 +525,13 @@ const FormLabel = <span class="cstat-no" title="statement not covered" >React.fo
 <span class="cstat-no" title="statement not covered" >FormLabel.displayName = "FormLabel"</span>
 &nbsp;
 const FormControl = <span class="cstat-no" title="statement not covered" >React.forwardRef&lt;</span>
-  React.ElementRef&lt;typeof Slot&gt;,
-  React.ComponentPropsWithoutRef&lt;typeof Slot&gt;
+  React.ElementRef&lt;typeof SlotPrimitive.Slot&gt;,
+  React.ComponentPropsWithoutRef&lt;typeof SlotPrimitive.Slot&gt;
 &gt;(<span class="fstat-no" title="function not covered" >({</span> ...props<span class="cstat-no" title="statement not covered" > }, r</span>ef) =&gt; {
   const { error, formItemId, formDescriptionId, formMessageId } = <span class="cstat-no" title="statement not covered" >useFormField()</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return (</span>
-    &lt;Slot
+    &lt;SlotPrimitive.Slot
       ref={ref}
       id={formItemId}
       aria-describedby={
@@ -589,7 +568,7 @@ const FormMessage = <span class="cstat-no" title="statement not covered" >React.
   React.HTMLAttributes&lt;HTMLParagraphElement&gt;
 &gt;(<span class="fstat-no" title="function not covered" >({</span> className, children<span class="cstat-no" title="statement not covered" >, ...p</span>rops<span class="cstat-no" title="statement not covered" > }, r</span>ef) =&gt; {
   const { error, formMessageId } = <span class="cstat-no" title="statement not covered" >useFormField()</span>
-  const body = <span class="cstat-no" title="statement not covered" >error ? String(error?.message) : children</span>
+  const body = <span class="cstat-no" title="statement not covered" >error ? String(error?.message ?? "") : children</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  <span class="missing-if-branch" title="if path not taken" >I</span>if (!body) {</span>
 <span class="cstat-no" title="statement not covered" >    return null</span>
@@ -625,7 +604,7 @@ export {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-05-04T23:12:30.023Z
+                at 2025-07-24T22:10:24.106Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
