@@ -16,6 +16,8 @@ const PUBLIC_PATHS = [
   '/reset-password',
   '/auth/callback',
   '/api/auth/callback',
+  '/api/auth/mobile',
+  '/api/auth/mobile/register',
   '/_next',
   '/static',
   '/images',
@@ -118,6 +120,34 @@ export async function middleware(request: NextRequest) {
     // For API routes, handle auth differently
     if (isApiRoute) {
       try {
+        // Handle CORS preflight requests
+        if (request.method === 'OPTIONS') {
+          const response = new NextResponse(null, { status: 200 });
+          
+          // Apply CORS headers for preflight
+          const origin = request.headers.get('origin');
+          const allowedOrigins = [
+            'http://localhost:3000',
+            'https://mealtime.vercel.app',
+            'capacitor://localhost',
+            'ionic://localhost',
+            'file://'
+          ];
+          
+          if (origin && allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+            response.headers.set('Access-Control-Allow-Origin', origin);
+          } else {
+            response.headers.set('Access-Control-Allow-Origin', '*');
+          }
+          
+          response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+          response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+          response.headers.set('Access-Control-Max-Age', '86400');
+          response.headers.set('Access-Control-Allow-Credentials', 'true');
+          
+          return response;
+        }
+
         const supabase = createSupabaseRouteClient(request);
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
@@ -136,11 +166,28 @@ export async function middleware(request: NextRequest) {
         // User is authenticated, proceed with the request
         let response = NextResponse.next();
         
-        // Apply API-specific headers
+        // Apply API-specific headers with mobile support
         response.headers.set('Access-Control-Allow-Credentials', 'true');
-        response.headers.set('Access-Control-Allow-Origin', request.headers.get('origin') || '*');
-        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        
+        // Handle CORS for mobile apps
+        const origin = request.headers.get('origin');
+        const allowedOrigins = [
+          'http://localhost:3000',
+          'https://mealtime.vercel.app',
+          'capacitor://localhost', // Capacitor apps
+          'ionic://localhost', // Ionic apps
+          'file://' // Cordova apps
+        ];
+        
+        if (origin && allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+          response.headers.set('Access-Control-Allow-Origin', origin);
+        } else {
+          response.headers.set('Access-Control-Allow-Origin', '*');
+        }
+        
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+        response.headers.set('Access-Control-Max-Age', '86400'); // 24 hours
         response.headers.set('Content-Type', 'application/json');
         
         return applySecurityHeadersToResponse(response, request);
