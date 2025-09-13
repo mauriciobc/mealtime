@@ -65,6 +65,25 @@ function isPathMatch(path: string, pattern: string): boolean {
   return path === pattern || path.startsWith(pattern + '/');
 }
 
+// Helper function to normalize and validate origin
+function normalizeOrigin(origin: string): string | null {
+  try {
+    const url = new URL(origin);
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+// Helper function to check if origin is allowed
+function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
+  const normalizedOrigin = normalizeOrigin(origin);
+  if (!normalizedOrigin) {
+    return false;
+  }
+  return allowedOrigins.includes(normalizedOrigin);
+}
+
 // Function to apply security headers to a response
 function applySecurityHeadersToResponse(response: NextResponse, request: NextRequest): NextResponse {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL) : null;
@@ -128,17 +147,16 @@ export async function middleware(request: NextRequest) {
           const origin = request.headers.get('origin');
           const allowedOrigins = [
             'http://localhost:3000',
-            'https://mealtime.vercel.app',
+            'https://mealtime.app.br',
             'capacitor://localhost',
             'ionic://localhost',
             'file://'
           ];
           
-          if (origin && allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+          if (origin && isOriginAllowed(origin, allowedOrigins)) {
             response.headers.set('Access-Control-Allow-Origin', origin);
-          } else {
-            response.headers.set('Access-Control-Allow-Origin', '*');
           }
+          // Note: We don't set Access-Control-Allow-Origin to '*' for security reasons
           
           response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
           response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
@@ -173,17 +191,16 @@ export async function middleware(request: NextRequest) {
         const origin = request.headers.get('origin');
         const allowedOrigins = [
           'http://localhost:3000',
-          'https://mealtime.vercel.app',
+          'https://mealtime.app.br',
           'capacitor://localhost', // Capacitor apps
           'ionic://localhost', // Ionic apps
           'file://' // Cordova apps
         ];
         
-        if (origin && allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+        if (origin && isOriginAllowed(origin, allowedOrigins)) {
           response.headers.set('Access-Control-Allow-Origin', origin);
-        } else {
-          response.headers.set('Access-Control-Allow-Origin', '*');
         }
+        // Note: We don't set Access-Control-Allow-Origin to '*' for security reasons
         
         response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
         response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');

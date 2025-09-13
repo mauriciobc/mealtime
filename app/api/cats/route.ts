@@ -2,6 +2,86 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger'; // Import the logger
 
+/**
+ * Valida e normaliza o peso do gato
+ */
+function validateWeight(weight: any): { isValid: boolean; value: number | null; error?: string } {
+  if (weight === null || weight === undefined || weight === '') {
+    return { isValid: true, value: null };
+  }
+
+  const weightNum = Number(parseFloat(weight));
+  
+  if (Number.isNaN(weightNum)) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Peso deve ser um número válido' 
+    };
+  }
+
+  if (weightNum < 0) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Peso não pode ser negativo' 
+    };
+  }
+
+  // Validação adicional: peso máximo razoável para um gato (50kg)
+  if (weightNum > 50) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Peso deve ser menor que 50kg' 
+    };
+  }
+
+  return { isValid: true, value: weightNum };
+}
+
+/**
+ * Valida e normaliza a data de nascimento do gato
+ */
+function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | null; error?: string } {
+  if (birth_date === null || birth_date === undefined || birth_date === '') {
+    return { isValid: true, value: null };
+  }
+
+  const date = new Date(birth_date);
+  
+  if (isNaN(date.getTime())) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Data de nascimento deve ser uma data válida' 
+    };
+  }
+
+  // Validação adicional: data não pode ser no futuro
+  const now = new Date();
+  if (date > now) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Data de nascimento não pode ser no futuro' 
+    };
+  }
+
+  // Validação adicional: data não pode ser muito antiga (mais de 30 anos)
+  const thirtyYearsAgo = new Date();
+  thirtyYearsAgo.setFullYear(thirtyYearsAgo.getFullYear() - 30);
+  if (date < thirtyYearsAgo) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Data de nascimento não pode ser há mais de 30 anos' 
+    };
+  }
+
+  return { isValid: true, value: date };
+}
+
 // Log Runtime
 logger.debug('[/api/cats] Runtime:', { runtime: process.env.NEXT_RUNTIME });
 
@@ -136,6 +216,30 @@ export async function POST(request: NextRequest) {
       feedingInterval = hours;
     }
 
+    // Validar peso se fornecido
+    if (body.weight !== undefined) {
+      const weightValidation = validateWeight(body.weight);
+      if (!weightValidation.isValid) {
+        logger.warn('[POST /api/cats] Invalid weight:', body.weight);
+        return NextResponse.json(
+          { error: weightValidation.error },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validar data de nascimento se fornecida
+    if (body.birthdate !== undefined) {
+      const birthDateValidation = validateBirthDate(body.birthdate);
+      if (!birthDateValidation.isValid) {
+        logger.warn('[POST /api/cats] Invalid birthdate:', body.birthdate);
+        return NextResponse.json(
+          { error: birthDateValidation.error },
+          { status: 400 }
+        );
+      }
+    }
+
     // Check if the user is a member of the target household
     const householdMember = await prisma.household_members.findFirst({
       where: {
@@ -153,20 +257,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Preparar dados para criação com validações aplicadas
+    const createData: any = {
+      name: body.name.trim(),
+      photo_url: body.photoUrl || null,
+      household_id: body.householdId,
+      owner_id: authUserId,
+      restrictions: body.restrictions?.trim() || null,
+      notes: body.notes?.trim() || null,
+      feeding_interval: feedingInterval,
+      portion_size: body.portion_size || null
+    };
+
+    // Aplicar validações de peso e data de nascimento
+    if (body.weight !== undefined) {
+      const weightValidation = validateWeight(body.weight);
+      createData.weight = weightValidation.value;
+    }
+
+    if (body.birthdate !== undefined) {
+      const birthDateValidation = validateBirthDate(body.birthdate);
+      createData.birth_date = birthDateValidation.value;
+    }
+
     // Create the cat using Prisma's create method
     const newCat = await prisma.cats.create({
-      data: {
-        name: body.name.trim(),
-        photo_url: body.photoUrl || null,
-        birth_date: body.birthdate ? new Date(body.birthdate) : null,
-        weight: body.weight ? parseFloat(body.weight) : null,
-        household_id: body.householdId,
-        owner_id: authUserId,
-        restrictions: body.restrictions?.trim() || null,
-        notes: body.notes?.trim() || null,
-        feeding_interval: feedingInterval,
-        portion_size: body.portion_size || null
-      }
+      data: createData
     });
 
     // If weight was provided, create an initial weight log

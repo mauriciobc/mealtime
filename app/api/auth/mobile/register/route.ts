@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { logger } from '@/lib/monitoring/logger';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { generateRequestId } from '@/lib/utils/log-sanitizer';
 
 // Schema de validação para registro
 const registerSchema = z.object({
@@ -35,6 +36,8 @@ export type MobileRegisterRequest = z.infer<typeof registerSchema>;
  * }
  */
 export async function POST(request: NextRequest) {
+  const requestId = generateRequestId();
+  
   try {
     const body = await request.json();
     
@@ -56,9 +59,6 @@ export async function POST(request: NextRequest) {
     // Criar cliente Supabase
     const supabase = await createClient();
 
-    // Verificar se o usuário já existe
-    const { data: existingUser } = await supabase.auth.getUser();
-    
     // Tentar criar usuário no Supabase
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -71,9 +71,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (authError || !authData.user) {
-      logger.warn('[Mobile Register] Supabase signup failed', { 
+      logger.logSafe('warn', '[Mobile Register] Supabase signup failed', { 
+        requestId,
         email, 
-        error: authError?.message 
+        error: authError?.message,
+        errorCode: authError?.status || 'UNKNOWN'
       });
       
       return NextResponse.json(
@@ -97,81 +99,98 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar household se especificado
-    let householdId: number | null = null;
-    if (household_name) {
-      const household = await prisma.household.create({
+    // Criar household, usuário e householdMember em uma única transação
+    const result = await prisma.$transaction(async (tx) => {
+      // Criar usuário no Prisma primeiro (profiles table)
+      const prismaUser = await tx.profiles.create({
         data: {
-          name: household_name,
-          created_at: new Date(),
+          id: authData.user.id, // Usar o auth_id como id do profile
+          full_name,
+          email,
           updated_at: new Date()
         }
       });
-      householdId = household.id;
-    }
 
-    // Criar usuário no Prisma
-    const prismaUser = await prisma.user.create({
-      data: {
-        auth_id: authData.user.id,
-        full_name,
-        email,
-        householdId,
-        created_at: new Date(),
-        updated_at: new Date()
-      },
-      include: {
-        household: {
-          include: {
-            household_members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    full_name: true,
-                    email: true,
+      // Criar household se especificado
+      let householdId: string | null = null;
+      if (household_name) {
+        const household = await tx.households.create({
+          data: {
+            name: household_name,
+            owner_id: prismaUser.id, // Usar o ID do usuário criado como owner
+            created_at: new Date(),
+            updated_at: new Date()
+          }
+        });
+        householdId = household.id;
+      }
+
+      // Adicionar usuário como membro do household se criado
+      if (householdId) {
+        await tx.household_members.create({
+          data: {
+            household_id: householdId,
+            user_id: prismaUser.id,
+            role: 'admin', // Primeiro usuário é admin
+            created_at: new Date()
+          }
+        });
+      }
+
+      // Buscar dados completos do usuário com household
+      const userWithHousehold = await tx.profiles.findUnique({
+        where: { id: prismaUser.id },
+        include: {
+          household_members: {
+            include: {
+              household: {
+                include: {
+                  household_members: {
+                    include: {
+                      user: {
+                        select: {
+                          id: true,
+                          full_name: true,
+                          email: true,
+                        }
+                      }
+                    }
                   }
                 }
               }
             }
           }
         }
-      }
+      });
+
+      return { prismaUser: userWithHousehold, householdId };
     });
 
-    // Adicionar usuário como membro do household se criado
-    if (householdId) {
-      await prisma.householdMember.create({
-        data: {
-          household_id: householdId,
-          user_id: prismaUser.id,
-          role: 'admin', // Primeiro usuário é admin
-          created_at: new Date(),
-          updated_at: new Date()
-        }
-      });
-    }
+    const { prismaUser, householdId } = result;
 
     // Preparar dados do usuário para resposta
     const userData = {
       id: prismaUser.id,
-      auth_id: prismaUser.auth_id,
+      auth_id: prismaUser.id, // O ID do profile é o mesmo do auth_id
       full_name: prismaUser.full_name,
       email: prismaUser.email,
-      household_id: prismaUser.householdId,
-      household: prismaUser.household ? {
-        id: prismaUser.household.id,
-        name: prismaUser.household.name,
-        members: prismaUser.household.household_members.map(member => ({
-          id: member.user.id,
-          name: member.user.full_name,
-          email: member.user.email,
-          role: member.role
-        }))
+      household_id: householdId,
+      household: prismaUser.household_members.length > 0 ? {
+        id: prismaUser.household_members[0].household.id,
+        name: prismaUser.household_members[0].household.name,
+        members: prismaUser.household_members[0].household.household_members
+          .filter(member => member.user !== null)
+          .map(member => ({
+            id: member.user!.id,
+            name: member.user!.full_name,
+            email: member.user!.email,
+            role: member.role
+          }))
       } : null
     };
 
-    logger.info('[Mobile Register] User created successfully', { 
+    logger.logSafe('info', '[Mobile Register] User created successfully', { 
+      requestId,
       userId: prismaUser.id,
       email: prismaUser.email,
       householdId 
@@ -188,10 +207,16 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('[Mobile Register] Unexpected error', { 
-      error: error.message,
-      stack: error.stack 
-    });
+    // Usar logging sanitizado para proteger dados sensíveis
+    logger.logRequestError(
+      error as Error, 
+      request, 
+      { 
+        requestId,
+        operation: 'mobile_register',
+        endpoint: '/api/auth/mobile/register'
+      }
+    );
     
     return NextResponse.json(
       { 

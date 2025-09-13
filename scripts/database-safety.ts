@@ -2,6 +2,24 @@
 
 import { PrismaClient } from '@prisma/client';
 
+// Função utilitária para parsing seguro de números inteiros positivos
+function parsePositiveInteger(value: string | undefined, defaultValue: number, minValue: number = 1): number {
+  if (!value) {
+    return defaultValue;
+  }
+
+  // Parse com radix 10 explícito
+  const parsed = parseInt(value, 10);
+  
+  // Validar se é um número válido, finito e inteiro positivo
+  if (Number.isNaN(parsed) || !Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < minValue) {
+    console.warn(`⚠️  Valor inválido para TEST_MAX_DELETIONS: "${value}". Usando valor padrão: ${defaultValue}`);
+    return defaultValue;
+  }
+
+  return parsed;
+}
+
 // Configurações de segurança para banco de dados
 export interface DatabaseSafetyConfig {
   allowedEnvironments: string[];
@@ -15,7 +33,7 @@ export const DEFAULT_SAFETY_CONFIG: DatabaseSafetyConfig = {
   allowedEnvironments: ['test', 'development'],
   productionProtection: true,
   requireConfirmation: process.env.TEST_SAFETY_CONFIRMATION !== 'false',
-  maxDeletionsPerRun: parseInt(process.env.TEST_MAX_DELETIONS || '1000'),
+  maxDeletionsPerRun: parsePositiveInteger(process.env.TEST_MAX_DELETIONS, 1000, 1),
   backupBeforeDeletion: process.env.TEST_SAFETY_BACKUP !== 'false',
 };
 
@@ -67,19 +85,9 @@ export class DatabaseSafetyGuard {
 
   // Verificar se é banco de produção
   private async isProductionDatabase(databaseUrl: string): Promise<boolean> {
-    const productionKeywords = [
-      'prod', 'production', 'live', 'main', 'master',
-      'supabase.co', 'heroku.com', 'aws.amazon.com',
-      'database.ondigitalocean.com', 'clever-cloud.com'
-    ];
-
-    const urlLower = databaseUrl.toLowerCase();
-    
-    // Verificar keywords na URL
-    for (const keyword of productionKeywords) {
-      if (urlLower.includes(keyword)) {
-        return true;
-      }
+    // Verificar keywords na URL primeiro
+    if (this.containsProductionKeywords(databaseUrl)) {
+      return true;
     }
 
     // Verificar se o banco tem muitos dados (indicativo de produção)
@@ -171,8 +179,26 @@ export class DatabaseSafetyGuard {
     
     try {
       const urlObj = new URL(url);
-      const maskedPassword = '*'.repeat(urlObj.password?.length || 0);
-      return url.replace(urlObj.password || '', maskedPassword);
+      
+      // Mascarar username - usar '***' ou versão truncada mascarada
+      const maskedUsername = urlObj.username ? '***' : '';
+      
+      // Mascarar hostname - manter apenas TLD ou usar máscara genérica
+      const hostnameParts = urlObj.hostname.split('.');
+      const maskedHostname = hostnameParts.length > 1 
+        ? `***.${hostnameParts[hostnameParts.length - 1]}` 
+        : '***';
+      
+      // Mascarar senha apenas se não estiver vazia
+      const maskedPassword = urlObj.password ? '*'.repeat(urlObj.password.length) : '';
+      
+      // Reconstruir URL com componentes mascarados
+      const maskedUrl = new URL(urlObj.href);
+      maskedUrl.username = maskedUsername;
+      maskedUrl.password = maskedPassword;
+      maskedUrl.hostname = maskedHostname;
+      
+      return maskedUrl.toString();
     } catch {
       return 'URL inválida';
     }
@@ -209,33 +235,37 @@ export class DatabaseSafetyGuard {
     try {
       console.log('🔄 Restaurando backup...');
       
-      // Limpar dados atuais
-      await this.prisma.cat_weight_logs.deleteMany();
-      await this.prisma.feeding_logs.deleteMany();
-      await this.prisma.cats.deleteMany();
-      await this.prisma.households.deleteMany();
-      await this.prisma.profiles.deleteMany();
-      
-      // Restaurar dados
-      if (backup.households.length > 0) {
-        await this.prisma.households.createMany({ data: backup.households });
-      }
-      if (backup.profiles.length > 0) {
-        await this.prisma.profiles.createMany({ data: backup.profiles });
-      }
-      if (backup.cats.length > 0) {
-        await this.prisma.cats.createMany({ data: backup.cats });
-      }
-      if (backup.feeding_logs.length > 0) {
-        await this.prisma.feeding_logs.createMany({ data: backup.feeding_logs });
-      }
-      if (backup.cat_weight_logs.length > 0) {
-        await this.prisma.cat_weight_logs.createMany({ data: backup.cat_weight_logs });
-      }
+      // Usar transação Prisma para garantir atomicidade e rollback automático
+      await this.prisma.$transaction(async (tx) => {
+        // Limpar dados atuais em ordem child-first para respeitar foreign keys
+        await tx.cat_weight_logs.deleteMany();
+        await tx.feeding_logs.deleteMany();
+        await tx.cats.deleteMany();
+        await tx.households.deleteMany();
+        await tx.profiles.deleteMany();
+        
+        // Restaurar dados em ordem parent-first para respeitar foreign keys
+        if (backup.households && backup.households.length > 0) {
+          await tx.households.createMany({ data: backup.households });
+        }
+        if (backup.profiles && backup.profiles.length > 0) {
+          await tx.profiles.createMany({ data: backup.profiles });
+        }
+        if (backup.cats && backup.cats.length > 0) {
+          await tx.cats.createMany({ data: backup.cats });
+        }
+        if (backup.feeding_logs && backup.feeding_logs.length > 0) {
+          await tx.feeding_logs.createMany({ data: backup.feeding_logs });
+        }
+        if (backup.cat_weight_logs && backup.cat_weight_logs.length > 0) {
+          await tx.cat_weight_logs.createMany({ data: backup.cat_weight_logs });
+        }
+      });
       
       console.log('✅ Backup restaurado com sucesso');
     } catch (error) {
       console.error('❌ Erro ao restaurar backup:', error);
+      // A transação já fez rollback automaticamente, apenas rethrow o erro
       throw error;
     }
   }
@@ -270,12 +300,8 @@ export async function validateDestructiveOperation(
   config: Partial<DatabaseSafetyConfig> = {}
 ): Promise<{ safe: boolean; guard: DatabaseSafetyGuard; reason?: string }> {
   const guard = createDatabaseSafetyGuard(prisma, config);
-  const validation = await guard.validateEnvironment();
   
-  if (!validation.safe) {
-    return { safe: false, guard, reason: validation.reason };
-  }
-
+  // validateDeletion() já chama validateEnvironment() internamente, evitando validação duplicada
   const deletionValidation = await guard.validateDeletion(operation);
   return { safe: deletionValidation.safe, guard, reason: deletionValidation.reason };
 }

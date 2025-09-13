@@ -1,5 +1,12 @@
 import { LogLevel } from '@/types/monitoring';
 import { Singleton } from '../utils/singleton';
+import { 
+  sanitizeError, 
+  sanitizeLogContext, 
+  generateRequestId,
+  extractSafeRequestInfo,
+  SanitizedError 
+} from '../utils/log-sanitizer';
 
 interface LogContext {
   [key: string]: unknown;
@@ -79,12 +86,53 @@ class Logger extends Singleton<Logger> {
     this.log('error', message, context);
   }
 
-  // Método especial para erros com stack trace
+  // Método especial para erros com stack trace (DEPRECATED - use logSanitizedError)
   logError(error: Error, context?: LogContext) {
     this.error(error.message, {
       ...context,
       stack: error.stack,
       name: error.name
+    });
+  }
+
+  // Método seguro para logging de erros (recomendado)
+  logSanitizedError(error: Error, context?: LogContext) {
+    const sanitizedError = sanitizeError(error, context);
+    const sanitizedContext = sanitizeLogContext(context);
+    
+    this.error(sanitizedError.message, {
+      ...sanitizedContext,
+      error: sanitizedError
+    });
+  }
+
+  // Método para logging seguro com contexto sanitizado
+  logSafe(level: LogLevel, message: string, context?: LogContext) {
+    const sanitizedContext = sanitizeLogContext(context);
+    this.log(level, message, sanitizedContext);
+  }
+
+  // Método para logging de requisições com informações seguras
+  logRequest(level: LogLevel, message: string, request: Request, additionalContext?: LogContext) {
+    const safeRequestInfo = extractSafeRequestInfo(request);
+    const sanitizedContext = sanitizeLogContext(additionalContext);
+    
+    this.log(level, message, {
+      ...safeRequestInfo,
+      ...sanitizedContext
+    });
+  }
+
+  // Método para logging de erros de requisição com sanitização completa
+  logRequestError(error: Error, request: Request, additionalContext?: LogContext) {
+    const safeRequestInfo = extractSafeRequestInfo(request);
+    const sanitizedError = sanitizeError(error, { ...safeRequestInfo, ...additionalContext });
+    const sanitizedContext = sanitizeLogContext(additionalContext);
+    
+    this.error(sanitizedError.message, {
+      ...safeRequestInfo,
+      ...sanitizedContext,
+      error: sanitizedError
     });
   }
 }

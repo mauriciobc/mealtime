@@ -4,6 +4,86 @@ import { withError } from "@/lib/utils/api-middleware";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from 'next/headers';
 
+/**
+ * Valida e normaliza o peso do gato
+ */
+function validateWeight(weight: any): { isValid: boolean; value: number | null; error?: string } {
+  if (weight === null || weight === undefined || weight === '') {
+    return { isValid: true, value: null };
+  }
+
+  const weightNum = Number(parseFloat(weight));
+  
+  if (Number.isNaN(weightNum)) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Peso deve ser um número válido' 
+    };
+  }
+
+  if (weightNum < 0) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Peso não pode ser negativo' 
+    };
+  }
+
+  // Validação adicional: peso máximo razoável para um gato (50kg)
+  if (weightNum > 50) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Peso deve ser menor que 50kg' 
+    };
+  }
+
+  return { isValid: true, value: weightNum };
+}
+
+/**
+ * Valida e normaliza a data de nascimento do gato
+ */
+function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | null; error?: string } {
+  if (birth_date === null || birth_date === undefined || birth_date === '') {
+    return { isValid: true, value: null };
+  }
+
+  const date = new Date(birth_date);
+  
+  if (isNaN(date.getTime())) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Data de nascimento deve ser uma data válida' 
+    };
+  }
+
+  // Validação adicional: data não pode ser no futuro
+  const now = new Date();
+  if (date > now) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Data de nascimento não pode ser no futuro' 
+    };
+  }
+
+  // Validação adicional: data não pode ser muito antiga (mais de 30 anos)
+  const thirtyYearsAgo = new Date();
+  thirtyYearsAgo.setFullYear(thirtyYearsAgo.getFullYear() - 30);
+  if (date < thirtyYearsAgo) {
+    return { 
+      isValid: false, 
+      value: null, 
+      error: 'Data de nascimento não pode ser há mais de 30 anos' 
+    };
+  }
+
+  return { isValid: true, value: date };
+}
+
 // Helper function to create Supabase client in API routes using async cookie store
 async function createSupabaseRouteClient() {
   const cookieStore = cookies();
@@ -139,6 +219,32 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
 
   const body = await request.json();
 
+  // Validar peso se fornecido
+  if (body.weight !== undefined) {
+    const weightValidation = validateWeight(body.weight);
+    if (!weightValidation.isValid) {
+      return new NextResponse(JSON.stringify({ error: weightValidation.error }), { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+  }
+
+  // Validar data de nascimento se fornecida
+  if (body.birthDate !== undefined) {
+    const birthDateValidation = validateBirthDate(body.birthDate);
+    if (!birthDateValidation.isValid) {
+      return new NextResponse(JSON.stringify({ error: birthDateValidation.error }), { 
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+  }
+
   // Get the cat and verify the user has access through their household
   const cat = await prisma.cats.findFirst({
     where: {
@@ -162,17 +268,33 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
     });
   }
 
+  // Preparar dados para atualização com validações aplicadas
+  const updateData: any = {};
+  
+  if (body.name !== undefined) {
+    updateData.name = body.name;
+  }
+  
+  if (body.birthDate !== undefined) {
+    const birthDateValidation = validateBirthDate(body.birthDate);
+    updateData.birth_date = birthDateValidation.value;
+  }
+  
+  if (body.weight !== undefined) {
+    const weightValidation = validateWeight(body.weight);
+    updateData.weight = weightValidation.value;
+  }
+  
+  if (body.photoUrl !== undefined) {
+    updateData.photo_url = body.photoUrl;
+  }
+
   // Update the cat
   const updatedCat = await prisma.cats.update({
     where: {
       id: catId
     },
-    data: {
-      name: body.name,
-      birth_date: body.birthDate ? new Date(body.birthDate) : undefined,
-      weight: body.weight ? parseFloat(String(body.weight)) : undefined,
-      photo_url: body.photoUrl
-    },
+    data: updateData,
     include: {
       household: true,
       owner: true,

@@ -109,14 +109,35 @@ export async function POST(request: NextRequest) {
       household: prismaUser.household ? {
         id: prismaUser.household.id,
         name: prismaUser.household.name,
-        members: prismaUser.household.household_members.map(member => ({
-          id: member.user.id,
-          name: member.user.full_name,
-          email: member.user.email,
-          role: member.role
-        }))
+        members: prismaUser.household.household_members
+          .filter(member => member.user !== null) // Filtrar membros com user nulo
+          .map(member => ({
+            id: member.user!.id,
+            name: member.user!.full_name,
+            email: member.user!.email,
+            role: member.role
+          }))
       } : null
     };
+
+    // Validar se a sessão e os tokens existem
+    if (!authData.session || !authData.session.access_token || !authData.session.refresh_token) {
+      logger.error('[Mobile Auth] Session or tokens missing', { 
+        userId: prismaUser.id,
+        email: prismaUser.email,
+        hasSession: !!authData.session,
+        hasAccessToken: !!authData.session?.access_token,
+        hasRefreshToken: !!authData.session?.refresh_token
+      });
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Falha na autenticação: tokens não foram gerados corretamente' 
+        },
+        { status: 401 }
+      );
+    }
 
     logger.info('[Mobile Auth] Login successful', { 
       userId: prismaUser.id,
@@ -127,9 +148,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       user: userData,
-      access_token: authData.session?.access_token,
-      refresh_token: authData.session?.refresh_token,
-      expires_in: authData.session?.expires_in || 3600,
+      access_token: authData.session.access_token,
+      refresh_token: authData.session.refresh_token,
+      expires_in: authData.session.expires_in || 3600,
       token_type: 'Bearer'
     });
 

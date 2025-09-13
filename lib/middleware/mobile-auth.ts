@@ -4,11 +4,11 @@ import { logger } from '@/lib/monitoring/logger';
 import prisma from '@/lib/prisma';
 
 export interface MobileAuthUser {
-  id: number;
+  id: string;
   auth_id: string;
   full_name: string;
   email: string;
-  household_id: number | null;
+  household_id: string | null;
 }
 
 /**
@@ -25,7 +25,7 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
     // Extrair token do header Authorization
     const authHeader = request.headers.get('authorization');
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader) {
       return {
         success: false,
         error: 'Token de autorização não fornecido',
@@ -33,7 +33,26 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
       };
     }
 
-    const token = authHeader.substring(7); // Remove "Bearer " prefix
+    // Parse robusto do token Bearer usando regex case-insensitive
+    const bearerMatch = authHeader.trim().match(/^Bearer\s+(.+)$/i);
+    
+    if (!bearerMatch) {
+      return {
+        success: false,
+        error: 'Token de autorização não fornecido',
+        statusCode: 401
+      };
+    }
+
+    const token = bearerMatch[1].trim();
+    
+    if (!token) {
+      return {
+        success: false,
+        error: 'Token de autorização não fornecido',
+        statusCode: 401
+      };
+    }
 
     // Criar cliente Supabase para validar o token
     const supabase = await createClient();
@@ -54,14 +73,17 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
     }
 
     // Buscar dados do usuário no Prisma
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
+    const prismaUser = await prisma.profiles.findUnique({
+      where: { id: supabaseUser.id },
       select: {
         id: true,
-        auth_id: true,
         full_name: true,
         email: true,
-        householdId: true
+        household_members: {
+          select: {
+            household_id: true
+          }
+        }
       }
     });
 
@@ -77,12 +99,17 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
       };
     }
 
+    // Buscar o household_id do primeiro household_member (assumindo que o usuário pertence a apenas um household)
+    const householdId = prismaUser.household_members.length > 0 
+      ? prismaUser.household_members[0].household_id 
+      : null;
+
     const mobileUser: MobileAuthUser = {
       id: prismaUser.id,
-      auth_id: prismaUser.auth_id,
-      full_name: prismaUser.full_name,
-      email: prismaUser.email,
-      household_id: prismaUser.householdId
+      auth_id: supabaseUser.id,
+      full_name: prismaUser.full_name || '',
+      email: prismaUser.email || '',
+      household_id: householdId
     };
 
     logger.debug('[Mobile Auth Middleware] User authenticated', { 
@@ -95,11 +122,13 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
       user: mobileUser
     };
 
-  } catch (error) {
-    logger.error('[Mobile Auth Middleware] Unexpected error', { 
-      error: error.message,
-      stack: error.stack 
-    });
+  } catch (error: unknown) {
+    // Normalizar erro desconhecido para logging seguro
+    const normalizedError = error instanceof Error 
+      ? { message: error.message, stack: error.stack }
+      : { message: String(error), stack: undefined, rawValue: error };
+    
+    logger.error('[Mobile Auth Middleware] Unexpected error', normalizedError);
     
     return {
       success: false,
@@ -136,10 +165,10 @@ export function withMobileAuth(handler: (request: NextRequest, user: MobileAuthU
 export async function validateHouseholdAccess(
   request: NextRequest, 
   user: MobileAuthUser, 
-  householdId: number
+  householdId: string
 ): Promise<{ success: boolean; error?: string; statusCode?: number }> {
   try {
-    if (!user.household_id || user.household_id !== householdId) {
+    if (user.household_id === null || user.household_id === undefined || user.household_id !== householdId) {
       return {
         success: false,
         error: 'Acesso negado ao household',
@@ -148,9 +177,14 @@ export async function validateHouseholdAccess(
     }
 
     return { success: true };
-  } catch (error) {
+  } catch (error: unknown) {
+    // Normalizar erro desconhecido para logging seguro
+    const normalizedError = error instanceof Error 
+      ? { message: error.message, stack: error.stack }
+      : { message: String(error), stack: undefined, rawValue: error };
+    
     logger.error('[Mobile Auth] Household validation error', { 
-      error: error.message,
+      ...normalizedError,
       userId: user.id,
       householdId 
     });

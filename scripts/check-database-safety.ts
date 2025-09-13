@@ -15,7 +15,7 @@ async function checkDatabaseSafety() {
     
     // Verificar ambiente
     console.log('📋 VERIFICAÇÕES DE SEGURANÇA:');
-    console.log('=' .repeat(50));
+    console.log('='.repeat(50));
     
     // 1. Verificar ambiente
     const currentEnv = process.env.NODE_ENV || 'development';
@@ -35,7 +35,7 @@ async function checkDatabaseSafety() {
     
     // 4. Verificar dados no banco
     console.log('\n📊 DADOS NO BANCO:');
-    console.log('=' .repeat(30));
+    console.log('='.repeat(30));
     
     try {
       const userCount = await prisma.profiles.count();
@@ -60,7 +60,7 @@ async function checkDatabaseSafety() {
     
     // 5. Verificar configurações de segurança
     console.log('\n⚙️  CONFIGURAÇÕES DE SEGURANÇA:');
-    console.log('=' .repeat(40));
+    console.log('='.repeat(40));
     
     const stats = guard.getSafetyStats();
     console.log(`🔢 Deletions nesta sessão: ${stats.deletionCount}/${stats.maxDeletions}`);
@@ -70,7 +70,7 @@ async function checkDatabaseSafety() {
     
     // 6. Recomendações
     console.log('\n💡 RECOMENDAÇÕES:');
-    console.log('=' .repeat(20));
+    console.log('='.repeat(20));
     
     if (envValidation.safe) {
       console.log('✅ Banco de dados está seguro para operações de teste');
@@ -86,7 +86,7 @@ async function checkDatabaseSafety() {
     
     // 7. Verificar variáveis de ambiente críticas
     console.log('\n🔍 VARIÁVEIS DE AMBIENTE CRÍTICAS:');
-    console.log('=' .repeat(40));
+    console.log('='.repeat(40));
     
     const criticalVars = [
       'NODE_ENV',
@@ -118,14 +118,21 @@ function maskDatabaseUrl(url: string): string {
   
   try {
     const urlObj = new URL(url);
-    const maskedPassword = '*'.repeat(urlObj.password?.length || 0);
-    const maskedUrl = url.replace(urlObj.password || '', maskedPassword);
+    
+    // Só mascarar se houver uma senha real (não null/undefined)
+    if (urlObj.password) {
+      const maskedPassword = '*'.repeat(urlObj.password.length);
+      urlObj.password = maskedPassword;
+    }
+    
+    // Reconstruir a URL a partir do objeto URL modificado
+    let maskedUrl = urlObj.toString();
     
     // Mascarar também o host se for produção
     if (url.toLowerCase().includes('supabase.co') || 
         url.toLowerCase().includes('heroku.com') ||
         url.toLowerCase().includes('aws.amazon.com')) {
-      return maskedUrl.replace(urlObj.hostname, '***PRODUCTION***');
+      maskedUrl = maskedUrl.replace(urlObj.hostname, '***PRODUCTION***');
     }
     
     return maskedUrl;
