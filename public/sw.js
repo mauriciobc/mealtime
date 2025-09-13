@@ -43,10 +43,21 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  // Bypass Supabase Auth requests to avoid CORS and Service Worker interference
   const url = new URL(event.request.url);
+  
+  // Bypass development server requests to avoid Service Worker interference
+  if (url.origin.includes('localhost') || url.origin.includes('127.0.0.1')) {
+    return; // Let the network handle development requests directly
+  }
+  
+  // Bypass Supabase Auth requests to avoid CORS and Service Worker interference
   if (url.origin === 'https://zzvmyzyszsqptgyqwqwt.supabase.co') {
     return; // Let the network handle it directly
+  }
+  
+  // Bypass Next.js internal requests to avoid corruption
+  if (url.pathname.includes('/_next/') || url.pathname.includes('/api/')) {
+    return; // Let the network handle Next.js internal requests
   }
 
   if (event.request.mode === 'navigate') {

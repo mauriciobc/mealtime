@@ -5,7 +5,7 @@ if ('serviceWorker' in navigator) {
         console.log('Service worker successfully registered with scope:', registration.scope);
       })
       .catch(function(error) {
- console.log('Service worker successfully registered with scope:', registration.scope);
+        console.log('Service worker registration failed:', error);
       });
   });
 } 
