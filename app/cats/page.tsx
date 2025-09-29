@@ -54,9 +54,17 @@ export default function CatsPage() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!currentUser && !isLoadingUser) {
-      toast.error("Você precisa estar conectado para ver seus gatos.");
-      router.replace("/login");
+    // Only redirect if we're sure the user is not authenticated and loading is complete
+    if (!isLoadingUser && !currentUser) {
+      // Add a small delay to prevent race conditions with middleware
+      const timeoutId = setTimeout(() => {
+        if (!currentUser && !isLoadingUser) {
+          toast.error("Você precisa estar conectado para ver seus gatos.");
+          router.replace("/login");
+        }
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [currentUser, isLoadingUser, router]);
 
@@ -105,12 +113,16 @@ export default function CatsPage() {
     }
   }
 
+  // Show loading state while user or cats are loading
   if (isLoadingUser || isLoadingCats) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
           <div className="flex-1 p-4 flex items-center justify-center">
-            <GlobalLoading mode="spinner" text="Carregando..." />
+            <GlobalLoading 
+              mode="spinner" 
+              text={isLoadingUser ? "Verificando autenticação..." : "Carregando gatos..."} 
+            />
           </div>
         </div>
       </PageTransition>

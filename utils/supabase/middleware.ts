@@ -94,14 +94,19 @@ const AUTH_COOKIE_NAMES = [
 export async function updateSession(request: NextRequest) {
   const currentPath = request.nextUrl.pathname;
   
-  // Prevent redirect loops
+  // Prevent redirect loops - increased threshold and better logging
   const redirectCount = parseInt(request.headers.get('x-redirect-count') || '0');
-  if (redirectCount > 3) {
+  if (redirectCount > 5) {
     logger.error('[updateSession] Detected potential redirect loop:', {
       path: currentPath,
-      redirectCount
+      redirectCount,
+      userAgent: request.headers.get('user-agent'),
+      referer: request.headers.get('referer')
     });
-    return NextResponse.next();
+    // Instead of allowing the request, redirect to error page
+    const errorUrl = new URL('/error', request.url);
+    errorUrl.searchParams.set('message', 'redirect-loop-detected');
+    return NextResponse.redirect(errorUrl);
   }
 
   // Skip auth check for static assets and API routes
@@ -127,27 +132,34 @@ export async function updateSession(request: NextRequest) {
     // Get the user state
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    // Handle auth errors
+    // Handle auth errors with better error classification
     if (userError) {
-      // Only log as error for protected routes; otherwise, log as info to avoid noisy logs for expected cases (e.g., /auth/auth-code-error)
+      const isSessionMissing = userError.name === 'AuthSessionMissingError';
+      const isTransientError = userError.status >= 500 || userError.message.includes('network');
+      
+      // Only log as error for protected routes; otherwise, log as info to avoid noisy logs for expected cases
       if (isProtectedRoute(currentPath)) {
-        logger.error('[updateSession] Supabase user error:', { 
+        logger.error('[updateSession] Supabase user error on protected route:', { 
           message: userError.message, 
           code: userError.status, 
           name: userError.name, 
-          path: currentPath 
+          path: currentPath,
+          isSessionMissing,
+          isTransientError
         });
       } else {
         logger.info('[updateSession] Supabase user error (non-protected route, likely expected):', { 
           message: userError.message, 
           code: userError.status, 
           name: userError.name, 
-          path: currentPath 
+          path: currentPath,
+          isSessionMissing,
+          isTransientError
         });
       }
 
-      // If there's an error checking the user, treat as unauthenticated for protected routes
-      if (isProtectedRoute(currentPath)) {
+      // For protected routes, only redirect if it's a session missing error or non-transient error
+      if (isProtectedRoute(currentPath) && (isSessionMissing || !isTransientError)) {
         logger.warn(`[updateSession] Redirecting due to userError on protected path: ${currentPath}`);
         const redirectUrl = new URL('/login', request.url);
         if (currentPath !== '/') {
@@ -157,6 +169,13 @@ export async function updateSession(request: NextRequest) {
         response.headers.set('x-redirect-count', (redirectCount + 1).toString());
         return response;
       }
+      
+      // For transient errors on protected routes, allow the request to proceed
+      if (isProtectedRoute(currentPath) && isTransientError) {
+        logger.warn(`[updateSession] Allowing request despite transient error on protected path: ${currentPath}`);
+        return response;
+      }
+      
       // Allow non-protected routes even if getUser has error (might be transient)
       logger.warn(`[updateSession] Allowing request despite userError on non-protected path: ${currentPath}`);
       return response;

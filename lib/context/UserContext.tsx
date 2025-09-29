@@ -122,9 +122,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Prevent duplicate fetches for the same user
     if (lastProfileFetchRef.current === currentUserFromSupabase.id) {
       setAuthLoading(false);
       return;
+    }
+
+    // Add debounce to prevent rapid successive calls
+    if (authChangeTimeoutRef.current) {
+      clearTimeout(authChangeTimeoutRef.current);
     }
 
     dispatch({ type: "FETCH_START" });
