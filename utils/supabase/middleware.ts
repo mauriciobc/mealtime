@@ -135,7 +135,9 @@ export async function updateSession(request: NextRequest) {
     // Handle auth errors with better error classification
     if (userError) {
       const isSessionMissing = userError.name === 'AuthSessionMissingError';
-      const isTransientError = userError.status >= 500 || userError.message.includes('network');
+      const isTransientError = userError.status >= 500 || 
+        (userError.message && typeof userError.message === 'string' && 
+         userError.message.toLowerCase().includes('network'));
       
       // Only log as error for protected routes; otherwise, log as info to avoid noisy logs for expected cases
       if (isProtectedRoute(currentPath)) {

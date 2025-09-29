@@ -7,10 +7,75 @@ import { AlertCircle, RefreshCw, Home } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+const RETRY_STORAGE_KEY = "mealtime_error_retry_count";
+const MAX_RETRY_ATTEMPTS = 3;
+
 export default function ErrorPage() {
   const searchParams = useSearchParams();
   const message = searchParams.get("message");
   const [retryCount, setRetryCount] = useState(0);
+
+  // Função para obter o contador de retry do sessionStorage
+  const getRetryCountFromStorage = (): number => {
+    try {
+      const stored = sessionStorage.getItem(RETRY_STORAGE_KEY);
+      if (stored === null) return 0;
+      
+      const parsed = parseInt(stored, 10);
+      return isNaN(parsed) ? 0 : Math.max(0, Math.min(parsed, MAX_RETRY_ATTEMPTS));
+    } catch {
+      return 0;
+    }
+  };
+
+  // Função para salvar o contador de retry no sessionStorage
+  const saveRetryCountToStorage = (count: number): void => {
+    try {
+      sessionStorage.setItem(RETRY_STORAGE_KEY, count.toString());
+    } catch {
+      // Ignora erros de storage (modo privado, etc.)
+    }
+  };
+
+  // Função para limpar o contador de retry
+  const clearRetryCount = (): void => {
+    try {
+      sessionStorage.removeItem(RETRY_STORAGE_KEY);
+    } catch {
+      // Ignora erros de storage
+    }
+  };
+
+  // Hidrata o estado do contador na montagem do componente
+  useEffect(() => {
+    const storedCount = getRetryCountFromStorage();
+    setRetryCount(storedCount);
+  }, []);
+
+  // Limpa o contador quando há navegação bem-sucedida (não erro)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Se não estamos na página de erro, limpa o contador
+      if (!window.location.pathname.includes('/error')) {
+        clearRetryCount();
+      }
+    };
+
+    // Limpa o contador quando o usuário navega para fora da página de erro
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !window.location.pathname.includes('/error')) {
+        clearRetryCount();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   useEffect(() => {
     // Log the error for debugging
@@ -22,7 +87,9 @@ export default function ErrorPage() {
   }, [message, retryCount]);
 
   const handleRetry = () => {
-    setRetryCount(prev => prev + 1);
+    const newCount = retryCount + 1;
+    setRetryCount(newCount);
+    saveRetryCountToStorage(newCount);
     window.location.reload();
   };
 
@@ -71,23 +138,23 @@ export default function ErrorPage() {
           <Button 
             onClick={handleRetry} 
             className="flex-1"
-            disabled={retryCount >= 3}
+            disabled={retryCount >= MAX_RETRY_ATTEMPTS}
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            {retryCount >= 3 ? "Muitas tentativas" : "Tentar Novamente"}
+            {retryCount >= MAX_RETRY_ATTEMPTS ? "Muitas tentativas" : "Tentar Novamente"}
           </Button>
           
-          <Link href="/" className="flex-1">
-            <Button variant="outline" className="w-full">
+          <Button variant="outline" asChild className="flex-1">
+            <Link href="/" className="w-full flex items-center justify-center">
               <Home className="h-4 w-4 mr-2" />
               Ir para Início
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
 
         {retryCount > 0 && (
           <p className="text-sm text-muted-foreground text-center">
-            Tentativas: {retryCount}/3
+            Tentativas: {retryCount}/{MAX_RETRY_ATTEMPTS}
           </p>
         )}
       </div>

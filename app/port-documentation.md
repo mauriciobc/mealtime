@@ -52,7 +52,8 @@
   - `join/route.ts`
   - `mobile/cats/route.ts`
 - `monitoring/errors/route.ts`
-- `notifications/admin-send.ts`
+- `notifications/`
+  - `admin-send.ts`
   - `route.ts`
   - `feeding-check/`
   - `read-all/route.ts`
