@@ -6,13 +6,26 @@ const { TextEncoder, TextDecoder } = require('util');
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
 
-// Create a single storage mock to be reused across environments
-const storageMock = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn(),
-};
+// Create a single storage mock with in-memory backing store
+const storageMock = (() => {
+  // In-memory backing store
+  const store = {};
+  
+  return {
+    getItem: (key) => {
+      return store.hasOwnProperty(key) ? store[key] : null;
+    },
+    setItem: (key, value) => {
+      store[key] = String(value);
+    },
+    removeItem: (key) => {
+      delete store[key];
+    },
+    clear: () => {
+      Object.keys(store).forEach(key => delete store[key]);
+    },
+  };
+})();
 
 // Assign the same storageMock to globalThis for both Node and browser environments
 globalThis.localStorage = storageMock;

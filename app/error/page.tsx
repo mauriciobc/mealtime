@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, RefreshCw, Home } from "lucide-react";
@@ -12,6 +12,7 @@ const MAX_RETRY_ATTEMPTS = 3;
 
 export default function ErrorPage() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const message = searchParams.get("message");
   const [retryCount, setRetryCount] = useState(0);
 
@@ -74,6 +75,20 @@ export default function ErrorPage() {
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Limpa o contador quando o pathname muda e não inclui mais '/error'
+  useEffect(() => {
+    if (!pathname.includes('/error')) {
+      clearRetryCount();
+    }
+  }, [pathname]);
+
+  // Limpa o contador quando o componente é desmontado
+  useEffect(() => {
+    return () => {
+      clearRetryCount();
     };
   }, []);
 
