@@ -476,27 +476,36 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
   }, [currentUserId]);
 
+  // Memoiza valores individuais para evitar re-renders desnecessários
+  const notifications = useMemo(() => state.notifications, [state.notifications]);
+  const unreadCount = useMemo(() => state.unreadCount, [state.unreadCount]);
+  const isLoading = useMemo(() => state.isLoading, [state.isLoading]);
+  const error = useMemo(() => state.error, [state.error]);
+  const page = useMemo(() => state.page, [state.page]);
+  const totalPages = useMemo(() => state.totalPages, [state.totalPages]);
+  const hasMore = useMemo(() => state.hasMore, [state.hasMore]);
+
   const value = useMemo(() => ({
-    notifications: state.notifications,
-    unreadCount: state.unreadCount,
-    isLoading: state.isLoading,
-    error: state.error,
-    page: state.page,
-    totalPages: state.totalPages,
-    hasMore: state.hasMore,
+    notifications,
+    unreadCount,
+    isLoading,
+    error,
+    page,
+    totalPages,
+    hasMore,
     markAsRead,
     markAllAsRead,
     removeNotification,
     refreshNotifications,
     loadMore,
   }), [
-    state.notifications,
-    state.unreadCount,
-    state.isLoading,
-    state.error,
-    state.page,
-    state.totalPages,
-    state.hasMore,
+    notifications,
+    unreadCount,
+    isLoading,
+    error,
+    page,
+    totalPages,
+    hasMore,
     markAsRead,
     markAllAsRead,
     removeNotification,
