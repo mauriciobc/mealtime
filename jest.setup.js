@@ -13,7 +13,7 @@ const storageMock = (() => {
   
   return {
     getItem: (key) => {
-      return store.hasOwnProperty(key) ? store[key] : null;
+      return Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null;
     },
     setItem: (key, value) => {
       store[key] = String(value);

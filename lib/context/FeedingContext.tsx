@@ -37,6 +37,52 @@ interface FeedingAction {
   payload?: FeedingLog[] | FeedingLog | string; // Adjusted payload types
 }
 
+// Helper function to find insertion index using binary search for O(log n) performance
+function findInsertionIndex(logs: FeedingLog[], newLog: FeedingLog): number {
+  const newTimestamp = new Date(newLog.timestamp).getTime();
+  let left = 0;
+  let right = logs.length;
+  
+  while (left < right) {
+    const mid = Math.floor((left + right) / 2);
+    const midTimestamp = new Date(logs[mid].timestamp).getTime();
+    
+    if (midTimestamp > newTimestamp) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  
+  return left;
+}
+
+// Helper function to insert log at correct position maintaining descending order
+function insertLogInOrder(logs: FeedingLog[], newLog: FeedingLog): FeedingLog[] {
+  // If array is empty or new log is more recent than first log, insert at beginning
+  if (logs.length === 0 || new Date(newLog.timestamp).getTime() > new Date(logs[0].timestamp).getTime()) {
+    return [newLog, ...logs];
+  }
+  
+  // If new log is older than last log, insert at end
+  if (new Date(newLog.timestamp).getTime() < new Date(logs[logs.length - 1].timestamp).getTime()) {
+    return [...logs, newLog];
+  }
+  
+  // Use binary search to find correct insertion point
+  const insertIndex = findInsertionIndex(logs, newLog);
+  const updatedLogs = [...logs];
+  updatedLogs.splice(insertIndex, 0, newLog);
+  return updatedLogs;
+}
+
+// Debug logging helper - only logs in development or when debug flag is enabled
+function debugLog(message: string, data: any) {
+  if (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEBUG_FEEDING === 'true') {
+    console.log(message, data);
+  }
+}
+
 function feedingReducer(state: FeedingState, action: FeedingAction): FeedingState {
   switch (action.type) {
     case 'FETCH_START':
@@ -46,14 +92,12 @@ function feedingReducer(state: FeedingState, action: FeedingAction): FeedingStat
     case 'FETCH_ERROR':
       return { ...state, isLoading: false, error: action.payload as string };
     case 'ADD_FEEDING':
-      // Add the new feeding log and ensure it's sorted by timestamp (most recent first)
+      // Add the new feeding log in the correct position to maintain descending timestamp order
       const newLog = action.payload as FeedingLog;
-      const updatedLogs = [...state.feedingLogs, newLog];
-      // Sort by timestamp descending to ensure most recent is first
-      updatedLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      const updatedLogs = insertLogInOrder(state.feedingLogs, newLog);
       
-      // Debug log to track feeding additions
-      console.log('[FeedingContext] ADD_FEEDING action:', {
+      // Debug log to track feeding additions (only in development or when debug flag is enabled)
+      debugLog('[FeedingContext] ADD_FEEDING action:', {
         newLogId: newLog.id,
         newLogTimestamp: newLog.timestamp,
         newLogCatId: newLog.catId,
@@ -312,13 +356,15 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
     const lastLog = sortedLogs[0]; // This log already has the simplified user: { id, name, avatar }
     if (!lastLog) return null;
 
-    // Debug log to track last feeding updates
-    console.log('[useSelectLastFeedingLog] Selected last feeding:', {
-      id: lastLog.id,
-      timestamp: lastLog.timestamp,
-      catId: lastLog.catId,
-      totalLogs: feedingLogs.length
-    });
+    // Debug log to track last feeding updates (only in development)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[useSelectLastFeedingLog] Selected last feeding:', {
+        id: lastLog.id,
+        timestamp: lastLog.timestamp,
+        catId: lastLog.catId,
+        totalLogs: feedingLogs.length
+      });
+    }
 
     // Find the corresponding cat from the CatsContext state
     const cat = cats.find(c => c.id === lastLog.catId);

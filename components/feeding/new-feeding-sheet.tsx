@@ -12,6 +12,18 @@ import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { useCats } from "@/lib/context/CatsContext";
 import { useFeeding } from "@/lib/context/FeedingContext";
+
+// Interface para a resposta da API de alimentação
+interface ApiFeedingResponse {
+  id: string;
+  cat_id: string;
+  fed_by: string | null;
+  fed_at: string;
+  amount: number;
+  notes: string | null;
+  meal_type: "dry" | "wet" | "treat" | "medicine" | "water";
+  household_id: string;
+}
 import Link from "next/link";
 import { 
     Drawer,
@@ -286,7 +298,16 @@ export function NewFeedingSheet({
     }
 
     try {
-      let response, result;
+      let response: Response;
+      let result: { logs?: ApiFeedingResponse[]; count?: number; [key: string]: any };
+      
+      // Criar Map para lookup do status antes da chamada da API
+      const statusLookup = new Map<string, string>();
+      logsToCreate.forEach(log => {
+        const key = `${log.catId}_${log.timestamp}`;
+        statusLookup.set(key, log.status);
+      });
+      
       if (initialFeedingLog) {
         // Edição: PUT em /api/feedings/[id]
         response = await fetch(`/api/feedings/${initialFeedingLog.id}`, {
@@ -300,7 +321,25 @@ export function NewFeedingSheet({
         }
         result = await response.json();
         toast.success("Alimentação editada com sucesso!");
-        feedingDispatch({ type: "UPDATE_FEEDING", payload: result });
+        
+        // Converter o resultado da API para FeedingLog
+        const updatedFeedingLog: FeedingLog = {
+          id: result.id,
+          catId: result.cat_id,
+          userId: result.fed_by,
+          timestamp: new Date(result.fed_at),
+          portionSize: result.amount,
+          notes: result.notes,
+          mealType: result.meal_type,
+          householdId: result.household_id,
+          user: {
+            id: result.fed_by,
+            name: currentUser?.name ?? null,
+            avatar: currentUser?.avatar ?? null,
+          },
+        };
+        
+        feedingDispatch({ type: "UPDATE_FEEDING", payload: updatedFeedingLog });
       } else {
         // Criação padrão
         response = await fetch("/api/feedings/batch", {
@@ -316,7 +355,14 @@ export function NewFeedingSheet({
         
         // Dispatch each created feeding to the context
         if (result.logs && Array.isArray(result.logs)) {
-          result.logs.forEach((feeding: any) => {
+          (result.logs as ApiFeedingResponse[]).forEach((feeding: ApiFeedingResponse) => {
+            // Verificar se o usuário que alimentou é o usuário atual
+            const isCurrentUser = feeding.fed_by === currentUser?.id;
+            
+            // Buscar o status original usando a chave cat_id + fed_at
+            const lookupKey = `${feeding.cat_id}_${feeding.fed_at}`;
+            const mappedStatus = statusLookup.get(lookupKey);
+            
             const feedingLog: FeedingLog = {
               id: feeding.id,
               catId: feeding.cat_id,
@@ -328,11 +374,13 @@ export function NewFeedingSheet({
               householdId: feeding.household_id,
               user: {
                 id: feeding.fed_by,
-                name: currentUser?.name ?? null,
-                avatar: currentUser?.avatar ?? null,
+                // Usar dados do usuário atual apenas se for o mesmo que alimentou
+                // Caso contrário, definir como null para ser hidratado posteriormente
+                name: isCurrentUser ? (currentUser?.name ?? null) : null,
+                avatar: isCurrentUser ? (currentUser?.avatar ?? null) : null,
               },
               cat: undefined,
-              status: undefined,
+              status: mappedStatus as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" | undefined,
               createdAt: new Date(feeding.fed_at),
             };
             feedingDispatch({ type: "ADD_FEEDING", payload: feedingLog });
