@@ -368,8 +368,16 @@ export function NewFeedingSheet({
             // Verificar se o usuário que alimentou é o usuário atual
             const isCurrentUser = feeding.fed_by === currentUser?.id;
             
-            // Buscar o status original usando o tempId
+            // Buscar o status original usando o tempId com fallback seguro
             const mappedStatus = feeding.tempId ? statusLookup.get(feeding.tempId) : undefined;
+            
+            // Validar e definir status com fallback para "Normal"
+            const validStatuses: Array<"Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro"> = [
+              "Normal", "Comeu Pouco", "Recusou", "Vomitou", "Outro"
+            ];
+            const safeStatus = mappedStatus && validStatuses.includes(mappedStatus as any) 
+              ? (mappedStatus as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro")
+              : "Normal";
             
             const feedingLog: FeedingLog = {
               id: feeding.id,
@@ -388,7 +396,7 @@ export function NewFeedingSheet({
                 avatar: isCurrentUser ? (currentUser?.avatar ?? null) : null,
               },
               cat: undefined,
-              status: mappedStatus as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" | undefined,
+              status: safeStatus,
               createdAt: new Date(feeding.fed_at),
             };
             feedingDispatch({ type: "ADD_FEEDING", payload: feedingLog });
