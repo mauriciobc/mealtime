@@ -377,13 +377,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
     await handleAuthChange();
   }, [handleAuthChange]);
 
+  // Memoiza valores individuais para evitar re-renders desnecessários
+  const currentUser = useMemo(() => state.currentUser, [state.currentUser]);
+  const isAuthenticated = useMemo(() => state.isAuthenticated, [state.isAuthenticated]);
+  const isLoading = useMemo(() => state.isLoading, [state.isLoading]);
+  const error = useMemo(() => state.error, [state.error]);
+
   const value = useMemo(() => ({
-    state,
+    state: {
+      currentUser,
+      isAuthenticated,
+      isLoading,
+      error
+    },
     profile,
     authLoading,
     signOut,
     refreshUser
-  }), [state, profile, authLoading, signOut, refreshUser]);
+  }), [currentUser, isAuthenticated, isLoading, error, profile, authLoading, signOut, refreshUser]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
