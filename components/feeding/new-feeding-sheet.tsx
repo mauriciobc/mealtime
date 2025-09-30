@@ -313,6 +313,32 @@ export function NewFeedingSheet({
           throw new Error(errorData.error || `Falha ao registrar (${response.status})`);
         }
         result = await response.json();
+        
+        // Dispatch each created feeding to the context
+        if (result.logs && Array.isArray(result.logs)) {
+          result.logs.forEach((feeding: any) => {
+            const feedingLog: FeedingLog = {
+              id: feeding.id,
+              catId: feeding.cat_id,
+              userId: feeding.fed_by,
+              timestamp: new Date(feeding.fed_at),
+              portionSize: feeding.amount,
+              notes: feeding.notes,
+              mealType: feeding.meal_type,
+              householdId: feeding.household_id,
+              user: {
+                id: feeding.fed_by,
+                name: currentUser?.name ?? null,
+                avatar: currentUser?.avatar ?? null,
+              },
+              cat: undefined,
+              status: undefined,
+              createdAt: new Date(feeding.fed_at),
+            };
+            feedingDispatch({ type: "ADD_FEEDING", payload: feedingLog });
+          });
+        }
+        
         if (refreshUser) {
           await refreshUser();
         }

@@ -46,8 +46,22 @@ function feedingReducer(state: FeedingState, action: FeedingAction): FeedingStat
     case 'FETCH_ERROR':
       return { ...state, isLoading: false, error: action.payload as string };
     case 'ADD_FEEDING':
-      // Add logic to sort by timestamp? Or handle in selector?
-      return { ...state, feedingLogs: [...state.feedingLogs, action.payload as FeedingLog] };
+      // Add the new feeding log and ensure it's sorted by timestamp (most recent first)
+      const newLog = action.payload as FeedingLog;
+      const updatedLogs = [...state.feedingLogs, newLog];
+      // Sort by timestamp descending to ensure most recent is first
+      updatedLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      // Debug log to track feeding additions
+      console.log('[FeedingContext] ADD_FEEDING action:', {
+        newLogId: newLog.id,
+        newLogTimestamp: newLog.timestamp,
+        newLogCatId: newLog.catId,
+        totalLogsAfter: updatedLogs.length,
+        mostRecentAfter: updatedLogs[0]?.id
+      });
+      
+      return { ...state, feedingLogs: updatedLogs };
     case 'REMOVE_FEEDING':
       return { ...state, feedingLogs: state.feedingLogs.filter(log => log.id !== (action.payload as FeedingLog).id) };
     case 'UPDATE_FEEDING':
@@ -293,9 +307,18 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
     if (isLoadingFeedings || isLoadingCats || !feedingLogs || feedingLogs.length === 0 || !cats) {
       return null;
     }
-    // Logs are already sorted descending by timestamp in the provider fetch
-    const lastLog = feedingLogs[0]; // This log already has the simplified user: { id, name, avatar }
+    // Ensure we get the most recent log by sorting by timestamp descending
+    const sortedLogs = [...feedingLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const lastLog = sortedLogs[0]; // This log already has the simplified user: { id, name, avatar }
     if (!lastLog) return null;
+
+    // Debug log to track last feeding updates
+    console.log('[useSelectLastFeedingLog] Selected last feeding:', {
+      id: lastLog.id,
+      timestamp: lastLog.timestamp,
+      catId: lastLog.catId,
+      totalLogs: feedingLogs.length
+    });
 
     // Find the corresponding cat from the CatsContext state
     const cat = cats.find(c => c.id === lastLog.catId);

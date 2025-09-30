@@ -37,5 +37,3 @@ globalThis.window = globalThis.window || { localStorage: storageMock };
 if (typeof global !== 'undefined') {
   global.localStorage = storageMock;
 }
-
-
