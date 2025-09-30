@@ -14,6 +14,7 @@ const FeedingBatchSchema = z.object({
   status: z.enum(["Normal", "Comeu Pouco", "Recusou", "Vomitou", "Outro"]).optional(),
   mealType: z.enum(["dry", "wet", "treat", "medicine", "water"]), // Required field with specific types
   unit: z.string().default('g'), // Default to grams if not specified
+  tempId: z.string().optional(), // Identificador temporário para lookup do status
 });
 
 const BatchPayloadSchema = z.object({
@@ -193,5 +194,11 @@ export const POST = withError(async (request: Request) => {
     }
   }
 
-  return NextResponse.json({ count: createdFeedings.length, logs: createdFeedings });
+  // Mapear os logs criados para incluir o tempId original
+  const logsWithTempId = createdFeedings.map((feeding, index) => ({
+    ...feeding,
+    tempId: logs[index].tempId // Incluir o tempId original do request
+  }));
+
+  return NextResponse.json({ count: createdFeedings.length, logs: logsWithTempId });
 }); 

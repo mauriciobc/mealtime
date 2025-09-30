@@ -23,6 +23,7 @@ interface ApiFeedingResponse {
   notes: string | null;
   meal_type: "dry" | "wet" | "treat" | "medicine" | "water";
   household_id: string;
+  tempId?: string; // Identificador temporário para lookup do status
 }
 import Link from "next/link";
 import { 
@@ -278,6 +279,10 @@ export function NewFeedingSheet({
           break;
         }
       }
+      
+      // Gerar tempId único para cada log
+      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
       logsToCreate.push({
         catId,
         portionSize: portionNum || 0,
@@ -285,7 +290,8 @@ export function NewFeedingSheet({
         notes: note,
         status,
         mealType,
-        unit: 'g'
+        unit: 'g',
+        tempId // Adicionar tempId para lookup do status
       });
     }
 
@@ -304,8 +310,8 @@ export function NewFeedingSheet({
       // Criar Map para lookup do status antes da chamada da API
       const statusLookup = new Map<string, string>();
       logsToCreate.forEach(log => {
-        const key = `${log.catId}_${log.timestamp}`;
-        statusLookup.set(key, log.status);
+        // Usar tempId como chave para evitar problemas de timestamp
+        statusLookup.set(log.tempId!, log.status);
       });
       
       if (initialFeedingLog) {
@@ -323,6 +329,8 @@ export function NewFeedingSheet({
         toast.success("Alimentação editada com sucesso!");
         
         // Converter o resultado da API para FeedingLog
+        const isCurrentUser = result.fed_by === currentUser?.id;
+
         const updatedFeedingLog: FeedingLog = {
           id: result.id,
           catId: result.cat_id,
@@ -334,9 +342,10 @@ export function NewFeedingSheet({
           householdId: result.household_id,
           user: {
             id: result.fed_by,
-            name: currentUser?.name ?? null,
-            avatar: currentUser?.avatar ?? null,
+            name: isCurrentUser ? (currentUser?.name ?? null) : null,
+            avatar: isCurrentUser ? (currentUser?.avatar ?? null) : null,
           },
+          status: logsToCreate[0].status,
         };
         
         feedingDispatch({ type: "UPDATE_FEEDING", payload: updatedFeedingLog });
@@ -359,9 +368,8 @@ export function NewFeedingSheet({
             // Verificar se o usuário que alimentou é o usuário atual
             const isCurrentUser = feeding.fed_by === currentUser?.id;
             
-            // Buscar o status original usando a chave cat_id + fed_at
-            const lookupKey = `${feeding.cat_id}_${feeding.fed_at}`;
-            const mappedStatus = statusLookup.get(lookupKey);
+            // Buscar o status original usando o tempId
+            const mappedStatus = feeding.tempId ? statusLookup.get(feeding.tempId) : undefined;
             
             const feedingLog: FeedingLog = {
               id: feeding.id,
