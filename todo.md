@@ -302,3 +302,287 @@ Testar todos os fluxos de exceção e loading, garantindo logs e feedbacks visua
 
 **Responsável:** Squad Frontend
 **Status:** Em andamento
+
+# Performance Optimization Plan - Mealtime App
+
+## Objetivo
+Implementar otimizações de performance para reduzir o LCP de 4.6s para < 2.0s, otimizar cadeia de requisições de 4.9s para < 1.5s, e melhorar a experiência geral do usuário através de melhorias mensuráveis nas métricas Core Web Vitals.
+
+## Contexto Técnico
+- **LCP Atual**: 4.6s (Crítico - ideal < 2.5s)
+- **Cadeia de Requisições**: 4.9s (8+ requisições sequenciais)
+- **Requisições Auth**: 4 simultâneas (deveria ser 1)
+- **CLS**: 0.01 (Bom)
+- **TTFB**: 160ms (Bom)
+
+## FASE 1: Otimizações Críticas (Semanas 1-2)
+*Meta: LCP < 3.0s, Requisições < 2.0s*
+
+### 1.1 Otimizar Elemento LCP (Logo SVG)
+**Problema**: Logo não tem `fetchpriority="high"` e não é descoberto no HTML inicial
+**Localização**: `components/layout/header.tsx` ou onde o logo é renderizado
+
+**Passos**:
+1. Encontrar o componente que renderiza o logo SVG
+2. Adicionar atributos obrigatórios:
+   - `fetchpriority="high"`
+   - `loading="eager"`
+   - `width` e `height` explícitos
+3. Garantir que o logo esteja no HTML inicial (não carregado via JS)
+4. Testar com Lighthouse para verificar melhoria no LCP
+
+**Critério de Sucesso**: LCP reduzido para < 3.0s
+
+### 1.2 Implementar Preconnect para Supabase
+**Problema**: Conexões lentas com servidor Supabase
+**Localização**: `app/layout.tsx` no `<head>`
+
+**Passos**:
+1. Abrir `app/layout.tsx`
+2. Adicionar no `<head>` antes de outros links:
+   ```html
+   <link rel="preconnect" href="https://zzvmyzyszsqptgyqwqwt.supabase.co" />
+   <link rel="dns-prefetch" href="https://zzvmyzyszsqptgyqwqwt.supabase.co" />
+   <link rel="preconnect" href="https://zzvmyzyszsqptgyqwqwt.supabase.co" crossorigin />
+   ```
+3. Testar se as requisições Supabase iniciam mais rapidamente
+
+**Critério de Sucesso**: Redução de 200-300ms no TTFB de requisições Supabase
+
+### 1.3 Criar Endpoint Consolidado `/api/dashboard`
+**Problema**: 8+ requisições sequenciais causando latência de 4.9s
+**Localização**: `app/api/dashboard/route.ts` (criar novo arquivo)
+
+**Passos**:
+1. Criar novo arquivo `app/api/dashboard/route.ts`
+2. Implementar função GET que recebe `householdId` e `userId` como query params
+3. Usar `Promise.all()` para executar todas as consultas em paralelo:
+   - Notificações (`/api/notifications`)
+   - Contagem não lida (`/api/notifications/unread-count`)
+   - Cronogramas (`/api/schedules`)
+   - Alimentações (`/api/feedings`)
+   - Logs de peso (`/api/weight/logs`)
+   - Metas (`/api/goals`)
+   - Lares (`/api/households`)
+   - Gatos (`/api/households/[id]/cats`)
+4. Retornar objeto JSON com todos os dados
+5. Manter compatibilidade com autenticação existente
+
+**Critério de Sucesso**: Redução de 8+ requisições para 1, tempo total < 2.0s
+
+### 1.4 Atualizar Frontend para Usar Endpoint Consolidado
+**Problema**: Contextos fazem requisições individuais
+**Localização**: Todos os contextos (NotificationContext, WeightContext, etc.)
+
+**Passos**:
+1. Identificar onde cada contexto faz suas requisições iniciais
+2. Modificar para chamar `/api/dashboard` primeiro
+3. Distribuir os dados retornados para cada contexto
+4. Manter fallback para requisições individuais em caso de erro
+5. Testar se todos os dados ainda carregam corretamente
+
+**Critério de Sucesso**: Apenas 1 requisição inicial, dados distribuídos corretamente
+
+## FASE 2: Otimizações Estruturais (Semanas 3-4)
+*Meta: LCP < 2.5s, Bundle size -20%*
+
+### 2.1 Refatorar UserProvider para Singleton
+**Problema**: Múltiplas inicializações causando 4 requisições simultâneas para auth
+**Localização**: `contexts/UserContext.tsx`
+
+**Passos**:
+1. Analisar o código atual do UserProvider
+2. Implementar padrão Singleton para evitar múltiplas instâncias
+3. Garantir que apenas uma inicialização aconteça por sessão
+4. Manter compatibilidade com a API existente
+5. Adicionar logs para monitorar inicializações
+6. Testar se apenas 1 requisição auth é feita
+
+**Critério de Sucesso**: Apenas 1 requisição para `/auth/v1/user`, eliminação de logs duplicados
+
+### 2.2 Implementar Lazy Loading de Imagens
+**Problema**: Todas as imagens carregam simultaneamente
+**Localização**: Componentes que renderizam imagens de gatos e usuários
+
+**Passos**:
+1. Criar componente `OptimizedImage` em `components/ui/optimized-image.tsx`
+2. Usar Next.js Image com:
+   - `loading="lazy"` para imagens não críticas
+   - `loading="eager"` para imagens críticas (logo, avatar principal)
+   - `placeholder="blur"` com blurDataURL
+3. Substituir tags `<img>` por `<OptimizedImage>` nos componentes:
+   - `CatProfile.tsx`
+   - `ProfileImage.tsx`
+   - Outros componentes com imagens
+4. Testar se imagens carregam conforme necessário
+
+**Critério de Sucesso**: Redução de 30-40% no tempo de carregamento inicial
+
+### 2.3 Implementar Code Splitting por Contexto
+**Problema**: Todos os contextos carregam simultaneamente
+**Localização**: `contexts/index.ts` e `app/layout.tsx`
+
+**Passos**:
+1. Criar arquivo `contexts/index.ts` com exports lazy
+2. Usar `React.lazy()` para cada contexto:
+   - NotificationProvider
+   - WeightProvider
+   - FeedingProvider
+   - CatsProvider
+3. Modificar `app/layout.tsx` para usar Suspense
+4. Adicionar fallback de loading para cada contexto
+5. Testar se contextos carregam sob demanda
+
+**Critério de Sucesso**: Redução de 20-30% no bundle size inicial
+
+## FASE 3: Otimizações Avançadas (Semanas 5-6)
+*Meta: LCP < 2.0s, Performance geral +40%*
+
+### 3.1 Implementar Service Worker
+**Problema**: Recarregamento desnecessário de assets
+**Localização**: `public/sw.js` (criar novo arquivo)
+
+**Passos**:
+1. Criar arquivo `public/sw.js`
+2. Implementar cache para assets estáticos:
+   - CSS, JS, imagens
+   - Estratégia Cache First
+3. Implementar cache para APIs com TTL:
+   - `/api/dashboard` (5 minutos)
+   - `/api/cats` (10 minutos)
+4. Adicionar registro no `app/layout.tsx`
+5. Testar funcionamento offline básico
+
+**Critério de Sucesso**: Redução de 50-70% no tempo de carregamento em visitas subsequentes
+
+### 3.2 Otimizar CSS Crítico
+**Problema**: CSS render-blocking
+**Localização**: `app/layout.tsx` e `components/critical-css.tsx`
+
+**Passos**:
+1. Criar componente `CriticalCSS` com estilos inline essenciais
+2. Adicionar no `<head>` do `app/layout.tsx`
+3. Modificar link do CSS para `rel="preload"` com `onLoad`
+4. Adicionar fallback `<noscript>` para o CSS
+5. Testar se CSS não bloqueia renderização
+
+**Critério de Sucesso**: Eliminação do render-blocking CSS, melhoria no FCP
+
+### 3.3 Otimizar Bundle com Tree Shaking
+**Problema**: Bundle size não otimizado
+**Localização**: `next.config.mjs`
+
+**Passos**:
+1. Instalar `@next/bundle-analyzer`
+2. Configurar análise de bundle no `next.config.mjs`
+3. Implementar `optimizePackageImports` para bibliotecas grandes
+4. Configurar `splitChunks` para separar vendors e contextos
+5. Executar análise e otimizar imports desnecessários
+
+**Critério de Sucesso**: Redução de 20-30% no bundle size
+
+## Sistema de Monitoramento
+
+### 4.1 Implementar Performance Monitor
+**Localização**: `lib/performance-monitor.ts` (criar novo arquivo)
+
+**Passos**:
+1. Criar classe `PerformanceMonitor` com métodos:
+   - `measureLCP()` - medir Largest Contentful Paint
+   - `measureCLS()` - medir Cumulative Layout Shift
+   - `measureAPIResponseTime()` - medir tempo de APIs
+2. Usar `PerformanceObserver` para capturar métricas
+3. Implementar envio para sistema de analytics
+4. Adicionar logs estruturados para debugging
+
+### 4.2 Criar Dashboard de Performance
+**Localização**: `components/admin/performance-dashboard.tsx` (criar novo arquivo)
+
+**Passos**:
+1. Criar componente para exibir métricas em tempo real
+2. Implementar cards para LCP, CLS, API response time
+3. Adicionar indicadores visuais (bom/ruim) baseados em thresholds
+4. Integrar com `PerformanceMonitor`
+5. Adicionar rota `/admin/performance` (apenas em desenvolvimento)
+
+## Validação e Testes
+
+### 5.1 Configurar Testes de Performance
+**Passos**:
+1. Instalar `lighthouse-ci` e `@lhci/cli`
+2. Configurar script `npm run lighthouse:ci`
+3. Definir performance budget no `lighthouserc.js`
+4. Integrar com CI/CD para testes automáticos
+5. Configurar alertas para degradação de performance
+
+### 5.2 Implementar Monitoramento Contínuo
+**Passos**:
+1. Configurar Vercel Analytics ou similar
+2. Implementar Real User Monitoring (RUM)
+3. Configurar alertas para métricas críticas
+4. Criar dashboard de monitoramento em produção
+5. Documentar procedimentos de troubleshooting
+
+## Cronograma de Implementação
+
+### Semana 1
+- [ ] Implementar otimizações do LCP (1.1)
+- [ ] Adicionar preconnect para Supabase (1.2)
+- [ ] **Meta**: LCP < 3.0s
+
+### Semana 2
+- [ ] Criar endpoint `/api/dashboard` (1.3)
+- [ ] Atualizar frontend para usar endpoint consolidado (1.4)
+- [ ] **Meta**: LCP < 2.5s, Requisições < 2.0s
+
+### Semana 3
+- [ ] Refatorar UserProvider (2.1)
+- [ ] Implementar lazy loading de imagens (2.2)
+- [ ] **Meta**: LCP < 2.2s, Bundle size -15%
+
+### Semana 4
+- [ ] Implementar code splitting (2.3)
+- [ ] Otimizar CSS crítico (3.2)
+- [ ] **Meta**: LCP < 2.0s, Bundle size -20%
+
+### Semana 5
+- [ ] Implementar Service Worker (3.1)
+- [ ] Otimizar bundle com tree shaking (3.3)
+- [ ] **Meta**: Performance geral +30%
+
+### Semana 6
+- [ ] Implementar sistema de monitoramento (4.1, 4.2)
+- [ ] Configurar testes de performance (5.1, 5.2)
+- [ ] **Meta**: LCP < 1.8s, Monitoramento ativo
+
+## Critérios de Sucesso
+
+| Métrica | Baseline | Target | Melhoria |
+|---------|----------|--------|----------|
+| **LCP** | 4.6s | < 2.0s | 57% |
+| **Cadeia de Requisições** | 4.9s | < 1.5s | 69% |
+| **Bundle Size** | ~500KB | ~350KB | 30% |
+| **Requisições Auth** | 4 | 1 | 75% |
+| **Tempo de Carregamento** | 4.9s | < 2.0s | 59% |
+
+## Notas Importantes para Desenvolvedor Júnior
+
+1. **Sempre meça antes e depois**: Use Lighthouse antes de cada mudança para ter baseline
+2. **Implemente incrementalmente**: Faça uma otimização por vez e teste
+3. **Mantenha compatibilidade**: Não quebre funcionalidades existentes
+4. **Documente mudanças**: Adicione comentários explicando as otimizações
+5. **Teste em diferentes dispositivos**: Performance varia muito entre dispositivos
+6. **Use ferramentas de debug**: Chrome DevTools, React DevTools, Bundle Analyzer
+7. **Peça revisão**: Sempre peça review de código para otimizações complexas
+
+## Troubleshooting Comum
+
+- **LCP não melhora**: Verificar se `fetchpriority="high"` está no elemento correto
+- **Requisições duplicadas**: Verificar se UserProvider não está sendo inicializado múltiplas vezes
+- **Bundle size aumenta**: Verificar se tree shaking está funcionando corretamente
+- **Service Worker não funciona**: Verificar se está registrado corretamente no layout
+- **Métricas inconsistentes**: Verificar se está testando em ambiente de produção
+
+**Responsável:** Squad Frontend + Tech Lead
+**Status:** Planejado
+**Prioridade:** Alta
