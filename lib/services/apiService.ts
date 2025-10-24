@@ -87,7 +87,7 @@ export async function getCats(): Promise<CatType[]> {
   return getData<CatType>('cats');
 }
 
-export async function getCatsByHouseholdId(householdId: string, userId: string | undefined, userTimezone?: string): Promise<CatType[]> {
+export async function getCatsByHouseholdId(householdId: string, userId: string | undefined, userTimezone?: string, signal?: AbortSignal): Promise<CatType[]> {
   await delay(300);
   try {
     // Prepare headers
@@ -100,7 +100,10 @@ export async function getCatsByHouseholdId(householdId: string, userId: string |
     }
 
     // Add headers to fetch call
-    const response = await fetch(`/api/households/${householdId}/cats`, { headers });
+    const response = await fetch(`/api/households/${householdId}/cats`, { 
+      headers,
+      signal 
+    });
     if (!response.ok) {
       const errorText = await response.text(); // Get error body
       console.error("[getCatsByHouseholdId] Error response:", { status: response.status, text: errorText });

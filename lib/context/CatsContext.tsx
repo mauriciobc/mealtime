@@ -42,7 +42,36 @@ function catsReducer(state: CatsState, action: CatsAction): CatsState {
       return { ...state, cats: [...state.cats, action.payload as CatType] };
     case 'REMOVE_CAT':
       const payload = action.payload;
-      const idToRemove = typeof payload === 'number' ? payload : (payload as CatType).id;
+      
+      // Verificação defensiva de tipos para evitar erros de runtime
+      if (payload === undefined || payload === null) {
+        console.warn('[CatsContext] REMOVE_CAT action called with undefined/null payload');
+        return state; // Retorna o estado inalterado
+      }
+      
+      let idToRemove: string | number;
+      
+      if (typeof payload === 'number') {
+        // Se for número, usa diretamente (assumindo que é um ID numérico)
+        idToRemove = payload;
+      } else if (typeof payload === 'string') {
+        // Se for string, usa diretamente (assumindo que é um ID string/UUID)
+        idToRemove = payload;
+      } else if (typeof payload === 'object' && payload !== null && 'id' in payload) {
+        // Se for objeto com propriedade 'id'
+        const catPayload = payload as CatType;
+        if (typeof catPayload.id === 'string' || typeof catPayload.id === 'number') {
+          idToRemove = catPayload.id;
+        } else {
+          console.warn('[CatsContext] REMOVE_CAT action called with invalid cat object - id is not string or number:', catPayload.id);
+          return state; // Retorna o estado inalterado
+        }
+      } else {
+        // Payload inválido
+        console.warn('[CatsContext] REMOVE_CAT action called with invalid payload type:', typeof payload, payload);
+        return state; // Retorna o estado inalterado
+      }
+      
       return { ...state, cats: state.cats.filter(cat => cat.id !== idToRemove) };
     case 'UPDATE_CAT':
       return {
@@ -107,7 +136,7 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       if (process.env.NODE_ENV === 'development') {
         console.log("[CatsProvider] Loading cats for household:", householdId);
       }
-      const catsData: CatType[] = await getCatsByHouseholdId(householdId, currentUser?.id);
+      const catsData: CatType[] = await getCatsByHouseholdId(householdId, currentUser?.id, undefined, abortController.signal);
       if (!isMountedRef.current) return;
       if (process.env.NODE_ENV === 'development') {
         console.log("[CatsProvider] Cats loaded:", catsData.length);

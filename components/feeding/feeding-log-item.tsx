@@ -134,10 +134,10 @@ export const FeedingLogItem = memo(function FeedingLogItem({ log, onView, onEdit
                   <div className="flex items-center">
                     <div className="text-right mr-2">
                       <p className="text-sm font-medium">
-                        {format(new Date(log.timestamp), "HH:mm")}
+                        {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(log.timestamp), "dd/MM/yyyy")}
+                        {format(new Date(log.timestamp), "dd/MM/yyyy", { locale: userLocale })}
                       </p>
                     </div>
                     {showActions && (

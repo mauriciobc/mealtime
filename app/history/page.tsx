@@ -3,7 +3,6 @@
 import { useState, useEffect, useTransition, useDeferredValue } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -263,10 +262,10 @@ export default function HistoryPage() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-medium">
-                                {format(new Date(log.timestamp), "HH:mm")}
+                                {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {format(new Date(log.timestamp), "dd/MM/yyyy")}
+                                {format(new Date(log.timestamp), "dd/MM/yyyy", { locale: userLocale })}
                               </p>
                             </div>
                           </div>

@@ -10,8 +10,10 @@
  * 4. Simplifica código assíncrono
  */
 
-import { use, Suspense } from 'react';
+import React, { use, Suspense, cache } from 'react';
 import { FeedingStateContext, FeedingActionsContext } from './FeedingContext.v2';
+import type { FeedingLog } from '@/lib/types';
+import { FeedingClientData } from './FeedingContext.use-hook-example.client';
 
 // ============================================================================
 // EXEMPLO 1: Uso Básico do Hook `use`
@@ -113,28 +115,80 @@ export function DynamicFeedingDisplay({ contexts }: { contexts: Array<typeof Fee
 }
 
 // ============================================================================
-// EXEMPLO 5: Combinação com Server Components
+// EXEMPLO 5: Combinação com Server Components (CORRIGIDO)
 // ============================================================================
 
-// Este componente Server pode passar uma Promise diretamente
-async function FeedingServerData({ householdId }: { householdId: string }) {
-  // Fetch no servidor
-  const feedingsPromise = fetch(`/api/feedings?householdId=${householdId}`)
-    .then(res => res.json());
+/**
+ * Função cacheada para buscar dados de alimentação.
+ * 
+ * Benefícios do cache():
+ * - Deduplica requisições idênticas durante uma renderização
+ * - Melhora performance evitando fetches duplicados
+ * - Mantém a Promise consistente entre renders
+ * 
+ * @param householdId - ID do household para filtrar alimentações
+ * @returns Promise tipada com array de FeedingLog
+ */
+const getFeedingsData = cache(async (householdId: string): Promise<FeedingLog[]> => {
+  const response = await fetch(
+    `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/feedings?householdId=${householdId}`,
+    {
+      // Opções importantes para SSR
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Next.js 15 recomenda especificar cache behavior
+      next: { revalidate: 60 }, // Revalida a cada 60 segundos
+    }
+  );
 
-  return <FeedingClientData feedingsPromise={feedingsPromise} />;
-}
+  if (!response.ok) {
+    throw new Error(`Erro ao buscar alimentações: ${response.status}`);
+  }
 
-// Componente Client consome a Promise com `use`
-'use client';
-function FeedingClientData({ feedingsPromise }: { feedingsPromise: Promise<any> }) {
-  const feedings = use(feedingsPromise);
+  return response.json();
+});
 
-  return (
-    <div>
-      {feedings.map((f: any) => (
-        <div key={f.id}>{f.notes}</div>
-      ))}
+/**
+ * Server Component que busca dados e passa Promise para Client Component.
+ * 
+ * BOAS PRÁTICAS APLICADAS:
+ * ✅ Função assíncrona (Server Component)
+ * ✅ Usa cache() para deduplicação
+ * ✅ Tipagem forte (Promise<FeedingLog[]>)
+ * ✅ Cria Promise no servidor (melhor performance)
+/**
+ * QUANDO MIGRAR DE useContext para use:
+ * 
+ * ✅ MIGRE se você precisa:
+ * - Consumir Promises diretamente
+ * - Melhor integração com Suspense
+ * - Simplificar código assíncrono com Suspense
+ * 
+ * ❌ NÃO MIGRE ainda se:
+ * - O código está funcionando bem e não precisa das novas features
+ * - Você não está usando Suspense
+ * - A equipe não está familiarizada com o novo padrão
+ * 
+ * VANTAGENS do hook `use`:
+ * 1. Suporta Promises com Suspense integrado
+ * 2. Suporta Promises nativas
+ * 3. Melhor para Server Components
+ * 4. Código mais limpo para dados assíncronos
+ * 
+ * DESVANTAGENS:
+ * 1. Requer React 19
+ * 2. Precisa de Suspense para Promises
+ * 3. Mudança de paradigma para a equipe
+ * 4. Promises devem ser memoizadas para evitar re-criação
+ * 5. AINDA segue as Rules of Hooks (não pode ser condicional ou em loops)
+ */        <div className="p-4 border rounded-md animate-pulse">
+          <div className="h-4 bg-gray-200 rounded mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+        </div>
+      }>
+        <FeedingServerData householdId={householdId} />
+      </Suspense>
     </div>
   );
 }
@@ -143,14 +197,43 @@ function FeedingClientData({ feedingsPromise }: { feedingsPromise: Promise<any> 
 // EXEMPLO 6: Error Handling com use + ErrorBoundary
 // ============================================================================
 
-export function SafeFeedingData() {
-  try {
-    const state = use(FeedingStateContext);
-    return <div>Logs: {state.feedingLogs.length}</div>;
-  } catch (error) {
-    // Se o context não estiver disponível, trata o erro
-    return <div>Erro ao carregar dados de alimentação</div>;
+// Error Boundary para capturar erros do hook `use`
+class FeedingErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
   }
+
+  static getDerivedStateFromError(_error: Error) {
+    // Atualiza o state para mostrar a UI de fallback na próxima renderização
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div>Erro ao carregar dados de alimentação</div>;
+    }
+
+    return this.props.children;
+  }
+}
+
+// Componente simplificado - apenas busca dados e renderiza
+export function SafeFeedingData() {
+  const state = use(FeedingStateContext);
+  return <div>Logs: {state.feedingLogs.length}</div>;
+}
+
+// Uso com Error Boundary
+export function SafeFeedingDataWithBoundary() {
+  return (
+    <FeedingErrorBoundary>
+      <SafeFeedingData />
+    </FeedingErrorBoundary>
+  );
 }
 
 // ============================================================================

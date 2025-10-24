@@ -31,22 +31,6 @@ const ALLOWED_ORIGINS = (() => {
   return DEFAULT_ALLOWED_ORIGINS;
 })();
 
-// Public paths that don't require authentication
-const PUBLIC_PATHS = [
-  '/login',
-  '/signup',
-  '/forgot-password',
-  '/reset-password',
-  '/auth/callback',
-  '/api/auth/callback',
-  '/api/auth/mobile',
-  '/api/auth/mobile/register',
-  '/_next',
-  '/static',
-  '/images',
-  '/favicon.ico'
-];
-
 // API routes that should return JSON
 const apiRoutes = [
   '/api/settings',
@@ -83,12 +67,25 @@ metricsMonitor.registerMetric(
   'counter'
 );
 
-// Helper function to check if a path matches a pattern
+/**
+ * Helper function to check if a path matches a pattern
+ * Used to validate API routes and public paths in middleware logic
+ * @param path - The request path to check
+ * @param pattern - The pattern to match against
+ * @returns true if path matches the pattern exactly or starts with pattern/
+ * @example isPathMatch('/api/users/123', '/api/users') // true
+ */
 function isPathMatch(path: string, pattern: string): boolean {
   return path === pattern || path.startsWith(pattern + '/');
 }
 
-// Helper function to normalize and validate origin
+/**
+ * Helper function to normalize and validate origin
+ * Used internally by isOriginAllowed for CORS validation
+ * @param origin - The origin string to normalize
+ * @returns Normalized origin or null if invalid
+ * @example normalizeOrigin('http://localhost:3000') // 'http://localhost:3000'
+ */
 function normalizeOrigin(origin: string): string | null {
   try {
     const url = new URL(origin);
@@ -98,7 +95,14 @@ function normalizeOrigin(origin: string): string | null {
   }
 }
 
-// Helper function to check if origin is allowed
+/**
+ * Helper function to check if origin is allowed for CORS
+ * Used to validate request origins in API routes for security
+ * @param origin - The request origin to validate
+ * @param allowedOrigins - Array of allowed origin strings
+ * @returns true if origin is in the allowed list
+ * @example isOriginAllowed('http://localhost:3000', ALLOWED_ORIGINS) // true
+ */
 function isOriginAllowed(origin: string, allowedOrigins: string[]): boolean {
   const normalizedOrigin = normalizeOrigin(origin);
   if (!normalizedOrigin) {
@@ -152,7 +156,19 @@ function detectHttps(request: NextRequest): boolean {
 
 // Function to apply security headers to a response
 function applySecurityHeadersToResponse(response: NextResponse, request: NextRequest): NextResponse {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL) : null;
+  // Guard construction of URL with validation and error handling
+  let supabaseUrl: URL | null = null;
+  const supabaseUrlEnv = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  
+  if (supabaseUrlEnv && typeof supabaseUrlEnv === 'string' && supabaseUrlEnv.trim().length > 0) {
+    try {
+      supabaseUrl = new URL(supabaseUrlEnv);
+    } catch (error) {
+      console.error('Failed to parse NEXT_PUBLIC_SUPABASE_URL:', error);
+      supabaseUrl = null;
+    }
+  }
+  
   const supabaseDomain = supabaseUrl ? supabaseUrl.hostname.trim() : '';
   
   // Build supabaseStorageDomain with proper validation for short domains
@@ -160,11 +176,11 @@ function applySecurityHeadersToResponse(response: NextResponse, request: NextReq
   if (supabaseDomain) {
     const parts = supabaseDomain.split('.');
     if (parts.length >= 3) {
-      // Only strip first label when there are at least 3 labels
+      // For 3+ labels (e.g., "storage.supabase.co"), use wildcard: "*.supabase.co"
       supabaseStorageDomain = `*.${parts.slice(1).join('.')}`;
     } else {
-      // For short domains, use the domain itself with wildcard
-      supabaseStorageDomain = `*.${supabaseDomain}`;
+      // For 1-2 label hosts (e.g., "localhost" or "supabase.co"), use raw domain without wildcard
+      supabaseStorageDomain = supabaseDomain;
     }
   }
 
@@ -289,15 +305,28 @@ export default async function proxy(request: NextRequest) {
   logger.debug(`[Middleware Root] Processing request for: ${pathname}`, { url: request.nextUrl.toString() });
 
   try {
-    // Check if this is an API route
-    const isApiRoute = apiRoutes.some(route => pathname.startsWith(route));
+    // Check if this is an API route using isPathMatch helper
+    const isApiRoute = apiRoutes.some(route => isPathMatch(pathname, route));
 
     // For API routes, handle auth differently
     if (isApiRoute) {
       try {
+        // Validate origin for CORS
+        const origin = request.headers.get('origin');
+        const isValidOrigin = origin ? isOriginAllowed(origin, ALLOWED_ORIGINS) : false;
+        
         // Handle CORS preflight requests
         if (request.method === 'OPTIONS') {
           const response = new NextResponse(null, { status: 200 });
+          
+          // Add CORS headers for allowed origins
+          if (isValidOrigin && origin) {
+            response.headers.set('Access-Control-Allow-Origin', origin);
+            response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+            response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+            response.headers.set('Access-Control-Max-Age', '86400'); // 24 hours
+          }
+          
           recordResponseMetrics(startTime, response, method, pathname);
           return response;
         }
@@ -315,12 +344,26 @@ export default async function proxy(request: NextRequest) {
               }
             }
           );
+          
+          // Add CORS headers for allowed origins
+          if (isValidOrigin && origin) {
+            response.headers.set('Access-Control-Allow-Origin', origin);
+            response.headers.set('Access-Control-Allow-Credentials', 'true');
+          }
+          
           recordErrorMetrics(startTime, method, pathname, 401);
           return response;
         }
 
         // User is authenticated, proceed with the request
         const response = NextResponse.next();
+        
+        // Add CORS headers for allowed origins
+        if (isValidOrigin && origin) {
+          response.headers.set('Access-Control-Allow-Origin', origin);
+          response.headers.set('Access-Control-Allow-Credentials', 'true');
+        }
+        
         recordResponseMetrics(startTime, response, method, pathname);
         return response;
         
@@ -334,6 +377,9 @@ export default async function proxy(request: NextRequest) {
           path: pathname 
         });
         
+        const origin = request.headers.get('origin');
+        const isValidOrigin = origin ? isOriginAllowed(origin, ALLOWED_ORIGINS) : false;
+        
         const response = NextResponse.json(
           { error: 'Internal server error' },
           { 
@@ -343,12 +389,21 @@ export default async function proxy(request: NextRequest) {
             }
           }
         );
+        
+        // Add CORS headers for allowed origins
+        if (isValidOrigin && origin) {
+          response.headers.set('Access-Control-Allow-Origin', origin);
+          response.headers.set('Access-Control-Allow-Credentials', 'true');
+        }
+        
         recordErrorMetrics(startTime, method, pathname, 500);
         return response;
       }
     }
 
     // --- Delegate Core Auth Logic to updateSession for non-API routes ---
+    // Public path handling (login, signup, etc.) and protected route logic
+    // are implemented inside updateSession (utils/supabase/middleware.ts)
     let response = await updateSession(request);
     // -------------------------------------------------
 
@@ -383,7 +438,10 @@ export default async function proxy(request: NextRequest) {
     });
     
     // Handle errors differently for API routes
-    if (apiRoutes.some(route => pathname.startsWith(route))) {
+    if (apiRoutes.some(route => isPathMatch(pathname, route))) {
+      const origin = request.headers.get('origin');
+      const isValidOrigin = origin ? isOriginAllowed(origin, ALLOWED_ORIGINS) : false;
+      
       const response = NextResponse.json(
         { error: 'Internal server error' },
         { 
@@ -393,6 +451,13 @@ export default async function proxy(request: NextRequest) {
           }
         }
       );
+      
+      // Add CORS headers for allowed origins
+      if (isValidOrigin && origin) {
+        response.headers.set('Access-Control-Allow-Origin', origin);
+        response.headers.set('Access-Control-Allow-Credentials', 'true');
+      }
+      
       recordErrorMetrics(startTime, method, pathname, 500);
       return response;
     }

@@ -106,6 +106,14 @@ export default function FeedingsPage() {
   const [isPending, startTransition] = useTransition()
   const deferredSearchTerm = useDeferredValue(searchTerm)
 
+  // Handle unauthenticated user redirect (must be at top level)
+  useEffect(() => {
+    if (!currentUser) {
+      toast.error("Autenticação necessária para ver o histórico.");
+      router.replace("/login?callbackUrl=/feedings");
+    }
+  }, [currentUser, router]);
+
   // Memoized filtering and sorting with useTransition
   const filteredAndSortedLogs = useMemo(() => {
     if (!feedingLogs || !cats) return []
@@ -207,8 +215,8 @@ export default function FeedingsPage() {
 
   // --- Render Logic ---
 
-  // 1. Handle Combined Loading State
-  if (isLoading || isPending) {
+  // 1. Handle Initial Loading State (NOT including isPending to keep UI responsive)
+  if (isLoading) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -239,10 +247,6 @@ export default function FeedingsPage() {
 
   // 3. Handle No Authenticated User Found (after loading/error checks)
   if (!currentUser) {
-    useEffect(() => {
-        toast.error("Autenticação necessária para ver o histórico.");
-        router.replace("/login?callbackUrl=/feedings"); // Use replace
-    }, [router]);
     return <Loading text="Redirecionando para login..." />;
   }
 
@@ -282,8 +286,10 @@ export default function FeedingsPage() {
           <PageHeader
             title="Histórico de Alimentações"
             description="Veja todos os registros de alimentação dos seus gatos"
-            actionLabel={currentUser?.householdId ? "Registrar" : undefined}
-            actionHref={currentUser?.householdId ? "/feedings/new" : undefined}
+            {...(currentUser?.householdId && {
+              actionLabel: "Registrar",
+              actionHref: "/feedings/new"
+            })}
           />
 
           {/* Search and Sort Controls */}
@@ -297,6 +303,12 @@ export default function FeedingsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full rounded-md border border-input bg-background pl-10 pr-4 py-2 text-sm h-9 focus-visible:ring-primary"
               />
+              {/* Subtle loading indicator when isPending */}
+              {isPending && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              )}
             </div>
             <Button
               variant="outline"
@@ -310,6 +322,7 @@ export default function FeedingsPage() {
           </div>
 
           {/* Timeline or Empty State */}
+          <div className={`transition-opacity duration-200 ${isPending ? 'opacity-50' : 'opacity-100'}`}>
           {filteredAndSortedLogs.length === 0 && !isLoading ? (
             <EmptyState
               IconComponent={Utensils}
@@ -470,6 +483,7 @@ export default function FeedingsPage() {
               ))}
             </Timeline>
           )}
+          </div>
         </div>
 
         <BottomNav />

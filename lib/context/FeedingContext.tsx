@@ -45,12 +45,12 @@ function findInsertionIndex(logs: FeedingLog[], newLog: FeedingLog): number {
   
   while (left < right) {
     const mid = Math.floor((left + right) / 2);
-    const midTimestamp = new Date(logs[mid].timestamp).getTime();
+    const midTimestamp = new Date(logs[mid]?.timestamp || 0).getTime();
     
     if (midTimestamp > newTimestamp) {
-      left = mid + 1;
-    } else {
       right = mid;
+    } else {
+      left = mid + 1;
     }
   }
   
@@ -60,12 +60,12 @@ function findInsertionIndex(logs: FeedingLog[], newLog: FeedingLog): number {
 // Helper function to insert log at correct position maintaining descending order
 function insertLogInOrder(logs: FeedingLog[], newLog: FeedingLog): FeedingLog[] {
   // If array is empty or new log is more recent than first log, insert at beginning
-  if (logs.length === 0 || new Date(newLog.timestamp).getTime() > new Date(logs[0].timestamp).getTime()) {
+  if (logs.length === 0 || new Date(newLog.timestamp).getTime() > new Date(logs[0]?.timestamp || 0).getTime()) {
     return [newLog, ...logs];
   }
   
   // If new log is older than last log, insert at end
-  if (new Date(newLog.timestamp).getTime() < new Date(logs[logs.length - 1].timestamp).getTime()) {
+  if (new Date(newLog.timestamp).getTime() < new Date(logs[logs.length - 1]?.timestamp || 0).getTime()) {
     return [...logs, newLog];
   }
   
@@ -132,9 +132,6 @@ const selectAveragePortionSize = (logs: FeedingLog[] | null): number | null => {
   if (!logs || logs.length === 0) {
     return null;
   }
-  
-  // Early return for empty logs
-  if (logs.length === 0) return null;
   
   // Use reduce for single pass calculation
   let validCount = 0;
@@ -262,10 +259,10 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
               name: meal.feeder?.full_name ?? null, // Use optional chaining and nullish coalescing
               avatar: meal.feeder?.avatar_url ?? null,
             },
-            cat: undefined, // Explicitly set cat as undefined
+            cat: undefined as any, // Explicitly set cat as undefined
             // Set status and createdAt to undefined or handle differently if needed
-            status: undefined, // Map meal_type to status if required later
-            createdAt: undefined, // Not provided by this endpoint
+            status: undefined as any, // Map meal_type to status if required later
+            createdAt: undefined as any, // Not provided by this endpoint
           };
         });
 
@@ -390,10 +387,10 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
       ...lastLog, // Contains the log with simplified user { id, name, avatar }
       timestamp: new Date(lastLog.timestamp), // Ensure Date object
       // createdAt might be undefined from the API, handle appropriately
-      createdAt: lastLog.createdAt ? new Date(lastLog.createdAt) : undefined, 
+      createdAt: lastLog.createdAt ? new Date(lastLog.createdAt) : undefined as any, 
       cat: cat, // Add the full cat object found in CatsContext state
       // No need to overwrite the user object here, the one from mapping is fine.
-      user: lastLog.user // Ensure the user field is present (guaranteed by mapping)
+      user: lastLog.user || undefined as any // Ensure the user field is present (guaranteed by mapping)
     };
     
     return enrichedLog;
@@ -454,6 +451,18 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
   }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, last7Days]);
 };
 
+
+// --- Helper Functions ---
+
+/**
+ * Calculates the next feeding time by adding the interval (in hours) to the last feeding, respecting timezone.
+ */
+function calculateNextFeeding(lastFeeding: Date, interval: number, timezone: string): Date {
+  // Add interval hours to lastFeeding, then convert to the user's timezone
+  const next = addHours(lastFeeding, interval);
+  return toDate(next, { timeZone: timezone });
+}
+
 // --- New Selector --- 
 
 interface UpcomingFeeding {
@@ -497,7 +506,7 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
       
       // Pre-compute last log for each cat
       const lastLogMap = new Map<string, FeedingLog>();
-      householdLogs.sort((a, b) => compareAsc(new Date(b.timestamp), new Date(a.timestamp))); // Sort once
+      householdLogs.sort((a, b) => compareAsc(new Date(a.timestamp), new Date(b.timestamp))); // Sort once
       householdLogs.forEach(log => {
           if (!lastLogMap.has(log.catId)) {
               lastLogMap.set(log.catId, log);
@@ -519,7 +528,7 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
           let earliestNextFixed: Date | null = null;
           fixedSchedules.forEach(schedule => {
             // Ensure schedule.times is treated as an array
-            const times = Array.isArray(schedule.times) ? schedule.times : schedule.times.split(',');
+            const times = Array.isArray(schedule.times) ? schedule.times : (schedule.times || '').split(',');
             times.forEach(time => {
               const [hours, minutes] = time.trim().split(':').map(Number);
               if (isNaN(hours) || isNaN(minutes)) return;
@@ -599,7 +608,7 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
 };
 
 // Selector hook remains useful
-export const useFeedingSelector = <T, >(selector: (state: FeedingState) => T): T => {
+export const useFeedingSelector = <T,>(selector: (state: FeedingState) => T): T => {
   const { state } = useFeeding();
   return selector(state);
 };
@@ -609,14 +618,3 @@ export const useSelectAveragePortionSize = (): number | null => {
   const { state } = useFeeding();
   return useMemo(() => selectAveragePortionSize(state.feedingLogs), [state.feedingLogs]);
 };
-
-// --- Helper Functions ---
-
-/**
- * Calculates the next feeding time by adding the interval (in hours) to the last feeding, respecting timezone.
- */
-function calculateNextFeeding(lastFeeding: Date, interval: number, timezone: string): Date {
-  // Add interval hours to lastFeeding, then convert to the user's timezone
-  const next = addHours(lastFeeding, interval);
-  return toDate(next, { timeZone: timezone });
-}

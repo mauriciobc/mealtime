@@ -50,7 +50,7 @@ const nextConfig = {
     maximumRedirects: 3, // New default: 3 redirects maximum
     localPatterns: [ // For local images with query strings
       {
-        pathname: '/**',
+        pathname: '/public/**',
         search: '',
       },
     ],
@@ -122,22 +122,12 @@ const nextConfig = {
         source: '/api/:path*',
         headers: [
           { 
-            key: 'Access-Control-Allow-Origin', 
-            value: process.env.NODE_ENV === 'production' 
-              ? 'https://mealtime.app.br' 
-              : 'http://localhost:3000'
-          },
-          { 
             key: 'Access-Control-Allow-Methods', 
             value: 'GET, POST, PUT, DELETE, OPTIONS, PATCH' 
           },
           { 
             key: 'Access-Control-Allow-Headers', 
-            value: 'Content-Type, Authorization, X-Requested-With, Accept, Origin, X-User-ID' 
-          },
-          { 
-            key: 'Access-Control-Allow-Credentials', 
-            value: 'true' 
+            value: 'Content-Type, Authorization, X-Requested-With, Accept, Origin' 
           },
           { 
             key: 'Access-Control-Max-Age', 

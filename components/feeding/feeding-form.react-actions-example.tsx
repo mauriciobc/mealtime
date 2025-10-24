@@ -13,70 +13,50 @@
 
 'use client';
 
-import { useActionState, useOptimistic, useTransition } from 'react';
+import { useActionState, useOptimistic, useTransition, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import {
+  submitFeedingAction,
+  addFeedingOptimisticAction,
+  validateAndSubmit,
+} from './feeding-form.actions';
+import type { FeedingLog } from './types';
 
 // ============================================================================
 // EXEMPLO 1: Action Básica com useActionState
 // ============================================================================
 
-// Server Action (em um arquivo separado na prática)
-async function submitFeedingAction(prevState: any, formData: FormData) {
-  'use server';
-  
-  try {
-    const catId = formData.get('catId') as string;
-    const amount = parseFloat(formData.get('amount') as string);
-    const notes = formData.get('notes') as string;
-
-    // Simula delay de rede
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Validação
-    if (!catId || !amount) {
-      return {
-        error: 'Campos obrigatórios faltando',
-        success: false,
-      };
-    }
-
-    // Salva no banco
-    const response = await fetch('/api/feedings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ catId, amount, notes }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Erro ao salvar alimentação');
-    }
-
-    return {
-      error: null,
-      success: true,
-      message: 'Alimentação registrada com sucesso!',
-    };
-
-  } catch (error) {
-    return {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-      success: false,
-    };
-  }
-}
-
+// As Server Actions agora estão em './feeding-form.actions.ts'
 // Componente do formulário usando React Actions
 export function FeedingFormWithActions({ catId }: { catId: string }) {
   // useActionState retorna: [state, action, isPending]
   const [state, formAction, isPending] = useActionState(
     submitFeedingAction,
-    { error: null, success: false }
+    { error: null, success: false, message: '' }
   );
 
+  // Ref para o formulário, permitindo acesso ao elemento DOM
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  // Observa state.success e reseta o formulário quando a submissão é bem-sucedida
+  useEffect(() => {
+    if (state.success && formRef.current) {
+      // Reseta todos os campos do formulário
+      formRef.current.reset();
+      
+      // Opcionalmente, volta o foco para o primeiro campo
+      const firstInput = formRef.current.querySelector('input[type="number"]') as HTMLInputElement;
+      if (firstInput) {
+        firstInput.focus();
+      }
+    }
+  }, [state.success]);
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       <input type="hidden" name="catId" value={catId} />
 
       <div>
@@ -115,32 +95,38 @@ export function FeedingFormWithActions({ catId }: { catId: string }) {
 }
 
 // ============================================================================
-// EXEMPLO 2: Optimistic Updates com useOptimistic
+// EXEMPLO 2: Optimistic Updates com useOptimistic (COM TRATAMENTO DE ERRO)
 // ============================================================================
 
-interface FeedingLog {
-  id: string;
-  catId: string;
-  amount: number;
-  notes: string;
-  timestamp: Date;
-}
+/**
+ * Este exemplo demonstra como implementar optimistic updates ROBUSTOS com:
+ * 
+ * ✅ ROLLBACK automático em caso de falha
+ * ✅ SINCRONIZAÇÃO do log temporário com o log real do servidor
+ * ✅ FEEDBACK visual ao usuário (toast de sucesso/erro)
+ * ✅ TRATAMENTO de erros completo (try/catch)
+ * ✅ AÇÃO DE RETRY para tentar novamente
+ * 
+ * FLUXO:
+ * 1. Usuário submete o formulário
+ * 2. UI atualiza imediatamente com log temporário (id: "temp-123...")
+ * 3. Ação do servidor é chamada em background
+ * 4a. SUCESSO: Log temporário é substituído pelo log real (com id do servidor)
+ * 4b. FALHA: Log temporário é removido (rollback) e toast de erro é exibido
+ * 
+ * CORREÇÃO DO BUG ORIGINAL:
+ * - Antes: addOptimisticLog nunca era revertido se a ação falhasse
+ * - Depois: Implementado rollback completo com tipo 'remove' na action
+ */
 
-async function addFeedingOptimisticAction(formData: FormData) {
-  'use server';
-  
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  const newLog: FeedingLog = {
-    id: Math.random().toString(),
-    catId: formData.get('catId') as string,
-    amount: parseFloat(formData.get('amount') as string),
-    notes: formData.get('notes') as string || '',
-    timestamp: new Date(),
-  };
+// A Server Action addFeedingOptimisticAction está em './feeding-form.actions.ts'
+// O tipo FeedingLog está em './types.ts'
 
-  return newLog;
-}
+// Tipo para ações otimistas (adicionar, atualizar, remover)
+type OptimisticAction = 
+  | { type: 'add'; log: FeedingLog }
+  | { type: 'update'; tempId: string; log: FeedingLog }
+  | { type: 'remove'; tempId: string };
 
 export function FeedingListWithOptimistic({
   initialLogs
@@ -149,27 +135,81 @@ export function FeedingListWithOptimistic({
 }) {
   const [isPending, startTransition] = useTransition();
   
-  // useOptimistic permite atualizar a UI imediatamente antes da resposta do servidor
-  const [optimisticLogs, addOptimisticLog] = useOptimistic(
+  // useOptimistic com reducer que suporta múltiplas ações
+  const [optimisticLogs, updateOptimisticLogs] = useOptimistic(
     initialLogs,
-    (state, newLog: FeedingLog) => [...state, newLog]
+    (state, action: OptimisticAction) => {
+      switch (action.type) {
+        case 'add':
+          // Adiciona um novo log temporário
+          return [...state, action.log];
+        
+        case 'update':
+          // Substitui o log temporário pelo log real do servidor
+          return state.map(log => 
+            log.id === action.tempId ? action.log : log
+          );
+        
+        case 'remove':
+          // Remove o log temporário (rollback)
+          return state.filter(log => log.id !== action.tempId);
+        
+        default:
+          return state;
+      }
+    }
   );
 
   async function handleSubmit(formData: FormData) {
-    // Adiciona o log otimisticamente na UI
+    // Cria um log temporário para atualização otimista da UI
+    const tempId = 'temp-' + Date.now();
     const tempLog: FeedingLog = {
-      id: 'temp-' + Date.now(),
+      id: tempId,
       catId: formData.get('catId') as string,
       amount: parseFloat(formData.get('amount') as string),
       notes: formData.get('notes') as string || '',
       timestamp: new Date(),
     };
 
+    // startTransition para atualização não-bloqueante da UI
     startTransition(async () => {
-      addOptimisticLog(tempLog);
+      // 1️⃣ Adiciona o log otimisticamente (UI mostra imediatamente)
+      updateOptimisticLogs({ type: 'add', log: tempLog });
       
-      // Envia para o servidor em background
-      await addFeedingOptimisticAction(formData);
+      try {
+        // 2️⃣ Envia para o servidor e aguarda resposta
+        const serverLog = await addFeedingOptimisticAction(formData);
+        
+        // 3️⃣ SUCESSO: Substitui o log temporário pelo log real do servidor
+        updateOptimisticLogs({ 
+          type: 'update', 
+          tempId: tempId, 
+          log: serverLog 
+        });
+        
+        // Feedback de sucesso ao usuário
+        toast.success('Alimentação registrada!', {
+          description: `${serverLog.amount}g adicionados com sucesso`,
+        });
+
+      } catch (error) {
+        // 4️⃣ FALHA: Remove o log temporário (rollback)
+        updateOptimisticLogs({ type: 'remove', tempId: tempId });
+        
+        // Log do erro para debugging
+        console.error('Erro ao adicionar alimentação:', error);
+        
+        // Feedback de erro ao usuário
+        toast.error('Erro ao salvar', {
+          description: error instanceof Error 
+            ? error.message 
+            : 'Não foi possível registrar a alimentação. Tente novamente.',
+          action: {
+            label: 'Tentar novamente',
+            onClick: () => handleSubmit(formData),
+          },
+        });
+      }
     });
   }
 
@@ -205,47 +245,7 @@ export function FeedingListWithOptimistic({
 // EXEMPLO 3: Validação Progressiva
 // ============================================================================
 
-async function validateAndSubmit(prevState: any, formData: FormData) {
-  'use server';
-  
-  const amount = formData.get('amount');
-  const notes = formData.get('notes');
-
-  // Validação no servidor
-  const errors: Record<string, string> = {};
-
-  if (!amount) {
-    errors.amount = 'Quantidade é obrigatória';
-  } else if (parseFloat(amount as string) <= 0) {
-    errors.amount = 'Quantidade deve ser maior que zero';
-  }
-
-  if (notes && (notes as string).length > 500) {
-    errors.notes = 'Observações muito longas (máximo 500 caracteres)';
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return { errors, success: false };
-  }
-
-  // Salva no banco
-  try {
-    await fetch('/api/feedings', {
-      method: 'POST',
-      body: JSON.stringify({
-        amount: parseFloat(amount as string),
-        notes: notes || '',
-      }),
-    });
-
-    return { errors: {}, success: true };
-  } catch (error) {
-    return {
-      errors: { submit: 'Erro ao salvar no servidor' },
-      success: false,
-    };
-  }
-}
+// A Server Action validateAndSubmit está em './feeding-form.actions.ts'
 
 export function FeedingFormWithValidation() {
   const [state, formAction, isPending] = useActionState(
