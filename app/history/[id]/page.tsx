@@ -19,7 +19,7 @@ import BottomNav from "@/components/bottom-nav"
 import { createClient } from "@/utils/supabase/server";
 // import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { GlobalLoading } from '@/components/ui/global-loading';
 
 // TODO: Define the CatHistoryClient component later
@@ -33,11 +33,11 @@ export default async function CatHistoryPage({ params }: { params: Promise<{ id:
 
   if (authError || !supabaseUser) {
     console.error("CatHistoryPage: Unauthorized access attempt.");
-    notFound();
+    redirect('/login');
   }
 
   const resolvedParams = await params
-  const cat = await getCatByIdServer(parseInt(resolvedParams.id))
+  const cat = await getCatByIdServer(resolvedParams.id)
 
   if (!cat) {
     notFound()
