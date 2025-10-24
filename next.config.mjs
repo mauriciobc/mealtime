@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -45,10 +42,18 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 14400, // Changed from 60 to 14400 (4 hours - new default)
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    imageSizes: [32, 48, 64, 96, 128, 256], // Removed 16 (not used by default anymore)
+    dangerouslyAllowLocalIP: false, // New security restriction (default: false)
+    maximumRedirects: 3, // New default: 3 redirects maximum
+    localPatterns: [ // For local images with query strings
+      {
+        pathname: '/public/**',
+        search: '',
+      },
+    ],
   },
   experimental: {
     serverActions: {
@@ -56,6 +61,7 @@ const nextConfig = {
     },
     serverSourceMaps: true,
   },
+  turbopack: {}, // Empty config to silence Turbopack/webpack conflict warning
   webpack: (config, { dev, isServer }) => {
     if (!isServer) {
       config.devtool = dev ? 'eval-source-map' : 'source-map';

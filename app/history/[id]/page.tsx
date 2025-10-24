@@ -25,7 +25,7 @@ import { GlobalLoading } from '@/components/ui/global-loading';
 // TODO: Define the CatHistoryClient component later
 // import CatHistoryClient from './CatHistoryClient'; 
 
-export default async function CatHistoryPage({ params }: { params: { id: string } }) {
+export default async function CatHistoryPage({ params }: { params: Promise<{ id: string }> }) {
   // const cookieStore = cookies();
   // const supabase = createClient(cookieStore);
   const supabase = await createClient();
@@ -36,7 +36,8 @@ export default async function CatHistoryPage({ params }: { params: { id: string 
     notFound();
   }
 
-  const cat = await getCatByIdServer(parseInt(params.id))
+  const resolvedParams = await params
+  const cat = await getCatByIdServer(parseInt(resolvedParams.id))
 
   if (!cat) {
     notFound()
@@ -56,7 +57,7 @@ export default async function CatHistoryPage({ params }: { params: { id: string 
 
   return (
     <div>
-       <h1>Cat History Server Component (ID: {params.id})</h1>
+       <h1>Cat History Server Component (ID: {resolvedParams.id})</h1>
        <p>User: {supabaseUser.email}</p>
        <p>Cat: {cat?.name}</p>
        {/* <CatHistoryClient cat={cat} /> */}

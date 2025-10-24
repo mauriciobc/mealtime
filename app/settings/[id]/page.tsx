@@ -51,7 +51,7 @@ interface Cat extends BaseCat {
 }
 */
 
-export default async function CatSettingsPage({ params }: { params: { id: string } }) {
+export default async function CatSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   // const cookieStore = cookies()
   // const supabase = createClient(cookieStore)
   const supabase = await createClient()
@@ -63,7 +63,8 @@ export default async function CatSettingsPage({ params }: { params: { id: string
   }
 
   // const cat = await getCatById(parseInt(params.id))
-  const cat = await getCatByIdServer(parseInt(params.id))
+  const resolvedParams = await params
+  const cat = await getCatByIdServer(parseInt(resolvedParams.id))
 
   if (!cat) {
     notFound()

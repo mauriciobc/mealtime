@@ -127,7 +127,7 @@ function createSupabaseRouteClient(request: NextRequest) {
   );
 }
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   const startTime = Date.now();
   const { pathname } = request.nextUrl;
   logger.debug(`[Middleware Root] Processing request for: ${pathname}`, { url: request.nextUrl.toString() });
