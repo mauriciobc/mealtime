@@ -297,17 +297,7 @@ export default async function proxy(request: NextRequest) {
       try {
         // Handle CORS preflight requests
         if (request.method === 'OPTIONS') {
-          const origin = request.headers.get('origin');
           const response = new NextResponse(null, { status: 200 });
-          
-          // Add CORS headers if origin is allowed
-          if (origin && isOriginAllowed(origin, ALLOWED_ORIGINS)) {
-            response.headers.set('Access-Control-Allow-Origin', origin);
-            response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-            response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-            response.headers.set('Access-Control-Allow-Credentials', 'true');
-          }
-          
           recordResponseMetrics(startTime, response, method, pathname);
           return response;
         }
@@ -331,14 +321,6 @@ export default async function proxy(request: NextRequest) {
 
         // User is authenticated, proceed with the request
         const response = NextResponse.next();
-        
-        // Add CORS headers for regular requests if origin is allowed
-        const origin = request.headers.get('origin');
-        if (origin && isOriginAllowed(origin, ALLOWED_ORIGINS)) {
-          response.headers.set('Access-Control-Allow-Origin', origin);
-          response.headers.set('Access-Control-Allow-Credentials', 'true');
-        }
-        
         recordResponseMetrics(startTime, response, method, pathname);
         return response;
         

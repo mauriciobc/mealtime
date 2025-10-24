@@ -27,22 +27,22 @@ interface UserAction {
 }
 
 function userReducer(state: UserState, action: UserAction): UserState {
-  console.log(`[userReducer] Dispatching: ${action.type}`, action.payload);
+  // Only log in development mode
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[userReducer] Dispatching: ${action.type}`, action.payload);
+  }
+  
   switch (action.type) {
     case "FETCH_START":
-      console.log("[userReducer] FETCH_START -> isLoading: true");
       return { ...state, isLoading: true, error: null };
     case "SET_CURRENT_USER":
-      console.log("[userReducer] SET_CURRENT_USER -> isLoading: false, currentUser:", action.payload);
       return { ...state, isLoading: false, currentUser: action.payload as CurrentUserType | null, error: null };
     case "FETCH_ERROR":
       console.error("[userReducer] FETCH_ERROR -> isLoading: false, error:", action.payload);
       return { ...state, isLoading: false, error: action.payload as string };
     case "CLEAR_USER":
-      console.warn("[userReducer] CLEAR_USER -> isLoading: false, currentUser: null");
       return { ...initialState, isLoading: false };
     default:
-      console.warn("[userReducer] Unknown action type:", action.type);
       return state;
   }
 }
@@ -260,10 +260,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const handleAuthChange = useCallback(async () => {
     const requestId = ++authCheckCountRef.current;
-    logger.info(`[UserProvider][Request ${requestId}] handleAuthChange triggered`);
+    
+    // Only log in development mode
+    if (process.env.NODE_ENV === 'development') {
+      logger.info(`[UserProvider][Request ${requestId}] handleAuthChange triggered`);
+    }
 
     if (!mountedRef.current) {
-      logger.warn(`[UserProvider][Request ${requestId}] handleAuthChange aborted: component not mounted`);
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn(`[UserProvider][Request ${requestId}] handleAuthChange aborted: component not mounted`);
+      }
       return;
     }
 
@@ -277,7 +283,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     authChangeTimeoutRef.current = setTimeout(() => {
       didTimeout = true;
-      logger.warn(`[UserProvider][Request ${requestId}] Auth check timed out`);
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn(`[UserProvider][Request ${requestId}] Auth check timed out`);
+      }
       if (mountedRef.current) {
         setProfile(null);
         dispatch({ type: "CLEAR_USER" });
@@ -377,6 +385,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     await handleAuthChange();
   }, [handleAuthChange]);
 
+  // Memoize context value to prevent unnecessary re-renders
   const value = useMemo(() => ({
     state,
     profile,

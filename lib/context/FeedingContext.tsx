@@ -127,22 +127,27 @@ const FeedingContext = createContext<{
   dispatch: React.Dispatch<FeedingAction>;
 }>({ state: initialState, dispatch: () => null });
 
-// Helper function to calculate average portion size
+// Helper function to calculate average portion size - memoized
 const selectAveragePortionSize = (logs: FeedingLog[] | null): number | null => {
   if (!logs || logs.length === 0) {
     return null;
   }
-  const validPortionLogs = logs.filter(
-    (log) => typeof log.portionSize === 'number' && log.portionSize > 0
-  );
-  if (validPortionLogs.length === 0) {
-    return null;
+  
+  // Early return for empty logs
+  if (logs.length === 0) return null;
+  
+  // Use reduce for single pass calculation
+  let validCount = 0;
+  let totalPortion = 0;
+  
+  for (const log of logs) {
+    if (typeof log.portionSize === 'number' && log.portionSize > 0) {
+      validCount++;
+      totalPortion += log.portionSize;
+    }
   }
-  const totalPortion = validPortionLogs.reduce(
-    (sum, log) => sum + log.portionSize!, // Non-null assertion safe due to filter
-    0
-  );
-  return totalPortion / validPortionLogs.length;
+  
+  return validCount > 0 ? totalPortion / validCount : null;
 };
 
 export const FeedingProvider = ({ children }: { children: ReactNode }) => {
@@ -306,7 +311,8 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [currentUser?.householdId, addLoadingOperation, cleanupLoading]);
 
-  const contextValue = useMemo(() => ({ state, dispatch }), [state]);
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
 
   return (
     <FeedingContext.Provider value={contextValue}>
@@ -347,13 +353,20 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
   const { cats, isLoading: isLoadingCats } = catsState;
   const { currentUser } = userState; // Get the full currentUser for potential enrichment
 
+  // Memoize cats lookup for better performance
+  const catsMap = useMemo(() => {
+    if (!cats) return new Map();
+    return new Map(cats.map(cat => [cat.id, cat]));
+  }, [cats]);
+
   return useMemo(() => {
     if (isLoadingFeedings || isLoadingCats || !feedingLogs || feedingLogs.length === 0 || !cats) {
       return null;
     }
-    // Ensure we get the most recent log by sorting by timestamp descending
-    const sortedLogs = [...feedingLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    const lastLog = sortedLogs[0]; // This log already has the simplified user: { id, name, avatar }
+    
+    // Since feedingLogs are already sorted by timestamp descending from the reducer,
+    // we can just take the first one without sorting again
+    const lastLog = feedingLogs[0];
     if (!lastLog) return null;
 
     // Debug log to track last feeding updates (only in development)
@@ -366,8 +379,8 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
       });
     }
 
-    // Find the corresponding cat from the CatsContext state
-    const cat = cats.find(c => c.id === lastLog.catId);
+    // Use the memoized cats map for O(1) lookup instead of O(n) find
+    const cat = catsMap.get(lastLog.catId);
     // If we can't find the cat, return null to show loading state
     if (!cat) return null;
 
@@ -385,7 +398,7 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
     
     return enrichedLog;
 
-  }, [feedingLogs, isLoadingFeedings, cats, isLoadingCats, currentUser]);
+  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, currentUser]);
 };
 
 /**
@@ -398,28 +411,38 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
   const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
   const { cats, isLoading: isLoadingCats } = catsState;
 
+  // Memoize the last 7 days array to avoid recalculating on every render
+  const last7Days = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return startOfDay(date); // Use startOfDay for consistent comparison
+    }).reverse();
+  }, []); // Empty dependency array since this only depends on current date
+
+  // Memoize cats map for O(1) lookup
+  const catsMap = useMemo(() => {
+    if (!cats) return new Map();
+    return new Map(cats.map(cat => [cat.id, cat]));
+  }, [cats]);
+
   return useMemo(() => {
     if (isLoadingFeedings || isLoadingCats || !feedingLogs || !cats) {
       return [];
     }
 
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      return startOfDay(date); // Use startOfDay for consistent comparison
-    }).reverse();
-
     const recentData = last7Days.map(date => {
       const dayLogs = feedingLogs.filter(log => isEqual(startOfDay(new Date(log.timestamp)), date));
 
-      const catData = cats.reduce((acc, cat) => {
-        const catLogs = dayLogs.filter(log => log.catId === cat.id);
-        const totalFood = catLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0);
-        return {
-          ...acc,
-          [cat.id]: totalFood // Use cat id as key for the chart
-        };
-      }, {} as Record<string, number>);
+      const catData: Record<string, number> = {};
+      
+      // Use for...of loop for better performance than reduce
+      for (const log of dayLogs) {
+        const catId = log.catId;
+        if (catsMap.has(catId)) {
+          catData[catId] = (catData[catId] || 0) + (log.portionSize || 0);
+        }
+      }
 
       return {
         name: format(date, 'EEE'), // Format day name
@@ -428,7 +451,7 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
     });
 
     return recentData;
-  }, [feedingLogs, isLoadingFeedings, cats, isLoadingCats]);
+  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, last7Days]);
 };
 
 // --- New Selector --- 

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useTransition, useDeferredValue } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -101,16 +101,20 @@ export default function FeedingsPage() {
 
   const userLanguage = userState.currentUser?.preferences?.language;
   const userLocale = resolveDateFnsLocale(userLanguage);
+  
+  // React 19 transitions for better UX
+  const [isPending, startTransition] = useTransition()
+  const deferredSearchTerm = useDeferredValue(searchTerm)
 
-  // Memoized filtering and sorting
+  // Memoized filtering and sorting with useTransition
   const filteredAndSortedLogs = useMemo(() => {
     if (!feedingLogs || !cats) return []
 
     let logs = [...feedingLogs]
 
-    // Apply search filter
-    if (searchTerm) {
-      const lowerSearchTerm = searchTerm.toLowerCase()
+    // Apply search filter using deferred value
+    if (deferredSearchTerm) {
+      const lowerSearchTerm = deferredSearchTerm.toLowerCase()
       logs = logs.filter(log => {
           const catName = cats.find(c => String(c.id) === String(log.catId))?.name.toLowerCase() || ""
           const notes = log.notes?.toLowerCase() || ""
@@ -127,15 +131,12 @@ export default function FeedingsPage() {
       return sortOrder === "desc" ? dateB - dateA : dateA - dateB
     })
 
-    console.log("[FeedingsPage] Filtered and Sorted Logs:", logs); // Log filtered logs
     return logs
-  }, [feedingLogs, cats, searchTerm, sortOrder])
+  }, [feedingLogs, cats, deferredSearchTerm, sortOrder])
 
   // Memoized grouping by date
   const groupedLogs = useMemo(() => {
-     const groups = groupLogsByDate(filteredAndSortedLogs)
-     console.log("[FeedingsPage] Grouped Logs:", groups); // Log grouped logs
-     return groups
+     return groupLogsByDate(filteredAndSortedLogs)
   }, [filteredAndSortedLogs])
 
   // Delete handler - Update to use string ID
@@ -207,7 +208,7 @@ export default function FeedingsPage() {
   // --- Render Logic ---
 
   // 1. Handle Combined Loading State
-  if (isLoading) {
+  if (isLoading || isPending) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -238,7 +239,6 @@ export default function FeedingsPage() {
 
   // 3. Handle No Authenticated User Found (after loading/error checks)
   if (!currentUser) {
-    console.log("[FeedingsPage] No currentUser found. Redirecting...");
     useEffect(() => {
         toast.error("Autenticação necessária para ver o histórico.");
         router.replace("/login?callbackUrl=/feedings"); // Use replace
@@ -302,7 +302,7 @@ export default function FeedingsPage() {
               variant="outline"
               size="icon"
               className="h-9 w-9 flex-shrink-0"
-              onClick={() => setSortOrder(prev => prev === "desc" ? "asc" : "desc")}
+              onClick={() => startTransition(() => setSortOrder(prev => prev === "desc" ? "asc" : "desc"))}
               title={sortOrder === "desc" ? "Ordenar: Mais recentes primeiro" : "Ordenar: Mais antigos primeiro"}
             >
               <SortDesc className={`h-4 w-4 transform transition-transform duration-200 ${sortOrder === "asc" ? 'rotate-180' : ''}`} />
@@ -336,7 +336,6 @@ export default function FeedingsPage() {
                   </h2>
                   {/* Logs for the Date */}
                   {logsOnDate.map((log) => {
-                    console.log(`[FeedingsPage] Rendering log item ID: ${log.id}`); // Log each item rendering
                     const cat = cats.find(c => String(c.id) === String(log.catId))
                     const displayStatusIcon = getStatusIcon(log.status);
                     const displayStatusVariant = getStatusVariant(log.status);

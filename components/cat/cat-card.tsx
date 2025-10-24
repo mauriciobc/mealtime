@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -45,69 +45,64 @@ interface CatCardProps {
   onDelete: () => void;
 }
 
-export function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: CatCardProps) {
+export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const { state: userState } = useUserContext();
   const userTimezone = userState.currentUser?.preferences?.timezone;
 
-  const ageString = cat.birthdate ? getAgeString(
-    typeof cat.birthdate === 'string' ? new Date(cat.birthdate) : cat.birthdate,
-    userTimezone
-  ) : "Idade desconhecida";
+  // Memoize expensive calculations
+  const ageString = useMemo(() => {
+    return cat.birthdate ? getAgeString(
+      typeof cat.birthdate === 'string' ? new Date(cat.birthdate) : cat.birthdate,
+      userTimezone
+    ) : "Idade desconhecida";
+  }, [cat.birthdate, userTimezone]);
 
-  const lastFed = latestFeedingLog
-    ? formatDistanceToNow(new Date(latestFeedingLog.timestamp), {
-        addSuffix: true,
-        locale: ptBR,
-      })
-    : "Nunca alimentado";
+  const lastFed = useMemo(() => {
+    return latestFeedingLog
+      ? formatDistanceToNow(new Date(latestFeedingLog.timestamp), {
+          addSuffix: true,
+          locale: ptBR,
+        })
+      : "Nunca alimentado";
+  }, [latestFeedingLog]);
 
-  const handleDeleteClick = (e: React.MouseEvent) => {
+  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setShowDeleteDialog(true);
-  };
+  }, []);
 
-  const handleEditClick = (e: React.MouseEvent) => {
+  const handleEditClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onEdit();
-  };
+  }, [onEdit]);
 
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(() => {
     onDelete();
     setShowDeleteDialog(false);
-  };
+  }, [onDelete]);
 
   const imageUrl = useMemo(() => {
-    console.log('[CatCard] Processing image URL for cat:', cat.name);
-    console.log('[CatCard] Raw photo_url:', cat.photo_url);
-    
     if (!cat.photo_url || cat.photo_url.trim() === '') {
-      console.log('[CatCard] Using fallback image URL');
       return getFallbackImageUrl('cat');
     }
-    
-    const finalUrl = cat.photo_url.trim();
-    console.log('[CatCard] Final processed URL:', finalUrl);
-    return finalUrl;
-  }, [cat.photo_url, cat.name]);
+    return cat.photo_url.trim();
+  }, [cat.photo_url]);
 
   // Reset loading state when image URL changes
   useEffect(() => {
-    console.log('[CatCard] Image URL changed, resetting loading state:', imageUrl);
     setIsImageLoading(true);
   }, [imageUrl]);
 
-  // Add logging for image load events
-  const handleImageLoad = () => {
-    console.log('[CatCard] Image loaded successfully:', imageUrl);
+  // Memoize image handlers
+  const handleImageLoad = useCallback(() => {
     setIsImageLoading(false);
-  };
+  }, []);
 
-  const handleImageError = () => {
-    console.log('[CatCard] Image failed to load:', imageUrl);
+  const handleImageError = useCallback(() => {
     setIsImageLoading(false);
-  };
+  }, []);
 
   return (
     <>
@@ -206,4 +201,4 @@ export function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: Cat
       </AlertDialog>
     </>
   );
-} 
+}); 

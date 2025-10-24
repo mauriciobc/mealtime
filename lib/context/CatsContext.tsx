@@ -103,10 +103,15 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       loadingIdRef.current = loadingId;
       dispatch({ type: 'FETCH_START' });
       addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
-      console.log("[CatsProvider] Loading cats for household:", householdId);
+      // Only log in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[CatsProvider] Loading cats for household:", householdId);
+      }
       const catsData: CatType[] = await getCatsByHouseholdId(householdId, currentUser?.id);
       if (!isMountedRef.current) return;
-      console.log("[CatsProvider] Cats loaded:", catsData.length);
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[CatsProvider] Cats loaded:", catsData.length);
+      }
       dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -149,7 +154,8 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, loadCatsData]);
 
-  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, forceRefresh]);
+  // Memoize context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, dispatch, forceRefresh]);
 
   return (
     <CatsContext.Provider value={contextValue}>
