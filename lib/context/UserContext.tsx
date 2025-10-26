@@ -53,6 +53,8 @@ interface UserContextValue {
   authLoading: boolean;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  pauseAuthChecks: () => void;
+  resumeAuthChecks: () => void;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -281,18 +283,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let didTimeout = false;
     let finished = false;
 
+    // Aumentar timeout para 15 segundos para evitar logout durante operações lentas
     authChangeTimeoutRef.current = setTimeout(() => {
       didTimeout = true;
       if (process.env.NODE_ENV === 'development') {
-        logger.warn(`[UserProvider][Request ${requestId}] Auth check timed out`);
+        logger.warn(`[UserProvider][Request ${requestId}] Auth check timed out after 15s`);
       }
-      if (mountedRef.current) {
+      // Só fazer logout se realmente não há usuário autenticado
+      // Não limpar estado se há um usuário válido mas a verificação demorou
+      if (mountedRef.current && !state.currentUser) {
         setProfile(null);
         dispatch({ type: "CLEAR_USER" });
         lastProfileFetchRef.current = null;
         setAuthLoading(false);
       }
-    }, 5000);
+    }, 15000);
 
     try {
       logger.info(`[UserProvider][Request ${requestId}] Calling supabase.auth.getUser()`);
@@ -333,11 +338,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
       finished = true;
       clearTimeout(authChangeTimeoutRef.current);
       logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, error);
+      
+      // Só fazer logout se for um erro real de autenticação, não timeout ou erro de rede
       if (!didTimeout && mountedRef.current) {
-        setProfile(null);
-        dispatch({ type: "CLEAR_USER" });
-        lastProfileFetchRef.current = null;
-        setAuthLoading(false);
+        const isNetworkError = error instanceof Error && (
+          error.message.includes('network') ||
+          error.message.includes('timeout') ||
+          error.message.includes('fetch')
+        );
+        
+        const isAuthError = error instanceof Error && (
+          error.message.includes('invalid') ||
+          error.message.includes('expired') ||
+          error.message.includes('unauthorized')
+        );
+        
+        // Só limpar estado se for erro de autenticação real, não erro de rede
+        if (isAuthError || !isNetworkError) {
+          setProfile(null);
+          dispatch({ type: "CLEAR_USER" });
+          lastProfileFetchRef.current = null;
+          setAuthLoading(false);
+        } else {
+          // Para erros de rede, manter estado atual e tentar novamente mais tarde
+          logger.warn(`[UserProvider][Request ${requestId}] Network error detected, preserving user state`);
+          setAuthLoading(false);
+        }
       }
     }
   }, [supabase.auth, loadUserData]);
@@ -385,14 +411,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
     await handleAuthChange();
   }, [handleAuthChange]);
 
+  // Função para pausar verificações de auth durante operações críticas
+  const pauseAuthChecks = useCallback(() => {
+    if (authChangeTimeoutRef.current) {
+      clearTimeout(authChangeTimeoutRef.current);
+    }
+  }, []);
+
+  // Função para retomar verificações de auth
+  const resumeAuthChecks = useCallback(() => {
+    if (mountedRef.current) {
+      handleAuthChange();
+    }
+  }, [handleAuthChange]);
+
   // Memoize context value to prevent unnecessary re-renders
   const value = useMemo(() => ({
     state,
     profile,
     authLoading,
     signOut,
-    refreshUser
-  }), [state, profile, authLoading, signOut, refreshUser]);
+    refreshUser,
+    pauseAuthChecks,
+    resumeAuthChecks
+  }), [state, profile, authLoading, signOut, refreshUser, pauseAuthChecks, resumeAuthChecks]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

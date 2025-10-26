@@ -1,67 +1,58 @@
 "use client";
 
-import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useMemo } from "react";
-import { 
-  getUserNotifications, 
-  markNotificationAsRead, 
-  markAllNotificationsAsRead,
-  deleteNotification,
-  getUnreadNotificationsCount
-} from "@/lib/services/notificationService";
-import { Notification } from "@/lib/types/notification";
+import { createContext, useContext, useReducer, useEffect, ReactNode, useCallback, useMemo, useState } from "react";
+import { Notification, ConnectionStatus } from "@/lib/types/notification";
 import { useUserContext } from "./UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
-import { storageService } from "@/lib/utils/storage";
 import { usePathname } from 'next/navigation';
 import { createClient } from "@/utils/supabase/client";
-
-// Storage keys
-const STORAGE_KEYS = {
-  NOTIFICATIONS: 'notifications',
-  UNREAD_COUNT: 'notifications_unread_count',
-  PAGE: 'notifications_page',
-  TOTAL_PAGES: 'notifications_total_pages',
-  HAS_MORE: 'notifications_has_more'
-} as const;
+import { notificationService } from "@/lib/services/supabase-notification-service";
+import { cacheManager } from "@/lib/utils/indexeddb-manager";
+import { notificationSync } from "@/lib/utils/notification-sync";
 
 // Types
-interface PaginatedResponse<T> {
-  data: T[];
-  totalPages: number;
-  hasMore: boolean;
-  message?: string;
-}
-
 type NotificationState = {
   notifications: Notification[];
   unreadCount: number;
   isLoading: boolean;
+  isSyncing: boolean;
+  isOnline: boolean;
+  connectionStatus: ConnectionStatus;
   error: string | null;
   page: number;
   totalPages: number;
   hasMore: boolean;
+  lastSyncTime: Date | null;
 };
 
 type NotificationAction =
-  | { type: "SET_NOTIFICATIONS"; payload: { notifications: Notification[]; totalPages: number; hasMore: boolean; unreadCount?: number } }
+  | { type: "SET_NOTIFICATIONS"; payload: { notifications: Notification[]; totalPages: number; hasMore: boolean; unreadCount: number } }
   | { type: "APPEND_NOTIFICATIONS"; payload: { notifications: Notification[]; totalPages: number; hasMore: boolean } }
   | { type: "ADD_NOTIFICATION"; payload: Notification }
   | { type: "MARK_NOTIFICATION_READ"; payload: { id: string } }
   | { type: "MARK_ALL_NOTIFICATIONS_READ" }
   | { type: "REMOVE_NOTIFICATION"; payload: { id: string } }
   | { type: "SET_LOADING"; payload: boolean }
+  | { type: "SET_SYNCING"; payload: boolean }
   | { type: "SET_ERROR"; payload: string | null }
   | { type: "SET_PAGE"; payload: number }
-  | { type: "SET_UNREAD_COUNT"; payload: number };
+  | { type: "SET_UNREAD_COUNT"; payload: number }
+  | { type: "SET_CONNECTION_STATUS"; payload: ConnectionStatus }
+  | { type: "SET_IS_ONLINE"; payload: boolean }
+  | { type: "SET_LAST_SYNC_TIME"; payload: Date | null };
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
   isLoading: boolean;
+  isSyncing: boolean;
+  isOnline: boolean;
+  connectionStatus: ConnectionStatus;
   error: string | null;
   page: number;
   totalPages: number;
   hasMore: boolean;
+  lastSyncTime: Date | null;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   removeNotification: (id: string) => Promise<void>;
@@ -69,30 +60,21 @@ interface NotificationContextType {
   loadMore: () => Promise<void>;
 }
 
-// Initial state with storage integration
+// Initial state
 const getInitialState = (): NotificationState => {
-  try {
-    return {
-      notifications: storageService.get<Notification[]>(STORAGE_KEYS.NOTIFICATIONS) ?? [],
-      unreadCount: storageService.get<number>(STORAGE_KEYS.UNREAD_COUNT) ?? 0,
-      isLoading: false,
-      error: null,
-      page: storageService.get<number>(STORAGE_KEYS.PAGE) ?? 1,
-      totalPages: storageService.get<number>(STORAGE_KEYS.TOTAL_PAGES) ?? 1,
-      hasMore: storageService.get<boolean>(STORAGE_KEYS.HAS_MORE) ?? false
-    };
-  } catch (error) {
-    console.error('[NotificationContext] Error loading initial state from storage:', error);
-    return {
-      notifications: [],
-      unreadCount: 0,
-      isLoading: false,
-      error: null,
-      page: 1,
-      totalPages: 1,
-      hasMore: false
-    };
-  }
+  return {
+    notifications: [],
+    unreadCount: 0,
+    isLoading: false,
+    isSyncing: false,
+    isOnline: typeof window !== 'undefined' ? navigator.onLine : true,
+    connectionStatus: 'disconnected',
+    error: null,
+    page: 1,
+    totalPages: 1,
+    hasMore: false,
+    lastSyncTime: null,
+  };
 };
 
 // Create the context
@@ -113,143 +95,94 @@ function normalizeNotification(raw: any): Notification {
   };
 }
 
-// Reducer function with storage updates
+// Reducer function
 function notificationReducer(state: NotificationState, action: NotificationAction): NotificationState {
-  console.log(`[NotificationReducer] Action: ${action.type}`, { payload: 'payload' in action ? action.payload : undefined });
+  console.log(`[NotificationReducer] Action: ${action.type}`);
+  
   try {
-    let newState: NotificationState;
     switch (action.type) {
       case "SET_NOTIFICATIONS":
-        const unreadCount = action.payload.unreadCount !== undefined ? action.payload.unreadCount : state.unreadCount;
-        newState = { 
+        return { 
           ...state, 
-          notifications: action.payload.notifications ?? [],
-          totalPages: action.payload.totalPages ?? 1,
-          hasMore: action.payload.hasMore ?? false,
-          unreadCount: Math.max(0, unreadCount),
+          notifications: action.payload.notifications,
+          totalPages: action.payload.totalPages,
+          hasMore: action.payload.hasMore,
+          unreadCount: action.payload.unreadCount,
           page: 1
         };
-        // Update storage
-        storageService.set(STORAGE_KEYS.NOTIFICATIONS, newState.notifications);
-        storageService.set(STORAGE_KEYS.UNREAD_COUNT, newState.unreadCount);
-        storageService.set(STORAGE_KEYS.PAGE, newState.page);
-        storageService.set(STORAGE_KEYS.TOTAL_PAGES, newState.totalPages);
-        storageService.set(STORAGE_KEYS.HAS_MORE, newState.hasMore);
-        break;
       case "APPEND_NOTIFICATIONS":
         const existingIds = new Set(state.notifications.map(n => n.id));
         const newNotifications = action.payload.notifications.filter(n => !existingIds.has(n.id));
-        newState = {
+        return {
           ...state,
           notifications: [...state.notifications, ...newNotifications],
-          totalPages: action.payload.totalPages ?? state.totalPages,
-          hasMore: action.payload.hasMore ?? false,
+          totalPages: action.payload.totalPages,
+          hasMore: action.payload.hasMore,
         };
-        // Update storage
-        storageService.set(STORAGE_KEYS.NOTIFICATIONS, newState.notifications);
-        storageService.set(STORAGE_KEYS.TOTAL_PAGES, newState.totalPages);
-        storageService.set(STORAGE_KEYS.HAS_MORE, newState.hasMore);
-        break;
       case "ADD_NOTIFICATION":
         if (state.notifications.some(n => n.id === action.payload.id)) {
-            console.log(`[NotificationReducer] Notification ${action.payload.id} already exists. Skipping.`);
-            newState = state;
-            break;
+          return state;
         }
-        newState = { 
+        return { 
           ...state, 
           notifications: [normalizeNotification(action.payload), ...state.notifications],
           unreadCount: state.unreadCount + (normalizeNotification(action.payload).isRead ? 0 : 1)
         };
-        // Update storage
-        storageService.set(STORAGE_KEYS.NOTIFICATIONS, newState.notifications);
-        storageService.set(STORAGE_KEYS.UNREAD_COUNT, newState.unreadCount);
-        break;
       case "MARK_NOTIFICATION_READ":
         let changedRead = false;
         const markedNotifications = state.notifications.map(notification => {
-            if (notification.id === action.payload.id && !notification.isRead) {
-                console.log(`[NotificationReducer] Marking notification ${action.payload.id} as read.`);
-                changedRead = true;
-                return { ...notification, isRead: true };
-            }
-            return notification;
+          if (notification.id === action.payload.id && !notification.isRead) {
+            changedRead = true;
+            return { ...notification, isRead: true };
+          }
+          return notification;
         });
-        newState = { 
+        return { 
           ...state, 
           notifications: markedNotifications,
           unreadCount: Math.max(0, state.unreadCount - (changedRead ? 1 : 0))
         };
-        // Update storage
-        storageService.set(STORAGE_KEYS.NOTIFICATIONS, newState.notifications);
-        storageService.set(STORAGE_KEYS.UNREAD_COUNT, newState.unreadCount);
-        break;
       case "MARK_ALL_NOTIFICATIONS_READ":
         const anyUnread = state.notifications.some(n => !n.isRead);
         if (!anyUnread) {
-            console.log(`[NotificationReducer] No unread notifications to mark as read.`);
-            newState = state;
-            break;
+          return state;
         }
-        
-        const allReadNotifications = state.notifications.map(notification => (
-            notification.isRead ? notification : { ...notification, isRead: true }
-        ));
-        newState = { 
+        return { 
           ...state, 
-          notifications: allReadNotifications,
+          notifications: state.notifications.map(n => n.isRead ? n : { ...n, isRead: true }),
           unreadCount: 0
         };
-        // Update storage
-        storageService.set(STORAGE_KEYS.NOTIFICATIONS, newState.notifications);
-        storageService.set(STORAGE_KEYS.UNREAD_COUNT, newState.unreadCount);
-        break;
       case "REMOVE_NOTIFICATION":
-        const notificationToRemove = state.notifications.find(
-          notification => notification.id === action.payload.id
-        );
+        const notificationToRemove = state.notifications.find(n => n.id === action.payload.id);
         if (!notificationToRemove) {
-          console.log(`[NotificationReducer] Notification ${action.payload.id} not found for removal.`);
-          newState = state;
-          break;
+          return state;
         }
-        const filteredNotifications = state.notifications.filter(
-          notification => notification.id !== action.payload.id
-        );
-        const newUnreadCount = !notificationToRemove?.isRead 
-          ? Math.max(0, state.unreadCount - 1)
-          : state.unreadCount;
-        newState = { 
+        const filteredNotifications = state.notifications.filter(n => n.id !== action.payload.id);
+        const newUnreadCount = !notificationToRemove.isRead ? Math.max(0, state.unreadCount - 1) : state.unreadCount;
+        return { 
           ...state, 
           notifications: filteredNotifications,
           unreadCount: newUnreadCount
         };
-        // Update storage
-        storageService.set(STORAGE_KEYS.NOTIFICATIONS, newState.notifications);
-        storageService.set(STORAGE_KEYS.UNREAD_COUNT, newState.unreadCount);
-        break;
       case "SET_LOADING":
-        newState = { ...state, isLoading: action.payload };
-        break;
+        return { ...state, isLoading: action.payload };
+      case "SET_SYNCING":
+        return { ...state, isSyncing: action.payload };
       case "SET_ERROR":
-        newState = { ...state, error: action.payload };
-        break;
+        return { ...state, error: action.payload };
       case "SET_PAGE":
-        newState = { ...state, page: Math.max(1, action.payload) };
-        // Update storage
-        storageService.set(STORAGE_KEYS.PAGE, newState.page);
-        break;
+        return { ...state, page: Math.max(1, action.payload) };
       case "SET_UNREAD_COUNT":
-         newState = { ...state, unreadCount: Math.max(0, action.payload) };
-         // Update storage
-         storageService.set(STORAGE_KEYS.UNREAD_COUNT, newState.unreadCount);
-         break;
+        return { ...state, unreadCount: Math.max(0, action.payload) };
+      case "SET_CONNECTION_STATUS":
+        return { ...state, connectionStatus: action.payload };
+      case "SET_IS_ONLINE":
+        return { ...state, isOnline: action.payload };
+      case "SET_LAST_SYNC_TIME":
+        return { ...state, lastSyncTime: action.payload };
       default:
-        console.log(`[NotificationReducer] Unknown action type.`);
-        newState = state;
+        return state;
     }
-    console.log(`[NotificationReducer] State updated:`, newState);
-    return newState;
   } catch (error) {
     console.error("[NotificationReducer] Error processing action:", { action, error });
     return { ...state, error: "An unexpected error occurred in the reducer." };
@@ -266,224 +199,297 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const currentUser = userState.currentUser;
   const currentUserId = currentUser?.id;
   const pathname = usePathname();
-  const isOnHomePage = pathname === '/';
-  
-  console.log("[NotificationProvider] Initializing with state:", state, "User:", currentUser, "Path:", pathname);
+  const supabase = createClient();
 
-  // Clear storage when user logs out
+  console.log("[NotificationProvider] Initializing with user:", currentUser?.id);
+
+  // Initialize IndexedDB cache
   useEffect(() => {
-    if (!currentUserId && !userLoading && !authLoading) {
-      Object.values(STORAGE_KEYS).forEach(key => storageService.remove(key));
-    }
-  }, [currentUserId, userLoading, authLoading]);
+    cacheManager.init().catch(error => {
+      console.error('[NotificationProvider] Failed to initialize IndexedDB:', error);
+    });
+  }, []);
+
+  // Load from cache on mount
+  useEffect(() => {
+    const loadFromCache = async () => {
+      // Validate currentUserId before proceeding
+      if (!currentUserId || typeof currentUserId !== 'string' || currentUserId.trim() === '') {
+        console.warn('[NotificationProvider] loadFromCache called with invalid currentUserId:', currentUserId);
+        return;
+      }
+      
+      try {
+        const cachedNotifications = await cacheManager.getNotifications(currentUserId, 1, 10);
+        const unreadCount = await cacheManager.getUnreadCount(currentUserId);
+        
+        if (cachedNotifications.length > 0) {
+          dispatch({
+            type: "SET_NOTIFICATIONS",
+            payload: {
+              notifications: cachedNotifications,
+              totalPages: Math.ceil(cachedNotifications.length / 10),
+              hasMore: cachedNotifications.length === 10,
+              unreadCount
+            }
+          });
+        }
+      } catch (error) {
+        console.error('[NotificationProvider] Failed to load from cache:', error);
+      }
+    };
+
+    loadFromCache();
+  }, [currentUserId]);
+
+  // Online/offline detection
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('[NotificationProvider] Back online');
+      dispatch({ type: "SET_IS_ONLINE", payload: true });
+    };
+    
+    const handleOffline = () => {
+      console.log('[NotificationProvider] Gone offline');
+      dispatch({ type: "SET_IS_ONLINE", payload: false });
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const fetchInitialData = useCallback(async (userId: string) => {
     console.log(`[NotificationProvider] fetchInitialData called for userId: ${userId}`);
-    if (!userId) {
-      console.log("[NotificationProvider] No userId, skipping initial fetch.");
+    
+    // Validate userId before proceeding
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      console.warn('[NotificationProvider] fetchInitialData called with invalid userId:', userId);
+      dispatch({ type: "SET_ERROR", payload: "ID de usuário inválido" });
+      dispatch({ type: "SET_LOADING", payload: false });
       return;
     }
+
     const loadingOpId = `notifications-initial-${userId}`;
-    addLoadingOperation({ id: loadingOpId, priority: 1, description: "Loading notifications..." });
+    addLoadingOperation({ id: loadingOpId, priority: 1, description: "Carregando notificações..." });
     dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_ERROR", payload: null });
     dispatch({ type: "SET_PAGE", payload: 1 });
 
     try {
-      console.log(`[NotificationProvider] Fetching notifications and unread count for userId: ${userId}`);
+      // Sync from server
+      dispatch({ type: "SET_SYNCING", payload: true });
+      const syncResult = await notificationSync.syncFromServer(userId);
       
-      const [notificationsResponse, unreadCountResponse] = await Promise.all([
-        getUserNotifications(1, 10),
-        getUnreadNotificationsCount()
-      ]);
-      console.log(`[NotificationProvider] Received initial data:`, { notificationsResponse, unreadCountResponse });
-
-      if (!notificationsResponse || !Array.isArray(notificationsResponse.data)) {
-        console.error("[NotificationContext] Invalid notifications response structure:", notificationsResponse);
-        dispatch({ type: "SET_ERROR", payload: "Failed to process notification data (invalid structure)." });
-        return;
+      if (syncResult.success) {
+        // Load from cache
+        const cachedNotifications = await cacheManager.getNotifications(userId, 1, 10);
+        const unreadCount = await cacheManager.getUnreadCount(userId);
+        
+        dispatch({
+          type: "SET_NOTIFICATIONS",
+          payload: {
+            notifications: cachedNotifications,
+            totalPages: Math.ceil(unreadCount / 10),
+            hasMore: cachedNotifications.length === 10,
+            unreadCount
+          }
+        });
+        dispatch({ type: "SET_LAST_SYNC_TIME", payload: new Date() });
       }
-      
-      const formattedNotifications = notificationsResponse.data.map(normalizeNotification);
-
-      if (typeof unreadCountResponse !== 'number') {
-        console.error("[NotificationContext] Invalid unread count response type:", unreadCountResponse);
-        dispatch({ type: "SET_ERROR", payload: "Failed to process unread count (invalid type)." });
-        return;
-      }
-      
-      console.log("[NotificationProvider] Dispatching SET_NOTIFICATIONS");
-      dispatch({
-        type: "SET_NOTIFICATIONS",
-        payload: {
-          notifications: formattedNotifications, 
-          totalPages: notificationsResponse.totalPages,
-          hasMore: notificationsResponse.hasMore,
-          unreadCount: unreadCountResponse
-        }
-      });
     } catch (error) {
       console.error("[NotificationProvider] Error in fetchInitialData:", error);
       dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Failed to load notifications" });
     } finally {
-      console.log(`[NotificationProvider] fetchInitialData finished for userId: ${userId}`);
       dispatch({ type: "SET_LOADING", payload: false });
+      dispatch({ type: "SET_SYNCING", payload: false });
       removeLoadingOperation(loadingOpId);
     }
   }, [addLoadingOperation, removeLoadingOperation]);
 
-  // Effect to trigger initial data fetch when userId becomes available or user logs out
+  // Effect to trigger initial data fetch
   useEffect(() => {
-    if (!isOnHomePage) return; // Only fetch on '/'
-    if (currentUserId) {
-      if ((Array.isArray(state.notifications) ? state.notifications.length : 0) === 0 && !state.isLoading && state.error === null) {
-          console.log("[NotificationProvider] State allows initial fetch, calling fetchInitialData.");
-          fetchInitialData(currentUserId);
-      } else {
-          console.log("[NotificationProvider] State prevents initial fetch (already loaded/loading/error):", {isLoading: state.isLoading, hasNotifications: (Array.isArray(state.notifications) ? state.notifications.length : 0) > 0, error: state.error });
-      }
+    if (currentUserId && pathname === '/') {
+      fetchInitialData(currentUserId);
     } else if (!currentUserId && !userLoading && !authLoading) {
-        console.log("[NotificationProvider] User logged out (or loading finished with no user), clearing notifications.");
-        if ((Array.isArray(state.notifications) ? state.notifications.length : 0) > 0 || state.unreadCount > 0) {
-            dispatch({ type: 'SET_NOTIFICATIONS', payload: { notifications: [], totalPages: 1, hasMore: false, unreadCount: 0 } });
-            dispatch({ type: 'SET_PAGE', payload: 1 });
-        }
+      // Clear cache when user logs out
+      if (currentUserId) {
+        cacheManager.clearCache(currentUserId).catch(console.error);
+      }
     }
-    // Only include minimal, stable dependencies to prevent infinite loops.
-  }, [
-    isOnHomePage,
-    currentUserId,
-    userLoading,
-    authLoading
-  ]);
+  }, [currentUserId, userLoading, authLoading, pathname, fetchInitialData]);
+
+  // Set up Realtime subscription
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    console.log('[NotificationProvider] Setting up Realtime subscription');
+    
+    const channel = supabase
+      .channel(`notifications:${currentUserId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${currentUserId}`
+        },
+        (payload) => {
+          console.log('[NotificationProvider] New notification received:', payload.new);
+          if (payload.new) {
+            const normalizedNotification = normalizeNotification(payload.new);
+            dispatch({ type: "ADD_NOTIFICATION", payload: normalizedNotification });
+            // Update cache
+            cacheManager.updateNotification(normalizedNotification.id, normalizedNotification).catch(console.error);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${currentUserId}`
+        },
+        (payload) => {
+          console.log('[NotificationProvider] Notification updated:', payload.new);
+          if (payload.new) {
+            dispatch({ type: "MARK_NOTIFICATION_READ", payload: { id: payload.new.id } });
+            cacheManager.updateNotification(payload.new.id, normalizeNotification(payload.new)).catch(console.error);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${currentUserId}`
+        },
+        (payload) => {
+          console.log('[NotificationProvider] Notification deleted:', payload.old);
+          if (payload.old) {
+            dispatch({ type: "REMOVE_NOTIFICATION", payload: { id: payload.old.id } });
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[NotificationProvider] Realtime subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          dispatch({ type: "SET_CONNECTION_STATUS", payload: 'connected' });
+        } else if (status === 'CHANNEL_ERROR') {
+          dispatch({ type: "SET_CONNECTION_STATUS", payload: 'error' });
+        } else {
+          dispatch({ type: "SET_CONNECTION_STATUS", payload: 'reconnecting' });
+        }
+      });
+
+    return () => {
+      console.log('[NotificationProvider] Cleaning up Realtime subscription');
+      supabase.removeChannel(channel);
+      dispatch({ type: "SET_CONNECTION_STATUS", payload: 'disconnected' });
+    };
+  }, [currentUserId, supabase]);
 
   const refreshNotifications = useCallback(async () => {
-    if (!currentUserId) {
-        console.warn("[NotificationProvider] refreshNotifications called without userId.");
-        return;
-    }
-    console.log(`[NotificationProvider] Refreshing notifications for userId: ${currentUserId}...`);
+    if (!currentUserId) return;
     await fetchInitialData(currentUserId);
   }, [fetchInitialData, currentUserId]);
 
   const loadMore = useCallback(async () => {
-    if (!state.hasMore || state.isLoading || !currentUserId) {
-      console.log("[NotificationProvider] Cannot load more:", { hasMore: state.hasMore, isLoading: state.isLoading, currentUserId });
-      return;
-    }
+    if (!state.hasMore || state.isLoading || !currentUserId) return;
+    
     const nextPage = state.page + 1;
-    console.log(`[NotificationProvider] Loading more notifications, page: ${nextPage}`);
-    const loadingOpId = `notifications-load-more-${currentUserId}-${nextPage}`;
-    addLoadingOperation({ id: loadingOpId, priority: 2, description: "Loading more notifications..." });
-    dispatch({ type: "SET_LOADING", payload: true });
     dispatch({ type: "SET_PAGE", payload: nextPage });
+    dispatch({ type: "SET_LOADING", payload: true });
 
     try {
-      const response = await getUserNotifications(nextPage, 10);
-      console.log(`[NotificationProvider] Received more notifications:`, response);
-
-      if (!response || !Array.isArray(response.data)) {
-          console.error("[NotificationContext] Invalid load more response structure:", response);
-          dispatch({ type: "SET_ERROR", payload: "Failed to process more notification data (invalid structure)." });
-          dispatch({ type: "SET_PAGE", payload: state.page });
-          return;
-      }
+      const cachedNotifications = await cacheManager.getNotifications(currentUserId, nextPage, 10);
       
-      const formattedNotifications = response.data.map(normalizeNotification);
-
-      dispatch({ 
-        type: "APPEND_NOTIFICATIONS", 
-        payload: { 
-          notifications: formattedNotifications,
-          totalPages: response.totalPages,
-          hasMore: response.hasMore
+      dispatch({
+        type: "APPEND_NOTIFICATIONS",
+        payload: {
+          notifications: cachedNotifications,
+          totalPages: state.totalPages,
+          hasMore: cachedNotifications.length === 10
         }
       });
     } catch (error) {
-      console.error("[NotificationProvider] Error loading more notifications:", error);
-      dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Failed to load more notifications" });
-      dispatch({ type: "SET_PAGE", payload: state.page });
+      console.error("[NotificationProvider] Error loading more:", error);
     } finally {
-      console.log(`[NotificationProvider] Load more finished, page: ${nextPage}`);
       dispatch({ type: "SET_LOADING", payload: false });
-      removeLoadingOperation(loadingOpId);
     }
-  }, [state.hasMore, state.isLoading, state.page, addLoadingOperation, removeLoadingOperation, currentUserId]);
+  }, [state.hasMore, state.isLoading, state.page, currentUserId]);
 
   const markAsRead = useCallback(async (id: string) => {
-    console.log(`[NotificationProvider] Marking notification ${id} as read`);
-    const loadingOpId = `notifications-mark-read-${id}`;
-    addLoadingOperation({ id: loadingOpId, priority: 3, description: "Marking notification as read..." });
+    if (!currentUserId) return;
+    
     try {
-      await markNotificationAsRead(id);
-      console.log(`[NotificationProvider] Successfully marked ${id} as read via service.`);
+      // Optimistic update
       dispatch({ type: "MARK_NOTIFICATION_READ", payload: { id } });
+      
+      // Update cache
+      const notification = state.notifications.find(n => n.id === id);
+      if (notification) {
+        await cacheManager.updateNotification(id, { ...notification, isRead: true });
+      }
+      
+      // Update server
+      await notificationService.markAsRead([id]);
     } catch (error) {
-      console.error(`[NotificationProvider] Error marking notification ${id} as read:`, error);
-    } finally {
-        removeLoadingOperation(loadingOpId);
+      console.error(`[NotificationProvider] Error marking as read:`, error);
+      // Revert optimistic update on error
+      dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Failed to mark as read" });
     }
-  }, [addLoadingOperation, removeLoadingOperation]);
+  }, [currentUserId, state.notifications]);
 
   const markAllAsRead = useCallback(async () => {
-    console.log(`[NotificationProvider] Marking all notifications as read`);
-    const loadingOpId = `notifications-mark-all-read`;
-    addLoadingOperation({ id: loadingOpId, priority: 3, description: "Marking all notifications as read..." });
+    if (!currentUserId) return;
+    
     try {
-      await markAllNotificationsAsRead();
-      console.log(`[NotificationProvider] Successfully marked all as read via service.`);
       dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
+      
+      // Update all in cache
+      for (const notification of state.notifications.filter(n => !n.isRead)) {
+        await cacheManager.updateNotification(notification.id, { ...notification, isRead: true });
+      }
+      
+      await notificationService.markAllAsRead();
     } catch (error) {
-      console.error("[NotificationProvider] Error marking all notifications as read:", error);
-    } finally {
-        removeLoadingOperation(loadingOpId);
+      console.error("[NotificationProvider] Error marking all as read:", error);
     }
-  }, [addLoadingOperation, removeLoadingOperation]);
+  }, [currentUserId, state.notifications]);
 
   const removeNotification = useCallback(async (id: string) => {
-    console.log(`[NotificationProvider] Removing notification ${id}`);
-    const loadingOpId = `notifications-remove-${id}`;
-    addLoadingOperation({ id: loadingOpId, priority: 3, description: "Removing notification..." });
-    try {
-      await deleteNotification(id);
-      console.log(`[NotificationProvider] Successfully removed ${id} via service.`);
-      dispatch({ type: "REMOVE_NOTIFICATION", payload: { id } });
-    } catch (error) {
-      console.error(`[NotificationProvider] Error removing notification ${id}:`, error);
-    } finally {
-        removeLoadingOperation(loadingOpId);
-    }
-  }, [addLoadingOperation, removeLoadingOperation]);
-
-  // Supabase Realtime subscription for notifications
-  useEffect(() => {
     if (!currentUserId) return;
-    const supabase = createClient();
-    const channel = supabase
-      .channel('public:notifications')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` },
-        (payload) => {
-          if (payload?.new) {
-            dispatch({ type: "ADD_NOTIFICATION", payload: normalizeNotification(payload.new) });
-          }
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    
+    try {
+      dispatch({ type: "REMOVE_NOTIFICATION", payload: { id } });
+      await notificationService.deleteNotification(id);
+    } catch (error) {
+      console.error(`[NotificationProvider] Error removing notification:`, error);
+    }
   }, [currentUserId]);
 
   const value = useMemo(() => ({
     notifications: state.notifications,
     unreadCount: state.unreadCount,
     isLoading: state.isLoading,
+    isSyncing: state.isSyncing,
+    isOnline: state.isOnline,
+    connectionStatus: state.connectionStatus,
     error: state.error,
     page: state.page,
     totalPages: state.totalPages,
     hasMore: state.hasMore,
+    lastSyncTime: state.lastSyncTime,
     markAsRead,
     markAllAsRead,
     removeNotification,
@@ -493,18 +499,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     state.notifications,
     state.unreadCount,
     state.isLoading,
+    state.isSyncing,
+    state.isOnline,
+    state.connectionStatus,
     state.error,
     state.page,
     state.totalPages,
     state.hasMore,
+    state.lastSyncTime,
     markAsRead,
     markAllAsRead,
     removeNotification,
     refreshNotifications,
     loadMore
   ]);
-  
-  console.log("[NotificationProvider] Rendering with value:", value);
 
   return (
     <NotificationContext.Provider value={value}>
@@ -520,7 +528,6 @@ export function useNotifications() {
     console.error("useNotifications hook used outside of NotificationProvider");
     throw new Error("useNotifications must be used within a NotificationProvider");
   }
-  console.log("[useNotifications] Consuming context:", context);
   return context;
 }
 

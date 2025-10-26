@@ -1,11 +1,10 @@
-const CACHE_NAME = 'mealtime-cache-v1';
+const CACHE_NAME = 'mealtime-cache-v2';
 const OFFLINE_URL = '/offline.html';
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html',
   '/manifest.json',
-  '/android-chrome-192x192.png',
-  '/android-chrome-512x512.png',
+  '/web-app-manifest-192x192.png',
+  '/web-app-manifest-512x512.png',
   '/apple-touch-icon.png',
   '/favicon.ico',
   '/favicon-16x16.png',
@@ -17,10 +16,24 @@ const ASSETS_TO_CACHE = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS_TO_CACHE))
+      .then(cache => {
+        // Cache each asset individually to avoid complete failure if one fails
+        return Promise.allSettled(
+          ASSETS_TO_CACHE.map(url => 
+            cache.add(url).catch(error => {
+              console.warn(`[Service Worker] Failed to cache ${url}:`, error);
+              return null; // Continue with other assets
+            })
+          )
+        );
+      })
+      .then(results => {
+        const successful = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        console.log(`[Service Worker] Cache install completed: ${successful} successful, ${failed} failed`);
+      })
       .catch(error => {
         console.error('[Service Worker] Failed to cache resources during install:', error);
-        // Optionally, you could self.skipWaiting() or self.registration.unregister() here if you want to fail gracefully
       })
   );
   self.skipWaiting();

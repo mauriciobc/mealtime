@@ -24,7 +24,7 @@ import { useRouter } from "next/navigation";
 // Changed catId to string to be consistent
 export function useFeeding(catId: string | null) {
   // const { state: appState, dispatch } = useAppContext(); // REMOVED
-  const { state: userState } = useUserContext();
+  const { state: userState, pauseAuthChecks, resumeAuthChecks } = useUserContext();
   const { state: catsState } = useCats();
   const { state: feedingState, dispatch: feedingDispatch } = useFeedingContextState();
   const { cats, isLoading: isLoadingCats, error: errorCats } = catsState;
@@ -200,6 +200,9 @@ export function useFeeding(catId: string | null) {
     const currentUserId = userState.currentUser.id;
 
     try {
+      // Pausar verificações de auth durante operação crítica
+      pauseAuthChecks();
+      
       const now = timestamp || new Date();
 
       // Construct payload for API
@@ -242,8 +245,11 @@ export function useFeeding(catId: string | null) {
       console.error("Erro ao registrar alimentação:", error);
       toast.error(`Falha ao registrar alimentação: ${error.message}`);
       throw error; // Re-throw error so calling component knows it failed
+    } finally {
+      // Retomar verificações de auth após operação
+      resumeAuthChecks();
     }
-  }, [cat, userState.currentUser, feedingDispatch, updateFeedingTimeDisplay, userState.currentUser?.id]);
+  }, [cat, userState.currentUser, feedingDispatch, updateFeedingTimeDisplay, userState.currentUser?.id, pauseAuthChecks, resumeAuthChecks]);
 
   // Update the useEffect that handles redirection
   useEffect(() => {
