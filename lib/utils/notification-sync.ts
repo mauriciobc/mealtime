@@ -10,34 +10,75 @@ export interface SyncResult {
 }
 
 export class NotificationSync {
-  private syncInProgress = false;
+  private syncPromise: Promise<SyncResult> | null = null;
   private lastSyncTime: Date | null = null;
 
   /**
    * Sync notifications from server to cache
    * Implements cache-first strategy with background sync
+   * Uses Promise-based lock to prevent concurrent syncs
    */
   async syncFromServer(userId: string): Promise<SyncResult> {
-    if (this.syncInProgress) {
-      console.log('[NotificationSync] Sync already in progress, skipping');
-      return {
-        success: false,
-        notificationsSynced: 0,
-        error: 'Sync already in progress',
-        timestamp: new Date().toISOString(),
-      };
+    // Validate userId parameter
+    if (userId === undefined || userId === null || userId.trim() === '') {
+      const error = new Error('Invalid userId');
+      console.error('[NotificationSync] userId validation failed:', error.message);
+      return Promise.reject(error);
     }
 
-    this.syncInProgress = true;
+    // If sync is already in progress, return the existing promise
+    if (this.syncPromise) {
+      console.log('[NotificationSync] Sync already in progress, awaiting existing sync');
+      return this.syncPromise;
+    }
+
+    // Start new sync and store the promise
     console.log(`[NotificationSync] Starting sync for user ${userId}`);
+    this.syncPromise = this._doSync(userId);
 
     try {
-      // Get notifications from server
-      const response = await notificationService.getNotifications(1, 100); // Get first 100
-      const unreadCount = await notificationService.getUnreadCount();
+      return await this.syncPromise;
+    } finally {
+      // Clear the promise when sync completes (success or failure)
+      this.syncPromise = null;
+    }
+  }
 
-      // Save to cache
-      await cacheManager.saveNotifications(userId, response.notifications);
+  /**
+   * Private method that performs the actual sync operation
+   * Fetches ALL notifications from the server using pagination to avoid data truncation
+   */
+  private async _doSync(userId: string): Promise<SyncResult> {
+    try {
+      // Fetch all notifications using pagination
+      const allNotifications: Notification[] = [];
+      let currentPage = 1;
+      const pageSize = 100; // Fetch 100 notifications per page
+      let hasMore = true;
+
+      console.log(`[NotificationSync] Starting paginated fetch for user ${userId}`);
+
+      // Loop through all pages until no more data
+      while (hasMore) {
+        const response = await notificationService.getNotifications(currentPage, pageSize);
+        
+        console.log(`[NotificationSync] Fetched page ${currentPage}: ${response.notifications.length} notifications`);
+        
+        allNotifications.push(...response.notifications);
+        hasMore = response.hasMore;
+        currentPage++;
+
+        // Safety check to prevent infinite loops (max 1000 pages = 100k notifications)
+        if (currentPage > 1000) {
+          console.warn('[NotificationSync] Reached maximum page limit, stopping fetch');
+          break;
+        }
+      }
+
+      console.log(`[NotificationSync] Total notifications fetched: ${allNotifications.length}`);
+
+      // Save all notifications to cache
+      await cacheManager.saveNotifications(userId, allNotifications);
 
       // Update metadata
       const metadata: CacheMetadata = {
@@ -52,11 +93,11 @@ export class NotificationSync {
 
       const result: SyncResult = {
         success: true,
-        notificationsSynced: response.notifications.length,
+        notificationsSynced: allNotifications.length,
         timestamp: new Date().toISOString(),
       };
 
-      console.log(`[NotificationSync] Sync completed: ${result.notificationsSynced} notifications`);
+      console.log(`[NotificationSync] Sync completed: ${result.notificationsSynced} notifications saved to cache`);
       return result;
     } catch (error) {
       console.error('[NotificationSync] Sync failed:', error);
@@ -67,8 +108,6 @@ export class NotificationSync {
         timestamp: new Date().toISOString(),
       };
       return result;
-    } finally {
-      this.syncInProgress = false;
     }
   }
 
@@ -76,6 +115,13 @@ export class NotificationSync {
    * Retry sync with exponential backoff
    */
   async syncWithRetry(userId: string, maxRetries: number = 3): Promise<SyncResult> {
+    // Validate userId parameter
+    if (userId === undefined || userId === null || userId.trim() === '') {
+      const error = new Error('Invalid userId');
+      console.error('[NotificationSync] userId validation failed:', error.message);
+      return Promise.reject(error);
+    }
+
     let attempt = 0;
     let lastError: string | undefined;
 
@@ -130,19 +176,31 @@ export class NotificationSync {
    * Check if sync is in progress
    */
   isSyncing(): boolean {
-    return this.syncInProgress;
+    return this.syncPromise !== null;
   }
 
   /**
    * Sync specific notification update
+   * @param userId - The user ID to ensure cache updates affect the correct user
+   * @param notification - The notification to update
+   * @returns true if successful, throws error on failure
    */
-  async syncNotificationUpdate(notification: Notification): Promise<void> {
-    console.log(`[NotificationSync] Syncing notification update: ${notification.id}`);
+  async syncNotificationUpdate(userId: string, notification: Notification): Promise<boolean> {
+    // Validate userId parameter
+    if (userId === undefined || userId === null || userId.trim() === '') {
+      const error = new Error('Invalid userId');
+      console.error('[NotificationSync] userId validation failed:', error.message);
+      throw error;
+    }
+
+    console.log(`[NotificationSync] Syncing notification update for user ${userId}: ${notification.id}`);
     
     try {
-      await cacheManager.updateNotification(notification.id, notification);
+      await cacheManager.updateNotification(userId, notification.id, { ...notification });
+      return true;
     } catch (error) {
       console.error('[NotificationSync] Failed to sync notification update:', error);
+      throw error;
     }
   }
 }

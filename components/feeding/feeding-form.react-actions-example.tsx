@@ -172,46 +172,49 @@ export function FeedingListWithOptimistic({
     };
 
     // startTransition para atualização não-bloqueante da UI
-    startTransition(async () => {
-      // 1️⃣ Adiciona o log otimisticamente (UI mostra imediatamente)
-      updateOptimisticLogs({ type: 'add', log: tempLog });
-      
-      try {
-        // 2️⃣ Envia para o servidor e aguarda resposta
-        const serverLog = await addFeedingOptimisticAction(formData);
-        
-        // 3️⃣ SUCESSO: Substitui o log temporário pelo log real do servidor
-        updateOptimisticLogs({ 
-          type: 'update', 
-          tempId: tempId, 
-          log: serverLog 
-        });
-        
-        // Feedback de sucesso ao usuário
-        toast.success('Alimentação registrada!', {
-          description: `${serverLog.amount}g adicionados com sucesso`,
-        });
-
-      } catch (error) {
-        // 4️⃣ FALHA: Remove o log temporário (rollback)
-        updateOptimisticLogs({ type: 'remove', tempId: tempId });
-        
-        // Log do erro para debugging
-        console.error('Erro ao adicionar alimentação:', error);
-        
-        // Feedback de erro ao usuário
-        toast.error('Erro ao salvar', {
-          description: error instanceof Error 
-            ? error.message 
-            : 'Não foi possível registrar a alimentação. Tente novamente.',
-          action: {
-            label: 'Tentar novamente',
-            onClick: () => handleSubmit(formData),
-          },
-        });
-      }
+  // 1️⃣ Adiciona o log otimisticamente (UI mostra imediatamente)
+  startTransition(() => {
+    updateOptimisticLogs({ type: 'add', log: tempLog });
+  });
+  
+  try {
+    // 2️⃣ Envia para o servidor e aguarda resposta
+    const serverLog = await addFeedingOptimisticAction(formData);
+    
+    // 3️⃣ SUCESSO: Substitui o log temporário pelo log real do servidor
+    startTransition(() => {
+      updateOptimisticLogs({ 
+        type: 'update', 
+        tempId: tempId, 
+        log: serverLog 
+      });
     });
-  }
+    
+    // Feedback de sucesso ao usuário
+    toast.success('Alimentação registrada!', {
+      description: `${serverLog.amount}g adicionados com sucesso`,
+    });
+
+  } catch (error) {
+    // 4️⃣ FALHA: Remove o log temporário (rollback)
+    startTransition(() => {
+      updateOptimisticLogs({ type: 'remove', tempId: tempId });
+    });
+    
+    // Log do erro para debugging
+    console.error('Erro ao adicionar alimentação:', error);
+    
+    // Feedback de erro ao usuário
+    toast.error('Erro ao salvar', {
+      description: error instanceof Error 
+        ? error.message 
+        : 'Não foi possível registrar a alimentação. Tente novamente.',
+      action: {
+        label: 'Tentar novamente',
+        onClick: () => handleSubmit(formData),
+      },
+    });
+  }  }
 
   return (
     <div>

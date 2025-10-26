@@ -100,10 +100,16 @@ export async function getCatsByHouseholdId(householdId: string, userId: string |
     }
 
     // Add headers to fetch call
-    const response = await fetch(`/api/households/${householdId}/cats`, { 
-      headers,
-      signal 
-    });
+    const fetchOptions: RequestInit = { 
+      headers
+    };
+    
+    // Only add signal if it's defined (not undefined)
+    if (signal) {
+      fetchOptions.signal = signal;
+    }
+    
+    const response = await fetch(`/api/households/${householdId}/cats`, fetchOptions);
     if (!response.ok) {
       const errorText = await response.text(); // Get error body
       console.error("[getCatsByHouseholdId] Error response:", { status: response.status, text: errorText });
@@ -123,29 +129,32 @@ export async function getCatsByHouseholdId(householdId: string, userId: string |
       // Log the raw cat object being mapped
       console.log("[getCatsByHouseholdId] Mapping raw cat:", JSON.stringify(cat, null, 2));
 
-      const mappedCat = {
+      const mappedCat: Partial<CatType> = {
         id: cat.id,
         name: cat.name,
         birthdate: cat.birth_date ? new Date(cat.birth_date) : null,
         weight: cat.weight ? parseFloat(cat.weight) : null,
         householdId: cat.household_id,
         createdAt: cat.created_at ? new Date(cat.created_at) : new Date(), // Provide default if null
-        updatedAt: cat.updated_at ? new Date(cat.updated_at) : undefined,
         // Map photo_url from the API response
         photo_url: cat.photo_url || null, // Use cat.photo_url from API, fallback to null
         // Default other potentially missing fields according to CatType
         restrictions: cat.restrictions || null,
         notes: cat.notes || null,
-        feedingInterval: cat.feeding_interval || null, // Map snake_case if available
+        feeding_interval: cat.feeding_interval || null, // Map to feeding_interval (required field)
         portion_size: cat.portion_size || null, // Map snake_case if available
         schedules: [], // Assuming schedules are loaded separately
-        // Removed feedingLogs - was causing issues
       };
+      
+      // Only add updatedAt if it exists
+      if (cat.updated_at) {
+        mappedCat.updatedAt = new Date(cat.updated_at);
+      }
 
       // Log the mapped cat object
       console.log("[getCatsByHouseholdId] Mapped cat object:", JSON.stringify(mappedCat, null, 2));
 
-      return mappedCat;
+      return mappedCat as CatType;
     });
   } catch (error) {
     console.error("Error fetching cats for household:", householdId, error);
@@ -175,7 +184,7 @@ export async function createCat(cat: Omit<CatType, 'id'>): Promise<CatType> {
   await delay(500);
   const newCat: CatType = {
     ...cat,
-    id: Math.floor(Math.random() * 1000000) // Gerar um ID numérico aleatório
+    id: generateUUID() // Generate UUID string
   };
   
   const cats = await getData<CatType>('cats');
@@ -223,22 +232,23 @@ export async function updateCat(catId: string, catData: Partial<CatType>): Promi
 
     // Atualizar o localStorage
     const cats = await getData<CatType>('cats');
-    const numericId = parseInt(catId);
-    const catIndex = cats.findIndex(cat => cat.id === numericId);
+    const catIndex = cats.findIndex(cat => cat.id === catId);
     
     if (catIndex === -1) {
       // Se não encontrar no localStorage, adicionar
       cats.push(updatedCat);
     } else {
       // Se encontrar, atualizar
-      cats[catIndex] = {
-        ...cats[catIndex],
-        ...updatedCat,
-        id: numericId,
-        schedules: updatedCat.schedules || cats[catIndex].schedules || [],
-        feedingLogs: cats[catIndex].feedingLogs || [],
-        createdAt: cats[catIndex].createdAt || toDate(new Date(), { timeZone: getUserTimezone() })
-      };
+      const existingCat = cats[catIndex];
+      if (existingCat) {
+        cats[catIndex] = {
+          ...existingCat,
+          ...updatedCat,
+          id: catId,
+          schedules: updatedCat.schedules || existingCat.schedules || [],
+          createdAt: existingCat.createdAt || toDate(new Date(), { timeZone: getUserTimezone() })
+        };
+      }
     }
     
     await setData<CatType>('cats', cats);
@@ -252,15 +262,14 @@ export async function updateCat(catId: string, catData: Partial<CatType>): Promi
 export async function deleteCat(id: string): Promise<void> {
   await delay(500);
   const cats = await getData<CatType>('cats');
-  const numericId = parseInt(id);
-  const cat = cats.find(c => c.id === numericId);
+  const cat = cats.find(c => c.id === id);
   
   if (!cat) {
     throw new Error(`Cat with id ${id} not found`);
   }
   
   // Remove cat from array
-  const updatedCats = cats.filter(cat => cat.id !== numericId);
+  const updatedCats = cats.filter(cat => cat.id !== id);
   await setData<CatType>('cats', updatedCats);
   
   // Remove from household if exists
@@ -271,7 +280,7 @@ export async function deleteCat(id: string): Promise<void> {
     if (household) {
       const updatedHousehold = {
         ...household,
-        cats: household.cats.filter(catId => catId !== numericId)
+        cats: household.cats.filter(catId => catId !== id)
       };
       
       const updatedHouseholds = households.map(h => 
@@ -316,25 +325,32 @@ export async function createFeedingLog(log: Omit<BaseFeedingLog, 'id'>, userId?:
     const createdLog = await response.json(); // API now returns the full log with feeder
 
     // Map the API response (which should match GET /api/feedings structure)
-    return {
+    const mappedLog: Partial<FeedingLog> = {
       id: createdLog.id,
       catId: createdLog.cat_id,
       userId: createdLog.fed_by, // Use fed_by from API response
       timestamp: new Date(createdLog.fed_at),
-      portionSize: createdLog.amount,
-      notes: createdLog.notes,
-      mealType: createdLog.meal_type,
-      householdId: createdLog.household_id,
+      amount: createdLog.amount ?? null,
+      portionSize: createdLog.amount ?? null,
+      notes: createdLog.notes ?? null,
+      householdId: createdLog.household_id ?? undefined,
       // User details are now nested in the feeder object from the API response
       user: createdLog.feeder ? { 
           id: createdLog.feeder.id, 
           name: createdLog.feeder.full_name ?? null, 
           avatar: createdLog.feeder.avatar_url ?? null
       } : { id: createdLog.fed_by, name: null, avatar: null }, // Fallback if feeder somehow not included
-      cat: undefined, // Not included in this API response
-      status: undefined,
       createdAt: createdLog.created_at ? new Date(createdLog.created_at) : new Date(createdLog.fed_at) // Fallback to fed_at if created_at missing
     };
+    
+    // Only add mealType if it exists
+    if (createdLog.meal_type) {
+      mappedLog.mealType = createdLog.meal_type;
+    }
+    
+    // cat is not included in this API response, so we don't set it
+    
+    return mappedLog as FeedingLog;
   } catch (error) {
     console.error('[createFeedingLog] Error creating feeding log:', error);
     throw error;

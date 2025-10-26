@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNotifications } from '@/lib/context/NotificationContext';
 import { notificationSync } from '@/lib/utils/notification-sync';
+import { useUserContext } from '@/lib/context/UserContext';
 
 export function useNotificationSync() {
   const { isSyncing, connectionStatus, isOnline } = useNotifications();
+  const { state: userState } = useUserContext();
+  const currentUserId = userState.currentUser?.id;
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const [autoSyncInterval, setAutoSyncInterval] = useState<NodeJS.Timeout | null>(null);
 
@@ -23,49 +26,47 @@ export function useNotificationSync() {
    * Wait for current sync to complete
    */
   const waitForSync = useCallback(async () => {
-    while (isSyncing) {
+    while (notificationSync.isSyncing()) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-  }, [isSyncing]);
+  }, []);
 
   /**
    * Setup automatic sync interval (every 5 minutes)
    */
   useEffect(() => {
-    if (!isOnline) {
-      // Clear interval when offline
-      if (autoSyncInterval) {
-        clearInterval(autoSyncInterval);
-        setAutoSyncInterval(null);
-      }
+    if (!isOnline || !currentUserId) {
       return;
     }
 
     // Only auto-sync if connected
     if (connectionStatus === 'connected') {
-      const interval = setInterval(() => {
+      const interval = setInterval(async () => {
         console.log('[useNotificationSync] Auto-sync triggered');
-        // Note: userId would need to be passed or retrieved from context
+        try {
+          await syncNow(currentUserId);
+        } catch (error) {
+          console.error('[useNotificationSync] Auto-sync failed:', error);
+        }
       }, 5 * 60 * 1000); // 5 minutes
 
       setAutoSyncInterval(interval);
 
       return () => {
         clearInterval(interval);
+        setAutoSyncInterval(null);
       };
     }
-  }, [isOnline, connectionStatus, autoSyncInterval]);
+  }, [isOnline, connectionStatus, currentUserId, syncNow]);
 
-  /**
-   * Get last sync time from notificationSync
-   */
+  // Poll last sync time
   useEffect(() => {
     const interval = setInterval(() => {
       const syncTime = notificationSync.getLastSyncTime();
       if (syncTime) {
         setLastSync(syncTime);
       }
-    }, 1000);
+    }, 10000); // Poll every 10 seconds
 
     return () => clearInterval(interval);
   }, []);

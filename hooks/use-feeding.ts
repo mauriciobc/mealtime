@@ -6,7 +6,7 @@ import { useUserContext } from "@/lib/context/UserContext";
 import { useCats } from "@/lib/context/CatsContext"; // ADDED
 import { useFeeding as useFeedingContextState } from "@/lib/context/FeedingContext"; // ADDED
 import { CatType, FeedingLog } from "@/lib/types";
-import { BaseFeedingLogs } from "@/lib/types/common";
+import { BaseFeedingLog } from "@/lib/types/common";
 import { createFeedingLog, getNextFeedingTime } from "@/lib/services/apiService";
 import { getRelativeTime, formatDateTimeForDisplay, getUserTimezone } from "@/lib/utils/dateUtils";
 import { toast } from "sonner";
@@ -20,6 +20,16 @@ import { useRouter } from "next/navigation";
 
 // Simple UUID function might not be needed if API generates IDs
 // function uuidv4(): string { ... }
+
+// Error code constants for type-safe error handling
+const ERROR_CODES = {
+  NO_SCHEDULE: 'NO_SCHEDULE',
+  NOT_FOUND: 'NOT_FOUND',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  AUTH_REQUIRED: 'AUTH_REQUIRED',
+} as const;
+
+type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 
 // Changed catId to string to be consistent
 export function useFeeding(catId: string | null) {
@@ -65,15 +75,25 @@ export function useFeeding(catId: string | null) {
     console.log(`[useFeeding] Found cat in context:`, foundCat);
     if (!foundCat) {
       console.error(`[useFeeding] Cat not found in context for ID: ${catId}`);
-      setInternalError("Gato não encontrado.");
     }
     return foundCat;
   }, [catId, cats]);
 
+  // Handle error state based on found cat
+  useEffect(() => {
+    if (cat === null && catId && cats) {
+      console.error(`[useFeeding] Cat not found in context for ID: ${catId}`);
+      setInternalError("Gato não encontrado.");
+    } else if (cat !== null) {
+      // Clear error when cat is found
+      setInternalError(null);
+    }
+  }, [catId, cats, cat]);
+
   const logs = useMemo(() => {
     if (!catId || !feedingState.feedingLogs) return [];
     // Logs are already sorted in context
-    return feedingState.feedingLogs.filter(log => log.catId === catId);
+    return feedingState.feedingLogs.filter(log => String(log.catId) === String(catId));
   }, [catId, feedingState.feedingLogs]);
 
   // State for next feeding time specific to this cat/hook instance
@@ -143,16 +163,37 @@ export function useFeeding(catId: string | null) {
         }
       } catch (err: any) {
         if (isMounted) {
+          // Use explicit error codes if available, fallback to message
+          const errorCode = err?.code as ErrorCode | undefined;
           const errorMessage = err?.message || "Erro ao buscar próximo horário.";
-          console.error(`[useFeeding] Error fetching next feeding time:`, errorMessage);
+          
+          console.error(`[useFeeding] Error fetching next feeding time:`, {
+            code: errorCode,
+            message: errorMessage,
+            error: err
+          });
           
           // Only set error states for actual errors, not for "no schedule" cases
-          if (!errorMessage.includes('No next feeding time available')) {
+          // Check explicit error code first, fall back to message matching if code is absent
+          const isNoSchedule = errorCode === ERROR_CODES.NO_SCHEDULE || 
+                               (!errorCode && errorMessage.includes('No next feeding time available'));
+          
+          if (!isNoSchedule) {
             setNextTimeError(errorMessage);
+            
             // Only set critical errors that should trigger redirect
-            if (errorMessage.includes('not found') || 
-                errorMessage.includes('unauthorized') ||
-                errorMessage.includes('Authentication required')) {
+            // Check explicit error codes first, fall back to message matching if code is absent
+            const isCriticalError = 
+              errorCode === ERROR_CODES.NOT_FOUND ||
+              errorCode === ERROR_CODES.UNAUTHORIZED ||
+              errorCode === ERROR_CODES.AUTH_REQUIRED ||
+              (!errorCode && (
+                errorMessage.toLowerCase().includes('not found') || 
+                errorMessage.toLowerCase().includes('unauthorized') ||
+                errorMessage.toLowerCase().includes('authentication required')
+              ));
+            
+            if (isCriticalError) {
               setInternalError(errorMessage);
             }
           }
@@ -205,16 +246,15 @@ export function useFeeding(catId: string | null) {
       
       const now = timestamp || new Date();
 
-      // Construct payload for API
-      const newLogData: Omit<BaseFeedingLogs, 'id' | 'created_at' | 'updated_at'> = {
-        cat_id: cat.id,
-        household_id: userState.currentUser?.householdId,
-        meal_type: "Normal",
-        amount: amount ? parseFloat(amount) : undefined,
-        unit: "g",
-        notes: notes || undefined,
-        fed_by: currentUserId,
-        fed_at: now
+      // Construct payload for API - BaseFeedingLog structure
+      const newLogData: Omit<BaseFeedingLog, 'id'> = {
+        catId: cat.id,
+        userId: currentUserId,
+        timestamp: now,
+        ...(amount && { portionSize: parseFloat(amount) }), // Only include if amount exists
+        ...(notes && { notes }), // Only include if notes exists
+        status: "Normal",
+        createdAt: now
       };
 
       // Call API to create log
@@ -226,8 +266,7 @@ export function useFeeding(catId: string | null) {
         // Ensure payload matches expected FeedingLog structure (with Date objects)
         payload: { 
             ...createdLog, 
-            timestamp: new Date(createdLog.timestamp), 
-            createdAt: new Date(createdLog.createdAt)
+            // createdLog already has Date objects for timestamp and createdAt from createFeedingLog
             // Potentially add cat/user details here if context expects enriched logs
         }
       });
@@ -255,9 +294,12 @@ export function useFeeding(catId: string | null) {
   useEffect(() => {
     if (!isLoading && internalError) {
       console.error(`[useFeeding] Critical error detected:`, internalError);
-      throw new Error(internalError);
+      // Instead of throwing (which crashes React tree), redirect to error page
+      // Log the incident for debugging
+      console.error(`[useFeeding] Redirecting to error page due to critical error: ${internalError}`);
+      router.replace('/error');
     }
-  }, [internalError, isLoading]);
+  }, [internalError, isLoading, router]);
 
   // Return state and handlers
   return {
@@ -267,7 +309,7 @@ export function useFeeding(catId: string | null) {
     formattedNextFeedingTime,
     formattedTimeDistance,
     isLoading: isLoading || isNextTimeLoading, // Combine loading states
-    error: error || nextTimeError, // Combine error states
+    error, // All errors are already combined in the error variable (line 99)
     handleMarkAsFed,
   };
 }

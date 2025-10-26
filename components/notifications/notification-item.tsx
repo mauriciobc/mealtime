@@ -4,6 +4,7 @@ import { Notification } from "@/lib/types/notification";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { 
@@ -30,9 +31,10 @@ export function NotificationItem({
   showActions = false 
 }: NotificationItemProps) {
   const { removeNotification } = useNotifications();
+  const router = useRouter();
   
-  // Get createdAt from either property name
-  const createdAt = notification.createdAt || notification.created_at;
+  // Get createdAt
+  const createdAt = notification.createdAt;
   
   // Defensive date formatting
   let timeAgo = '';
@@ -75,10 +77,22 @@ export function NotificationItem({
   };
   
   const handleClick = () => {
-    if (notification.metadata?.actionUrl) {
-      window.location.href = notification.metadata.actionUrl;
-    }
+    // Call onClick first if provided
     onClick?.();
+    
+    // Handle navigation if actionUrl is present
+    if (notification.metadata?.actionUrl) {
+      const url = notification.metadata.actionUrl;
+      
+      // Check if it's an external URL
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        // External URL - use window.location.assign
+        window.location.assign(url);
+      } else {
+        // Internal route - use Next.js router
+        router.push(url);
+      }
+    }
   };
   
   const content = (
@@ -88,7 +102,7 @@ export function NotificationItem({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-all rounded-lg",
+        "group flex items-start gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-all rounded-lg",
         !notification.isRead && "bg-primary/5 border-l-2 border-l-primary"
       )}
       onClick={handleClick}

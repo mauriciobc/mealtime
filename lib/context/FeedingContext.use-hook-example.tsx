@@ -11,40 +11,57 @@
  */
 
 import React, { use, Suspense, cache } from 'react';
-import { FeedingStateContext, FeedingActionsContext } from './FeedingContext.v2';
+// import { FeedingStateContext, FeedingActionsContext } from './FeedingContext.v2';
 import type { FeedingLog } from '@/lib/types';
-import { FeedingClientData } from './FeedingContext.use-hook-example.client';
+
+// Stub for FeedingClientData component
+interface FeedingClientDataProps {
+  feedingsPromise?: Promise<FeedingLog[]>;
+}
+
+function FeedingClientData({ feedingsPromise }: FeedingClientDataProps) {
+  const feedings = feedingsPromise ? use(feedingsPromise) : [];
+  
+  return (
+    <div>
+      {feedings.map(log => (
+        <div key={log.id}>{log.notes}</div>
+      ))}
+    </div>
+  );
+}
 
 // ============================================================================
 // EXEMPLO 1: Uso Básico do Hook `use`
 // ============================================================================
 
-export function FeedingLogsList() {
-  // ANTES (React 18):
-  // const { state } = useContext(FeedingContext)
-  // const { feedingLogs, isLoading } = state
-  
-  // DEPOIS (React 19):
-  const { feedingLogs, isLoading } = use(FeedingStateContext);
-  const actions = use(FeedingActionsContext);
-
-  if (isLoading) {
-    return <div>Carregando...</div>;
-  }
-
-  return (
-    <div>
-      {feedingLogs.map(log => (
-        <div key={log.id}>
-          {log.notes}
-          <button onClick={() => actions.removeFeeding(log)}>
-            Deletar
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
+// Example commented out since contexts don't exist
+// export function FeedingLogsList() {
+//   // ANTES (React 18):
+//   // const { state } = useContext(FeedingContext)
+//   // const { feedingLogs, isLoading } = state
+//   
+//   // DEPOIS (React 19):
+//   const { feedingLogs, isLoading } = use(FeedingStateContext);
+//   const actions = use(FeedingActionsContext);
+//
+//   if (isLoading) {
+//     return <div>Carregando...</div>;
+//   }
+//
+//   return (
+//     <div>
+//       {feedingLogs.map(log => (
+//         <div key={log.id}>
+//           {log.notes}
+//           <button onClick={() => actions.removeFeeding(log)}>
+//             Deletar
+//           </button>
+//         </div>
+//       ))}
+//     </div>
+//   );
+// }
 
 // ============================================================================
 // EXEMPLO 2: Hook `use` com Promise (Fetch Assíncrono)
@@ -83,36 +100,38 @@ export function FeedingStatsPage({ householdId }: { householdId: string }) {
 // EXEMPLO 3: Hook `use` Condicional (NÃO possível com useContext!)
 // ============================================================================
 
-export function ConditionalFeedingData({ showData }: { showData: boolean }) {
-  // Hook `use` PODE ser usado condicionalmente!
-  // Isso é IMPOSSÍVEL com useContext devido às regras dos hooks
-  const feedingState = showData ? use(FeedingStateContext) : null;
-
-  if (!showData || !feedingState) {
-    return <div>Dados ocultos</div>;
-  }
-
-  return <div>Total: {feedingState.feedingLogs.length}</div>;
-}
+// Example commented out since contexts don't exist
+// export function ConditionalFeedingData({ showData }: { showData: boolean }) {
+//   // Hook `use` PODE ser usado condicionalmente!
+//   // Isso é IMPOSSÍVEL com useContext devido às regras dos hooks
+//   const feedingState = showData ? use(FeedingStateContext) : null;
+//
+//   if (!showData || !feedingState) {
+//     return <div>Dados ocultos</div>;
+//   }
+//
+//   return <div>Total: {feedingState.feedingLogs.length}</div>;
+// }
 
 // ============================================================================
 // EXEMPLO 4: Hook `use` em Loops e Condições Complexas
 // ============================================================================
 
-export function DynamicFeedingDisplay({ contexts }: { contexts: Array<typeof FeedingStateContext> }) {
-  // Hook `use` pode ser chamado em loops!
-  const states = contexts.map(context => use(context));
-
-  return (
-    <div>
-      {states.map((state, index) => (
-        <div key={index}>
-          Logs: {state.feedingLogs.length}
-        </div>
-      ))}
-    </div>
-  );
-}
+// Example commented out since contexts don't exist
+// export function DynamicFeedingDisplay({ contexts }: { contexts: Array<typeof FeedingStateContext> }) {
+//   // Hook `use` pode ser chamado em loops!
+//   const states = contexts.map(context => use(context));
+//
+//   return (
+//     <div>
+//       {states.map((state, index) => (
+//         <div key={index}>
+//           Logs: {state.feedingLogs.length}
+//         </div>
+//       ))}
+//     </div>
+//   );
+// }
 
 // ============================================================================
 // EXEMPLO 5: Combinação com Server Components (CORRIGIDO)
@@ -182,7 +201,30 @@ const getFeedingsData = cache(async (householdId: string): Promise<FeedingLog[]>
  * 3. Mudança de paradigma para a equipe
  * 4. Promises devem ser memoizadas para evitar re-criação
  * 5. AINDA segue as Rules of Hooks (não pode ser condicional ou em loops)
- */        <div className="p-4 border rounded-md animate-pulse">
+ */
+
+/**
+ * Server Component que busca dados e passa Promise para Client Component.
+ * 
+ * BOAS PRÁTICAS APLICADAS:
+ * ✅ Função assíncrona (Server Component)
+ * ✅ Usa cache() para deduplicação
+ * ✅ Tipagem forte (Promise<FeedingLog[]>)
+ * ✅ Cria Promise no servidor (melhor performance)
+ */
+export async function FeedingServerData({ householdId }: { householdId: string }) {
+  // Usar o hook `use` no Client Component passando a Promise
+  const feedings = await getFeedingsData(householdId);
+  const feedingsPromise = Promise.resolve(feedings);
+  return <FeedingClientData feedingsPromise={feedingsPromise} />;
+}
+
+export function FeedingPageWithSuspense({ householdId }: { householdId: string }) {
+  return (
+    <div className="container">
+      <h1>Alimentações</h1>
+      <Suspense fallback={
+        <div className="p-4 border rounded-md animate-pulse">
           <div className="h-4 bg-gray-200 rounded mb-2"></div>
           <div className="h-4 bg-gray-200 rounded w-2/3"></div>
         </div>
@@ -222,19 +264,21 @@ class FeedingErrorBoundary extends React.Component<
 }
 
 // Componente simplificado - apenas busca dados e renderiza
-export function SafeFeedingData() {
-  const state = use(FeedingStateContext);
-  return <div>Logs: {state.feedingLogs.length}</div>;
-}
+// Example commented out since contexts don't exist
+// export function SafeFeedingData() {
+//   const state = use(FeedingStateContext);
+//   return <div>Logs: {state.feedingLogs.length}</div>;
+// }
 
 // Uso com Error Boundary
-export function SafeFeedingDataWithBoundary() {
-  return (
-    <FeedingErrorBoundary>
-      <SafeFeedingData />
-    </FeedingErrorBoundary>
-  );
-}
+// Example commented out since contexts don't exist
+// export function SafeFeedingDataWithBoundary() {
+//   return (
+//     <FeedingErrorBoundary>
+//       <SafeFeedingData />
+//     </FeedingErrorBoundary>
+//   );
+// }
 
 // ============================================================================
 // GUIA DE MIGRAÇÃO

@@ -44,6 +44,8 @@ export class NotificationCacheManager {
           notificationStore.createIndex('is_read', 'isRead', { unique: false });
           notificationStore.createIndex('created_at', 'createdAt', { unique: false });
           notificationStore.createIndex('user_read', ['userId', 'isRead'], { unique: false });
+          // TODO: Consider adding compound index ['userId', 'createdAt'] for direct reverse-ordered pagination
+          // This would allow fetching paged results directly without in-memory sorting
         }
 
         // Create metadata store
@@ -96,20 +98,47 @@ export class NotificationCacheManager {
             cursor.continue();
           } else {
             // All existing notifications cleared, now add new ones
-            const addPromises = notifications.map(n => {
-              return new Promise<void>((resolveAdd, rejectAdd) => {
-                const request = store.add(n);
-                request.onsuccess = () => resolveAdd();
-                request.onerror = () => rejectAdd(request.error);
-              });
-            });
-
-            Promise.all(addPromises)
-              .then(() => {
+            // Create all store.add requests synchronously in the same tick to keep transaction alive
+            let errorCount = 0;
+            const addErrors: DOMException[] = [];
+            
+            for (const notification of notifications) {
+              const request = store.add(notification);
+              
+              // Optional: attach per-request handlers for logging if desired
+              request.onsuccess = () => {
+                // Individual success - can log here if needed
+              };
+              
+              request.onerror = () => {
+                errorCount++;
+                if (request.error) {
+                  addErrors.push(request.error);
+                  console.error('[IndexedDBManager] Error adding notification:', request.error);
+                }
+              };
+            }
+            
+            // Transaction lifecycle handlers
+            transaction.oncomplete = () => {
+              if (errorCount > 0) {
+                console.error(`[IndexedDBManager] Transaction completed with ${errorCount} errors`);
+                reject(addErrors[0] || new Error('Failed to add some notifications'));
+              } else {
                 console.log(`[IndexedDBManager] Saved ${notifications.length} notifications`);
                 resolve();
-              })
-              .catch(reject);
+              }
+            };
+            
+            transaction.onerror = () => {
+              console.error('[IndexedDBManager] Transaction error:', transaction.error);
+              reject(transaction.error || new Error('Transaction failed'));
+            };
+            
+            transaction.onabort = () => {
+              console.error('[IndexedDBManager] Transaction aborted');
+              reject(new Error('Transaction was aborted'));
+            };
           }
         };
         clearRequest.onerror = () => {
@@ -125,6 +154,8 @@ export class NotificationCacheManager {
 
   /**
    * Get notifications from cache with pagination
+   * Optimized to use user_id index to iterate only target user's records,
+   * eliminating O(totalRecords) scanning of unrelated records.
    */
   async getNotifications(userId: string, page: number = 1, limit: number = 10): Promise<Notification[]> {
     await this.ensureInit();
@@ -133,31 +164,42 @@ export class NotificationCacheManager {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction('notifications', 'readonly');
       const store = transaction.objectStore('notifications');
-      const index = store.index('created_at');
       
-      const notifications: Notification[] = [];
-      let count = 0;
-      const skip = (page - 1) * limit;
+      // Use user_id index to iterate only this user's records
+      const index = store.index('user_id');
+      const range = IDBKeyRange.only(userId);
+      
+      const allUserNotifications: Notification[] = [];
 
-      index.openCursor(null, 'prev').onsuccess = (event) => {
+      const request = index.openCursor(range);
+      
+      request.onsuccess = (event) => {
         const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result;
         
         if (cursor) {
           const notification = cursor.value as Notification;
-          
-          // Filter by user_id
-          if (notification.userId === userId) {
-            if (count >= skip && notifications.length < limit) {
-              notifications.push(notification);
-            }
-            count++;
-          }
-          
+          allUserNotifications.push(notification);
           cursor.continue();
         } else {
-          console.log(`[IndexedDBManager] Retrieved ${notifications.length} notifications from cache`);
-          resolve(notifications);
+          // All user's records collected, now sort by createdAt descending
+          allUserNotifications.sort((a, b) => {
+            const timeA = new Date(a.createdAt).getTime();
+            const timeB = new Date(b.createdAt).getTime();
+            return timeB - timeA; // Descending order (newest first)
+          });
+          
+          // Apply pagination
+          const skip = (page - 1) * limit;
+          const paginatedNotifications = allUserNotifications.slice(skip, skip + limit);
+          
+          console.log(`[IndexedDBManager] Retrieved ${paginatedNotifications.length} notifications from cache (page ${page}, total for user: ${allUserNotifications.length})`);
+          resolve(paginatedNotifications);
         }
+      };
+      
+      request.onerror = () => {
+        console.error('[IndexedDBManager] Error in getNotifications cursor request:', request.error);
+        reject(request.error);
       };
     });
   }
@@ -165,8 +207,17 @@ export class NotificationCacheManager {
   /**
    * Update a specific notification (upsert behavior)
    * If notification doesn't exist, it will be created
+   * @param userId - The user ID to ensure we only update notifications for the correct user
+   * @param id - The notification ID
+   * @param updates - The notification data to update
    */
-  async updateNotification(id: string, updates: Partial<Notification>): Promise<void> {
+  async updateNotification(userId: string, id: string, updates: Partial<Notification>): Promise<void> {
+    // Validate userId parameter
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      console.warn('[IndexedDBManager] updateNotification called with invalid userId:', userId);
+      throw new Error(`Invalid userId: ${userId}`);
+    }
+
     await this.ensureInit();
     if (!this.db) throw new Error('Database not initialized');
 
@@ -178,24 +229,58 @@ export class NotificationCacheManager {
       getRequest.onsuccess = () => {
         const existingNotification = getRequest.result;
         
+        // Validate that existing notification belongs to the correct user
+        if (existingNotification && existingNotification.userId !== userId) {
+          console.error(`[IndexedDBManager] Attempted to update notification ${id} for different user. Expected: ${userId}, Found: ${existingNotification.userId}`);
+          reject(new Error(`Notification ${id} does not belong to user ${userId}`));
+          return;
+        }
+        
         let updatedNotification: Notification;
         
         if (existingNotification) {
-          // Update existing notification
-          updatedNotification = { ...existingNotification, ...updates };
+          // Update existing notification, but ensure userId matches
+          updatedNotification = { ...existingNotification, ...updates, userId };
         } else {
           // Create new notification from updates (ensure all required fields)
           // Note: updates should contain all required Notification fields
           const notificationData = updates as any;
+          
+          // Validate required fields before creating new notification
+          const title = notificationData?.title;
+          const message = notificationData?.message;
+          const type = notificationData?.type;
+          
+          // Ensure all critical fields are present and non-empty
+          if (!title || typeof title !== 'string' || title.trim() === '') {
+            console.error('[IndexedDBManager] Cannot create notification: missing or invalid title');
+            reject(new Error('Cannot create notification: title is required and must be non-empty'));
+            return;
+          }
+          
+          if (!message || typeof message !== 'string' || message.trim() === '') {
+            console.error('[IndexedDBManager] Cannot create notification: missing or invalid message');
+            reject(new Error('Cannot create notification: message is required and must be non-empty'));
+            return;
+          }
+          
+          if (!type || typeof type !== 'string' || type.trim() === '') {
+            console.error('[IndexedDBManager] Cannot create notification: missing or invalid type');
+            reject(new Error('Cannot create notification: type is required and must be non-empty'));
+            return;
+          }
+          
+          // Only create notification when validation passes
+          const now = new Date().toISOString();
           updatedNotification = {
             id,
-            title: notificationData.title || '',
-            message: notificationData.message || '',
-            type: notificationData.type || 'info',
+            title: title.trim(),
+            message: message.trim(),
+            type: type.trim() as any,
             isRead: notificationData.isRead ?? false,
-            createdAt: notificationData.createdAt || new Date().toISOString(),
-            updatedAt: notificationData.updatedAt || new Date().toISOString(),
-            userId: notificationData.userId || '',
+            createdAt: notificationData.createdAt || now,
+            updatedAt: notificationData.updatedAt || now,
+            userId: userId,
             metadata: notificationData.metadata,
           };
         }
@@ -203,7 +288,7 @@ export class NotificationCacheManager {
         const updateRequest = store.put(updatedNotification);
         updateRequest.onsuccess = () => {
           const action = existingNotification ? 'Updated' : 'Created';
-          console.log(`[IndexedDBManager] ${action} notification ${id}`);
+          console.log(`[IndexedDBManager] ${action} notification ${id} for user ${userId}`);
           resolve();
         };
         updateRequest.onerror = () => {
@@ -266,6 +351,56 @@ export class NotificationCacheManager {
         };
       } catch (error) {
         console.error('[IndexedDBManager] Error creating IDBKeyRange in getUnreadCount:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Get total count of notifications from cache
+   */
+  async getTotalCount(userId: string): Promise<number> {
+    console.log('[IndexedDBManager] getTotalCount called with userId:', userId, 'type:', typeof userId);
+    
+    // Validate userId parameter
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      console.warn('[IndexedDBManager] getTotalCount called with invalid userId:', userId);
+      return 0;
+    }
+
+    await this.ensureInit();
+    if (!this.db) throw new Error('Database not initialized');
+
+    return new Promise((resolve, reject) => {
+      try {
+        const transaction = this.db!.transaction('notifications', 'readonly');
+        const store = transaction.objectStore('notifications');
+        const index = store.index('user_id');
+        
+        // Use user_id index to count all notifications for this user
+        console.log('[IndexedDBManager] Using user_id index with userId:', userId);
+        const range = IDBKeyRange.only(userId);
+        
+        let count = 0;
+        
+        const request = index.openCursor(range);
+        request.onsuccess = (event) => {
+          const cursor = (event.target as IDBRequest).result;
+          if (cursor) {
+            // Count all notifications regardless of read status
+            count++;
+            cursor.continue();
+          } else {
+            console.log(`[IndexedDBManager] Found ${count} total notifications for user ${userId}`);
+            resolve(count);
+          }
+        };
+        request.onerror = () => {
+          console.error('[IndexedDBManager] Error in getTotalCount cursor request:', request.error);
+          reject(request.error);
+        };
+      } catch (error) {
+        console.error('[IndexedDBManager] Error creating IDBKeyRange in getTotalCount:', error);
         reject(error);
       }
     });

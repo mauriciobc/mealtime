@@ -222,13 +222,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       try {
         const cachedNotifications = await cacheManager.getNotifications(currentUserId, 1, 10);
         const unreadCount = await cacheManager.getUnreadCount(currentUserId);
+        const totalCount = await cacheManager.getTotalCount(currentUserId);
         
         if (cachedNotifications.length > 0) {
           dispatch({
             type: "SET_NOTIFICATIONS",
             payload: {
               notifications: cachedNotifications,
-              totalPages: Math.ceil(cachedNotifications.length / 10),
+              totalPages: Math.ceil(totalCount / 10),
               hasMore: cachedNotifications.length === 10,
               unreadCount
             }
@@ -289,12 +290,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         // Load from cache
         const cachedNotifications = await cacheManager.getNotifications(userId, 1, 10);
         const unreadCount = await cacheManager.getUnreadCount(userId);
+        const totalCount = await cacheManager.getTotalCount(userId);
         
         dispatch({
           type: "SET_NOTIFICATIONS",
           payload: {
             notifications: cachedNotifications,
-            totalPages: Math.ceil(unreadCount / 10),
+            totalPages: Math.ceil(totalCount / 10),
             hasMore: cachedNotifications.length === 10,
             unreadCount
           }
@@ -313,13 +315,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Effect to trigger initial data fetch
   useEffect(() => {
-    if (currentUserId && pathname === '/') {
+    if (currentUserId && !userLoading && !authLoading) {
+      console.log('[NotificationProvider] User ready, fetching initial data');
       fetchInitialData(currentUserId);
     } else if (!currentUserId && !userLoading && !authLoading) {
-      // Clear cache when user logs out
-      if (currentUserId) {
-        cacheManager.clearCache(currentUserId).catch(console.error);
-      }
+      console.log('[NotificationProvider] No user logged in');
     }
   }, [currentUserId, userLoading, authLoading, pathname, fetchInitialData]);
 
@@ -344,8 +344,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           if (payload.new) {
             const normalizedNotification = normalizeNotification(payload.new);
             dispatch({ type: "ADD_NOTIFICATION", payload: normalizedNotification });
-            // Update cache
-            cacheManager.updateNotification(normalizedNotification.id, normalizedNotification).catch(console.error);
+            // Update cache with userId
+            cacheManager.updateNotification(currentUserId, normalizedNotification.id, normalizedNotification).catch(console.error);
           }
         }
       )
@@ -361,7 +361,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           console.log('[NotificationProvider] Notification updated:', payload.new);
           if (payload.new) {
             dispatch({ type: "MARK_NOTIFICATION_READ", payload: { id: payload.new.id } });
-            cacheManager.updateNotification(payload.new.id, normalizeNotification(payload.new)).catch(console.error);
+            cacheManager.updateNotification(currentUserId, payload.new.id, normalizeNotification(payload.new)).catch(console.error);
           }
         }
       )
@@ -435,10 +435,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       // Optimistic update
       dispatch({ type: "MARK_NOTIFICATION_READ", payload: { id } });
       
-      // Update cache
+      // Update cache with userId
       const notification = state.notifications.find(n => n.id === id);
       if (notification) {
-        await cacheManager.updateNotification(id, { ...notification, isRead: true });
+        await cacheManager.updateNotification(currentUserId, id, { ...notification, isRead: true });
       }
       
       // Update server
@@ -456,9 +456,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       dispatch({ type: "MARK_ALL_NOTIFICATIONS_READ" });
       
-      // Update all in cache
+      // Update all in cache with userId
       for (const notification of state.notifications.filter(n => !n.isRead)) {
-        await cacheManager.updateNotification(notification.id, { ...notification, isRead: true });
+        await cacheManager.updateNotification(currentUserId, notification.id, { ...notification, isRead: true });
       }
       
       await notificationService.markAllAsRead();

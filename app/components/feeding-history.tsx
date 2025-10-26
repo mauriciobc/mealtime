@@ -23,7 +23,7 @@ export function FeedingHistory({ logs, onMarkAsFed }: FeedingHistoryProps) {
         </div>
         <h3 className="font-medium mb-1">Nenhum registro de alimentação</h3>
         <p className="text-sm text-muted-foreground mb-4">
-          Comece a registrar alimentações para ver o histórico aqui
+          Nenhum registro encontrado para este gato, registre uma alimentação
         </p>
         {onMarkAsFed && (
           <Button onClick={onMarkAsFed} className="gap-2">

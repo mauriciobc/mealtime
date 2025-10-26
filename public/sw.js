@@ -13,21 +13,37 @@ const ASSETS_TO_CACHE = [
   '/offline.css',
 ];
 
+/**
+ * Supabase Origin Configuration
+ * 
+ * This can be configured in two ways:
+ * 1. Via global variable: Set `self.SUPABASE_ORIGIN` before service worker registration
+ * 2. Via build-time replacement: The registration script will inject it from environment variables
+ * 
+ * Environment variable: NEXT_PUBLIC_SUPABASE_URL
+ * Fallback: Production Supabase URL
+ */
+const SUPABASE_ORIGIN = (self.SUPABASE_ORIGIN || 'https://zzvmyzyszsqptgyqwqwt.supabase.co');
+
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         // Cache each asset individually to avoid complete failure if one fails
         return Promise.allSettled(
-          ASSETS_TO_CACHE.map(url => 
-            cache.add(url).catch(error => {
-              console.warn(`[Service Worker] Failed to cache ${url}:`, error);
-              return null; // Continue with other assets
-            })
-          )
+          ASSETS_TO_CACHE.map(url => cache.add(url))
         );
       })
       .then(results => {
+        // Log detailed results
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            console.log(`[Service Worker] Successfully cached: ${ASSETS_TO_CACHE[index]}`);
+          } else {
+            console.warn(`[Service Worker] Failed to cache ${ASSETS_TO_CACHE[index]}:`, result.reason);
+          }
+        });
+        
         const successful = results.filter(r => r.status === 'fulfilled').length;
         const failed = results.filter(r => r.status === 'rejected').length;
         console.log(`[Service Worker] Cache install completed: ${successful} successful, ${failed} failed`);
@@ -64,7 +80,7 @@ self.addEventListener('fetch', event => {
   }
   
   // Bypass Supabase Auth requests to avoid CORS and Service Worker interference
-  if (url.origin === 'https://zzvmyzyszsqptgyqwqwt.supabase.co') {
+  if (url.origin === SUPABASE_ORIGIN) {
     return; // Let the network handle it directly
   }
   

@@ -20,9 +20,6 @@ export async function submitFeedingAction(prevState: any, formData: FormData) {
     const amount = parseFloat(formData.get('amount') as string);
     const notes = formData.get('notes') as string;
 
-    // Simula delay de rede
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
     // Validação
     if (!catId || !amount) {
       return {
@@ -31,8 +28,12 @@ export async function submitFeedingAction(prevState: any, formData: FormData) {
       };
     }
 
+    // Construi URL absoluta para funcionar no servidor em produção
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const apiUrl = `${baseUrl}/api/feedings`;
+
     // Salva no banco
-    const response = await fetch('/api/feedings', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ catId, amount, notes }),
@@ -61,9 +62,6 @@ export async function submitFeedingAction(prevState: any, formData: FormData) {
 // ============================================================================
 
 export async function addFeedingOptimisticAction(formData: FormData) {
-  // Simula delay de rede
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
   const catId = formData.get('catId') as string;
   const amount = parseFloat(formData.get('amount') as string);
   const notes = formData.get('notes') as string || '';
@@ -73,14 +71,12 @@ export async function addFeedingOptimisticAction(formData: FormData) {
     throw new Error('Dados inválidos: catId ou quantidade ausente/inválida');
   }
 
-  // Simula erro de rede aleatório (10% de chance) para demonstrar rollback
-  if (Math.random() < 0.1) {
-    throw new Error('Erro de rede: não foi possível conectar ao servidor');
-  }
+  // Construi URL absoluta para funcionar no servidor
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.BASE_URL || 'http://localhost:3000';
+  const apiUrl = `${baseUrl}/api/feedings`;
 
-  // Simula chamada à API real
   try {
-    const response = await fetch('/api/feedings', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ catId, amount, notes }),
@@ -92,9 +88,14 @@ export async function addFeedingOptimisticAction(formData: FormData) {
 
     const data = await response.json();
     
+    // Requer ID do servidor - lança erro se ausente
+    if (!data.id) {
+      throw new Error('Servidor não retornou ID para o registro de alimentação');
+    }
+    
     // Retorna o log com o ID real do servidor
     const newLog: FeedingLog = {
-      id: data.id || Math.random().toString(), // Usa ID do servidor ou fallback
+      id: data.id,
       catId,
       amount,
       notes,
@@ -117,19 +118,29 @@ export async function addFeedingOptimisticAction(formData: FormData) {
 // ============================================================================
 
 export async function validateAndSubmit(prevState: any, formData: FormData) {
+  const catId = formData.get('catId') as string;
   const amount = formData.get('amount');
-  const notes = formData.get('notes');
+  const notes = formData.get('notes') as string || '';
 
   // Validação no servidor
   const errors: Record<string, string> = {};
 
-  if (!amount) {
-    errors.amount = 'Quantidade é obrigatória';
-  } else if (parseFloat(amount as string) <= 0) {
-    errors.amount = 'Quantidade deve ser maior que zero';
+  if (!catId) {
+    errors.catId = 'ID do gato é obrigatório';
   }
 
-  if (notes && (notes as string).length > 500) {
+  if (!amount) {
+    errors.amount = 'Quantidade é obrigatória';
+  } else {
+    const parsedAmount = parseFloat(amount as string);
+    if (isNaN(parsedAmount)) {
+      errors.amount = 'Quantidade deve ser um número válido';
+    } else if (parsedAmount <= 0) {
+      errors.amount = 'Quantidade deve ser maior que zero';
+    }
+  }
+
+  if (notes.length > 500) {
     errors.notes = 'Observações muito longas (máximo 500 caracteres)';
   }
 
@@ -139,18 +150,33 @@ export async function validateAndSubmit(prevState: any, formData: FormData) {
 
   // Salva no banco
   try {
-    await fetch('/api/feedings', {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const apiUrl = new URL('/api/feedings', baseUrl).toString();
+
+    const parsedAmount = parseFloat(amount as string);
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        amount: parseFloat(amount as string),
-        notes: notes || '',
+        catId,
+        amount: parsedAmount,
+        notes,
       }),
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      return {
+        errors: { submit: `Erro ao salvar no servidor: ${response.status} ${errorBody}` },
+        success: false,
+      };
+    }
 
     return { errors: {}, success: true };
   } catch (error) {
     return {
-      errors: { submit: 'Erro ao salvar no servidor' },
+      errors: { submit: error instanceof Error ? error.message : 'Erro ao salvar no servidor' },
       success: false,
     };
   }

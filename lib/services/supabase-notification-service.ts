@@ -10,17 +10,29 @@ export class SupabaseNotificationService {
 
   /**
    * Normalize notification data from Supabase format to client format
+   * @throws {Error} If required fields (created_at, updated_at, user_id) are missing
    */
   private normalizeNotification(raw: any): Notification {
+    // Validate required fields
+    if (!raw.created_at) {
+      throw new Error('Missing required notification field: created_at');
+    }
+    if (!raw.updated_at) {
+      throw new Error('Missing required notification field: updated_at');
+    }
+    if (!raw.user_id) {
+      throw new Error('Missing required notification field: user_id');
+    }
+
     return {
       id: String(raw.id),
       title: raw.title,
       message: raw.message,
       type: raw.type,
       isRead: raw.is_read ?? false,
-      createdAt: raw.created_at || '',
-      updatedAt: raw.updated_at || '',
-      userId: raw.user_id || '',
+      createdAt: raw.created_at,
+      updatedAt: raw.updated_at,
+      userId: raw.user_id,
       metadata: raw.metadata ?? undefined,
     };
   }
@@ -66,7 +78,16 @@ export class SupabaseNotificationService {
       throw new Error(error.message);
     }
 
-    const notifications = (data || []).map(n => this.normalizeNotification(n));
+    // Normalize notifications and handle potential data integrity issues
+    const notifications = (data || []).map(n => {
+      try {
+        return this.normalizeNotification(n);
+      } catch (error) {
+        console.error('[SupabaseNotificationService] Failed to normalize notification:', error, n);
+        throw error; // Re-throw to propagate the error
+      }
+    });
+    
     const total = count || 0;
     const totalPages = Math.ceil(total / limit);
     const hasMore = page < totalPages;
@@ -214,7 +235,16 @@ export class SupabaseNotificationService {
       throw new Error(error.message);
     }
 
-    return this.normalizeNotification(data);
+    if (!data) {
+      throw new Error('Failed to create notification: no data returned');
+    }
+
+    try {
+      return this.normalizeNotification(data);
+    } catch (error) {
+      console.error('[SupabaseNotificationService] Failed to normalize created notification:', error, data);
+      throw error;
+    }
   }
 }
 

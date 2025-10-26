@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo, useTransition, useDeferredValue } from "react"
+import React, { useState, useMemo, useTransition, useDeferredValue } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -105,14 +105,6 @@ export default function FeedingsPage() {
   // React 19 transitions for better UX
   const [isPending, startTransition] = useTransition()
   const deferredSearchTerm = useDeferredValue(searchTerm)
-
-  // Handle unauthenticated user redirect (must be at top level)
-  useEffect(() => {
-    if (!currentUser) {
-      toast.error("Autenticação necessária para ver o histórico.");
-      router.replace("/login?callbackUrl=/feedings");
-    }
-  }, [currentUser, router]);
 
   // Memoized filtering and sorting with useTransition
   const filteredAndSortedLogs = useMemo(() => {
@@ -247,6 +239,8 @@ export default function FeedingsPage() {
 
   // 3. Handle No Authenticated User Found (after loading/error checks)
   if (!currentUser) {
+    toast.error("Autenticação necessária para ver o histórico.");
+    router.replace("/login?callbackUrl=/feedings");
     return <Loading text="Redirecionando para login..." />;
   }
 
