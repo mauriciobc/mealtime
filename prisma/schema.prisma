@@ -111,7 +111,10 @@ model notifications {
   is_read    Boolean  @default(false)
   metadata   Json     @default("{}")
 
-  // Note: The actual unique constraint on JSONB fields (metadata->>'catId', metadata->>'expectedTime') must be added via a raw SQL migration, as Prisma does not support functional indexes on JSON fields directly.
+  // Optimized indexes for frequent queries
+  @@index([user_id, is_read, created_at(sort: Desc)])
+  @@index([user_id, type, created_at(sort: Desc)])
+  @@index([user_id])
   @@schema("public")
 }
 

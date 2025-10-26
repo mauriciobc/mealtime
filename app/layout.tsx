@@ -4,7 +4,7 @@ import "@/app/globals.css"
 import { cn } from "@/lib/utils"
 import { fontSans, fontHeading } from "@/lib/fonts"
 import { RootClientLayout } from "@/components/layout/root-client-layout"
-import Script from 'next/script'
+import { ServiceWorkerRegister } from "@/components/service-worker-register"
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://mealtime.app'),
@@ -71,7 +71,7 @@ export default function RootLayout({
         <RootClientLayout>
           {children}
         </RootClientLayout>
-        <Script src="/register-sw.js" strategy="afterInteractive" />
+        <ServiceWorkerRegister />
       </body>
     </html>
   )

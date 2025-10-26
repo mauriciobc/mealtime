@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, X, Clock, Calendar, ArrowRight } from "lucide-react";
+import { Bell, Check, X, ArrowRight, WifiOff, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import {
   Popover,
@@ -13,13 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNotifications } from "@/lib/context/NotificationContext";
 import { toast } from "sonner";
-import { formatDistanceToNow } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { Notification, NotificationType } from "@/lib/types/notification";
+import { Notification } from "@/lib/types/notification";
 import { NotificationItem } from "./notification-item";
-import { useRouter } from "next/navigation";
+import { ConnectionIndicator } from "./connection-indicator";
 
 export function NotificationCenter() {
   const { 
@@ -29,23 +27,23 @@ export function NotificationCenter() {
     markAllAsRead, 
     removeNotification,
     refreshNotifications,
-    isLoading 
+    isLoading,
+    isSyncing,
+    isOnline,
+    connectionStatus,
   } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<number>(0);
-  const router = useRouter();
 
   // Refresh notifications when the popover is opened
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
     
-    if (isOpen && !isLoading) {
+    if (isOpen && !isLoading && !isSyncing) {
       const now = Date.now();
       // Only refresh if it's been more than 5 seconds since last refresh
       if (now - lastRefresh > 5000) {
-        console.log(`[NotificationCenter] Popover opened, scheduling refresh`);
         timeoutId = setTimeout(() => {
-          console.log(`[NotificationCenter] Executing debounced refresh`);
           refreshNotifications();
           setLastRefresh(now);
         }, 300);
@@ -57,81 +55,38 @@ export function NotificationCenter() {
         clearTimeout(timeoutId);
       }
     };
-  }, [isOpen, refreshNotifications, isLoading, lastRefresh]);
+  }, [isOpen, refreshNotifications, isLoading, isSyncing, lastRefresh]);
 
   // Marcar todas as notificações como lidas
   const handleMarkAllAsRead = async () => {
-    console.log(`[NotificationCenter] Marking all notifications as read`);
     try {
       await markAllAsRead();
-      // Refresh notifications after marking all as read
-      await refreshNotifications();
       toast.success("Todas as notificações foram marcadas como lidas");
-      // Close the popover after successful action
       setIsOpen(false);
     } catch (error) {
-      console.error(`[NotificationCenter] Error marking all notifications as read:`, error);
-      toast.error(error instanceof Error ? error.message : "Não foi possível marcar todas as notificações como lidas");
+      console.error(`[NotificationCenter] Error marking all as read:`, error);
+      toast.error("Não foi possível marcar todas as notificações como lidas");
     }
   };
 
   // Marcar uma notificação como lida
-  const handleMarkAsRead = async (id: number) => {
-    console.log(`[NotificationCenter] Marking notification as read:`, { id });
+  const handleMarkAsRead = async (id: string) => {
     try {
       await markAsRead(id);
-      // Refresh notifications after marking as read
-      await refreshNotifications();
-      toast.success("Notificação marcada como lida");
     } catch (error) {
-      console.error(`[NotificationCenter] Error marking notification as read:`, error);
-      toast.error(error instanceof Error ? error.message : "Não foi possível marcar a notificação como lida");
+      console.error(`[NotificationCenter] Error marking as read:`, error);
+      toast.error("Não foi possível marcar a notificação como lida");
     }
   };
 
   // Handle notification removal
-  const handleRemoveNotification = async (id: number) => {
-    console.log(`[NotificationCenter] Removing notification:`, { id });
+  const handleRemoveNotification = async (id: string) => {
     try {
       await removeNotification(id);
-      // Close the popover after successful deletion
-      setIsOpen(false);
       toast.success("Notificação removida");
     } catch (error) {
       console.error(`[NotificationCenter] Error removing notification:`, error);
-      toast.error(error instanceof Error ? error.message : "Não foi possível remover a notificação");
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    try {
-      const response = await fetch("/api/notifications", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title,
-          message,
-          type,
-          userId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create notification");
-      }
-
-      toast.success("Notificação criada com sucesso");
-      router.push("/notifications");
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao criar notificação");
-    } finally {
-      setIsLoading(false);
+      toast.error("Não foi possível remover a notificação");
     }
   };
 
@@ -149,18 +104,44 @@ export function NotificationCenter() {
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between p-4">
-          <h3 className="font-medium">Notificações</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">Notificações</h3>
+            <ConnectionIndicator status={connectionStatus} />
+          </div>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead}>
-              Marcar todas como lidas
+              Marcar todas
             </Button>
           )}
         </div>
+
+        {/* Offline warning */}
+        {!isOnline && (
+          <Alert className="m-2" variant="default">
+            <WifiOff className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              Você está offline. As notificações serão sincronizadas quando voltar online.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Syncing indicator */}
+        {isSyncing && (
+          <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            Sincronizando...
+          </div>
+        )}
+
         <Separator />
         <ScrollArea className="h-[400px]">
           <div className="p-2">
-            {notifications.length === 0 ? (
-              <div className="text-center text-sm text-muted-foreground py-4">
+            {isLoading ? (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Carregando notificações...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-8">
                 Nenhuma notificação
               </div>
             ) : (
@@ -174,7 +155,7 @@ export function NotificationCenter() {
                       <NotificationItem 
                         notification={notification} 
                         onClick={() => setIsOpen(false)}
-                        showActions={true}
+                        showActions={false}
                       />
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

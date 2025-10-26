@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
@@ -35,7 +35,7 @@ interface FeedingLogItemProps {
   onDelete?: () => void;
 }
 
-export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItemProps) {
+export const FeedingLogItem = memo(function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItemProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { state: catsState } = useCats();
   const { cats, isLoading: isLoadingCats } = catsState;
@@ -43,47 +43,34 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
   const userLanguage = userState.currentUser?.preferences?.language;
   const userLocale = resolveDateFnsLocale(userLanguage);
 
-  // --- DEBUGGING LOGS START ---
-  console.log('[FeedingLogItem] Rendering log:', log);
-  console.log('[FeedingLogItem] Available cats:', cats);
-  console.log(`[FeedingLogItem] Looking for catId: '${log.catId}'`);
-  // --- DEBUGGING LOGS END ---
-
-  const cat = cats?.find(c => c.id === log.catId);
-
-  // --- DEBUGGING LOGS START ---
-  if (cats && log.catId) {
-    const foundCat = cats.find(c => c.id === log.catId);
-    console.log(`[FeedingLogItem] Found cat object:`, foundCat);
-    if (!foundCat) {
-      console.warn(`[FeedingLogItem] Cat ID '${log.catId}' not found in cats list:`, cats.map(c => c.id));
-    }
-  }
-  // --- DEBUGGING LOGS END ---
+  // Memoize cat lookup for better performance
+  const cat = useMemo(() => {
+    return cats?.find(c => c.id === log.catId);
+  }, [cats, log.catId]);
 
   const showActions = onView || onEdit || onDelete;
 
-  const handleDeleteClick = () => {
+  const handleDeleteClick = useCallback(() => {
     setShowDeleteDialog(true);
-  };
+  }, []);
 
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(() => {
     if (onDelete) {
       onDelete();
     }
     setShowDeleteDialog(false);
-  };
+  }, [onDelete]);
 
-  const getCatName = () => {
+  const getCatName = useMemo(() => {
     if (isLoadingCats) return "Carregando...";
     return cat?.name || "Gato não identificado";
-  };
+  }, [isLoadingCats, cat?.name]);
 
-  const getCatInitials = () => {
+  const getCatInitials = useMemo(() => {
     if (isLoadingCats) return "..";
     const name = cat?.name || "??";
     return name.substring(0, 2).toUpperCase();
-  };
+  }, [isLoadingCats, cat?.name]);
 
   // Improved photo URL handling
   const catPhotoUrl = useMemo(() => {
@@ -91,6 +78,14 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
     if (!cat) return "";
     return cat.photo_url || "";
   }, [isLoadingCats, cat]);
+
+  // Memoize click handler
+  const handleCardClick = useCallback((e: React.MouseEvent) => {
+    if (onView) {
+      e.stopPropagation();
+      onView();
+    } 
+  }, [onView]);
 
   // Show loading state while cats are being loaded
   if (isLoadingCats) {
@@ -114,27 +109,22 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
       <motion.div 
         whileHover={{ y: -2, transition: { duration: 0.2 } }}
         className={`cursor-pointer ${!onView ? 'pointer-events-none' : ''}`}
-        onClick={(e) => {
-          if (onView) {
-            e.stopPropagation();
-            onView();
-          } 
-        }}
+        onClick={handleCardClick}
       >
         <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
               <Avatar>
-                <AvatarImage src={catPhotoUrl} alt={getCatName()} />
+                <AvatarImage src={catPhotoUrl} alt={getCatName} />
                 <AvatarFallback className="bg-emerald-100 text-emerald-500">
-                  {getCatInitials()}
+                  {getCatInitials}
                 </AvatarFallback>
               </Avatar>
 
               <div className="flex-1">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-medium">{getCatName()}</h3>
+                    <h3 className="font-medium">{getCatName}</h3>
                     {log.user?.name && (
                       <p className="text-sm text-muted-foreground">
                         Alimentado por {log.user.name}
@@ -144,10 +134,10 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
                   <div className="flex items-center">
                     <div className="text-right mr-2">
                       <p className="text-sm font-medium">
-                        {format(new Date(log.timestamp), "HH:mm")}
+                        {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(log.timestamp), "dd/MM/yyyy")}
+                        {format(new Date(log.timestamp), "dd/MM/yyyy", { locale: userLocale })}
                       </p>
                     </div>
                     {showActions && (
@@ -237,4 +227,4 @@ export function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItem
       )}
     </>
   );
-} 
+}); 

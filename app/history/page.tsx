@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useTransition, useDeferredValue } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -65,6 +64,10 @@ export default function HistoryPage() {
   const userLanguage = userState.currentUser?.preferences?.language;
   const userLocale = resolveDateFnsLocale(userLanguage);
   
+  // React 19 transitions for better UX
+  const [isPending, startTransition] = useTransition()
+  const deferredSearchQuery = useDeferredValue(searchQuery)
+  
   useEffect(() => {
     async function loadData() {
       try {
@@ -88,41 +91,51 @@ export default function HistoryPage() {
     loadData()
   }, [])
   
-  // Filtrar e ordenar os registros
+  // Filtrar e ordenar os registros com useTransition
   useEffect(() => {
-    let filtered = [...feedingLogs]
-    
-    // Filtrar por gato
-    if (selectedCat !== "all") {
-      filtered = filtered.filter(log => log.catId === parseInt(selectedCat))
-    }
-    
-    // Filtrar por termo de busca
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      filtered = filtered.filter(log => 
-        log.cat.name.toLowerCase().includes(query) ||
-        log.notes?.toLowerCase().includes(query) ||
-        log.user.name.toLowerCase().includes(query)
-      )
-    }
-    
-    // Ordenar por data
-    filtered.sort((a, b) => {
-      const dateA = new Date(a.timestamp).getTime()
-      const dateB = new Date(b.timestamp).getTime()
-      return sortOrder === "asc" ? dateA - dateB : dateB - dateA
+    startTransition(() => {
+      let filtered = [...feedingLogs]
+      
+      // Filtrar por gato
+      if (selectedCat !== "all") {
+        filtered = filtered.filter(log => log.catId === parseInt(selectedCat))
+      }
+      
+      // Filtrar por termo de busca usando deferred value
+      if (deferredSearchQuery) {
+        const query = deferredSearchQuery.toLowerCase()
+        filtered = filtered.filter(log => 
+          log.cat.name.toLowerCase().includes(query) ||
+          log.notes?.toLowerCase().includes(query) ||
+          log.user.name.toLowerCase().includes(query)
+        )
+      }
+      
+      // Ordenar por data
+      filtered.sort((a, b) => {
+        const dateA = new Date(a.timestamp).getTime()
+        const dateB = new Date(b.timestamp).getTime()
+        return sortOrder === "asc" ? dateA - dateB : dateB - dateA
+      })
+      
+      setFilteredLogs(filtered)
     })
-    
-    setFilteredLogs(filtered)
-  }, [feedingLogs, searchQuery, selectedCat, sortOrder])
+  }, [feedingLogs, deferredSearchQuery, selectedCat, sortOrder])
   
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value)
   }
   
   const toggleSortOrder = () => {
-    setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    startTransition(() => {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    })
+  }
+  
+  const handleCatChange = (catId: string) => {
+    startTransition(() => {
+      setSelectedCat(catId)
+    })
   }
   
   const containerVariants = {
@@ -180,7 +193,7 @@ export default function HistoryPage() {
             
             <Select
               value={selectedCat}
-              onValueChange={setSelectedCat}
+              onValueChange={handleCatChange}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Filtrar por gato" />
@@ -196,7 +209,7 @@ export default function HistoryPage() {
             </Select>
           </div>
           
-          {isLoading ? (
+          {isLoading || isPending ? (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <Card key={i} className="animate-pulse">
@@ -249,10 +262,10 @@ export default function HistoryPage() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-medium">
-                                {format(new Date(log.timestamp), "HH:mm")}
+                                {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {format(new Date(log.timestamp), "dd/MM/yyyy")}
+                                {format(new Date(log.timestamp), "dd/MM/yyyy", { locale: userLocale })}
                               </p>
                             </div>
                           </div>

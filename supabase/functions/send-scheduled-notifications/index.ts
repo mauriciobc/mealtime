@@ -1,8 +1,14 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+// @ts-ignore - Edge Functions Deno environment
+import { createClient } from "npm:@supabase/supabase-js@2";
 
+// Declare Deno types for TypeScript
+declare const Deno: any;
+
+// @ts-ignore - Deno environment
 Deno.serve(async (req: Request) => {
   // Debug: log all environment variables
+  // @ts-ignore - Deno environment
   const envVars = Object.fromEntries(Deno.env.toObject ? Object.entries(Deno.env.toObject()) : []);
   console.log('[Edge Debug] Environment Variables:', envVars);
 
@@ -10,7 +16,9 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { status: 200 });
   }
 
+  // @ts-ignore - Deno environment
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? 'https://zzvmyzyszsqptgyqwqwt.supabase.co';
+  // @ts-ignore - Deno environment
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!SUPABASE_SERVICE_ROLE_KEY) {
     console.error('SUPABASE_SERVICE_ROLE_KEY is not set in environment variables. All envs:', envVars);
@@ -19,7 +27,18 @@ Deno.serve(async (req: Request) => {
       status: 500,
     });
   }
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    },
+    global: {
+      headers: {
+        'x-client-info': 'edge-function-scheduled-notifications'
+      }
+    }
+  });
 
   try {
     // 1. Query for scheduled notifications to deliver
@@ -81,10 +100,21 @@ Deno.serve(async (req: Request) => {
       status: 200,
     });
   } catch (error) {
-    console.error('[Edge Function Error]', error);
-    return new Response(JSON.stringify({ error: error.message ?? String(error) }), {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
+    console.error('[Edge Function Error]', {
+      error: error,
+      message: errorMessage,
+      stack: errorStack,
+      timestamp: new Date().toISOString(),
+      url: req.url,
+      method: req.method
+    });
+    
+    return new Response(JSON.stringify({ error: errorMessage }), {
       headers: { 'Content-Type': 'application/json' },
-      status: 400,
+      status: 500,
     });
   }
 }); 

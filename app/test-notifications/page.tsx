@@ -5,17 +5,17 @@ import { useState, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNotifications } from "@/lib/context/NotificationContext";
-import { createNotification, scheduleNotification } from "@/lib/services/notificationService";
+import { notificationService } from "@/lib/services/supabase-notification-service";
 import { useUserContext } from "@/lib/context/UserContext";
 import { toast } from "sonner";
-import { NotificationType, CreateNotificationPayload } from "@/lib/types/notification";
+import { NotificationType } from "@/lib/types/notification";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 import { useCats } from "@/lib/context/CatsContext";
-// import { initializeCronJobs } from '../lib/services/cron-service.ts';
+import { createClient } from "@/utils/supabase/client";
 
 interface LogEntry {
   timestamp: Date;
@@ -124,19 +124,20 @@ export default function TestNotificationsPage() {
     setIsLoading(true);
 
     try {
-      const payload: Omit<CreateNotificationPayload, 'userId' | 'householdId'> = {
+      const payload = {
         type,
         title,
         message,
+        isRead: false,
         metadata: { 
-            // Include any relevant metadata if needed, e.g., action_url
-            // icon: getIconForType(type) // Example if you have such a function
+          // Include any relevant metadata if needed, e.g., action_url
+          // icon: getIconForType(type) // Example if you have such a function
         }
       };
-      console.log("[TestNotificationsPage] Calling createNotification service with simplified payload:", payload);
+      console.log("[TestNotificationsPage] Calling notificationService.createNotification with payload:", payload);
 
-      const response = await createNotification(payload);
-      console.log("[TestNotificationsPage] createNotification service responded:", response);
+      const response = await notificationService.createNotification(payload);
+      console.log("[TestNotificationsPage] notificationService.createNotification responded:", response);
       
       addLog({
         timestamp: new Date(),
@@ -212,38 +213,45 @@ export default function TestNotificationsPage() {
     }
     setIsLoading(true);
     try {
-      // For demo: schedule an interval feeding with a short interval (e.g., 0.0083 hours ≈ 30 seconds)
-      // In a real UI, let user select cat and type, and set interval/times accordingly
-      const interval = (intervalMinutes * 60 + intervalSeconds) / 3600; // hours
-      const payload: any = {
-        catId: selectedCatId,
-        type: "interval",
-        interval: interval > 0 ? interval : 0.0083, // fallback to 30s if 0
-        enabled: true,
+      // Calculate delivery time based on interval
+      const totalSeconds = (intervalMinutes * 60 + intervalSeconds);
+      const deliverAt = new Date(Date.now() + (totalSeconds * 1000));
+      
+      const payload = {
+        type,
+        title,
+        message,
+        deliverAt: deliverAt.toISOString(),
+        catId: selectedCatId || undefined,
       };
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'X-User-ID': userState.currentUser.id,
-      };
-      const response = await fetch("/api/schedules", {
+      
+      console.log("[TestNotificationsPage] Scheduling notification with payload:", payload);
+      
+      const response = await fetch("/api/scheduled-notifications", {
         method: "POST",
-        headers,
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       });
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao criar agendamento");
+        throw new Error(errorData.error || "Falha ao criar notificação agendada");
       }
-      const newSchedule = await response.json();
+      
+      const scheduledNotification = await response.json();
+      
       addLog({
         timestamp: new Date(),
         type,
         title,
-        message: `Agendamento criado para o catId ${selectedCatId} (${intervalMinutes}m ${intervalSeconds}s)`,
+        message: `Notificação agendada para ${deliverAt.toLocaleString('pt-BR')} (${intervalMinutes}m ${intervalSeconds}s)`,
         status: "success",
-        details: { payload, response: newSchedule }
+        details: { payload, response: scheduledNotification }
       });
-      toast.success("Agendamento criado com sucesso!");
+      
+      toast.success("Notificação agendada com sucesso!");
       await refreshNotifications();
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : "Erro desconhecido ao agendar notificação";
@@ -275,16 +283,55 @@ export default function TestNotificationsPage() {
     }
     setIsScheduling(true);
     try {
-      await scheduleNotification({
+      const payload = {
         type: form.type,
         title: form.title,
         message: form.message,
         deliverAt: deliverAtDate.toISOString(),
         catId: form.catId || undefined,
+      };
+      
+      const response = await fetch("/api/scheduled-notifications", {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Falha ao criar notificação agendada");
+      }
+      
+      const scheduledNotification = await response.json();
+      
+      addLog({
+        timestamp: new Date(),
+        type: form.type as NotificationType,
+        title: form.title,
+        message: `Notificação agendada para ${deliverAtDate.toLocaleString('pt-BR')}`,
+        status: "success",
+        details: { payload, response: scheduledNotification }
+      });
+      
       toast.success('Notificação agendada com sucesso!');
       setForm({ type: '', title: '', message: '', deliverAt: '', catId: '' });
     } catch (err: any) {
+      console.error('[TestNotificationsPage] Error scheduling notification:', err);
+      
+      addLog({
+        timestamp: new Date(),
+        type: form.type as NotificationType,
+        title: form.title,
+        message: form.message,
+        status: "error",
+        details: { 
+          error: err?.message || 'Erro desconhecido',
+          errorObject: err
+        }
+      });
+      
       toast.error('Falha ao agendar notificação: ' + (err?.message || 'Erro desconhecido'));
     } finally {
       setIsScheduling(false);
@@ -363,7 +410,7 @@ export default function TestNotificationsPage() {
   };
 
   useEffect(() => {
-    if (cats.length > 0 && !selectedCatId) {
+    if (cats.length > 0 && !selectedCatId && cats[0]) {
       setSelectedCatId(cats[0].id);
     }
   }, [cats, selectedCatId]);

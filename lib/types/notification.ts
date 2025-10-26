@@ -8,6 +8,25 @@ export type NotificationType =
   | 'warning'    // Warnings
   | 'error';     // Errors
 
+// Connection status for Realtime
+export type ConnectionStatus = 'connected' | 'disconnected' | 'reconnecting' | 'error';
+
+// Cache metadata for IndexedDB
+export interface NotificationCache {
+  notifications: Notification[];
+  unreadCount: number;
+  lastSync: string;
+  version: number;
+}
+
+// Cache metadata per user
+export interface CacheMetadata {
+  userId: string;
+  lastSync: string;
+  version: number;
+  lastUpdated: string;
+}
+
 export interface Notification {
   id: string;  // UUID
   title: string;
@@ -55,4 +74,14 @@ export interface ScheduledNotification {
   deliveredAt?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Pagination response
+export interface PaginatedNotificationResponse {
+  notifications: Notification[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
 }

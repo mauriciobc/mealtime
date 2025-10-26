@@ -3,8 +3,9 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import prisma from '@/lib/prisma';
-import { User as Profile } from '@/lib/types'; // Use User as Profile, ensure types match
-import { ReadonlyRequestCookies, RequestCookies } from 'next/dist/server/web/spec-extension/cookies'; // Import types
+import { profiles } from '@prisma/client';
+
+type Profile = profiles;
 
 // Helper to create Supabase client in Server Actions with async cookie store
 function createSupabaseServerClient() {
@@ -62,68 +63,92 @@ export async function getUserProfile(): Promise<{ data: Profile | null; error: s
 
     console.log(`[Server Action getUserProfile] Processing request for user ID: ${user.id}`);
 
-    // 1. Try to find the existing profile
-    let profile = await prisma.profiles.findUnique({
-      where: { id: user.id },
-    });
-
-    // 2. If profile doesn't exist, create it
-    if (!profile) {
-      console.log(`[Server Action getUserProfile] Profile not found for user ${user.id}. Creating new profile.`);
+    // Add retry logic for database connection errors
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        profile = await prisma.profiles.create({
-          data: {
-            id: user.id,
-            email: user.email || 'missing_email@example.com', // Ensure email is provided
-            full_name: user.user_metadata?.full_name || '', // Use metadata if available
-            // Add defaults for other fields if necessary, e.g., timezone
-            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          },
+        // 1. Try to find the existing profile
+        let profile = await prisma.profiles.findUnique({
+          where: { id: user.id },
         });
-        console.log('[Server Action getUserProfile] New profile created successfully:', profile);
-      } catch (createError) {
-        console.error('[Server Action getUserProfile] Prisma create FAILED:', {
-          userId: user.id,
-          error: createError,
-          errorMessage: createError instanceof Error ? createError.message : 'Unknown Prisma create error',
-        });
+
+        // 2. If profile doesn't exist, create it
+        if (!profile) {
+          console.log(`[Server Action getUserProfile] Profile not found for user ${user.id}. Creating new profile.`);
+          try {
+            profile = await prisma.profiles.create({
+              data: {
+                id: user.id,
+                email: user.email || 'missing_email@example.com', // Ensure email is provided
+                full_name: user.user_metadata?.full_name || '', // Use metadata if available
+                // Add defaults for other fields if necessary, e.g., timezone
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              },
+            });
+            console.log('[Server Action getUserProfile] New profile created successfully:', profile);
+          } catch (createError) {
+            console.error('[Server Action getUserProfile] Prisma create FAILED:', {
+              userId: user.id,
+              error: createError,
+              errorMessage: createError instanceof Error ? createError.message : 'Unknown Prisma create error',
+            });
+            
+            // Check if it's a connection error and retry
+            const errorMessage = createError instanceof Error ? createError.message : 'Unknown error';
+            const isConnectionError = errorMessage.includes('Can\'t reach database server') || 
+                errorMessage.includes('Connection') ||
+                errorMessage.includes('timeout') ||
+                errorMessage.includes('ECONNREFUSED');
+            
+            if (isConnectionError && attempt < maxRetries) {
+              console.log(`[Server Action getUserProfile] Connection error detected. Retry attempt ${attempt + 1}/${maxRetries}`);
+              await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+              continue; // Retry the whole operation
+            }
+            
+            return {
+              data: null,
+              error: `Database create operation failed: ${errorMessage}`
+            };
+          }
+        } else {
+          console.log('[Server Action getUserProfile] Existing profile found:', profile);
+        }
+
+        // 3. Return the found or newly created profile
+        // Ensure the returned profile matches the expected 'Profile' type from lib/types.ts
+        // Type assertion might be needed if Prisma's return type isn't perfectly aligned,
+        // but usually, direct return works if the model and type match.
+        return { data: profile as Profile, error: null };
+
+      } catch (error) {
+        // Check if it's a connection error and retry
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        const isConnectionError = errorMessage.includes('Can\'t reach database server') || 
+            errorMessage.includes('Connection') ||
+            errorMessage.includes('timeout') ||
+            errorMessage.includes('ECONNREFUSED');
+        
+        if (isConnectionError && attempt < maxRetries) {
+          console.log(`[Server Action getUserProfile] Connection error on attempt ${attempt}. Retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+          continue; // Retry
+        }
+        
+        console.error('[Server Action getUserProfile] General error:', error);
         return {
           data: null,
-          error: `Database create operation failed: ${createError instanceof Error ? createError.message : 'Unknown error'}`
+          error: error instanceof Error ? error.message : 'Unknown error occurred fetching profile'
         };
       }
-    } else {
-      console.log('[Server Action getUserProfile] Existing profile found:', profile);
-      // Optional: Check if any fields need updating based on Supabase user data
-      // For example, if email needs syncing (be cautious about verified status)
-      // let needsUpdate = false;
-      // const updateData: Partial<Profile> = {};
-      // if (user.email && profile.email !== user.email) {
-      //   updateData.email = user.email;
-      //   needsUpdate = true;
-      // }
-      // if (needsUpdate) {
-      //   try {
-      //     profile = await prisma.profiles.update({
-      //       where: { id: user.id },
-      //       data: updateData,
-      //     });
-      //     console.log('[Server Action getUserProfile] Profile updated:', profile);
-      //   } catch (updateError) {
-      //     console.error('[Server Action getUserProfile] Prisma update FAILED:', updateError);
-      //     // Decide how to handle update errors, maybe return old profile or error
-      //   }
-      // }
     }
-
-    // 3. Return the found or newly created profile
-    // Ensure the returned profile matches the expected 'Profile' type from lib/types.ts
-    // Type assertion might be needed if Prisma's return type isn't perfectly aligned,
-    // but usually, direct return works if the model and type match.
-    return { data: profile as Profile, error: null };
+    
+    // All retries exhausted
+    return { data: null, error: 'Failed to fetch profile after multiple retries' };
 
   } catch (error) {
-    console.error('[Server Action getUserProfile] General error:', error);
+    console.error('[Server Action getUserProfile] Outer catch error:', error);
     return {
       data: null,
       error: error instanceof Error ? error.message : 'Unknown error occurred fetching profile'

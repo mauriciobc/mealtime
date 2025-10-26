@@ -1,8 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-import { Database } from '@/lib/database.types';
-import { createRouteHandlerCookieStore } from '@/lib/supabase/cookie-store';
 import { createClient as createServerSupabaseClient } from '@/utils/supabase/server';
 import { z } from 'zod';
 
@@ -160,9 +156,8 @@ export async function POST(request: Request) {
     }
     const { catId, targetWeight, targetDate, startWeight, notes, goalName, unit } = parseResult.data;
 
-    // Corrigir uso de cookies para o client
-    const cookieStore = cookies;
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore() });
+    // Usar o client padrão do projeto, que já pega os cookies do request
+    const supabase = await createServerSupabaseClient();
 
     // Verificar se o gato pertence à casa
     const { data: cat, error: catError } = await supabase
@@ -255,9 +250,8 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { targetWeight, targetDate, startWeight, status, notes, goalName, unit } = body;
 
-    // Corrigir uso de cookies para o client
-    const cookieStore = cookies;
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore() });
+    // Usar o client padrão do projeto, que já pega os cookies do request
+    const supabase = await createServerSupabaseClient();
 
     // Verificar se a meta pertence a um gato da casa
     const { data: goal, error: goalError } = await supabase
@@ -359,9 +353,8 @@ export async function DELETE(request: Request) {
       );
     }
 
-    // Corrigir uso de cookies para o client
-    const cookieStore = cookies;
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore() });
+    // Usar o client padrão do projeto, que já pega os cookies do request
+    const supabase = await createServerSupabaseClient();
 
     // Verificar se a meta pertence a um gato da casa
     const { data: goal, error: goalError } = await supabase

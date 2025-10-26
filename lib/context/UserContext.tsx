@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { createClient } from '@/utils/supabase/client'; // Import Supabase client
 import { User as SupabaseUser } from '@supabase/supabase-js'; // Import Supabase types
-import { useLoading } from "./LoadingContext";
+import { isAuthApiError } from '@supabase/supabase-js'; // Import Supabase error detection
 import { toast } from "sonner";
 import { User as CurrentUserType, NotificationSettings } from "@/lib/types";
 import { getUserProfile, getFirstHouseholdMembership } from '@/lib/actions/userActions'; // Import the Server Actions
@@ -27,22 +27,22 @@ interface UserAction {
 }
 
 function userReducer(state: UserState, action: UserAction): UserState {
-  console.log(`[userReducer] Dispatching: ${action.type}`, action.payload);
+  // Only log in development mode
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[userReducer] Dispatching: ${action.type}`, action.payload);
+  }
+  
   switch (action.type) {
     case "FETCH_START":
-      console.log("[userReducer] FETCH_START -> isLoading: true");
       return { ...state, isLoading: true, error: null };
     case "SET_CURRENT_USER":
-      console.log("[userReducer] SET_CURRENT_USER -> isLoading: false, currentUser:", action.payload);
       return { ...state, isLoading: false, currentUser: action.payload as CurrentUserType | null, error: null };
     case "FETCH_ERROR":
       console.error("[userReducer] FETCH_ERROR -> isLoading: false, error:", action.payload);
       return { ...state, isLoading: false, error: action.payload as string };
     case "CLEAR_USER":
-      console.warn("[userReducer] CLEAR_USER -> isLoading: false, currentUser: null");
       return { ...initialState, isLoading: false };
     default:
-      console.warn("[userReducer] Unknown action type:", action.type);
       return state;
   }
 }
@@ -53,6 +53,8 @@ interface UserContextValue {
   authLoading: boolean;
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  pauseAuthChecks: () => void;
+  resumeAuthChecks: () => void;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -89,7 +91,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       logger.info("[UserProvider] Supabase client initialized successfully");
       return client;
     } catch (error) {
-      logger.error("[UserProvider] Error initializing Supabase client:", error);
+      logger.error("[UserProvider] Error initializing Supabase client:", { error: String(error) });
       throw error;
     }
   });
@@ -99,6 +101,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const lastProfileFetchRef = useRef<string | null>(null);
   const authCheckCountRef = useRef(0);
   const authChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const authChecksPausedRef = useRef(false);
 
   // Set mounted ref
   useEffect(() => {
@@ -147,15 +150,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (fetchError != null) {
         logger.error("[UserProvider] Error fetching user profile:", { error: fetchError });
+        
         // Check if it's a database connection error
-        if (
-          isErrorWithMessage(fetchError) &&
-          fetchError.message.includes("FATAL: Tenant or user not found")
-        ) {
-          toast.error("Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde.");
+        const errorMessage = typeof fetchError === 'string' ? fetchError : (isErrorWithMessage(fetchError) ? fetchError.message : 'Unknown error');
+        const isConnectionError = errorMessage.includes('Can\'t reach database server') || 
+            errorMessage.includes('Connection') || 
+            errorMessage.includes('timeout') ||
+            errorMessage.includes('ECONNREFUSED') ||
+            errorMessage.includes('FATAL: Tenant or user not found');
+        
+        if (isConnectionError) {
+          toast.error("Erro de conexão com o banco de dados. Tentando reconectar...", {
+            duration: 5000,
+          });
           logger.error("[UserProvider] Database connection error:", { error: fetchError });
+        } else {
+          toast.error("Erro ao carregar perfil do usuário. Por favor, tente novamente.", {
+            duration: 4000,
+          });
         }
-        dispatch({ type: "FETCH_ERROR", payload: typeof fetchError === 'string' ? fetchError : (isErrorWithMessage(fetchError as unknown) ? (fetchError as { message: string }).message : 'Unknown error') });
+        
+        dispatch({ type: "FETCH_ERROR", payload: errorMessage });
         setProfile(null);
         lastProfileFetchRef.current = null;
         setAuthLoading(false);
@@ -191,7 +206,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           id: currentUserFromSupabase.id,
           name: fetchedProfile.name ?? currentUserFromSupabase.email ?? "Usuário",
           email: currentUserFromSupabase.email!,
-          avatar: fetchedProfile.avatar,
+          ...(fetchedProfile.avatar && { avatar: fetchedProfile.avatar }),
           households: fetchedProfile.households ?? [],
           primaryHousehold: primaryHouseholdId ?? "",
           householdId: primaryHouseholdId,
@@ -207,7 +222,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
             }
           },
           role: fetchedProfile.role,
-          imageUrl: fetchedProfile.imageUrl
+          ...(fetchedProfile.imageUrl && { imageUrl: fetchedProfile.imageUrl })
         };
 
         dispatch({ type: "SET_CURRENT_USER", payload: userData });
@@ -220,7 +235,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
           id: currentUserFromSupabase.id,
           email: currentUserFromSupabase.email!,
           name: currentUserFromSupabase.email ?? "Usuário",
-          avatar: undefined,
           households: [],
           primaryHousehold: "",
           householdId: null,
@@ -259,11 +273,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleAuthChange = useCallback(async () => {
+    // Early return if auth checks are paused
+    if (authChecksPausedRef.current) {
+      const requestId = ++authCheckCountRef.current;
+      if (process.env.NODE_ENV === 'development') {
+        logger.info(`[UserProvider][Request ${requestId}] handleAuthChange aborted: auth checks are paused`);
+      }
+      return;
+    }
+
     const requestId = ++authCheckCountRef.current;
-    logger.info(`[UserProvider][Request ${requestId}] handleAuthChange triggered`);
+    
+    // Only log in development mode
+    if (process.env.NODE_ENV === 'development') {
+      logger.info(`[UserProvider][Request ${requestId}] handleAuthChange triggered`);
+    }
 
     if (!mountedRef.current) {
-      logger.warn(`[UserProvider][Request ${requestId}] handleAuthChange aborted: component not mounted`);
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn(`[UserProvider][Request ${requestId}] handleAuthChange aborted: component not mounted`);
+      }
       return;
     }
 
@@ -275,16 +304,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     let didTimeout = false;
     let finished = false;
 
+    // Aumentar timeout para 15 segundos para evitar logout durante operações lentas
     authChangeTimeoutRef.current = setTimeout(() => {
       didTimeout = true;
-      logger.warn(`[UserProvider][Request ${requestId}] Auth check timed out`);
+      if (process.env.NODE_ENV === 'development') {
+        logger.warn(`[UserProvider][Request ${requestId}] Auth check timed out after 15s`);
+      }
+      // Sempre limpar estado de auth no timeout para evitar sessões antigas
       if (mountedRef.current) {
         setProfile(null);
         dispatch({ type: "CLEAR_USER" });
         lastProfileFetchRef.current = null;
         setAuthLoading(false);
       }
-    }, 5000);
+    }, 15000);
 
     try {
       logger.info(`[UserProvider][Request ${requestId}] Calling supabase.auth.getUser()`);
@@ -302,7 +335,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
         logger.info(`[UserProvider][Request ${requestId}] supabase.auth.getUser() result: user=${verifiedUser ? verifiedUser.id : 'null'}, error=${userError ? JSON.stringify(userError) : 'null'}`);
 
+        // Check for AuthSessionMissingError specifically
         if (userError) {
+          // If it's a session missing error and we don't have a current user, it's expected on first load
+          if (userError.message?.includes('Auth session missing') || userError.name === 'AuthSessionMissingError') {
+            if (!state.currentUser) {
+              // This is expected on initial load for unauthenticated users
+              logger.info(`[UserProvider][Request ${requestId}] No auth session found (expected for unauthenticated users)`);
+              setProfile(null);
+              dispatch({ type: "CLEAR_USER" });
+              lastProfileFetchRef.current = null;
+              setAuthLoading(false);
+              return;
+            } else {
+              // User was authenticated but session expired - clear state
+              logger.warn(`[UserProvider][Request ${requestId}] Session expired for authenticated user`);
+              setProfile(null);
+              dispatch({ type: "CLEAR_USER" });
+              lastProfileFetchRef.current = null;
+              setAuthLoading(false);
+              return;
+            }
+          }
+          
           logger.error(`[UserProvider][Request ${requestId}] Auth error:`, { error: userError });
           throw userError;
         }
@@ -324,12 +379,90 @@ export function UserProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       finished = true;
       clearTimeout(authChangeTimeoutRef.current);
-      logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, error);
-      if (!didTimeout && mountedRef.current) {
+      
+      // Don't log AuthSessionMissingError as an error if user is not authenticated
+      const errorMessage = String(error);
+      const isSessionMissing = errorMessage.includes('Auth session missing') || 
+                               errorMessage.includes('AuthSessionMissingError');
+      
+      if (isSessionMissing && !state.currentUser) {
+        logger.info(`[UserProvider][Request ${requestId}] No auth session (expected)`);
         setProfile(null);
         dispatch({ type: "CLEAR_USER" });
         lastProfileFetchRef.current = null;
         setAuthLoading(false);
+        return;
+      }
+      
+      logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, { error: String(error) });
+      
+      if (!didTimeout && mountedRef.current) {
+        // Check if this is a Supabase Auth API error
+        const isSupabaseAuthError = isAuthApiError(error);
+        
+        if (isSupabaseAuthError) {
+          // This is a confirmed Supabase auth error
+          const authError = error as any; // Type assertion for error with status/code
+          
+          // Check for AuthSessionMissingError specifically
+          if (isSessionMissing) {
+            // Session missing - expected for unauthenticated users
+            logger.info(`[UserProvider][Request ${requestId}] Auth session missing (expected for unauthenticated users)`);
+            setProfile(null);
+            dispatch({ type: "CLEAR_USER" });
+            lastProfileFetchRef.current = null;
+            setAuthLoading(false);
+            return;
+          }
+          
+          // Check specific error codes that indicate auth failure
+          const shouldClearAuth = 
+            authError.status === 401 || // Unauthorized
+            authError.status === 403 || // Forbidden
+            authError.code === 'session_expired' ||
+            authError.code === 'bad_jwt' ||
+            authError.code === 'session_not_found' ||
+            authError.message?.includes('JWT');
+          
+          if (shouldClearAuth) {
+            logger.warn(`[UserProvider][Request ${requestId}] Auth error detected (${authError.status}/${authError.code}), clearing user state`);
+            setProfile(null);
+            dispatch({ type: "CLEAR_USER" });
+            lastProfileFetchRef.current = null;
+            setAuthLoading(false);
+          } else {
+            // Other Supabase auth errors, log and stop loading but keep state
+            logger.warn(`[UserProvider][Request ${requestId}] Supabase auth error but not clearing state:`, { 
+              status: authError.status, 
+              code: authError.code 
+            });
+            setAuthLoading(false);
+          }
+        } else {
+          // Not a Supabase auth error - could be network, fetch, timeout, etc.
+          const isNetworkError = error instanceof TypeError || 
+            error instanceof Error && (
+              error.message?.toLowerCase().includes('network') ||
+              error.message?.toLowerCase().includes('timeout') ||
+              error.message?.toLowerCase().includes('fetch') ||
+              error.message?.toLowerCase().includes('failed to fetch')
+            );
+          
+          const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+          
+          if (isNetworkError || isOffline) {
+            // Network/connection issues - preserve state and stop loading
+            logger.warn(`[UserProvider][Request ${requestId}] Network error detected, preserving user state`, {
+              isOffline,
+              errorType: error instanceof TypeError ? 'TypeError' : error instanceof Error ? 'Error' : 'Unknown'
+            });
+            setAuthLoading(false);
+          } else {
+            // Unknown error - log and keep state but stop loading
+            logger.warn(`[UserProvider][Request ${requestId}] Unknown error, keeping state`, { error: String(error) });
+            setAuthLoading(false);
+          }
+        }
       }
     }
   }, [supabase.auth, loadUserData]);
@@ -367,7 +500,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       
       logger.info("[UserProvider] User signed out successfully");
     } catch (error) {
-      logger.error("[UserProvider] Error signing out:", error);
+      logger.error("[UserProvider] Error signing out:", { error: String(error) });
       throw error;
     }
   }, [supabase.auth]);
@@ -377,13 +510,38 @@ export function UserProvider({ children }: { children: ReactNode }) {
     await handleAuthChange();
   }, [handleAuthChange]);
 
+  // Função para pausar verificações de auth durante operações críticas
+  const pauseAuthChecks = useCallback(() => {
+    authChecksPausedRef.current = true;
+    if (authChangeTimeoutRef.current) {
+      clearTimeout(authChangeTimeoutRef.current);
+    }
+    if (process.env.NODE_ENV === 'development') {
+      logger.info("[UserProvider] Auth checks paused");
+    }
+  }, []);
+
+  // Função para retomar verificações de auth
+  const resumeAuthChecks = useCallback(() => {
+    authChecksPausedRef.current = false;
+    if (process.env.NODE_ENV === 'development') {
+      logger.info("[UserProvider] Auth checks resumed");
+    }
+    if (mountedRef.current) {
+      handleAuthChange();
+    }
+  }, [handleAuthChange]);
+
+  // Memoize context value to prevent unnecessary re-renders
   const value = useMemo(() => ({
     state,
     profile,
     authLoading,
     signOut,
-    refreshUser
-  }), [state, profile, authLoading, signOut, refreshUser]);
+    refreshUser,
+    pauseAuthChecks,
+    resumeAuthChecks
+  }), [state, profile, authLoading, signOut, refreshUser, pauseAuthChecks, resumeAuthChecks]);
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }
