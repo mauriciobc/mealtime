@@ -152,7 +152,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         logger.error("[UserProvider] Error fetching user profile:", { error: fetchError });
         
         // Check if it's a database connection error
-        const errorMessage = typeof fetchError === 'string' ? fetchError : (isErrorWithMessage(fetchError) ? fetchError.message : 'Unknown error');
+        const errorMessage = typeof fetchError === 'string' ? fetchError : 'Unknown error';
         const isConnectionError = errorMessage.includes('Can\'t reach database server') || 
             errorMessage.includes('Connection') || 
             errorMessage.includes('timeout') ||
@@ -179,7 +179,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       let primaryHouseholdId: string | null = null;
       if (fetchedProfile) {
-        setProfile(fetchedProfile);
         logger.info("[UserProvider] Profile fetched, now fetching first household membership...");
         
         // Fetch the first household membership
@@ -202,18 +201,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
         }
 
         // Construct user data including the fetched household ID
+        // Map Prisma profile fields to User type
         const userData: CurrentUserType = {
           id: currentUserFromSupabase.id,
-          name: fetchedProfile.name ?? currentUserFromSupabase.email ?? "Usuário",
-          email: currentUserFromSupabase.email!,
-          ...(fetchedProfile.avatar && { avatar: fetchedProfile.avatar }),
-          households: fetchedProfile.households ?? [],
+          name: fetchedProfile.full_name ?? currentUserFromSupabase.email ?? "Usuário",
+          email: fetchedProfile.email ?? currentUserFromSupabase.email ?? "email@example.com",
+          ...(fetchedProfile.avatar_url && { avatar: fetchedProfile.avatar_url }),
+          households: [], // Will need to fetch from household_members if needed
           primaryHousehold: primaryHouseholdId ?? "",
           householdId: primaryHouseholdId,
           preferences: {
-            timezone: fetchedProfile.preferences?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
-            language: fetchedProfile.preferences?.language || "pt-BR",
-            notifications: fetchedProfile.preferences?.notifications || {
+            timezone: fetchedProfile.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: "pt-BR", // Default, no language field in profiles table
+            notifications: {
               pushEnabled: false,
               emailEnabled: false,
               feedingReminders: false,
@@ -221,10 +221,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
               householdUpdates: false
             }
           },
-          role: fetchedProfile.role,
-          ...(fetchedProfile.imageUrl && { imageUrl: fetchedProfile.imageUrl })
+          role: 'user', // Default role, no role field in profiles table
+          ...(fetchedProfile.avatar_url && { imageUrl: fetchedProfile.avatar_url })
         };
 
+        // Set profile with properly mapped user data
+        setProfile(userData);
         dispatch({ type: "SET_CURRENT_USER", payload: userData });
       } else {
         // No profile found but no error - this is a valid state for new users

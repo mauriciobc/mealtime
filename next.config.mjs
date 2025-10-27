@@ -46,8 +46,6 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [32, 48, 64, 96, 128, 256], // Removed 16 and 384 — not needed for our image strategy
-    dangerouslyAllowLocalIP: false, // New security restriction (default: false)
-    maximumRedirects: 3, // New default: 3 redirects maximum
     localPatterns: [ // For local images with query strings
       {
         pathname: '/public/**',

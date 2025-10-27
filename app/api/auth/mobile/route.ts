@@ -64,18 +64,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar dados do usuário no Prisma
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: authData.user.id },
+    const prismaUser = await prisma.profiles.findUnique({
+      where: { id: authData.user.id },
       include: {
-        household: {
+        household_members: {
           include: {
-            household_members: {
+            household: {
               include: {
-                user: {
+                household_members: {
                   select: {
-                    id: true,
-                    full_name: true,
-                    email: true,
+                    role: true,
+                    user: {
+                      select: {
+                        id: true,
+                        full_name: true,
+                        email: true,
+                      }
+                    }
                   }
                 }
               }
@@ -100,16 +105,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Preparar dados do usuário para resposta
+    const firstHousehold = prismaUser.household_members?.[0]?.household;
+    
     const userData = {
       id: prismaUser.id,
-      auth_id: prismaUser.auth_id,
+      auth_id: prismaUser.id, // O ID do profiles é o mesmo do auth
       full_name: prismaUser.full_name,
       email: prismaUser.email,
-      household_id: prismaUser.householdId,
-      household: prismaUser.household ? {
-        id: prismaUser.household.id,
-        name: prismaUser.household.name,
-        members: prismaUser.household.household_members
+      household_id: firstHousehold?.id || null,
+      household: firstHousehold ? {
+        id: firstHousehold.id,
+        name: firstHousehold.name,
+        members: firstHousehold.household_members
           .filter(member => member.user !== null) // Filtrar membros com user nulo
           .map(member => ({
             id: member.user!.id,
@@ -155,9 +162,12 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     logger.error('[Mobile Auth] Unexpected error', { 
-      error: error.message,
-      stack: error.stack 
+      error: errorMessage,
+      stack: errorStack 
     });
     
     return NextResponse.json(
@@ -221,8 +231,10 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
     logger.error('[Mobile Auth] Refresh token error', { 
-      error: error.message 
+      error: errorMessage 
     });
     
     return NextResponse.json(
