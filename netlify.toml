@@ -11,11 +11,6 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Scheduled Functions (cron jobs)
-[[scheduledFunctions]]
-  function = "app/api/scheduled-notifications/deliver/route.ts"
-  schedule = "* * * * *"
-
 # CORS Headers for API routes
 [[headers]]
   for = "/api/*"
