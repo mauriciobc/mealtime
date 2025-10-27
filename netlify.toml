@@ -1,23 +1,19 @@
-# Netlify configuration for Next.js 16 deployment
+# Netlify configuration for Next.js 16
 
 [build]
   command = "npm run build"
-  publish = ".next"
 
-# Next.js Runtime Configuration
 [build.environment]
   NODE_VERSION = "20"
-  NPM_FLAGS = "--legacy-peer-deps"
 
-# Essential Netlify plugins for Next.js
-# This plugin handles API routes, SSR, and ISR automatically
+# Essential Next.js plugin - handles routing, API routes, SSR, and ISR
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 # Scheduled Functions (cron jobs)
 [[scheduledFunctions]]
   function = "app/api/scheduled-notifications/deliver/route.ts"
-  schedule = "* * * * *"   # run every minute
+  schedule = "* * * * *"
 
 # CORS Headers for API routes
 [[headers]]
