@@ -4,7 +4,8 @@
   command = "npm run build"
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "20.18.0"
+  NPM_FLAGS = "--include=dev"
 
 # Essential Next.js plugin - handles routing, API routes, SSR, and ISR
 [[plugins]]
