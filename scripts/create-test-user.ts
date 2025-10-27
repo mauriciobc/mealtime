@@ -36,7 +36,7 @@ async function createTestUser() {
     console.log(`🔑 Senha: ${TEST_USER.password}\n`);
 
     // 1. Criar usuário no Supabase Auth (sem confirmação de email)
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    let { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: TEST_USER.email,
       password: TEST_USER.password,
       email_confirm: true, // Confirmar email automaticamente
@@ -56,11 +56,11 @@ async function createTestUser() {
         
         if (existingUser) {
           console.log('✅ Usuário encontrado no Supabase!');
-          authData.user = existingUser;
+          authData = { user: existingUser };
           
           // Verificar se existe no Prisma
-          const prismaUser = await prisma.user.findUnique({
-            where: { auth_id: existingUser.id }
+          const prismaUser = await prisma.profiles.findUnique({
+            where: { id: existingUser.id }
           });
           
           if (prismaUser) {
@@ -105,12 +105,11 @@ async function createTestUser() {
 
     // 3. Criar perfil do usuário no Prisma
     console.log('👤 Criando perfil do usuário no Prisma...');
-    const user = await prisma.user.create({
+    const user = await prisma.profiles.create({
       data: {
-        auth_id: authData.user.id,
+        id: authData.user.id,
         email: TEST_USER.email,
         full_name: TEST_USER.fullName,
-        householdId: household.id,
       }
     });
     console.log(`✅ Perfil criado (ID: ${user.id})\n`);

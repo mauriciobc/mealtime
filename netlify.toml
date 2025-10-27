@@ -1,11 +1,29 @@
-# Netlify configuration for scheduled notification delivery
+# Netlify configuration for Next.js 16 deployment
 
 [build]
   command = "npm run build"
   publish = ".next"
 
+# Next.js Runtime Configuration
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Essential Netlify plugins for Next.js
+# This plugin handles API routes, SSR, and ISR automatically
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Scheduled Functions (cron jobs)
 [[scheduledFunctions]]
   function = "app/api/scheduled-notifications/deliver/route.ts"
   schedule = "* * * * *"   # run every minute
 
-# Optional: You can also annotate the handler file with a schedule comment for Netlify 
+# CORS Headers for API routes
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
+    Access-Control-Max-Age = "86400" 

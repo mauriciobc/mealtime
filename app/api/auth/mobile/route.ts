@@ -4,6 +4,10 @@ import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 import prisma from '@/lib/prisma';
 
+// Configuração de runtime para Netlify/Vercel
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/auth/mobile - Autenticação para aplicativos mobile
  * 
