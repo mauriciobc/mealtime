@@ -23,26 +23,24 @@ Após investigação sistemática, identificamos que o problema estava relaciona
 **Arquivo**: `/netlify.toml`
 
 ```toml
-# Netlify configuration for Next.js 16 deployment
+# Netlify configuration for Next.js 16
 
 [build]
   command = "npm run build"
-  publish = ".next"
+  # IMPORTANTE: NÃO especifique 'publish' quando usa @netlify/plugin-nextjs
+  # O plugin gerencia o diretório de output automaticamente
 
-# Next.js Runtime Configuration
 [build.environment]
   NODE_VERSION = "20"
-  NPM_FLAGS = "--legacy-peer-deps"
 
-# Essential Netlify plugins for Next.js
-# This plugin handles API routes, SSR, and ISR automatically
+# Essential Next.js plugin - handles routing, API routes, SSR, and ISR
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 # Scheduled Functions (cron jobs)
 [[scheduledFunctions]]
   function = "app/api/scheduled-notifications/deliver/route.ts"
-  schedule = "* * * * *"   # run every minute
+  schedule = "* * * * *"
 
 # CORS Headers for API routes
 [[headers]]
@@ -57,8 +55,11 @@ Após investigação sistemática, identificamos que o problema estava relaciona
 **Mudanças**:
 - ✅ Adicionado `NODE_VERSION = "20"` para garantir versão compatível
 - ✅ Adicionado plugin `@netlify/plugin-nextjs` (essencial!)
+- ✅ **REMOVIDO `publish = ".next"`** (CRÍTICO - causava 404 em todas as páginas!)
 - ✅ Configurado headers CORS corretos para APIs
-- ✅ Removido redirect problemático que estava causando conflito
+- ✅ Removido flags desnecessários como `NPM_FLAGS`
+
+**⚠️ IMPORTANTE**: Nunca use `publish` quando tiver o plugin `@netlify/plugin-nextjs`. O plugin gerencia isso automaticamente.
 
 ### 2. Adição de Runtime Config na API Route
 
