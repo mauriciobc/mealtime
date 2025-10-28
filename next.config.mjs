@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required for Netlify deployment
+  output: 'standalone',
   typescript: {
     ignoreBuildErrors: true,
   },
