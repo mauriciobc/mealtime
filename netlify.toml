@@ -9,10 +9,10 @@
   NODE_VERSION = "20.18.0"
   NPM_FLAGS = "--include=dev"
 
-# Redirects - route all requests to Next.js server handler
+# Redirects - route all requests to Next.js server handler via Edge Function
 [[redirects]]
   from = "/*"
-  to = "/.netlify/functions/___netlify-server-handler"
+  to = "/.netlify/edge-functions/___netlify-edge-handler-node-middleware"
   status = 200
   force = false
 
