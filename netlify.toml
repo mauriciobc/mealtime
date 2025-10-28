@@ -1,42 +1,10 @@
 # Netlify configuration for Next.js 16
-# Using automatic OpenNext adapter (no plugin needed)
+# Usando adaptador automático Netlify Next Runtime v5
+# Configuração minimalista seguindo template oficial: github.com/netlify-templates/next-platform-starter
 
 [build]
   command = "npm run build"
-  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20.18.0"
   NPM_FLAGS = "--include=dev"
-
-# Serve static assets directly from Netlify's CDN and don't proxy them to the function
-[[redirects]]
-  from = "/_next/static/*"
-  to = "/_next/static/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/images/*"
-  to = "/images/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/favicon.ico"
-  to = "/favicon.ico"
-  status = 200
-
-# Redirects - route all requests to Next.js server handler via Edge Function
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/edge-functions/___netlify-edge-handler-node-middleware"
-  status = 200
-  force = false
-
-# CORS Headers for API routes
-[[headers]]
-  for = "/api/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
-    Access-Control-Max-Age = "86400"
