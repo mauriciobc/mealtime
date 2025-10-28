@@ -34,9 +34,9 @@ async function isUserAdmin(userId: string, householdId: string): Promise<boolean
     // Then check membership role
     const membership = await prisma.household_members.findUnique({
       where: {
-        user_id_household_id: {
-          user_id: userId,
+        household_id_user_id: {
           household_id: householdId,
+          user_id: userId,
         },
       },
       select: { role: true },
@@ -59,7 +59,7 @@ async function isUserAdmin(userId: string, householdId: string): Promise<boolean
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const headersList = await headers();
   // Await the headers
@@ -93,7 +93,7 @@ export async function POST(
     validatedData = inviteSchema.parse(body);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: 'Invalid input', details: error.errors }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid input', details: error.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
@@ -133,15 +133,15 @@ export async function POST(
         .toLowerCase();
     
     // Get user by exact email first
-    const { data: existingAuthUser, error: getUserError } = await supabaseAdmin.auth.admin.listUsers({ email: targetEmail });
+    const { data: existingAuthUser, error: getUserError } = await supabaseAdmin.auth.admin.listUsers();
 
     if (getUserError && getUserError.message !== 'User not found') {
       console.error('Supabase listUsers error:', getUserError);
       return NextResponse.json({ error: 'Failed to check existing user' }, { status: 500 });
     }
 
-    // Check if a user was found
-    let targetUser = existingAuthUser?.users?.[0];
+    // Check if a user was found (filter by email manually)
+    let targetUser = existingAuthUser?.users?.find((u: any) => u.email === targetEmail);
     
     // DEBUG: Special check for problematic email addresses
     console.log(`DEBUG: Checking for specific edge case with email: ${targetEmail}`);
@@ -247,7 +247,7 @@ export async function POST(
                 console.log(`Requested: ${targetEmail}, Found: ${specificUser.user.email}`);
                 
                 // Reset the targetUser if emails don't match
-                targetUser = null;
+                targetUser = undefined;
             }
         }
     }
@@ -266,7 +266,7 @@ export async function POST(
     console.log(`- Internal targetUser: ${targetUser ? targetUser.id : 'null'}`);
     
     // Ensure we're using the correct user
-    if (exactMatches?.length === 1 && (!targetUser || exactMatches[0].id !== targetUser.id)) {
+    if (exactMatches?.length === 1 && exactMatches[0] && (!targetUser || exactMatches[0].id !== targetUser.id)) {
         console.log(`DEBUG: Using brute force match instead of API result`);
         targetUser = exactMatches[0];
     }
@@ -343,7 +343,7 @@ export async function POST(
         console.log(`DEBUG: All member profiles for similarity check:`, memberProfiles);
         
         // Check for similar email patterns (first part before @ is too similar)
-        const targetEmailLocal = targetEmail.split('@')[0].toLowerCase();
+        const targetEmailLocal = targetEmail.split('@')[0]?.toLowerCase() || '';
         
         // Find any member with a STRICTLY identical email
         const similarMembers = memberProfiles.filter(profile => {
@@ -362,7 +362,7 @@ export async function POST(
         console.log(`DEBUG: Email being checked: ${targetEmail}`);
         console.log(`DEBUG: Existing member emails: ${memberProfiles.map(p => p.email).join(', ')}`);
         
-        if (similarMembers.length > 0) {
+        if (similarMembers.length > 0 && similarMembers[0]) {
             console.log(`DEBUG: Found ${similarMembers.length} similar member emails`);
             return NextResponse.json({ 
                 message: 'User with similar email already exists', 
@@ -383,19 +383,8 @@ export async function POST(
             },
         });
         // Optionally, send a simple notification email here instead of a full Supabase invite
-
-         // Also update the profile's primary householdId if it's null
-         // This might be better handled when the user accepts or logs in,
-         // but we can attempt it here for direct adds.
-         try {
-            await prisma.profiles.update({
-                where: { id: targetUser.id, household_id: null },
-                data: { household_id: householdId },
-            });
-         } catch (profileUpdateError) {
-            // Log error but proceed, as profile update isn't critical for membership
-            console.warn(`Could not update primary household for existing user ${targetUser.id}:`, profileUpdateError);
-         }
+        // Note: profiles table doesn't have household_id field directly
+        // The relationship is managed through household_members table
 
         return NextResponse.json({ message: 'Existing user added to household successfully' }, { status: 200 });
 

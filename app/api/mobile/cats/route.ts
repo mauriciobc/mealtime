@@ -133,9 +133,9 @@ export const GET = withMobileAuth(async (request: NextRequest, user) => {
       count: cats.length
     });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[Mobile Cats] Error retrieving cats', { 
-      error: error.message,
+      error: error?.message || String(error),
       userId: user.id 
     });
     
@@ -225,9 +225,9 @@ export const POST = withMobileAuth(async (request: NextRequest, user) => {
       data: cat
     }, { status: 201 });
 
-  } catch (error) {
+  } catch (error: any) {
     logger.error('[Mobile Cats] Error creating cat', { 
-      error: error.message,
+      error: error?.message || String(error),
       userId: user.id 
     });
     

@@ -64,7 +64,7 @@ export default async function CatSettingsPage({ params }: { params: Promise<{ id
 
   // const cat = await getCatById(parseInt(params.id))
   const resolvedParams = await params
-  const cat = await getCatByIdServer(parseInt(resolvedParams.id))
+  const cat = await getCatByIdServer(resolvedParams.id)
 
   if (!cat) {
     notFound()
@@ -79,8 +79,8 @@ export default async function CatSettingsPage({ params }: { params: Promise<{ id
   // Extract householdId from the first household_members entry (if any)
   const householdId = prismaProfile?.household_members?.[0]?.household_id
 
-  if (!prismaProfile || !householdId || householdId !== cat.householdId) {
-    console.error(`CatSettingsPage: User ${supabaseUser.id} (household ${householdId}) unauthorized attempt to access cat ${cat.id} (household ${cat.householdId}).`)
+  if (!prismaProfile || !householdId || householdId !== cat.household_id) {
+    console.error(`CatSettingsPage: User ${supabaseUser.id} (household ${householdId}) unauthorized attempt to access cat ${cat.id} (household ${cat.household_id}).`)
     notFound()
   }
 

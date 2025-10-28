@@ -1,0 +1,943 @@
+(node:53321) ESLintIgnoreWarning: The ".eslintignore" file is no longer supported. Switch to using the "ignores" property in "eslint.config.js": https://eslint.org/docs/latest/use/configure/migration-guide#ignoring-files
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+/home/mauriciobc/Documentos/Code/mealtime/app/_error.tsx
+  9:3  error  'error' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/auth/callback/route.ts
+  3:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/auth/mobile/route.ts
+  3:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/feedings/batch/route.ts
+  1:10  error  'NextRequest' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/feedings/last/[catId]/route.ts
+  6:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/feedings/stats/route.ts
+  89:13  error  'amount' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/goals/route.ts
+  17:11  error  'WeightGoal' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  51:11  error  'WeightGoalDbRecord' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/households/[id]/cats/[catId]/route.ts
+  10:11  error  'PrismaError' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/households/[id]/cats/route.ts
+   2:10  error  'headers' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  13:10  error  'createClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  14:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/households/[id]/invite/route.ts
+    5:10  error  'createClient' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+    7:10  error  'sendHouseholdInviteEmail' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  120:11  error  'inviterName' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  131:11  error  'normalizedEmail' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  346:15  error  'targetEmailLocal' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  407:23  error  'inviteData' is assigned a value but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/households/[id]/members/[userId]/route.ts
+    6:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+  282:11  error  'removingUserName' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/households/[id]/route.ts
+    6:19  error  'headers' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  109:11  error  'cookieStore' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  204:11  error  'cookieStore' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  302:9   error  'cookieStore' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/households/join/route.ts
+  6:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/households/route.ts
+    2:10  error  'ReadonlyRequestCookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    2:34  error  'RequestCookies' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+    3:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+    4:10  error  'createClient' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   21:11  error  'Household' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   55:27  error  'request' is defined but never used. Allowed unused args must match /^_/u                 @typescript-eslint/no-unused-vars
+  155:6   error  'CreateHouseholdInput' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/profile/[idOrUsername]/route.ts
+  4:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/scheduled-notifications/deliver/route.ts
+   11:28  error  'req' is defined but never used. Allowed unused args must match /^_/u                    @typescript-eslint/no-unused-vars
+  120:25  error  'lastFeeding' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  131:27  error  'expectedTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  178:18  error  'e' is defined but never used                                                            @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/schedules/[id]/route.ts
+  4:10  error  'headers' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/test-prisma/route.ts
+  15:27  error  'request' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/upload/route.ts
+    9:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  108:27  error  'request' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/users/[id]/route.ts
+  14:9  error  'userId' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/api/weight/logs/route.ts
+  2:10  error  'createServerClient' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  3:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+  4:10  error  'Database' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+  5:10  error  'createRouteHandlerCookieStore' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/cats/[id]/client.tsx
+   32:23  error  'deleteCatService' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   34:10  error  'notFound' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   71:9   error  'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  109:11  error  'previousCats' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/cats/[id]/default.tsx
+  7:10  error  'cookies' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/cats/[id]/edit/page.tsx
+    4:10  error  'ArrowLeft' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+    4:21  error  'Calendar' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+    4:31  error  'Save' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    4:37  error  'Trash2' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+    4:45  error  'Clock' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    4:52  error  'AlertTriangle' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+    4:67  error  'Ban' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+    4:72  error  'Users' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    4:79  error  'Cat' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+    5:8   error  'Link' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    7:10  error  'Card' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    7:16  error  'CardContent' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+    7:29  error  'CardHeader' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    7:41  error  'CardTitle' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   11:10  error  'RadioGroup' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   11:22  error  'RadioGroupItem' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   12:10  error  'Switch' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   13:10  error  'Separator' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   14:10  error  'Avatar' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   14:18  error  'AvatarFallback' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   14:34  error  'AvatarImage' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   16:3   error  'AlertDialog' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   17:3   error  'AlertDialogAction' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   18:3   error  'AlertDialogCancel' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   19:3   error  'AlertDialogContent' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   20:3   error  'AlertDialogDescription' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   21:3   error  'AlertDialogFooter' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   22:3   error  'AlertDialogHeader' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   23:3   error  'AlertDialogTitle' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   24:3   error  'AlertDialogTrigger' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   28:3   error  'Select' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   29:3   error  'SelectContent' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   30:3   error  'SelectItem' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   31:3   error  'SelectTrigger' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   32:3   error  'SelectValue' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   41:19  error  'Schedule' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   44:16  error  'uuidv4' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   45:10  error  'Skeleton' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   47:10  error  'EmptyState' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   49:3   error  'Form' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   50:3   error  'FormControl' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   51:3   error  'FormField' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   52:3   error  'FormItem' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   53:3   error  'FormLabel' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   54:3   error  'FormMessage' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   57:3   error  'Popover' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   58:3   error  'PopoverContent' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   59:3   error  'PopoverTrigger' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   61:22  error  'CalendarIcon' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   62:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   63:10  error  'cn' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+  191:9   error  'handleChange' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  196:9   error  'handlePhotoChange' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/cats/[id]/layout.tsx
+  4:27  error  'ServerGlobalLoading' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/cats/[id]/settings-client-page.tsx
+  24:35  error  'isLoadingUser' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  24:57  error  'errorUser' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/cats/new/page.tsx
+   17:10  error  'Calendar' is defined but never used. Allowed unused vars must match /^_/u                                                                                      @typescript-eslint/no-unused-vars
+   27:3   error  'Popover' is defined but never used. Allowed unused vars must match /^_/u                                                                                       @typescript-eslint/no-unused-vars
+   28:3   error  'PopoverContent' is defined but never used. Allowed unused vars must match /^_/u                                                                                @typescript-eslint/no-unused-vars
+   29:3   error  'PopoverTrigger' is defined but never used. Allowed unused vars must match /^_/u                                                                                @typescript-eslint/no-unused-vars
+   31:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u                                                                                        @typescript-eslint/no-unused-vars
+   32:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                                                                                          @typescript-eslint/no-unused-vars
+   33:22  error  'CalendarIcon' is defined but never used. Allowed unused vars must match /^_/u                                                                                  @typescript-eslint/no-unused-vars
+   33:36  error  'Clock' is defined but never used. Allowed unused vars must match /^_/u                                                                                         @typescript-eslint/no-unused-vars
+   34:10  error  'cn' is defined but never used. Allowed unused vars must match /^_/u                                                                                            @typescript-eslint/no-unused-vars
+   77:21  error  'catsDispatch' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                         @typescript-eslint/no-unused-vars
+  236:45  error  Do not use an `<a>` element to navigate to `/settings/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages  @next/next/no-html-link-for-pages
+
+/home/mauriciobc/Documentos/Code/mealtime/app/cats/page.tsx
+   4:10  error  'Avatar' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   4:18  error  'AvatarFallback' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   4:34  error  'AvatarImage' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   6:3   error  'Edit' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   7:3   error  'Plus' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   8:3   error  'Calendar' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   9:3   error  'Weight' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  10:3   error  'FileWarning' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  11:3   error  'Clock' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  12:3   error  'Trash2' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  13:3   error  'ChevronRight' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  16:3   error  'PlusCircle' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  20:10  error  'AnimatedCard' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  22:10  error  'Badge' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  25:10  error  'motion' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  27:10  error  'getAgeString' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  27:24  error  'getScheduleText' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  28:10  error  'AppHeader' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  30:10  error  'formatDistanceToNow' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  31:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  32:10  error  'Card' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  32:16  error  'CardContent' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  32:29  error  'CardFooter' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  32:41  error  'CardHeader' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  32:53  error  'CardTitle' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  54:10  error  'isDeleting' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/components/cat-details.tsx
+    4:21  error    'notFound' is defined but never used. Allowed unused vars must match /^_/u                                            @typescript-eslint/no-unused-vars
+   13:3   error    'Clock' is defined but never used. Allowed unused vars must match /^_/u                                               @typescript-eslint/no-unused-vars
+   20:3   error    'Ban' is defined but never used. Allowed unused vars must match /^_/u                                                 @typescript-eslint/no-unused-vars
+   21:3   error    'Users' is defined but never used. Allowed unused vars must match /^_/u                                               @typescript-eslint/no-unused-vars
+   48:10  error    'format' is defined but never used. Allowed unused vars must match /^_/u                                              @typescript-eslint/no-unused-vars
+   54:10  error    'ptBR' is defined but never used. Allowed unused vars must match /^_/u                                                @typescript-eslint/no-unused-vars
+   55:10  error    'ScrollArea' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+   55:22  error    'ScrollBar' is defined but never used. Allowed unused vars must match /^_/u                                           @typescript-eslint/no-unused-vars
+   57:10  error    'CatType' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+   57:19  error    'FeedingLog' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+   57:31  error    'Schedule' is defined but never used. Allowed unused vars must match /^_/u                                            @typescript-eslint/no-unused-vars
+   60:10  error    'EmptyState' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+   61:10  error    'redirectionLogger' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+   62:10  error    'headers' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+  103:5   error    'nextFeedingTime' is assigned a value but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+  114:29  error    'setRedirectTriggered' is assigned a value but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+  175:6   warning  React Hook useEffect has a missing dependency: 'redirectTriggered'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  206:11  error    'previousCats' is assigned a value but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/components/dashboard/dashboard-content.tsx
+  11:10  error    'ResponsiveContainer' is defined but never used. Allowed unused vars must match /^_/u                                                                                                              @typescript-eslint/no-unused-vars
+  11:91  error    'RechartsTooltip' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                  @typescript-eslint/no-unused-vars
+  70:9   warning  The 'chartCats' logical expression could make the dependencies of useMemo Hook (at line 81) change on every render. To fix this, wrap the initialization of 'chartCats' in its own useMemo() Hook  react-hooks/exhaustive-deps
+  70:9   warning  The 'chartCats' logical expression could make the dependencies of useMemo Hook (at line 92) change on every render. To fix this, wrap the initialization of 'chartCats' in its own useMemo() Hook  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/app/components/feeding-history.tsx
+   4:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  16:9   error  'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/feedings/[id]/page.tsx
+    6:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                       @typescript-eslint/no-unused-vars
+    7:21  error  'Edit' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                       @typescript-eslint/no-unused-vars
+    7:35  error  'Utensils' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                   @typescript-eslint/no-unused-vars
+   37:9   error  'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                        @typescript-eslint/no-unused-vars
+   67:5   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+   86:22  error  Do not use an `<a>` element to navigate to `/settings/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages                               @next/next/no-html-link-for-pages
+   98:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  155:11  error  'previousLogId' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                     @typescript-eslint/no-unused-vars
+  198:13  error  Do not use an `<a>` element to navigate to `/feedings/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages                               @next/next/no-html-link-for-pages
+  211:13  error  Do not use an `<a>` element to navigate to `/feedings/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages                               @next/next/no-html-link-for-pages
+
+/home/mauriciobc/Documentos/Code/mealtime/app/feedings/page.tsx
+   6:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  10:10  error  'PlusCircle' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  14:10  error  'motion' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  23:20  error  'TimelineItem' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/history/[id]/page.tsx
+  23:10  error  'GlobalLoading' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/history/page.tsx
+   9:18  error  'Filter' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   9:26  error  'Calendar' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  55:9   error  'router' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/households/[id]/edit/page.tsx
+   3:36  error  'useCallback' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                @typescript-eslint/no-unused-vars
+  11:10  error  'Skeleton' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                   @typescript-eslint/no-unused-vars
+  57:5   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  75:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+/home/mauriciobc/Documentos/Code/mealtime/app/households/[id]/members/invite/page.tsx
+    3:36  error  'useCallback' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                @typescript-eslint/no-unused-vars
+   83:5   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  101:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+/home/mauriciobc/Documentos/Code/mealtime/app/households/[id]/page.tsx
+    6:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   12:10  error  'Skeleton' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   32:3   error  'UserCheck' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   82:11  error  'households' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   82:30  error  'errorHousehold' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   84:37  error  'isLoadingCats' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   84:59  error  'errorCats' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  103:9   error  'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/households/new/page.tsx
+    4:10  error  'flushSync' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                  @typescript-eslint/no-unused-vars
+   69:6   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  103:18  error  'jsonError' is defined but never used                                                                                                                                                        @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/households/page.tsx
+    5:16  error  'Lock' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                       @typescript-eslint/no-unused-vars
+   15:3   error  'DropdownMenuLabel' is defined but never used. Allowed unused vars must match /^_/u                                                                                                          @typescript-eslint/no-unused-vars
+   35:38  error  'HouseholdMember' is defined but never used. Allowed unused vars must match /^_/u                                                                                                            @typescript-eslint/no-unused-vars
+  105:63  error  'loadingState' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                      @typescript-eslint/no-unused-vars
+  111:9   error  'isLoading' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                         @typescript-eslint/no-unused-vars
+  112:9   error  'error' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                             @typescript-eslint/no-unused-vars
+  131:18  error  'parseError' is defined but never used                                                                                                                                                       @typescript-eslint/no-unused-vars
+  241:5   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  283:23  error  'catCount' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                          @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/join/page.tsx
+    7:46  error  'CardFooter' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                 @typescript-eslint/no-unused-vars
+   17:10  error  'Loader2' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                    @typescript-eslint/no-unused-vars
+   23:18  error  'householdState' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                    @typescript-eslint/no-unused-vars
+  125:5   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+/home/mauriciobc/Documentos/Code/mealtime/app/loading-skeleton.tsx
+  1:10  error  'Suspense' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/loading.tsx
+  3:10  error  'Suspense' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  4:10  error  'GlobalLoading' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/login/page.tsx
+  12:10  error  'toast' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/notifications/page.tsx
+    4:63  error  'Loader2' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+    5:8   error  'Link' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    8:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   20:10  error  'scheduleNotification' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   38:3   error  'userLanguage' is defined but never used. Allowed unused args must match /^_/u          @typescript-eslint/no-unused-vars
+  164:9   error  'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/page.tsx
+  14:34  error  'currentUser' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/profile/edit/page.tsx
+  7:10  error  'Avatar' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  7:18  error  'AvatarFallback' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  7:34  error  'AvatarImage' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/schedules/new/page.tsx
+    5:44  error    'AlertTriangle' is defined but never used. Allowed unused vars must match /^_/u                                                                                                              @typescript-eslint/no-unused-vars
+  111:6   warning  React Hook useEffect has missing dependencies: 'form' and 'selectedTimes'. Either include them or remove the dependency array                                                                react-hooks/exhaustive-deps
+  125:6   warning  React Hook useEffect has a missing dependency: 'form'. Either include it or remove the dependency array                                                                                      react-hooks/exhaustive-deps
+  163:11  error    'currentUserId' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                     @typescript-eslint/no-unused-vars
+  164:11  error    'currentHouseholdId' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                @typescript-eslint/no-unused-vars
+  245:5   error    React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+/home/mauriciobc/Documentos/Code/mealtime/app/schedules/page.tsx
+    3:21  error  'useState' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                   @typescript-eslint/no-unused-vars
+  105:5   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+
+/home/mauriciobc/Documentos/Code/mealtime/app/settings/[id]/page.tsx
+   6:10  error  'Input' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   7:10  error  'Label' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   9:10  error  'ArrowLeft' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   9:21  error  'Bell' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   9:27  error  'Trash2' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  10:8   error  'Link' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  18:10  error  'GlobalLoading' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  19:10  error  'BaseCat' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  19:19  error  'ID' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  20:10  error  'Card' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  20:16  error  'CardContent' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  20:29  error  'CardHeader' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  20:41  error  'CardTitle' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  21:10  error  'Avatar' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  21:18  error  'AvatarFallback' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  21:34  error  'AvatarImage' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  25:10  error  'Button' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/settings/page.tsx
+  46:3  error  'Sun' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/signup/page.tsx
+  8:10  error  'Loader2' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/statistics/page.tsx
+    5:10   error  'format' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+    6:15   error  'Locale' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+    9:10   error  'Tabs' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    9:16   error  'TabsContent' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+    9:29   error  'TabsList' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+    9:39   error  'TabsTrigger' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   11:10   error  'CalendarIcon' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   11:24   error  'ChevronDown' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   11:37   error  'TrendingUp' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   11:75   error  'PieChart' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   11:103  error  'PlusCircle' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   11:139  error  'CalendarCheck' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   13:10   error  'useCats' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   14:10   error  'useFeeding' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   24:61   error  'ChartLegend' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   24:74   error  'ChartLegendContent' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   25:10   error  'Skeleton' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+   26:10   error  'FeedingLog' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   26:22   error  'CatType' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   27:10   error  'getDateRange' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   28:10   error  'toast' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+   31:3    error  'safeParseISO' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   33:3    error  'formatDate' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   34:3    error  'isDateInRange' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   35:3    error  'getHourFromDate' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   36:3    error  'formatHour' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+   37:3    error  'generateDateArray' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   39:8    error  'DateRange' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   65:11   error  'ChartConfig' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+   72:11   error  'CatPortionConfig' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  142:7    error  'BarChartComponent' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  245:109  error  'entry' is defined but never used. Allowed unused args must match /^_/u                       @typescript-eslint/no-unused-vars
+  302:11   error  'isMobile' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/test-notifications/page.tsx
+   14:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   18:10  error  'createClient' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   50:48  error  'catsError' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   54:9   error  'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  386:9   error  'getStatusColor' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  399:9   error  'getStatusText' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/app/weight/page.tsx
+    4:8   error  'CurrentStatusCard' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                @typescript-eslint/no-unused-vars
+    7:8   error  'RecentHistoryList' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                @typescript-eslint/no-unused-vars
+   14:17  error  'HelpCircle' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                       @typescript-eslint/no-unused-vars
+   14:50  error  'Clock' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                            @typescript-eslint/no-unused-vars
+   16:3   error  'Accordion' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                        @typescript-eslint/no-unused-vars
+   17:3   error  'AccordionContent' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                 @typescript-eslint/no-unused-vars
+   18:3   error  'AccordionItem' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                    @typescript-eslint/no-unused-vars
+   19:3   error  'AccordionTrigger' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                 @typescript-eslint/no-unused-vars
+   21:10  error  'Switch' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                           @typescript-eslint/no-unused-vars
+   22:10  error  'Label' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                            @typescript-eslint/no-unused-vars
+   24:21  error  'useSelectCurrentWeight' is defined but never used. Allowed unused vars must match /^_/u                                                                                                           @typescript-eslint/no-unused-vars
+   24:45  error  'useSelectWeightHistory' is defined but never used. Allowed unused vars must match /^_/u                                                                                                           @typescript-eslint/no-unused-vars
+   24:69  error  'useSelectWeightGoals' is defined but never used. Allowed unused vars must match /^_/u                                                                                                             @typescript-eslint/no-unused-vars
+   24:91  error  'useSelectWeightProgress' is defined but never used. Allowed unused vars must match /^_/u                                                                                                          @typescript-eslint/no-unused-vars
+   27:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                           @typescript-eslint/no-unused-vars
+   27:18  error  'parseISO' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                         @typescript-eslint/no-unused-vars
+   27:28  error  'compareDesc' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                      @typescript-eslint/no-unused-vars
+   28:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                             @typescript-eslint/no-unused-vars
+  106:11  error  'WeightGoal' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                       @typescript-eslint/no-unused-vars
+  134:11  error  'CatWithDetails' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                   @typescript-eslint/no-unused-vars
+  156:10  error  'showArchivedGoals' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                       @typescript-eslint/no-unused-vars
+  156:29  error  'setShowArchivedGoals' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                    @typescript-eslint/no-unused-vars
+  162:10  error  'autoRefreshCount' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                        @typescript-eslint/no-unused-vars
+  183:29  error  'forceRefresh' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                            @typescript-eslint/no-unused-vars
+  186:35  error  React Hook "useFeeding" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?       react-hooks/rules-of-hooks
+  189:93  error  React Hook "useWeight" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?        react-hooks/rules-of-hooks
+  198:3   error  React Hook "useLoadingState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  203:3   error  React Hook "useLoadingState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  208:3   error  React Hook "useLoadingState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+  214:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?        react-hooks/rules-of-hooks
+  220:3   error  React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?        react-hooks/rules-of-hooks
+  237:17  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?          react-hooks/rules-of-hooks
+  257:27  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?          react-hooks/rules-of-hooks
+  272:69  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?          react-hooks/rules-of-hooks
+  300:30  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?          react-hooks/rules-of-hooks
+  311:47  error  React Hook "useState" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?         react-hooks/rules-of-hooks
+  330:9   error  'lastFeedingForCat' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                       @typescript-eslint/no-unused-vars
+  333:21  error  React Hook "useMemo" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?          react-hooks/rules-of-hooks
+  347:36  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  357:27  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  363:27  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  374:15  error  'now' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                                     @typescript-eslint/no-unused-vars
+  440:9   error  'handleRequestEditLog' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                    @typescript-eslint/no-unused-vars
+  440:32  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  453:9   error  'handleRequestDeleteLog' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                  @typescript-eslint/no-unused-vars
+  453:34  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  453:76  error  'catId' is defined but never used. Allowed unused args must match /^_/u                                                                                                                            @typescript-eslint/no-unused-vars
+  502:28  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  614:30  error  React Hook "useCallback" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?      react-hooks/rules-of-hooks
+  662:13  error  Do not use an `<a>` element to navigate to `/households/`. Use `<Link />` from `next/link` instead. See: https://nextjs.org/docs/messages/no-html-link-for-pages                                   @next/next/no-html-link-for-pages
+  699:9   error  'selectedCatCurrentLog' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                   @typescript-eslint/no-unused-vars
+  700:9   error  'catForEditedLog' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                         @typescript-eslint/no-unused-vars
+  963:32  error  'e' is defined but never used                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  983:34  error  'e' is defined but never used                                                                                                                                                                      @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/app-header.tsx
+    6:10  error  'motion' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+    6:18  error  'AnimatePresence' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+    8:3   error  'Menu' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+    9:3   error  'X' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   20:8   error  'NotificationBadge' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   31:3   error  'Drawer' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   32:3   error  'DrawerClose' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   33:3   error  'DrawerContent' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   34:3   error  'DrawerHeader' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   35:3   error  'DrawerTitle' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   36:3   error  'DrawerTrigger' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                          @typescript-eslint/no-unused-vars
+   38:10  error  'Avatar' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   38:18  error  'AvatarFallback' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   38:34  error  'AvatarImage' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   39:10  error  'Sheet' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   39:17  error  'SheetContent' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   39:31  error  'SheetHeader' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   39:44  error  'SheetTitle' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                             @typescript-eslint/no-unused-vars
+   39:56  error  'SheetTrigger' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+   40:8   error  'Image' is defined but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+   47:7   error  'NavLinks' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+   84:29  error  'title' is defined but never used. Allowed unused args must match /^_/u                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  162:15  error  Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element  @next/next/no-img-element
+
+/home/mauriciobc/Documentos/Code/mealtime/components/bottom-nav.tsx
+  4:26  error  'List' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  4:32  error  'Settings' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:15  error  'Menu' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/cat/cat-card.tsx
+   3:31  error  'useRef' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  34:31  error  'isFallbackImage' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/cat/cat-list.tsx
+    3:10  error  'useEffect' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    7:10  error  'Badge' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   14:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+   22:9   error  'router' is assigned a value but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  135:40  error  'isDueSoon' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/cats/DeleteCatDialog.tsx
+  37:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/cats/EditCatDialog.tsx
+  87:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/cats/WeightTrendChart.tsx
+  36:27  error  'e' is defined but never used. Allowed unused args must match /^_/u                     @typescript-eslint/no-unused-vars
+  64:11  error  'pointerType' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  65:11  error  'clientX' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  86:26  error  'e' is defined but never used. Allowed unused args must match /^_/u                     @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/cats/add-cat-button.tsx
+  13:21  error  'setIsLoading' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/events-list.tsx
+   3:10  error  'useState' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+   3:20  error  'useEffect' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   4:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  10:10  error  'FeedingLog' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  18:28  error  'isLoadingCats' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/feeding/feeding-form.tsx
+  23:10  error  'toast' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+  46:89  error  'feedingHookError' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/feeding/feeding-progress.tsx
+    6:10  error  'Card' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    6:16  error  'CardContent' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+    9:10  error  'formatInTimeZone' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   11:10  error  'motion' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+   29:3   error  'color' is assigned a value but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+   30:3   error  'bgColor' is assigned a value but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+  133:9   error  'strokeDashoffset' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/feeding/feeding-schedule.tsx
+   3:10  error  'useState' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3:20  error  'useEffect' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   4:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   4:18  error  'addHours' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   4:28  error  'isBefore' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   4:38  error  'parseISO' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   4:48  error  'compareAsc' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   6:10  error  'formatInTimeZone' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   6:28  error  'toDate' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  18:10  error  'CatType' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  18:19  error  'FeedingLog' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  18:31  error  'Schedule' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/feeding/feeding-timeline.tsx
+  5:10  error  'cn' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/feeding/new-feeding-sheet.tsx
+    5:10  error    'format' is defined but never used. Allowed unused vars must match /^_/u                                                                @typescript-eslint/no-unused-vars
+    5:18  error    'addHours' is defined but never used. Allowed unused vars must match /^_/u                                                              @typescript-eslint/no-unused-vars
+    5:28  error    'isToday' is defined but never used. Allowed unused vars must match /^_/u                                                               @typescript-eslint/no-unused-vars
+    8:10  error    'formatInTimeZone' is defined but never used. Allowed unused vars must match /^_/u                                                      @typescript-eslint/no-unused-vars
+    9:10  error    'getUserTimezone' is defined but never used. Allowed unused vars must match /^_/u                                                       @typescript-eslint/no-unused-vars
+    9:27  error    'calculateNextFeeding' is defined but never used. Allowed unused vars must match /^_/u                                                  @typescript-eslint/no-unused-vars
+    9:49  error    'formatDateTimeForDisplay' is defined but never used. Allowed unused vars must match /^_/u                                              @typescript-eslint/no-unused-vars
+   36:5   error    'DrawerClose' is defined but never used. Allowed unused vars must match /^_/u                                                           @typescript-eslint/no-unused-vars
+   39:3   error    'AlertDialog' is defined but never used. Allowed unused vars must match /^_/u                                                           @typescript-eslint/no-unused-vars
+   40:3   error    'AlertDialogAction' is defined but never used. Allowed unused vars must match /^_/u                                                     @typescript-eslint/no-unused-vars
+   41:3   error    'AlertDialogCancel' is defined but never used. Allowed unused vars must match /^_/u                                                     @typescript-eslint/no-unused-vars
+   42:3   error    'AlertDialogContent' is defined but never used. Allowed unused vars must match /^_/u                                                    @typescript-eslint/no-unused-vars
+   43:3   error    'AlertDialogDescription' is defined but never used. Allowed unused vars must match /^_/u                                                @typescript-eslint/no-unused-vars
+   44:3   error    'AlertDialogFooter' is defined but never used. Allowed unused vars must match /^_/u                                                     @typescript-eslint/no-unused-vars
+   45:3   error    'AlertDialogHeader' is defined but never used. Allowed unused vars must match /^_/u                                                     @typescript-eslint/no-unused-vars
+   46:3   error    'AlertDialogTitle' is defined but never used. Allowed unused vars must match /^_/u                                                      @typescript-eslint/no-unused-vars
+   55:10  error    'Badge' is defined but never used. Allowed unused vars must match /^_/u                                                                 @typescript-eslint/no-unused-vars
+   57:17  error    'Clock' is defined but never used. Allowed unused vars must match /^_/u                                                                 @typescript-eslint/no-unused-vars
+   57:24  error    'Bell' is defined but never used. Allowed unused vars must match /^_/u                                                                  @typescript-eslint/no-unused-vars
+   57:46  error    'Utensils' is defined but never used. Allowed unused vars must match /^_/u                                                              @typescript-eslint/no-unused-vars
+   57:56  error    'X' is defined but never used. Allowed unused vars must match /^_/u                                                                     @typescript-eslint/no-unused-vars
+   57:59  error    'CheckCircle' is defined but never used. Allowed unused vars must match /^_/u                                                           @typescript-eslint/no-unused-vars
+   76:9   error    'router' is assigned a value but never used. Allowed unused vars must match /^_/u                                                       @typescript-eslint/no-unused-vars
+   93:10  error    'isConfirmDialogOpen' is assigned a value but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+   93:31  error    'setIsConfirmDialogOpen' is assigned a value but never used. Allowed unused vars must match /^_/u                                       @typescript-eslint/no-unused-vars
+   94:10  error    'confirmDialogContent' is assigned a value but never used. Allowed unused vars must match /^_/u                                         @typescript-eslint/no-unused-vars
+   94:32  error    'setConfirmDialogContent' is assigned a value but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+  557:6   warning  React Hook useMemo has missing dependencies: 'mealTypeOptions' and 'statusOptions'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/components/feeding/upcoming-feedings.tsx
+   3:10  error  'useState' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   3:20  error  'useEffect' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   6:8   error  'FeedingProgress' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   8:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   8:18  error  'isBefore' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  13:10  error  'formatInTimeZone' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  13:28  error  'toDate' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  16:10  error  'BaseCat' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  16:19  error  'BaseUser' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  16:29  error  'ID' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  35:9   error  'router' is assigned a value but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  69:59  error  'e' is defined but never used                                                       @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/household/HouseholdMembers.tsx
+    3:21  error  'HouseholdMember' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+    6:46  error  'CardHeader' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+   41:18  error  'householdState' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  113:14  error  'error' is defined but never used                                                          @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/household/HouseholdPets.tsx
+   4:10  error  'useHousehold' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   5:29  error  'CardDescription' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   5:46  error  'CardHeader' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   7:34  error  'AvatarImage' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  60:14  error  'error' is defined but never used                                                  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/image-upload.tsx
+  5:10  error  'Plus' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  5:16  error  'Upload' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  9:30  error  'getFallbackImageUrl' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/layout/root-client-layout.tsx
+  41:23  error  'metric' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/new-feeding-sheet.tsx
+  1:10  error  'Button' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  2:10  error  'Input' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  3:10  error  'Label' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  4:10  error  'Textarea' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  7:7   error  'handleSubmit' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/notifications/notification-center.tsx
+  12:10  error  'Badge' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  18:10  error  'Notification' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/notifications/notification-list.tsx
+  3:10  error  'useEffect' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/page-header.tsx
+  6:22  error  'ArrowLeft' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/safe-image.tsx
+  133:6  warning  React Hook useCallback has a missing dependency: 'props'. Either include it or remove the dependency array. However, 'props' will change when *any* prop changes, so the preferred fix is to destructure the 'props' object outside of the useCallback call and refer to those specific props inside useCallback  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/components/schedule/schedule-item.tsx
+   5:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   6:10  error  'ptBR' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  13:3   error  'Bell' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/ui/datetime-picker-new.tsx
+  189:27  error  'props' is defined but never used. Allowed unused args must match /^_/u                         @typescript-eslint/no-unused-vars
+  190:28  error  'props' is defined but never used. Allowed unused args must match /^_/u                         @typescript-eslint/no-unused-vars
+  219:3   error  'container' is defined but never used. Allowed unused args must match /^_/u                     @typescript-eslint/no-unused-vars
+  226:9   error  'years' is assigned a value but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  235:9   error  'months' is assigned a value but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  246:9   error  'handleYearChange' is assigned a value but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  255:9   error  'handleMonthChange' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  264:9   error  'handlePreviousMonth' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  275:9   error  'handleNextMonth' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  286:9   error  'currentYear' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  287:9   error  'currentMonth' is assigned a value but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  289:9   error  'isPrevDisabled' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  290:9   error  'isNextDisabled' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/ui/datetime-picker.tsx
+    3:18  error  'buttonVariants' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+    9:36  error  'ChevronLeft' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+    9:49  error  'ChevronRight' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+    9:63  error  'Clock' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+   13:10  error  'DayPicker' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   96:10  error  'setDateByType' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  127:10  error  'getArrowByType' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  179:9   error  'MONTHS' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/ui/simple-time-picker.tsx
+   60:9  error    'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u                                                                                                                                                                       @typescript-eslint/no-unused-vars
+   74:6  warning  React Hook useEffect has missing dependencies: 'onChange' and 'value'. Either include them or remove the dependency array. If 'onChange' changes too often, find the parent component that defines it and wrap that definition in useCallback               react-hooks/exhaustive-deps
+  181:5  warning  React Hook useCallback has missing dependencies: 'max' and 'min'. Either include them or remove the dependency array. If 'setMinute' needs the current value of 'min', you can also switch to useReducer instead of useState and read 'min' in the reducer  react-hooks/exhaustive-deps
+  200:5  warning  React Hook useCallback has a missing dependency: 'minute'. Either include it or remove the dependency array                                                                                                                                                 react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/components/ui/timeline.tsx
+   4:15  error  'ReactNode' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  14:17  error  'size' is assigned a value but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  14:30  error  'iconSize' is assigned a value but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  48:7   error  'iconColor' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  49:7   error  'status' is assigned a value but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/weight/cat-avatar-stack.tsx
+  3:17  error  'useState' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/weight/current-status-card.tsx
+   4:10  error  'Alert' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   4:17  error  'AlertDescription' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   4:35  error  'AlertTitle' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+   5:10  error  'Info' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  60:3   error  'healthTip' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/weight/goal-form-sheet.tsx
+  55:3  error  'birthDate' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/weight/milestone-progress.tsx
+  205:6  warning  React Hook useEffect has a missing dependency: 'isWeightLossGoal'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/components/weight/quick-log-panel.tsx
+  3:17  error  'useState' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/weight/recent-history-list.tsx
+  12:10  error  'DropdownMenu' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  12:24  error  'DropdownMenuContent' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  12:45  error  'DropdownMenuItem' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  12:63  error  'DropdownMenuTrigger' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  13:10  error  'ChevronDown' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  13:58  error  'FileDown' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  14:10  error  'Badge' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/components/weight/weight-trend-chart.tsx
+    3:27  error    'useMemo' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+    8:10  error    'Button' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+    9:10  error    'Card' is defined but never used. Allowed unused vars must match /^_/u                                        @typescript-eslint/no-unused-vars
+    9:16  error    'CardContent' is defined but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+    9:29  error    'CardHeader' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+    9:41  error    'CardTitle' is defined but never used. Allowed unused vars must match /^_/u                                   @typescript-eslint/no-unused-vars
+    9:52  error    'CardDescription' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+   40:7   error    'sampleFeedingLogs' is assigned a value but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  141:10  error    'feedingLogs' is assigned a value but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+  254:6   warning  React Hook useEffect has a missing dependency: 'timeRange'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  263:11  error    'dateKey' is assigned a value but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/hooks/use-feeding.ts
+    8:10  error    'CatType' is defined but never used. Allowed unused vars must match /^_/u                                                           @typescript-eslint/no-unused-vars
+   13:10  error    'format' is defined but never used. Allowed unused vars must match /^_/u                                                            @typescript-eslint/no-unused-vars
+   13:18  error    'formatDistanceToNow' is defined but never used. Allowed unused vars must match /^_/u                                               @typescript-eslint/no-unused-vars
+   13:39  error    'isBefore' is defined but never used. Allowed unused vars must match /^_/u                                                          @typescript-eslint/no-unused-vars
+   13:49  error    'addHours' is defined but never used. Allowed unused vars must match /^_/u                                                          @typescript-eslint/no-unused-vars
+   13:59  error    'parseISO' is defined but never used. Allowed unused vars must match /^_/u                                                          @typescript-eslint/no-unused-vars
+   13:69  error    'differenceInHours' is defined but never used. Allowed unused vars must match /^_/u                                                 @typescript-eslint/no-unused-vars
+   14:10  error    'ptBR' is defined but never used. Allowed unused vars must match /^_/u                                                              @typescript-eslint/no-unused-vars
+   15:10  error    'toDate' is defined but never used. Allowed unused vars must match /^_/u                                                            @typescript-eslint/no-unused-vars
+   15:18  error    'formatInTimeZone' is defined but never used. Allowed unused vars must match /^_/u                                                  @typescript-eslint/no-unused-vars
+   17:10  error    'calculateNextFeeding' is defined but never used. Allowed unused vars must match /^_/u                                              @typescript-eslint/no-unused-vars
+  291:6   warning  React Hook useCallback has an unnecessary dependency: 'userState.currentUser.id'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/context/FeedingContext.tsx
+    6:10  error    'CatType' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+    8:71  error    'endOfDay' is defined but never used. Allowed unused vars must match /^_/u                                         @typescript-eslint/no-unused-vars
+    8:81  error    'subDays' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+    8:90  error    'compareDesc' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+  160:9   error    'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u                              @typescript-eslint/no-unused-vars
+  309:6   warning  React Hook useEffect has a missing dependency: 'currentUser.id'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  398:6   warning  React Hook useMemo has a missing dependency: 'cats'. Either include it or remove the dependency array              react-hooks/exhaustive-deps
+  451:6   warning  React Hook useMemo has a missing dependency: 'cats'. Either include it or remove the dependency array              react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/context/FeedingContext.v2.tsx
+    6:10  error    'CatType' is defined but never used. Allowed unused vars must match /^_/u                              @typescript-eslint/no-unused-vars
+    8:10  error    'format' is defined but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+    8:39  error    'addHours' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+    8:49  error    'isBefore' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+    8:59  error    'compareAsc' is defined but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+    9:10  error    'toDate' is defined but never used. Allowed unused vars must match /^_/u                               @typescript-eslint/no-unused-vars
+   10:10  error    'useScheduleContext' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   11:10  error    'getUserTimezone' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   12:10  error    'resolveDateFnsLocale' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  338:6   warning  React Hook useMemo has a missing dependency: 'cats'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/context/NotificationContext.tsx
+    3:93  error    'useState' is defined but never used. Allowed unused vars must match /^_/u                                             @typescript-eslint/no-unused-vars
+  429:6   warning  React Hook useCallback has a missing dependency: 'state.totalPages'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/context/ScheduleContext.tsx
+  235:6  warning  React Hook useEffect has missing dependencies: 'addLoadingOperation' and 'cleanupLoading'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/context/UserContext.tsx
+    8:35  error    'NotificationSettings' is defined but never used. Allowed unused vars must match /^_/u                                  @typescript-eslint/no-unused-vars
+   64:10  error    'debounce' is defined but never used. Allowed unused vars must match /^_/u                                              @typescript-eslint/no-unused-vars
+   76:10  error    'isErrorWithMessage' is defined but never used. Allowed unused vars must match /^_/u                                    @typescript-eslint/no-unused-vars
+  275:6   warning  React Hook useCallback has a missing dependency: 'state.currentUser'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  382:7   error    'finished' is assigned a value but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+  470:6   warning  React Hook useCallback has a missing dependency: 'state.currentUser'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/context/WeightContext.tsx
+    5:10  error    'format' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+    5:18  error    'startOfDay' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+    5:30  error    'isEqual' is defined but never used. Allowed unused vars must match /^_/u                                         @typescript-eslint/no-unused-vars
+    5:39  error    'addHours' is defined but never used. Allowed unused vars must match /^_/u                                        @typescript-eslint/no-unused-vars
+    5:49  error    'isBefore' is defined but never used. Allowed unused vars must match /^_/u                                        @typescript-eslint/no-unused-vars
+    5:59  error    'compareAsc' is defined but never used. Allowed unused vars must match /^_/u                                      @typescript-eslint/no-unused-vars
+    5:71  error    'endOfDay' is defined but never used. Allowed unused vars must match /^_/u                                        @typescript-eslint/no-unused-vars
+    5:90  error    'compareDesc' is defined but never used. Allowed unused vars must match /^_/u                                     @typescript-eslint/no-unused-vars
+    6:10  error    'toDate' is defined but never used. Allowed unused vars must match /^_/u                                          @typescript-eslint/no-unused-vars
+    7:10  error    'getUserTimezone' is defined but never used. Allowed unused vars must match /^_/u                                 @typescript-eslint/no-unused-vars
+   38:11  error    'WeightGoalMilestone' is defined but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+  135:9   error    'userLocale' is assigned a value but never used. Allowed unused vars must match /^_/u                             @typescript-eslint/no-unused-vars
+  278:6   warning  React Hook useCallback has a missing dependency: 'currentUser'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  309:6   warning  React Hook useEffect has a missing dependency: 'currentUser'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/data.ts
+  7:31  error  'householdId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/data/server.ts
+  1:30  error  'noStore' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  3:10  error  'logger' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/hooks/use-notification-sync.ts
+  11:10  error  'autoSyncInterval' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/hooks/useStatistics.ts
+  45:106  error  'locale' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/monitoring/logger.ts
+  6:3  error  'generateRequestId' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  8:3  error  'SanitizedError' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/prisma/safe-access.ts
+   3:10  error  'PrismaClient' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  28:33  error  'T' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/repositories/household-repository.ts
+  3:10  error  'logger' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/repositories/schedule-repository.ts
+   2:10  error  'logger' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  78:13  error  'overrideUntil' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/selectors/statisticsSelectors.ts
+  3:10   error  'useMemo' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  7:32   error  'startOfWeek' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  7:45   error  'endOfWeek' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  7:102  error  'getHours' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  7:112  error  'format' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  8:31   error  'Household' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/api-feeding-service.ts
+    1:22  error  'CatType' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+    2:10  error  'formatDateTimeForDisplay' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    3:10  error  'addHours' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    3:20  error  'isBefore' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    3:30  error  'differenceInHours' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+    4:10  error  'getUserTimezone' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    4:27  error  'calculateNextFeeding' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+    5:10  error  'toDate' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+    6:35  error  'ID' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+   12:10  error  'getData' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   12:19  error  'setData' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+   12:28  error  'delay' is defined but never used. Allowed unused vars must match /^_/u                     @typescript-eslint/no-unused-vars
+  214:38  error  'catId' is defined but never used. Allowed unused args must match /^_/u                     @typescript-eslint/no-unused-vars
+  214:53  error  'userTimezone' is defined but never used. Allowed unused args must match /^_/u              @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/api/statistics-service.ts
+  3:10  error  'startOfDay' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  3:22  error  'endOfDay' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/apiService.ts
+   1:42  error  'User' is defined but never used. Allowed unused vars must match /^_/u                          @typescript-eslint/no-unused-vars
+   2:10  error  'formatDateTimeForDisplay' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+   3:10  error  'addHours' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   3:20  error  'isBefore' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   3:30  error  'differenceInHours' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   4:27  error  'calculateNextFeeding' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+   6:10  error  'BaseUser' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+   6:20  error  'BaseCat' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+   6:45  error  'ID' is defined but never used. Allowed unused vars must match /^_/u                            @typescript-eslint/no-unused-vars
+   7:10  error  'Notification' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+  10:3   error  'createFeedingNotification' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  11:3   error  'generateFeedingNotifications' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  12:3   error  'isDuplicateFeeding' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  13:3   error  'isFeedingLate' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+  14:3   error  'isFeedingMissed' is defined but never used. Allowed unused vars must match /^_/u               @typescript-eslint/no-unused-vars
+  15:3   error  'shouldSendReminder' is defined but never used. Allowed unused vars must match /^_/u            @typescript-eslint/no-unused-vars
+  58:10  error  'isValidDataStructure' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/feeding-notification-service.ts
+   2:18  error  'addHours' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+   2:38  error  'isAfter' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  13:11  error  'FeedingSchedule' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/feeding-service.ts
+  145:57  error  'userId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/notification-service.ts
+  1:42  error  'CreateNotificationPayload' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  3:38  error  'isAfter' is defined but never used. Allowed unused vars must match /^_/u                    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/notificationService.ts
+  71:42  error  'payload' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  80:44  error  'payload' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/services/statistics-service.ts
+  2:10  error  'startOfDay' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  2:22  error  'endOfDay' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  2:32  error  'startOfWeek' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  2:45  error  'endOfWeek' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  2:56  error  'startOfMonth' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  2:70  error  'endOfMonth' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  2:91  error  'subMonths' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/types.ts
+  1:10  error  'BaseCat' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  2:10  error  'ID' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/utils/data-loader.ts
+  14:11  error    'LoaderState' is defined but never used. Allowed unused vars must match /^_/u                                                                            @typescript-eslint/no-unused-vars
+  90:7   warning  React Hook useEffect has a spread element in its dependency array. This means we can't statically verify whether you've passed the correct dependencies  react-hooks/exhaustive-deps
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/utils/date.ts
+  5:3  error  'startOfWeek' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  6:3  error  'endOfWeek' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/utils/dateUtils.ts
+   1:10  error  'format' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+   5:10  error  'differenceInHours' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   5:39  error  'isBefore' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  21:12  error  'error' is defined but never used                                                    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/utils/indexeddb-manager.ts
+  6:11  error  'Stores' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/lib/utils/singleton.ts
+  1:33  error  'T' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/prisma/seed.ts
+  2:24  error  'Prisma' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/proxy.ts
+  2:10  error  'imageCache' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  5:10  error  'redirectionLogger' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  7:10  error  'handleAuthError' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  8:35  error  'CookieOptions' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/src/lib/image-cache.ts
+   40:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+   70:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  105:16  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  108:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  132:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+  150:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/utils/supabase/middleware.ts
+  78:7  error  'AUTH_COOKIE_OPTIONS' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  88:7  error  'AUTH_COOKIE_NAMES' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/home/mauriciobc/Documentos/Code/mealtime/utils/supabase/storage.ts
+  52:11  error  'data' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 686 problems (662 errors, 24 warnings)
+

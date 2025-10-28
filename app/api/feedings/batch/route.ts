@@ -62,7 +62,7 @@ async function createSupabaseRouteClient() {
 
 // POST /api/feedings/batch - Create multiple feeding logs
 export const POST = withError(async (request: Request) => {
-  const supabase = createSupabaseRouteClient();
+  const supabase = await createSupabaseRouteClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -135,7 +135,7 @@ export const POST = withError(async (request: Request) => {
           meal_type: log.mealType,
           amount: log.portionSize,
           unit: log.unit,
-          notes: log.notes,
+          notes: log.notes ?? null,
           fed_by: user.id,
           fed_at: new Date(log.timestamp)
         }
@@ -197,7 +197,7 @@ export const POST = withError(async (request: Request) => {
   // Mapear os logs criados para incluir o tempId original
   const logsWithTempId = createdFeedings.map((feeding, index) => ({
     ...feeding,
-    tempId: logs[index].tempId // Incluir o tempId original do request
+    tempId: logs[index]?.tempId // Incluir o tempId original do request
   }));
 
   return NextResponse.json({ count: createdFeedings.length, logs: logsWithTempId });

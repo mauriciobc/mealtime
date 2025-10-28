@@ -210,7 +210,7 @@ export default function NotificationsPage() {
         setLastUpdated(Date.now());
       }
     }
-  }, [removeNotification]);
+  }, [removeNotification, notifications.length, unreadCount]);
 
   const containerVariants = useMemo(() => ({
     hidden: { opacity: 0 },

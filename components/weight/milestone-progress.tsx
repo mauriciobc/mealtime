@@ -193,7 +193,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
       if (justCompleted.length > 0) {
         justCompleted.sort((a, b) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime());
         console.log('[MilestoneProgress] justCompleted milestones:', justCompleted);
-        setNewlyCompletedMilestone(justCompleted[0]);
+        setNewlyCompletedMilestone(justCompleted[0] || null);
       }
     }
     if (currentWeight !== prevCurrentWeight) {
@@ -202,7 +202,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
     if (currentWeightDate !== prevCurrentWeightDate) {
       setPrevCurrentWeightDate(currentWeightDate);
     }
-  }, [currentWeight, prevCurrentWeight, currentWeightDate, prevCurrentWeightDate, activeGoal, processedMilestones]);
+  }, [currentWeight, prevCurrentWeight, currentWeightDate, prevCurrentWeightDate, activeGoal, processedMilestones, isWeightLossGoal]);
 
   useEffect(() => {
     if (newlyCompletedMilestone) {
@@ -269,7 +269,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
     }
   }
   const goalProgressPercentage = Math.min(100, Math.max(0, progressValue));
-  const isGoalAchieved = isWeightLossGoal ? (currentWeight ?? parsedInitialWeight) <= parsedTargetWeight : (currentWeight ?? parsedInitialWeight) >= parsedTargetWeight;
+  const isGoalAchieved = parsedTargetWeight !== null && parsedInitialWeight !== null && (isWeightLossGoal ? (currentWeight ?? parsedInitialWeight) <= parsedTargetWeight : (currentWeight ?? parsedInitialWeight) >= parsedTargetWeight);
   const pieData = [
     { name: 'Completed', value: goalProgressPercentage },
     { name: 'Remaining', value: 100 - goalProgressPercentage },
@@ -379,7 +379,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
             <div className="text-sm font-medium mb-2 text-center">
               {GOAL_PROGRESS}: {isGoalAchieved
                 ? <span className="font-semibold text-green-700">{GOAL_ACHIEVED}</span>
-                : <span>{CURRENT_WEIGHT_LABEL}: {currentWeight?.toFixed(1)}{activeGoal.unit} / {GOAL_LABEL}: {parsedTargetWeight !== null ? parsedTargetWeight.toFixed(1) : 'N/A'}{activeGoal.unit}</span>
+                : <span>{CURRENT_WEIGHT_LABEL}: {currentWeight?.toFixed(1)}{activeGoal.unit} / {GOAL_LABEL}: {parsedTargetWeight !== null ? parsedTargetWeight!.toFixed(1) : 'N/A'}{activeGoal.unit}</span>
               }
             </div>
             <ChartContainer config={{}} className="mx-auto aspect-square h-[160px] w-[160px]">

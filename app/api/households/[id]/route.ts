@@ -92,24 +92,22 @@ async function authorizeAdmin(supabaseUser: any, householdId: string): Promise<{
 // GET /api/households/[id] - Obter um domicílio específico
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Ensure params is properly awaited
-    const resolvedParams = await Promise.resolve({
-      id: await Promise.resolve(params).then(p => p.id)
-    });
+    const resolvedParams = await params;
 
     // Validate params
     const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
     if (!paramsValidation.success) {
-      console.error('[GET /api/households/[id]] Param validation error:', paramsValidation.error.errors);
-      return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+      console.error('[GET /api/households/[id]] Param validation error:', paramsValidation.error.issues);
+      return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
     }
     const householdId = paramsValidation.data.id;
 
     const cookieStore = await cookies();
-    const supabase = await createClient(cookieStore);
+    const supabase = await createClient();
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !supabaseUser) {
@@ -163,7 +161,7 @@ export async function GET(
     const formattedHousehold = {
       id: household.id,
       name: household.name,
-      inviteCode: household.invite_code || '',
+      inviteCode: household.inviteCode || '',
       members: household.household_members.map(member => ({
         id: member.id,
         userId: member.user.id,
@@ -192,21 +190,19 @@ export async function GET(
 // PATCH /api/households/[id] - Atualizar um domicílio
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Ensure params is not a promise before validation
-    const resolvedParams = {
-      id: params.id
-    };
+    const resolvedParams = await params;
 
     // Validate params
     const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
-    if (!paramsValidation.success) return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+    if (!paramsValidation.success) return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
     const householdId = paramsValidation.data.id;
 
     const cookieStore = await cookies();
-    const supabase = await createClient(cookieStore);
+    const supabase = await createClient();
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !supabaseUser) {
@@ -222,7 +218,7 @@ export async function PATCH(
     const bodyValidation = PatchBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-      return NextResponse.json({ error: bodyValidation.error.errors }, { status: 400 });
+      return NextResponse.json({ error: bodyValidation.error.issues }, { status: 400 });
     }
 
     // Ensure there's data to update
@@ -230,10 +226,16 @@ export async function PATCH(
         return NextResponse.json({ message: "Nenhum dado fornecido para atualização." }, { status: 400 });
     }
 
+    // Build update data explicitly to avoid undefined values
+    const updateData: { name?: string } = {};
+    if (bodyValidation.data.name !== undefined) {
+      updateData.name = bodyValidation.data.name;
+    }
+
     // Update the household
     const updatedHousehold = await prisma.households.update({
       where: { id: householdId },
-      data: bodyValidation.data,
+      data: updateData,
       include: {
         household_members: {
           include: {
@@ -261,14 +263,14 @@ export async function PATCH(
     const formattedHousehold = {
       id: updatedHousehold.id,
       name: updatedHousehold.name,
-      members: updatedHousehold.household_members.map(member => ({
+      members: updatedHousehold.household_members.map((member: any) => ({
         id: member.user.id,
         name: member.user.full_name,
         email: member.user.email,
         role: member.role,
         isCurrentUser: member.user.id === authResult.prismaUserId
       })),
-      cats: updatedHousehold.cats.map(cat => ({
+      cats: updatedHousehold.cats.map((cat: any) => ({
         id: cat.id,
         name: cat.name,
         birthDate: cat.birth_date,
@@ -287,20 +289,18 @@ export async function PATCH(
 // DELETE /api/households/[id] - Excluir um domicílio
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Ensure params is not a promise before validation
-  const resolvedParams = {
-    id: params.id
-  };
+  const resolvedParams = await params;
 
   // Validate params
   const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
-  if (!paramsValidation.success) return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+  if (!paramsValidation.success) return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
   const householdId = paramsValidation.data.id;
 
   const cookieStore = await cookies();
-  const supabase = await createClient(cookieStore);
+  const supabase = await createClient();
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
   // Authorize: Only admins can delete
@@ -327,10 +327,9 @@ export async function DELETE(
     // Perform the deletion
     // Transaction might be needed if related records need complex cleanup
     await prisma.$transaction(async (tx) => {
-        // 1. Dissociate users (set householdId to null or handle differently)
-        await tx.profiles.updateMany({
-            where: { household_members: { some: { household_id: householdId } } },
-            data: { household_members: { set: [] } }
+        // 1. Delete household_members relationships
+        await tx.household_members.deleteMany({
+            where: { household_id: householdId }
         });
         // 2. Delete cats (or handle orphaned cats)
         await tx.cats.deleteMany({

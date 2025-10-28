@@ -30,7 +30,7 @@ import { DateTimePicker } from '@/components/ui/datetime-picker';
 const weightLogSchema = z.object({
   catId: z.string().uuid({ message: 'Valid Cat ID is required.' }),
   weight: z.coerce.number().positive({ message: 'Weight must be a positive number.' }),
-  date: z.date({ required_error: 'Date is required.' }),
+  date: z.date({ message: 'Date is required.' }),
   notes: z.string().optional(),
 });
 
@@ -54,7 +54,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
   const isEditing = !!logToEdit;
 
   const form = useForm<WeightLogFormValues>({
-    resolver: zodResolver(weightLogSchema),
+    resolver: zodResolver(weightLogSchema) as any,
   });
 
   useEffect(() => {
@@ -100,9 +100,9 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
             </DrawerHeader>
             <div className="px-4 py-2">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
                   <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="weight"
                     render={({ field }) => (
                       <FormItem>
@@ -121,7 +121,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
                     )}
                   />
                   <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="date"
                     render={({ field }) => (
                       <FormItem>
@@ -140,7 +140,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
                     )}
                   />
                   <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="notes"
                     render={({ field }) => (
                       <FormItem>

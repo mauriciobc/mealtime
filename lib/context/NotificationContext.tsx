@@ -183,8 +183,8 @@ function notificationReducer(state: NotificationState, action: NotificationActio
       default:
         return state;
     }
-  } catch (error) {
-    console.error("[NotificationReducer] Error processing action:", { action, error });
+  } catch (_error) {
+    console.error("[NotificationReducer] Error processing action:", { action, error: _error });
     return { ...state, error: "An unexpected error occurred in the reducer." };
   }
 }
@@ -235,8 +235,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             }
           });
         }
-      } catch (error) {
-        console.error('[NotificationProvider] Failed to load from cache:', error);
+      } catch (_error) {
+        console.error('[NotificationProvider] Failed to load from cache:', _error);
       }
     };
 
@@ -303,9 +303,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         });
         dispatch({ type: "SET_LAST_SYNC_TIME", payload: new Date() });
       }
-    } catch (error) {
-      console.error("[NotificationProvider] Error in fetchInitialData:", error);
-      dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Failed to load notifications" });
+    } catch (_error) {
+      console.error("[NotificationProvider] Error in fetchInitialData:", _error);
+      dispatch({ type: "SET_ERROR", payload: _error instanceof Error ? _error.message : "Failed to load notifications" });
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
       dispatch({ type: "SET_SYNCING", payload: false });
@@ -421,12 +421,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           hasMore: cachedNotifications.length === 10
         }
       });
-    } catch (error) {
-      console.error("[NotificationProvider] Error loading more:", error);
+    } catch (_error) {
+      console.error("[NotificationProvider] Error loading more:", _error);
     } finally {
       dispatch({ type: "SET_LOADING", payload: false });
     }
-  }, [state.hasMore, state.isLoading, state.page, currentUserId]);
+  }, [state.hasMore, state.isLoading, state.page, state.totalPages, currentUserId]);
 
   const markAsRead = useCallback(async (id: string) => {
     if (!currentUserId) return;
@@ -443,10 +443,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       
       // Update server
       await notificationService.markAsRead([id]);
-    } catch (error) {
-      console.error(`[NotificationProvider] Error marking as read:`, error);
+    } catch (_error) {
+      console.error(`[NotificationProvider] Error marking as read:`, _error);
       // Revert optimistic update on error
-      dispatch({ type: "SET_ERROR", payload: error instanceof Error ? error.message : "Failed to mark as read" });
+      dispatch({ type: "SET_ERROR", payload: _error instanceof Error ? _error.message : "Failed to mark as read" });
     }
   }, [currentUserId, state.notifications]);
 
@@ -462,8 +462,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
       
       await notificationService.markAllAsRead();
-    } catch (error) {
-      console.error("[NotificationProvider] Error marking all as read:", error);
+    } catch (_error) {
+      console.error("[NotificationProvider] Error marking all as read:", _error);
     }
   }, [currentUserId, state.notifications]);
 
@@ -473,8 +473,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     try {
       dispatch({ type: "REMOVE_NOTIFICATION", payload: { id } });
       await notificationService.deleteNotification(id);
-    } catch (error) {
-      console.error(`[NotificationProvider] Error removing notification:`, error);
+    } catch (_error) {
+      console.error(`[NotificationProvider] Error removing notification:`, _error);
     }
   }, [currentUserId]);
 

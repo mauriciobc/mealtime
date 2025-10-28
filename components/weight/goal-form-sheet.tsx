@@ -30,8 +30,8 @@ export interface GoalFormData {
   initial_weight: number;
   target_weight: number;
   unit: 'kg' | 'lbs';
-  start_date: string; // ISO string YYYY-MM-DD
-  target_date: string; // ISO string YYYY-MM-DD
+  start_date?: string; // ISO string YYYY-MM-DD
+  target_date?: string; // ISO string YYYY-MM-DD
   description?: string;
 }
 
@@ -119,7 +119,7 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
     setIsSubmitting(true);
     try {
       await onSubmit({
-        cat_id: catId,
+        cat_id: catId || '',
         goal_name: goalName.trim(),
         initial_weight: parsedInitialWeight,
         target_weight: parsedTargetWeight,

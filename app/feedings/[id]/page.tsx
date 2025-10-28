@@ -2,9 +2,9 @@
 
 import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { format } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { ArrowLeft, Edit, Trash2, Utensils, AlertTriangle, Ban, Users } from "lucide-react"
+import { ArrowLeft, Trash2, AlertTriangle, Ban, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -17,7 +17,6 @@ import BottomNav from "@/components/bottom-nav"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { FeedingLog } from "@/lib/types"
-import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 
 interface FeedingLogDetails extends FeedingLog {
   // Assuming API returns cat and user nested
@@ -33,8 +32,6 @@ export default function FeedingDetailsPage({
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState
-  const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
 
   const [isLoadingPage, setIsLoadingPage] = useState(true)
   const [feedingLog, setFeedingLog] = useState<FeedingLogDetails | null>(null)
@@ -42,60 +39,22 @@ export default function FeedingDetailsPage({
   const [isDeleting, setIsDeleting] = useState(false)
 
   const logId = resolvedParams.id
+  const shouldRedirect = !isLoadingUser && !errorUser && !currentUser
+  const shouldFetchData = !isLoadingUser && !errorUser && currentUser && currentUser.householdId
 
-  if (isLoadingUser) {
-    return <Loading text="Carregando sessão..." />
-  }
-  
-  if (errorUser) {
-     return (
-       <PageTransition>
-         <div className="flex flex-col min-h-screen bg-background">
-            <div className="p-4 pb-24 text-center">
-               <PageHeader title="Detalhes da Alimentação" />
-               <p className="text-destructive mt-6">Erro ao carregar dados do usuário: {errorUser}</p>
-               <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
-            </div>
-            <BottomNav />
-         </div>
-       </PageTransition>
-     );
-  }
-  
-  if (!currentUser) {
-    console.log("[FeedingDetailsPage] No currentUser found. Redirecting...");
-    useEffect(() => {
-        toast.error("Autenticação necessária.");
-        router.replace(`/login?callbackUrl=/feedings/${logId}`);
-    }, [router, logId]);
-    return <Loading text="Redirecionando para login..." />;
-  }
-  
-  if (!currentUser.householdId) {
-     return (
-       <PageTransition>
-         <div className="flex flex-col min-h-screen bg-background">
-            <div className="p-4 pb-24">
-               <PageHeader title="Detalhes da Alimentação" />
-               <EmptyState
-                 IconComponent={Users}
-                 title="Sem Residência Associada"
-                 description="Associe-se a uma residência para ver detalhes."
-                 actionButton={
-                   <Button asChild variant="default" className="mt-4">
-                     <a href="/settings">Ir para Configurações</a>
-                   </Button>
-                 }
-                 className="mt-8"
-               />
-            </div>
-            <BottomNav />
-         </div>
-       </PageTransition>
-     );
-  }
-
+  // Handle redirect for unauthenticated users
   useEffect(() => {
+    if (shouldRedirect) {
+      console.log("[FeedingDetailsPage] No currentUser found. Redirecting...");
+      toast.error("Autenticação necessária.");
+      router.replace(`/login?callbackUrl=/feedings/${logId}`);
+    }
+  }, [shouldRedirect, router, logId]);
+
+  // Handle fetching feeding log data
+  useEffect(() => {
+    if (!shouldFetchData) return;
+
     if (!logId || typeof logId !== 'string' || logId.length < 10) {
       setIsLoadingPage(false)
       setError("ID do registro inválido.")
@@ -141,7 +100,54 @@ export default function FeedingDetailsPage({
     }
 
     fetchFeedingLog()
-  }, [logId, currentUser?.id, currentUser?.householdId, addLoadingOperation, removeLoadingOperation])
+  }, [shouldFetchData, logId, currentUser?.id, addLoadingOperation, removeLoadingOperation])
+
+  if (isLoadingUser) {
+    return <Loading text="Carregando sessão..." />
+  }
+  
+  if (errorUser) {
+     return (
+       <PageTransition>
+         <div className="flex flex-col min-h-screen bg-background">
+            <div className="p-4 pb-24 text-center">
+               <PageHeader title="Detalhes da Alimentação" />
+               <p className="text-destructive mt-6">Erro ao carregar dados do usuário: {errorUser}</p>
+               <Button onClick={() => router.back()} variant="outline" className="mt-4">Voltar</Button>
+            </div>
+            <BottomNav />
+         </div>
+       </PageTransition>
+     );
+  }
+  
+  if (!currentUser) {
+    return <Loading text="Redirecionando para login..." />;
+  }
+  
+  if (!currentUser.householdId) {
+     return (
+       <PageTransition>
+         <div className="flex flex-col min-h-screen bg-background">
+            <div className="p-4 pb-24">
+               <PageHeader title="Detalhes da Alimentação" />
+               <EmptyState
+                 IconComponent={Users}
+                 title="Sem Residência Associada"
+                 description="Associe-se a uma residência para ver detalhes."
+                 actionButton={
+                   <Button asChild variant="default" className="mt-4">
+                     <Link href="/settings">Ir para Configurações</Link>
+                   </Button>
+                 }
+                 className="mt-8"
+               />
+            </div>
+            <BottomNav />
+         </div>
+       </PageTransition>
+     );
+  }
 
   const handleDelete = async () => {
     if (!feedingLog || !currentUser?.householdId) {
@@ -195,7 +201,7 @@ export default function FeedingDetailsPage({
         description={error}
         actionButton={
           <Button asChild variant="default">
-            <a href="/feedings">Voltar para Histórico</a>
+            <Link href="/feedings">Voltar para Histórico</Link>
           </Button>
         }
       />
@@ -208,7 +214,7 @@ export default function FeedingDetailsPage({
         description="O registro de alimentação não foi encontrado ou você não tem permissão para vê-lo."
         actionButton={
           <Button asChild variant="default">
-            <a href="/feedings">Voltar para Histórico</a>
+            <Link href="/feedings">Voltar para Histórico</Link>
           </Button>
         }
       />

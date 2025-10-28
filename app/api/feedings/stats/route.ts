@@ -7,7 +7,7 @@ const statsQuerySchema = z.object({
   catId: z.string().uuid({ message: "Invalid cat ID format" }).optional(),
   days: z.string().regex(/^\d+$/).transform(Number).pipe(
     z.number().int().positive().max(90)
-  ).optional().default("7"),
+  ).optional().default(7),
 });
 
 export async function GET(request: NextRequest) {
@@ -84,6 +84,8 @@ export async function GET(request: NextRequest) {
     
     feedings.forEach(feeding => {
       const date = feeding.fed_at.toISOString().split('T')[0];
+      if (!date) return; // Skip if date parsing fails
+      
       const catId = feeding.cat_id;
       const mealType = feeding.meal_type;
       const amount = feeding.amount || 1;
@@ -132,6 +134,8 @@ export async function GET(request: NextRequest) {
     const allDates: string[] = [];
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
+      if (!dateStr) continue; // Skip if date parsing fails
+      
       allDates.push(dateStr);
       
       if (!dailyStats[dateStr]) {

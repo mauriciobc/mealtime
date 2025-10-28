@@ -33,9 +33,12 @@ class ImageCache {
   async set(key: string, data: Buffer): Promise<void> {
     // Limpar entradas antigas se o cache estiver cheio
     if (this.cache.size >= this.maxSize) {
-      const oldestKey = Array.from(this.cache.entries())
-        .sort(([, a], [, b]) => a.timestamp - b.timestamp)[0][0];
-      this.cache.delete(oldestKey);
+      const sorted = Array.from(this.cache.entries())
+        .sort(([, a], [, b]) => a.timestamp - b.timestamp);
+      const oldest = sorted[0];
+      if (oldest) {
+        this.cache.delete(oldest[0]);
+      }
     }
 
     this.cache.set(key, {

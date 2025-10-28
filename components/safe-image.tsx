@@ -130,7 +130,7 @@ export function SafeImage({ fallback, className, fill, onError, ...props }: Safe
     } catch (error) {
       handleImageError(error);
     }
-  }, [handleImageError, props.onLoad, props.src]);
+  }, [handleImageError, props]);
 
   const FallbackComponent = (
     <div style={imageWrapperStyle} className={className}>
@@ -153,7 +153,7 @@ export function SafeImage({ fallback, className, fill, onError, ...props }: Safe
         <Image 
           {...props} 
           fill={fill} 
-          className={`object-cover ${props.className || ''}`}
+          className={`object-cover ${className || ''}`}
           onLoad={(event) => {
             // Our internal load handler first
             handleImageLoad(event);

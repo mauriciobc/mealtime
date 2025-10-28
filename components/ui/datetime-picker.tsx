@@ -190,8 +190,8 @@ function CalendarPicker({ className, classNames, showOutsideDays = true, yearRan
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={classNames}
-      fromYear={YEARS[0].value}
-      toYear={YEARS[YEARS.length - 1].value}
+      fromYear={YEARS[0]?.value || 1900}
+      toYear={YEARS[YEARS.length - 1]?.value || 2100}
       {...props}
     />
   );
@@ -357,7 +357,9 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
         reset: () => {
           setDisplayDate(undefined);
           setMonth(defaultPopupValue);
-          onChange?.(undefined);
+          if (onChange) {
+            onChange(new Date());
+          }
         },
       }),
       [displayDate, defaultPopupValue, onChange],

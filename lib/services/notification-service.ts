@@ -77,14 +77,14 @@ export const generateNotificationsFromSchedules = (schedules: Schedule[]): Notif
 
     if (schedule.type === "interval") {
       // Para agendamentos baseados em intervalo
-      nextFeedingTime = addHours(now, schedule.interval);
+      nextFeedingTime = addHours(now, schedule.interval || 24);
     } else if (schedule.type === "fixedTime") {
       // Para agendamentos de horário fixo
       const times = schedule.times.split(",");
       const timesList = times.map(time => {
         const [hours, minutes] = time.split(":").map(Number);
         const date = new Date();
-        date.setHours(hours, minutes, 0, 0);
+        date.setHours(hours || 0, minutes || 0, 0, 0);
         
         // Se o horário já passou hoje, agendar para amanhã
         if (isBefore(date, now)) {
@@ -96,7 +96,7 @@ export const generateNotificationsFromSchedules = (schedules: Schedule[]): Notif
       
       // Ordenar para encontrar o próximo horário
       timesList.sort((a, b) => a.getTime() - b.getTime());
-      nextFeedingTime = timesList[0];
+      nextFeedingTime = timesList[0] || null;
     }
 
     if (nextFeedingTime) {
@@ -164,8 +164,8 @@ export const checkForNewNotifications = async (): Promise<Notification[]> => {
       console.warn('Erro ao buscar agendamentos:', fetchError);
       return [];
     }
-  } catch (error) {
-    console.warn("Erro ao verificar notificações:", error);
+  } catch (_error) {
+    console.warn("Erro ao verificar notificações:", _error);
     return [];
   }
 }; 

@@ -1,6 +1,6 @@
 "use client"
 
-import { CatTimeline } from "@/components/cat-timeline"
+import { CatTimeline } from "@/components/cat/cat-timeline"
 import { motion } from "framer-motion"
 
 export default function Home() {

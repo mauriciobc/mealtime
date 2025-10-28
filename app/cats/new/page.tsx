@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -233,7 +234,7 @@ export default function NewCatPage() {
               IconComponent={Users}
               title="Nenhum domicílio encontrado"
               description="Você precisa pertencer a um domicílio para adicionar um gato. Crie ou junte-se a um domicílio nas configurações."
-              actionButton={<Button asChild><a href="/settings">Ir para Configurações</a></Button>}
+              actionButton={<Button asChild><Link href="/settings">Ir para Configurações</Link></Button>}
             />
           </div>
         </div>
@@ -290,7 +291,7 @@ export default function NewCatPage() {
                     <FormLabel>Data de Nascimento</FormLabel>
                     <FormControl>
                       <DateTimePicker
-                        value={field.value}
+                        {...(field.value ? { value: field.value } : {})}
                         onChange={field.onChange}
                         fromYear={1980}
                         toYear={2030}

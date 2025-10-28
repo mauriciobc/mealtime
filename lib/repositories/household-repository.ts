@@ -1,6 +1,6 @@
 import prisma from '../prisma';
 import { v4 as uuidv4 } from 'uuid';
-import { logger } from '@/lib/monitoring/logger';
+
 
 export const HouseholdRepository = {
   // Buscar todos os domicílios

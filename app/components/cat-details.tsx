@@ -172,7 +172,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
 
       throw new Error(errorMessage);
     }
-  }, [isFeedingLoading, feedingHookError, cat, catId]);
+  }, [isFeedingLoading, feedingHookError, cat, catId, redirectTriggered]);
 
   // Loading state depends only on user and feeding hook
   const isLoading = userLoading || isFeedingLoading;
@@ -224,7 +224,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
       }
       console.error("Erro ao excluir gato:", error);
       toast.error(`Falha ao excluir o gato: ${error.message}`);
-      throw error;
+      throw new Error(String(error));
     } finally {
       setIsProcessingDelete(false);
       setShowDeleteDialog(false);

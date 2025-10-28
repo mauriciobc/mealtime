@@ -48,7 +48,9 @@ async function backfillInitialWeightLogs() {
       try {
         // The 'date' field in 'cat_weight_logs' is a Date, not DateTime.
         // We convert the cat's 'created_at' (DateTime) to a Date object representing just YYYY-MM-DD.
-        const logDate = new Date(cat.created_at.toISOString().split('T')[0]);
+        const createdAtDate = cat.created_at || new Date();
+        const dateString = createdAtDate.toISOString().split('T')[0];
+        const logDate = dateString ? new Date(dateString) : new Date();
 
         await prisma.cat_weight_logs.create({
           data: {

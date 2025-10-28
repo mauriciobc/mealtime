@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Users, Cat as CatIcon, AlertTriangle, Trash2 } from "lucide-react";
+import { ArrowLeft, Users, Cat as CatIcon, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
@@ -44,8 +44,8 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const formSchema = z.object({
-  catId: z.string({ required_error: "Selecione um gato." }).uuid({ message: "ID do gato inválido." }),
-  type: z.enum(["interval", "fixedTime"], { required_error: "Selecione um tipo." }),
+  catId: z.string({ message: "Selecione um gato." }).uuid({ message: "ID do gato inválido." }),
+  type: z.enum(["interval", "fixedTime"], { message: "Selecione um tipo." }),
   interval: z.string().optional(),
   times: z.string().optional(),
   enabled: z.boolean().default(true),
@@ -83,10 +83,18 @@ export default function NewSchedulePage() {
   const isLoading = isLoadingCats || isLoadingUser;
   const combinedError = errorCats || errorUser || errorSchedules;
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  type ScheduleFormType = {
+    catId: string;
+    type: "interval" | "fixedTime";
+    enabled: boolean;
+    interval?: string;
+    times?: string;
+  };
+
+  const form = useForm<ScheduleFormType>({
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
-      catId: undefined,
+      catId: "" as any,
       type: "interval",
       interval: "8",
       times: "",
@@ -95,6 +103,16 @@ export default function NewSchedulePage() {
   });
 
   const watchType = form.watch("type");
+  const shouldRedirect = !isLoadingUser && !errorUser && !currentUser;
+
+  // Handle redirect for unauthenticated users
+  useEffect(() => {
+    if (shouldRedirect) {
+      console.log("[NewSchedulePage] No currentUser found. Redirecting...");
+      toast.error("Autenticação necessária para criar agendamentos.");
+      router.replace("/login?callbackUrl=/schedules/new");
+    }
+  }, [shouldRedirect, router]);
 
   // Effect 1: Reset selectedTimes when type changes to 'interval'
   useEffect(() => {
@@ -108,7 +126,7 @@ export default function NewSchedulePage() {
         form.setValue('times', '', { shouldValidate: false });
       }
     }
-  }, [watchType]);
+  }, [watchType, selectedTimes, form]);
 
   // Effect 2: Update form 'times' when selectedTimes changes and type is 'fixedTime'
   useEffect(() => {
@@ -122,7 +140,7 @@ export default function NewSchedulePage() {
         form.setValue('times', timesString, { shouldValidate: true });
       }
     }
-  }, [selectedTimes, watchType]);
+  }, [selectedTimes, watchType, form]);
 
   const addTimeField = useCallback(() => {
     if (selectedTimes.length < 5) {
@@ -241,11 +259,6 @@ export default function NewSchedulePage() {
   }
 
   if (!currentUser) {
-    console.log("[NewSchedulePage] No currentUser found. Redirecting...");
-    useEffect(() => {
-        toast.error("Autenticação necessária para criar agendamentos.");
-        router.replace("/login?callbackUrl=/schedules/new");
-    }, [router]);
     return <Loading text="Redirecionando para login..." />;
   }
 
@@ -327,9 +340,9 @@ export default function NewSchedulePage() {
                </div>
              )}
              <Form {...form}>
-               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+               <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
                  <FormField
-                   control={form.control}
+                   control={form.control as any}
                    name="catId"
                    render={({ field }) => (
                      <FormItem>
@@ -356,7 +369,7 @@ export default function NewSchedulePage() {
                  <Separator />
 
                  <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="type"
                     render={({ field }) => (
                        <FormItem className="space-y-3">
@@ -375,7 +388,7 @@ export default function NewSchedulePage() {
                                 </TabsList>
                                 <TabsContent value="interval" className="pt-4">
                                    <FormField
-                                      control={form.control}
+                                      control={form.control as any}
                                       name="interval"
                                       render={({ field: intervalField }) => (
                                          <FormItem>
@@ -434,7 +447,7 @@ export default function NewSchedulePage() {
                                         </Button>
                                     )}
                                      <FormField
-                                        control={form.control}
+                                        control={form.control as any}
                                         name="times"
                                         render={({ field: timesField }) => (
                                            <FormItem className="hidden">
@@ -457,7 +470,7 @@ export default function NewSchedulePage() {
                  />
 
                  <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="enabled"
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">

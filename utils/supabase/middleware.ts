@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { logger } from '@/lib/monitoring/logger';
+
 import { createMiddlewareCookieStore } from '@/lib/supabase/cookie-store';
 
 // Routes that require authentication
@@ -135,7 +136,7 @@ export async function updateSession(request: NextRequest) {
     // Handle auth errors with better error classification
     if (userError) {
       const isSessionMissing = userError.name === 'AuthSessionMissingError';
-      const isTransientError = userError.status >= 500 || 
+      const isTransientError = (userError?.status ?? 500) >= 500 || 
         (userError.message && typeof userError.message === 'string' && 
          userError.message.toLowerCase().includes('network'));
       
@@ -143,7 +144,7 @@ export async function updateSession(request: NextRequest) {
       if (isProtectedRoute(currentPath)) {
         logger.error('[updateSession] Supabase user error on protected route:', { 
           message: userError.message, 
-          code: userError.status, 
+          code: (userError?.status ?? 500), 
           name: userError.name, 
           path: currentPath,
           isSessionMissing,
@@ -152,7 +153,7 @@ export async function updateSession(request: NextRequest) {
       } else {
         logger.info('[updateSession] Supabase user error (non-protected route, likely expected):', { 
           message: userError.message, 
-          code: userError.status, 
+          code: (userError?.status ?? 500), 
           name: userError.name, 
           path: currentPath,
           isSessionMissing,
@@ -207,11 +208,11 @@ export async function updateSession(request: NextRequest) {
     logger.debug(`[updateSession] Auth check passed for path: ${currentPath}. User authenticated: ${!!user}`);
     return response;
 
-  } catch (error) {
-    logger.error('[updateSession] Unexpected error during auth check:', error);
-    // Redirect on generic error only for protected routes
+  } catch (_error) {
+    logger.error('[updateSession] Unexpected _error during auth check:', _error as any);
+    // Redirect on generic _error only for protected routes
     if (isProtectedRoute(currentPath)) {
-       logger.warn(`[updateSession] Redirecting due to unexpected error on protected path: ${currentPath}`);
+       logger.warn(`[updateSession] Redirecting due to unexpected _error on protected path: ${currentPath}`);
        const redirectUrl = new URL('/login', request.url);
        if (currentPath !== '/') {
           redirectUrl.searchParams.set('redirectTo', currentPath);
@@ -220,8 +221,8 @@ export async function updateSession(request: NextRequest) {
        response.headers.set('x-redirect-count', (redirectCount + 1).toString());
        return response;
     }
-    // Allow request on non-protected routes even if there's an error
-    logger.warn(`[updateSession] Allowing request despite unexpected error on non-protected path: ${currentPath}`);
+    // Allow request on non-protected routes even if there's an _error
+    logger.warn(`[updateSession] Allowing request despite unexpected _error on non-protected path: ${currentPath}`);
     return response;
   }
 }

@@ -20,7 +20,7 @@ import { createClient } from "@/utils/supabase/server";
 // import { cookies } from "next/headers";
 import prisma from "@/lib/prisma";
 import { notFound, redirect } from 'next/navigation';
-import { GlobalLoading } from '@/components/ui/global-loading';
+
 
 // TODO: Define the CatHistoryClient component later
 // import CatHistoryClient from './CatHistoryClient'; 
@@ -50,8 +50,8 @@ export default async function CatHistoryPage({ params }: { params: Promise<{ id:
 
   const householdId = prismaUser?.household_members[0]?.household_id;
 
-  if (!prismaUser || !householdId || householdId !== cat.householdId) {
-    console.error(`CatHistoryPage: User ${supabaseUser.id} (household ${householdId}) unauthorized attempt to access history for cat ${cat.id} (household ${cat.householdId}).`);
+  if (!prismaUser || !householdId || householdId !== cat.household_id) {
+    console.error(`CatHistoryPage: User ${supabaseUser.id} (household ${householdId}) unauthorized attempt to access history for cat ${cat.id} (household ${cat.household_id}).`);
     notFound();
   }
 

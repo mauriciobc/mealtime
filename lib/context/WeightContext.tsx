@@ -138,8 +138,8 @@ export const WeightProvider = ({ children }: { children: ReactNode }) => {
     if (loadingIdRef.current) {
       try {
         removeLoadingOperation(loadingIdRef.current);
-      } catch (error) {
-        console.error('[WeightProvider] Error cleaning up loading:', error);
+      } catch (_error) {
+        console.error('[WeightProvider] Error cleaning up loading:', _error);
       } finally {
         loadingIdRef.current = null;
       }
@@ -237,7 +237,7 @@ export const WeightProvider = ({ children }: { children: ReactNode }) => {
         measuredBy: log.measured_by,
         createdAt: new Date(log.created_at),
         updatedAt: new Date(log.updated_at)
-      })).sort((a, b) => b.date.getTime() - a.date.getTime());
+      })).sort((a: any, b: any) => b.date.getTime() - a.date.getTime());
 
       const mappedWeightGoals: WeightGoal[] = weightGoalsData.map((goal: any) => ({
         id: goal.id,
@@ -275,7 +275,7 @@ export const WeightProvider = ({ children }: { children: ReactNode }) => {
         cleanupLoading();
       }
     }
-  }, [addLoadingOperation, cleanupLoading, currentUser?.householdId, currentUser?.id]);
+  }, [addLoadingOperation, cleanupLoading, currentUser]);
 
   const forceRefresh = useCallback(() => {
     hasAttemptedLoadRef.current = false;
@@ -306,7 +306,7 @@ export const WeightProvider = ({ children }: { children: ReactNode }) => {
       }
       cleanupLoading();
     };
-  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, loadWeightData]);
+  }, [currentUser, addLoadingOperation, cleanupLoading, loadWeightData]);
 
   const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, forceRefresh]);
 
@@ -331,9 +331,10 @@ export const useSelectCurrentWeight = (catId: string): number | null => {
   const { state } = useWeight();
   const catLogs = state.weightLogs
     .filter(log => log.catId === catId)
-    .sort((a, b) => b.date.getTime() - a.date.getTime());
+    .sort((a: any, b: any) => b.date.getTime() - a.date.getTime());
   if (catLogs.length === 0) return null;
-  return catLogs[0].weight;
+  const firstLog = catLogs[0];
+  return firstLog ? firstLog.weight : null;
 };
 
 export const useSelectWeightHistory = (catId: string, days: number = 30): WeightLog[] => {
@@ -341,7 +342,7 @@ export const useSelectWeightHistory = (catId: string, days: number = 30): Weight
   const cutoffDate = subDays(new Date(), days);
   return state.weightLogs
     .filter(log => log.catId === catId && log.date >= cutoffDate)
-    .sort((a, b) => b.date.getTime() - a.date.getTime());
+    .sort((a: any, b: any) => b.date.getTime() - a.date.getTime());
 };
 
 export const useSelectWeightGoals = (catId: string): WeightGoal[] => {
@@ -352,7 +353,7 @@ export const useSelectWeightGoals = (catId: string): WeightGoal[] => {
   
   const goals = state.weightGoals
     .filter(goal => goal.catId === catId && goal.status === 'active')
-    .sort((a, b) => (a.targetDate?.getTime() ?? 0) - (b.targetDate?.getTime() ?? 0));
+    .sort((a: any, b: any) => (a.targetDate?.getTime() ?? 0) - (b.targetDate?.getTime() ?? 0));
     
   console.log('[WeightContext] Metas encontradas:', goals);
   return goals;

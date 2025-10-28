@@ -12,7 +12,8 @@ export const createClient = () => {
       
       if (!cookie) return undefined;
       
-      return decodeURIComponent(cookie.split('=')[1]);
+      const cookieValue = cookie.split('=')[1];
+      return cookieValue ? decodeURIComponent(cookieValue) : undefined;
     },
     set(name: string, value: string, options: any) {
       if (typeof document === 'undefined') return;
@@ -47,31 +48,23 @@ export const createClient = () => {
       const cookies = document.cookie.split(';');
       return cookies.map(c => {
         const [name, value] = c.trim().split('=');
-        return { name, value: decodeURIComponent(value) };
+        return { name, value: value ? decodeURIComponent(value) : '' };
+      });
+    },
+    setAll(cookiesToSet: Array<{ name: string; value: string; options: any }>) {
+      if (typeof document === 'undefined') return;
+      
+      cookiesToSet.forEach(({ name, value, options }) => {
+        this.set(name, value, options);
       });
     }
   };
 
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
     {
-      cookies: cookieStore,
-      options: {
-        db: {
-          schema: 'public'
-        },
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-          detectSessionInUrl: true
-        },
-        global: {
-          headers: {
-            'x-client-info': 'supabase-ssr/0.6.1'
-          }
-        }
-      }
+      cookies: cookieStore
     }
   );
 } 

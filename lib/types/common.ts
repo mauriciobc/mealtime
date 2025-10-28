@@ -95,7 +95,7 @@ export interface BaseCats {
   restrictions?: string | null;
   notes?: string | null;
   feeding_interval?: number | null; // Integer type for interval in hours
-  portion_size?: string | null; // Text type
+  portion_size?: Decimal | null; // Decimal type (maps to number in JS)
 }
 
 export interface BaseFeedingLogs {

@@ -9,13 +9,14 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { toast } from "sonner";
+
 import { useUserContext } from "@/lib/context/UserContext";
 import { Eye, EyeOff } from "lucide-react";
 import { Icons } from "@/components/icons";
 import { logger } from "@/lib/monitoring/logger";
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
 import { GlobalLoading } from "@/components/ui/global-loading";
+
 
 console.log("[Login] Página de login sendo carregada");
 

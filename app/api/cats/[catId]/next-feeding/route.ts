@@ -7,10 +7,10 @@ export const dynamic = 'force-dynamic'; // Ensure fresh data
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { catId: string } }
+  { params }: { params: Promise<{ catId: string }> }
 ) {
   // Properly await and validate the dynamic parameter
-  const resolvedParams = await Promise.resolve(params);
+  const resolvedParams = await params;
   const catId = resolvedParams.catId;
 
   if (typeof catId !== 'string' || !catId) {

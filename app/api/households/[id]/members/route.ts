@@ -3,12 +3,11 @@ import prisma from '@/lib/prisma';
 // import { getServerSession } from 'next-auth/next';
 // import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { createClient } from '@/utils/supabase/server'; // Import Supabase client
-import { cookies } from 'next/headers'; // Import cookies
 import { z } from 'zod'; // Import Zod
 
 // Zod schema for route parameters
 const RouteParamsSchema = z.object({
-  id: z.string().refine(val => !isNaN(parseInt(val)), { message: "ID do domicílio inválido" }),
+  id: z.string().uuid({ message: "ID do domicílio inválido" }),
 });
 
 // Zod schema for POST request body
@@ -19,26 +18,36 @@ const PostBodySchema = z.object({
 }).strict();
 
 // Helper function for authorization & role check
-async function authorizeAdmin(supabaseUser: any, householdId: number): Promise<{ authorized: boolean; prismaUserId?: number; error?: NextResponse }> {
+async function authorizeAdmin(supabaseUser: any, householdId: string): Promise<{ authorized: boolean; prismaUserId?: string; error?: NextResponse }> {
   if (!supabaseUser) {
     return { authorized: false, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
   }
 
   try {
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
-      select: { id: true, householdId: true, role: true },
+    // Find user profile by auth_id (Supabase user ID)
+    const prismaUser = await prisma.profiles.findUnique({
+      where: { id: supabaseUser.id },
+      select: { id: true },
     });
 
     if (!prismaUser) {
       return { authorized: false, error: NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 }) };
     }
 
-    if (prismaUser.householdId !== householdId) {
+    // Check if user is a member of the household
+    const membership = await prisma.household_members.findFirst({
+      where: {
+        household_id: householdId,
+        user_id: prismaUser.id
+      },
+      select: { role: true }
+    });
+
+    if (!membership) {
       return { authorized: false, error: NextResponse.json({ error: 'Você não pertence a este domicílio' }, { status: 403 }) };
     }
 
-    if (prismaUser.role !== 'admin') {
+    if (membership.role !== 'admin') {
         return { authorized: false, error: NextResponse.json({ error: 'Apenas administradores podem gerenciar membros.' }, { status: 403 }) };
     }
 
@@ -50,22 +59,30 @@ async function authorizeAdmin(supabaseUser: any, householdId: number): Promise<{
 }
 
 // Helper function for basic household membership authorization
-async function authorizeMember(supabaseUser: any, householdId: number): Promise<{ authorized: boolean; prismaUserId?: number; error?: NextResponse }> {
+async function authorizeMember(supabaseUser: any, householdId: string): Promise<{ authorized: boolean; prismaUserId?: string; error?: NextResponse }> {
   if (!supabaseUser) {
     return { authorized: false, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
   }
 
   try {
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
-      select: { id: true, householdId: true },
+    const prismaUser = await prisma.profiles.findUnique({
+      where: { id: supabaseUser.id },
+      select: { id: true },
     });
 
     if (!prismaUser) {
       return { authorized: false, error: NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 }) };
     }
 
-    if (prismaUser.householdId !== householdId) {
+    // Check if user is a member of the household
+    const membership = await prisma.household_members.findFirst({
+      where: {
+        household_id: householdId,
+        user_id: prismaUser.id
+      }
+    });
+
+    if (!membership) {
       return { authorized: false, error: NextResponse.json({ error: 'Você não tem permissão para acessar este domicílio' }, { status: 403 }) };
     }
 
@@ -80,17 +97,18 @@ async function authorizeMember(supabaseUser: any, householdId: number): Promise<
 // GET /api/households/[id]/members - Listar membros de um domicílio
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
+  
   // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse(params);
+  const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
   if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+    return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
   }
-  const householdId = parseInt(paramsValidation.data.id);
+  const householdId = paramsValidation.data.id;
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
   // Authorize: Any member of the household can view the member list
@@ -101,23 +119,26 @@ export async function GET(
 
   try {
     // Fetch members of the authorized household
-    const membersData = await prisma.user.findMany({
-        where: { householdId: householdId },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
+    const membersData = await prisma.household_members.findMany({
+        where: { household_id: householdId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              full_name: true,
+              email: true,
+            }
+          }
         }
     });
 
     // Formatar os dados para a resposta, adding isCurrentUser flag
-    const members = membersData.map(user => ({
-      id: user.id, // Use number or string as needed
-      name: user.name,
-      email: user.email, // Consider masking for non-admins if needed
-      role: user.role,
-      isCurrentUser: user.id === authResult.prismaUserId // Check against the authorized user's Prisma ID
+    const members = membersData.map((member: { role: string; user: { id: string; full_name: string | null; email: string | null } }) => ({
+      id: member.user.id,
+      name: member.user.full_name || 'Sem nome',
+      email: member.user.email, // Consider masking for non-admins if needed
+      role: member.role,
+      isCurrentUser: member.user.id === authResult.prismaUserId // Check against the authorized user's Prisma ID
     }));
 
     return NextResponse.json(members);
@@ -134,17 +155,18 @@ export async function GET(
 // POST /api/households/[id]/members - Adicionar membro ao domicílio (by email)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const resolvedParams = await params;
+  
   // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse(params);
+  const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
   if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+    return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
   }
-  const householdId = parseInt(paramsValidation.data.id);
+  const householdId = paramsValidation.data.id;
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
   // Authorize: Only admins can add members
@@ -158,15 +180,15 @@ export async function POST(
     const bodyValidation = PostBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-        return NextResponse.json({ error: bodyValidation.error.errors }, { status: 400 });
+        return NextResponse.json({ error: bodyValidation.error.issues }, { status: 400 });
     }
 
     const { email: emailToAdd, role: roleToAdd } = bodyValidation.data;
 
     // Find the user to add by email
-    const userToAdd = await prisma.user.findUnique({
+    const userToAdd = await prisma.profiles.findFirst({
         where: { email: emailToAdd },
-        select: { id: true, householdId: true }
+        select: { id: true }
     });
 
     if (!userToAdd) {
@@ -176,36 +198,55 @@ export async function POST(
     }
 
     // Check if the user is already in THIS household
-    if (userToAdd.householdId === householdId) {
+    const existingMembership = await prisma.household_members.findUnique({
+        where: {
+          household_id_user_id: {
+            household_id: householdId,
+            user_id: userToAdd.id
+          }
+        }
+    });
+
+    if (existingMembership) {
         return NextResponse.json({ error: 'Este usuário já pertence a este domicílio.' }, { status: 400 });
     }
 
     // Check if the user is already in ANOTHER household
-    if (userToAdd.householdId) {
+    const otherMembership = await prisma.household_members.findFirst({
+        where: {
+          user_id: userToAdd.id,
+          household_id: { not: householdId }
+        }
+    });
+
+    if (otherMembership) {
         return NextResponse.json({ error: 'Este usuário já pertence a outro domicílio.' }, { status: 400 });
     }
 
-    // Add user to the household by updating their record
-    const updatedUser = await prisma.user.update({
-      where: { id: userToAdd.id },
+    // Add user to the household by creating a membership record
+    const newMembership = await prisma.household_members.create({
       data: {
-        householdId: householdId,
+        household_id: householdId,
+        user_id: userToAdd.id,
         role: roleToAdd
       },
-      select: { // Select fields needed for the response
-          id: true,
-          name: true,
-          email: true,
-          role: true
+      include: {
+        user: {
+          select: {
+            id: true,
+            full_name: true,
+            email: true,
+          }
+        }
       }
     });
 
     // Formatar os dados para a resposta
     const member = {
-      id: updatedUser.id,
-      name: updatedUser.name,
-      email: updatedUser.email,
-      role: updatedUser.role
+      id: newMembership.user.id,
+      name: newMembership.user.full_name || 'Sem nome',
+      email: newMembership.user.email,
+      role: newMembership.role
     };
 
     return NextResponse.json(member, { status: 201 }); // 201 Created might be more appropriate
@@ -222,80 +263,3 @@ export async function POST(
     );
   }
 }
-
-// DELETE /api/households/[id]/members/[userId] - Remove or leave household
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
-) {
-  // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse({ id: params.id });
-  if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
-  }
-  const householdId = parseInt(paramsValidation.data.id);
-  const userIdToRemove = params.userId;
-
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
-
-  // Only allow self-leave or admin removal
-  let isAdmin = false;
-  let isSelf = false;
-  let removingUserName = '';
-  try {
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
-      select: { id: true, householdId: true, role: true, name: true },
-    });
-    if (!prismaUser) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-    }
-    isAdmin = prismaUser.role === 'admin';
-    isSelf = prismaUser.id === userIdToRemove;
-    if (!isAdmin && !isSelf) {
-      return NextResponse.json({ error: 'Apenas administradores podem remover outros membros.' }, { status: 403 });
-    }
-    // Get the name of the user being removed
-    const userToRemove = await prisma.user.findUnique({ where: { id: userIdToRemove }, select: { name: true } });
-    removingUserName = userToRemove?.name || 'Um usuário';
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro de autorização' }, { status: 500 });
-  }
-
-  // Remove user from household
-  try {
-    await prisma.user.update({
-      where: { id: userIdToRemove },
-      data: { householdId: null, role: 'member' },
-    });
-    // Fetch remaining members
-    const remainingMembers = await prisma.user.findMany({
-      where: { householdId: householdId },
-      select: { id: true },
-    });
-    // Fetch household name
-    const household = await prisma.household.findUnique({ where: { id: householdId }, select: { name: true } });
-    // Notify remaining members
-    const notifications = remainingMembers.map(member => ({
-      id: crypto.randomUUID(),
-      user_id: member.id,
-      title: 'Membro saiu da residência',
-      message: `${removingUserName} saiu da residência ${household?.name || ''}`,
-      type: 'household',
-      metadata: {
-        householdId: householdId,
-        actionUrl: `/households/${householdId}`
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-    if (notifications.length > 0) {
-      await prisma.notification.createMany({ data: notifications });
-    }
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro ao remover membro' }, { status: 500 });
-  }
-} 

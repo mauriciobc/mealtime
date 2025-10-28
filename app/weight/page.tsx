@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
+import Link from "next/link";
 import CurrentStatusCard from '@/components/weight/current-status-card';
 import WeightTrendChart from '@/components/weight/weight-trend-chart';
 import QuickLogPanel, { WeightLogFormValues } from '@/components/weight/quick-log-panel';
@@ -12,6 +13,7 @@ import GoalFormSheet, { GoalFormData } from '@/components/weight/goal-form-sheet
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 import { Gauge, HelpCircle, Plus, Scale, Target, Clock, TrendingUp, CalendarDays, Heart } from 'lucide-react';
+import { GlobalLoading } from "@/components/ui/global-loading";
 import {
   Accordion,
   AccordionContent,
@@ -25,9 +27,9 @@ import { useWeight, useSelectCurrentWeight, useSelectWeightHistory, useSelectWei
 import { calcularIdadeEmAnos, gerarMarcos } from '@/lib/weight/milestoneUtils';
 import { handleAsyncError, AppError, ValidationError } from '@/lib/utils/error-handler';
 import { format, parseISO, compareDesc } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+
 import ProtectedRoute from '@/components/auth/protected-route';
-import { GlobalLoading } from "@/components/ui/global-loading";
+
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
 import { CatsContext } from '@/lib/context/CatsContext';
 import { UserContext } from "@/lib/context/UserContext";
@@ -160,39 +162,30 @@ const WeightPage = () => {
   const [isGoalFormSheetOpen, setIsGoalFormSheetOpen] = useState(false);
   const [isTipsSheetOpen, setIsTipsSheetOpen] = useState(false);
   const [autoRefreshCount, setAutoRefreshCount] = useState(0); // contador de refresh automático
+  const [selectedPeriod, setSelectedPeriod] = useState<'30' | '60' | '90'>('30');
 
   // Contexts (called unconditionally)
   const userContext = useContext(UserContext);
   const catsContext = useContext(CatsContext);
 
-  // --- EARLY RETURNS (ANTES DE QUALQUER DESESTRUTURAÇÃO) ---
-  if (!userContext) {
-    return <div>Carregando contexto do usuário...</div>;
-  }
+  // All custom hooks MUST be called before any early returns
+  const feedingHook = useFeeding();
+  const weightHook = useWeight();
 
-  if (!catsContext) {
-    return <div>Carregando contexto dos gatos...</div>;
-  }
-
-  // Destructure context results imediatamente após garantir que os contextos existem
+  // --- Destructure after all hooks are called ---
   const { state: userState } = userContext || { state: {} };
-  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState as any; // Use 'as any' ou refine type se necessário
+  const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState as any;
   const userId = currentUser?.id;
   const householdId = currentUser?.householdId;
 
   const { state: catsState, forceRefresh } = catsContext || { state: { cats: [] }, forceRefresh: () => {} };
   const { cats, isLoading: isLoadingCats } = catsState;
 
-  const { state: feedingState } = useFeeding();
+  const { state: feedingState } = feedingHook;
   const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
 
-  const { state: weightState, dispatch: weightDispatch, forceRefresh: refreshWeightData } = useWeight();
+  const { state: weightState, dispatch: weightDispatch, forceRefresh: refreshWeightData } = weightHook;
   const { weightLogs, weightGoals, isLoading: isLoadingWeight } = weightState;
-
-  // Custom Hooks depending on ID/state (selectedCatId and context states are defined above)
-  // const currentWeight = useSelectCurrentWeight(selectedCatId || '');
-  // const weightHistory = useSelectWeightHistory(selectedCatId || '', 30);
-  // const activeGoalsHooks = useSelectWeightGoals(selectedCatId || '');
 
   // Other Hooks (depend on loading states defined above)
   useLoadingState(isLoadingCats, {
@@ -213,9 +206,9 @@ const WeightPage = () => {
   // Effects (depend on state and context data defined above)
   useEffect(() => {
     if (cats.length > 0 && !selectedCatId) {
-      setSelectedCatId(cats[0].id);
+      setSelectedCatId(cats[0]!.id);
     }
-  }, [cats, selectedCatId]); // Dependencies are defined
+  }, [cats, selectedCatId]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -224,16 +217,9 @@ const WeightPage = () => {
         setIsOnboardingOpen(true);
       }
     }
-  }, [cats]); // Dependency is defined
+  }, [cats]);
 
-
-  // --- MEMOIZED VALUES (useMemo hooks) ---
-  // Memoize selected cat (depends on selectedCatId, cats which are defined above)
-  // const selectedCat = useMemo(() =>
-  //   cats.find(cat => cat.id === selectedCatId) || null
-  // , [selectedCatId, cats]);
-
-  // Usar snake_case para goals vindos da API (depends on weightGoals which is defined above)
+  // --- MEMOIZED VALUES (useMemo hooks) - ALL BEFORE EARLY RETURNS ---
   const goals = useMemo(() => weightGoals.map(goal => {
     const g: any = goal;
     return {
@@ -306,10 +292,6 @@ const WeightPage = () => {
 
   // Histórico recente (últimos 5)
   const recentHistory = logsForSelectedCat.slice(0, 5);
-
-  // Dados para gráfico (filtrando por período)
-  const [selectedPeriod, setSelectedPeriod] = useState<'30' | '60' | '90'>('30');
-  // O gráfico já usa useSelectWeightHistory internamente, só precisamos passar o período
 
   // selectedCatForForm e selectedCatActiveGoal precisam ser declarados antes do uso
   const selectedCatForForm = selectedCatId ? cats.find(c => c.id === selectedCatId) : null;
@@ -536,7 +518,7 @@ const WeightPage = () => {
             initialWeightKg,
             targetWeightKg,
             usedAge ?? 5,
-            formData.start_date
+            formData.start_date || ''
           ).map(milestone => ({
             ...milestone,
             goal_id: '',
@@ -585,7 +567,7 @@ const WeightPage = () => {
         const mappedGoals = updatedGoals.map((goal: any) => ({
           id: goal.id,
           catId: goal.cat_id,
-          targetWeight: goal.target_weight,
+          targetWeight: goal.target_weight ?? '',
           targetDate: goal.target_date ? new Date(goal.target_date) : undefined,
           startWeight: goal.initial_weight ?? goal.start_weight,
           status: goal.status ?? (goal.isArchived ? 'completed' : 'active'),
@@ -659,7 +641,7 @@ const WeightPage = () => {
             Você precisa criar ou juntar-se a uma residência para usar o painel.
           </p>
           <Button asChild>
-            <a href="/households">Ir para Configurações de Residência</a>
+            <Link href="/households">Ir para Configurações de Residência</Link>
           </Button>
         </div>
       );
@@ -908,7 +890,7 @@ const WeightPage = () => {
                     </TabsList>
                     <TabsContent value={selectedPeriod} className="mt-4">
                       <WeightTrendChart
-                        catId={selectedCatId}
+                        catId={selectedCatId || ''}
                         userId={userId}
                         logChangeTimestamp={logChangeTimestamp}
                         period={parseInt(selectedPeriod)}
@@ -1104,7 +1086,7 @@ const WeightPage = () => {
             catId={selectedCatId}
             currentWeight={currentWeight}
             defaultUnit={selectedCatActiveGoal?.unit || 'kg'}
-            birthDate={selectedCatForForm?.birthdate}
+            birthDate={selectedCatForForm?.birthdate ? (typeof selectedCatForForm.birthdate === 'string' ? selectedCatForForm.birthdate : selectedCatForForm.birthdate.toISOString().split('T')[0]) : undefined}
           />
 
           {/* Milestone Progress */}

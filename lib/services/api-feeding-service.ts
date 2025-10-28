@@ -19,8 +19,8 @@ export const getLastFeeding = async (catId: string): Promise<BaseFeedingLog | nu
     const response = await fetch(`/api/feedings/last/${catId}`);
     if (!response.ok) return null;
     return response.json();
-  } catch (error) {
-    console.error('Erro ao buscar última alimentação:', error);
+  } catch (_error) {
+    console.error('Erro ao buscar última alimentação:', _error);
     return null;
   }
 };
@@ -33,8 +33,8 @@ export const getCat = async (catId: string): Promise<BaseCat | null> => {
     const response = await fetch(`/api/cats/${catId}`);
     if (!response.ok) return null;
     return response.json();
-  } catch (error) {
-    console.error('Erro ao buscar gato:', error);
+  } catch (_error) {
+    console.error('Erro ao buscar gato:', _error);
     return null;
   }
 };
@@ -99,9 +99,9 @@ export const registerFeeding = async (
     }
 
     return response;
-  } catch (error) {
-    console.error('Erro ao registrar alimentação:', error);
-    throw error;
+  } catch (_error) {
+    console.error('Erro ao registrar alimentação:', _error);
+    throw _error;
   }
 };
 
@@ -145,9 +145,9 @@ export const updateFeedingSchedule = async (
     }
 
     return response;
-  } catch (error) {
-    console.error('Erro ao atualizar horário de alimentação:', error);
-    throw error;
+  } catch (_error) {
+    console.error('Erro ao atualizar horário de alimentação:', _error);
+    throw _error;
   }
 };
 
@@ -180,30 +180,30 @@ export const getNextFeedingTime = async (catId: string, userId?: string): Promis
       throw new Error(`Failed to fetch next feeding time: ${errorText}`);
     }
     
-    const data = await response.json();
+    const _data = await response.json();
     
     // If nextFeeding is explicitly null, this is a valid state
-    if (data.nextFeeding === null) {
+    if (_data.nextFeeding === null) {
       console.log(`[getNextFeedingTime] No next feeding time scheduled.`);
       return null;
     }
     
     // Otherwise, validate the date
-    if (!data.nextFeeding || typeof data.nextFeeding !== 'string') {
+    if (!_data.nextFeeding || typeof _data.nextFeeding !== 'string') {
       throw new Error('Invalid response format from API');
     }
 
-    const nextDate = new Date(data.nextFeeding);
+    const nextDate = new Date(_data.nextFeeding);
     if (isNaN(nextDate.getTime())) {
-      throw new Error(`Invalid date received from API: ${data.nextFeeding}`);
+      throw new Error(`Invalid date received from API: ${_data.nextFeeding}`);
     }
 
     console.log(`[getNextFeedingTime] Successfully fetched next feeding time: ${nextDate.toISOString()}`);
     return nextDate;
 
-  } catch (error) {
-    console.error(`[getNextFeedingTime] Error fetching next feeding for ${catId}:`, error);
-    throw error; // Re-throw to propagate to useFeeding hook
+  } catch (_error) {
+    console.error(`[getNextFeedingTime] Error fetching next feeding for ${catId}:`, _error);
+    throw _error; // Re-throw to propagate to useFeeding hook
   }
 };
 
@@ -230,7 +230,7 @@ const saveNotifications = async (notifications: Notification[]): Promise<void> =
       },
       body: JSON.stringify(notifications),
     });
-  } catch (error) {
-    console.error('Erro ao salvar notificações:', error);
+  } catch (_error) {
+    console.error('Erro ao salvar notificações:', _error);
   }
 }; 

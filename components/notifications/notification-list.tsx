@@ -21,13 +21,13 @@ export function NotificationList() {
     priority: 3, // Lower priority than auth/critical operations
   });
 
-  const observer = useRef<IntersectionObserver>();
-  const lastNotificationRef = useCallback((node: HTMLDivElement) => {
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastNotificationRef = useCallback((node: HTMLDivElement | null) => {
     if (isLoading) return;
     if (observer.current) observer.current.disconnect();
     
     observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
+      if (entries[0]?.isIntersecting && hasMore) {
         loadMore();
       }
     });

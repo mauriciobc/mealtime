@@ -140,9 +140,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const weightGoalSchema = z.object({
       catId: z.string().min(1, 'catId é obrigatório'),
-      targetWeight: z.number({ invalid_type_error: 'targetWeight deve ser número' }),
+      targetWeight: z.number(),
       targetDate: z.string().optional().nullable(),
-      startWeight: z.number({ invalid_type_error: 'startWeight deve ser número' }).optional().nullable(),
+      startWeight: z.number().optional().nullable(),
       notes: z.string().optional().nullable(),
       goalName: z.string(),
       unit: z.string(),

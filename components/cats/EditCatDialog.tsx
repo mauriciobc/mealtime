@@ -45,7 +45,7 @@ export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCa
   const cat = catId ? cats.find(c => c.id === catId) : null;
 
   const form = useForm<CatFormValues>({
-    resolver: zodResolver(catFormSchema),
+    resolver: zodResolver(catFormSchema) as any,
     defaultValues: {
       name: '',
       age: 0,
@@ -99,9 +99,9 @@ export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCa
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="name"
               render={({ field }) => (
                 <FormItem>
@@ -114,7 +114,7 @@ export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCa
               )}
             />
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="age"
               render={({ field }) => (
                 <FormItem>
@@ -127,7 +127,7 @@ export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCa
               )}
             />
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="weight"
               render={({ field }) => (
                 <FormItem>
@@ -140,7 +140,7 @@ export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCa
               )}
             />
             <FormField
-              control={form.control}
+              control={form.control as any}
               name="notes"
               render={({ field }) => (
                 <FormItem>

@@ -19,16 +19,21 @@ export const createClient = async () => {
             return undefined;
           }
         },
-        set: async (name: string, value: string, options: any) => {
+        set: async (name: string, value: string, options?: any) => {
           try {
-            await cookieStore.set(name, value, options);
+            if (options) {
+              await cookieStore.set(name, value, options);
+            } else {
+              await cookieStore.set(name, value);
+            }
           } catch (error) {
             console.error(`Error setting cookie ${name}:`, error);
           }
         },
-        remove: async (name: string, options: any) => {
+        remove: async (name: string, options?: any) => {
           try {
-            await cookieStore.delete(name, options);
+            // cookieStore.delete only accepts name
+            await cookieStore.delete(name);
           } catch (error) {
             console.error(`Error removing cookie ${name}:`, error);
           }

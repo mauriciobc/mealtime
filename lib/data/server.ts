@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import prisma from "@/lib/prisma";
-import { logger } from "@/lib/monitoring/logger";
+
 
 export async function getCatByIdServer(id: string) {
   if (!id || typeof id !== "string") {
@@ -23,8 +23,8 @@ export async function getCatByIdServer(id: string) {
     });
 
     return cat;
-  } catch (error) {
-    console.error('Error fetching cat by ID:', error);
+  } catch (_error) {
+    console.error('Error fetching cat by ID:', _error);
     return null;
   }
 } 

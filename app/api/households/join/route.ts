@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     const bodyValidation = JoinBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-      return NextResponse.json({ error: bodyValidation.error.errors }, { status: 400 });
+      return NextResponse.json({ error: bodyValidation.error.issues }, { status: 400 });
     }
 
     const { inviteCode } = bodyValidation.data;

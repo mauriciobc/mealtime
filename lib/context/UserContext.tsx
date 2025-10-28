@@ -90,9 +90,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const client = createClient();
       logger.info("[UserProvider] Supabase client initialized successfully");
       return client;
-    } catch (error) {
-      logger.error("[UserProvider] Error initializing Supabase client:", { error: String(error) });
-      throw error;
+    } catch (_error) {
+      logger.error("[UserProvider] Error initializing Supabase client:", { error: String(_error) });
+      throw _error;
     }
   });
   const [profile, setProfile] = useState<CurrentUserType | null>(null);
@@ -254,14 +254,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
           role: "user"
         } as CurrentUserType });
       }
-    } catch (error) {
-      logger.error("[UserProvider] Error fetching user data:", { error });
+    } catch (_error) {
+      logger.error("[UserProvider] Error fetching user data:", { error: _error });
       dispatch({ type: "FETCH_ERROR", payload: "Failed to load user data" });
       setProfile(null);
       lastProfileFetchRef.current = null;
       // Show a user-friendly error message
-      if (error instanceof Error) {
-        if (error.message?.includes("FATAL: Tenant or user not found")) {
+      if (_error instanceof Error) {
+        if (_error.message?.includes("FATAL: Tenant or user not found")) {
           toast.error("Erro de conexão com o banco de dados. Por favor, tente novamente mais tarde.");
         } else {
           toast.error("Erro ao carregar dados do usuário. Por favor, tente novamente.");
@@ -272,7 +272,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setAuthLoading(false);
       }
     }
-  }, []);
+  }, [state.currentUser]);
 
   const handleAuthChange = useCallback(async () => {
     // Early return if auth checks are paused
@@ -378,12 +378,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       } else {
         // timeout já tratado pelo catch
       }
-    } catch (error) {
+    } catch (_error) {
       finished = true;
       clearTimeout(authChangeTimeoutRef.current);
       
       // Don't log AuthSessionMissingError as an error if user is not authenticated
-      const errorMessage = String(error);
+      const errorMessage = String(_error);
       const isSessionMissing = errorMessage.includes('Auth session missing') || 
                                errorMessage.includes('AuthSessionMissingError');
       
@@ -396,15 +396,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, { error: String(error) });
+      logger.error(`[UserProvider][Request ${requestId}] Error in auth change handler:`, { error: String(_error) });
       
       if (!didTimeout && mountedRef.current) {
         // Check if this is a Supabase Auth API error
-        const isSupabaseAuthError = isAuthApiError(error);
+        const isSupabaseAuthError = isAuthApiError(_error);
         
         if (isSupabaseAuthError) {
           // This is a confirmed Supabase auth error
-          const authError = error as any; // Type assertion for error with status/code
+          const authError = _error as any; // Type assertion for error with status/code
           
           // Check for AuthSessionMissingError specifically
           if (isSessionMissing) {
@@ -442,12 +442,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
           }
         } else {
           // Not a Supabase auth error - could be network, fetch, timeout, etc.
-          const isNetworkError = error instanceof TypeError || 
-            error instanceof Error && (
-              error.message?.toLowerCase().includes('network') ||
-              error.message?.toLowerCase().includes('timeout') ||
-              error.message?.toLowerCase().includes('fetch') ||
-              error.message?.toLowerCase().includes('failed to fetch')
+          const isNetworkError = _error instanceof TypeError || 
+            _error instanceof Error && (
+              _error.message?.toLowerCase().includes('network') ||
+              _error.message?.toLowerCase().includes('timeout') ||
+              _error.message?.toLowerCase().includes('fetch') ||
+              _error.message?.toLowerCase().includes('failed to fetch')
             );
           
           const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -456,18 +456,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
             // Network/connection issues - preserve state and stop loading
             logger.warn(`[UserProvider][Request ${requestId}] Network error detected, preserving user state`, {
               isOffline,
-              errorType: error instanceof TypeError ? 'TypeError' : error instanceof Error ? 'Error' : 'Unknown'
+              errorType: _error instanceof TypeError ? 'TypeError' : _error instanceof Error ? 'Error' : 'Unknown'
             });
             setAuthLoading(false);
           } else {
             // Unknown error - log and keep state but stop loading
-            logger.warn(`[UserProvider][Request ${requestId}] Unknown error, keeping state`, { error: String(error) });
+            logger.warn(`[UserProvider][Request ${requestId}] Unknown error, keeping state`, { error: String(_error) });
             setAuthLoading(false);
           }
         }
       }
     }
-  }, [supabase.auth, loadUserData]);
+  }, [supabase.auth, loadUserData, state.currentUser]);
 
   // Remover o debounce memoizado já que agora está integrado no handleAuthChange
   useEffect(() => {
@@ -494,16 +494,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) throw new Error(String(error));
       
       dispatch({ type: "CLEAR_USER" });
       setProfile(null);
       lastProfileFetchRef.current = null;
       
       logger.info("[UserProvider] User signed out successfully");
-    } catch (error) {
-      logger.error("[UserProvider] Error signing out:", { error: String(error) });
-      throw error;
+    } catch (_error) {
+      logger.error("[UserProvider] Error signing out:", { error: String(_error) });
+      throw _error;
     }
   }, [supabase.auth]);
 

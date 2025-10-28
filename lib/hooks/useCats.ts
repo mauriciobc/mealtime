@@ -48,7 +48,7 @@ export function useCats(householdId: string) {
         householdId, 
         error 
       });
-      throw error;
+      throw new Error(String(error));
     }
   };
 
@@ -75,7 +75,7 @@ export function useCats(householdId: string) {
         cat,
         error
       });
-      throw error;
+      throw new Error(String(error));
     }
   };
 
@@ -103,7 +103,7 @@ export function useCats(householdId: string) {
         updates,
         error
       });
-      throw error;
+      throw new Error(String(error));
     }
   };
 
@@ -123,7 +123,7 @@ export function useCats(householdId: string) {
         catId,
         error
       });
-      throw error;
+      throw new Error(String(error));
     }
   };
 

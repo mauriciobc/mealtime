@@ -34,7 +34,7 @@ function generateInviteCode(): string {
 
 export async function PATCH(
   request: NextRequest, // request is unused but required by the signature
-  context: { params: { id: string } } // context instead of destructuring params
+  context: { params: Promise<{ id: string }> } // context instead of destructuring params
 ) {
   const headersList = await headers();
   const params = await context.params; // Await params as required by Next.js

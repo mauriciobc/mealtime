@@ -228,7 +228,7 @@ export default function HouseholdsPage() {
               title="Erro"
               description="Falha ao carregar dados do usuário"
             />
-            <EmptyState title="Erro de Usuário" description={errorUser} icon={AlertTriangle} />
+            <EmptyState IconComponent={AlertTriangle} title="Erro de Usuário" description={errorUser || ''} />
           </div>
           <BottomNav />
         </div>
@@ -236,14 +236,6 @@ export default function HouseholdsPage() {
     );
   }
 
-  if (!currentUser) {
-    console.log("[HouseholdsPage] No currentUser found after loading/error checks. Redirecting...");
-    useEffect(() => {
-        toast.error("Autenticação necessária para ver residências.");
-        router.replace("/login?callbackUrl=/households");
-    }, [router]);
-    return <Loading text="Redirecionando para login..." />;
-  }
 
   const householdsToDisplay = households || [];
   

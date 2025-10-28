@@ -74,7 +74,7 @@ export default function EventsList() {
           cat = cats.find(c => String(c.id) === String(log.catId))
         }
         const catName = cat?.name || "Gato Desconhecido"
-        const catPhoto = cat?.photoUrl || cat?.photo_url || undefined
+        const catPhoto = cat?.photo_url || cat?.photo_url || undefined
         const catInitials = catName.substring(0, 2).toUpperCase()
         return (
           <motion.div

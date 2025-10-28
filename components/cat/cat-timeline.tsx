@@ -7,11 +7,13 @@ import { TimelineEvent } from "@/components/timeline-event"
 import { AddEventDialog } from "@/components/add-event-dialog"
 import { cn } from "@/lib/utils"
 
+export type EventType = "meal" | "medication" | "note"
+
 // Sample data for the timeline
-const initialEvents = [
+const initialEvents: TimelineEventData[] = [
   {
     id: "1",
-    type: "meal",
+    type: "meal" as EventType,
     title: "Breakfast",
     timestamp: "7:00 AM",
     description: "Wet food - Salmon flavor",
@@ -20,7 +22,7 @@ const initialEvents = [
   },
   {
     id: "2",
-    type: "medication",
+    type: "medication" as EventType,
     title: "Morning Medication",
     timestamp: "8:30 AM",
     description: "Flea treatment",
@@ -29,7 +31,7 @@ const initialEvents = [
   },
   {
     id: "3",
-    type: "note",
+    type: "note" as EventType,
     title: "Playtime",
     timestamp: "10:15 AM",
     description: "Interactive toy session",
@@ -38,7 +40,7 @@ const initialEvents = [
   },
   {
     id: "4",
-    type: "meal",
+    type: "meal" as EventType,
     title: "Lunch",
     timestamp: "1:00 PM",
     description: "Dry food - Regular portion",
@@ -46,8 +48,6 @@ const initialEvents = [
     notes: "Ate about half the portion, will check back later.",
   },
 ]
-
-export type EventType = "meal" | "medication" | "note"
 
 export interface TimelineEventData {
   id: string
@@ -60,7 +60,7 @@ export interface TimelineEventData {
 }
 
 export function CatTimeline() {
-  const [events, setEvents] = useState<TimelineEventData[]>(initialEvents)
+  const [events, setEvents] = useState<TimelineEventData[]>(initialEvents as TimelineEventData[])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const addEvent = (event: Omit<TimelineEventData, "id">) => {

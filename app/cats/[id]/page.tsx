@@ -80,14 +80,15 @@ async function getCat(id: string) {
 
   if (!cat) return null
 
-  // Transform the data to match the expected format
+  // Transform the data to match the expected format (remove snake_case properties)
   return {
-    ...cat,
+    id: cat.id,
+    name: cat.name,
     birthdate: cat.birth_date,
+    weight: Number(cat.weight),
     householdId: cat.household_id,
-    createdAt: cat.created_at,
-    updatedAt: cat.updated_at,
-    weight: Number(cat.weight), // Convert Decimal to number
-    photoUrl: cat.photo_url || null
-  }
+    photoUrl: cat.photo_url,
+    household: cat.household,
+    schedules: cat.schedules
+  } as any // Type cast to avoid type mismatch with local Cat interface
 }

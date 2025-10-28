@@ -35,9 +35,9 @@ const PostBodySchema = z.object({
 }).strict();
 
 // GET /api/households/[id]/cats - Listar gatos de um domicílio
-export async function GET(request: NextRequest, context: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   // Properly await params for Next.js dynamic API routes
-  const params = await Promise.resolve(context.params);
+  const params = await context.params;
   const householdId = params.id;
   const requestId = request.headers.get("x-request-id") || "unknown";
 
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest, context: { params: { id: string 
 // POST /api/households/[id]/cats - Adicionar gato ao domicílio
 export async function POST(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   // Explicitly await params from context
   const params = await context.params;
@@ -180,9 +180,9 @@ export async function POST(
     const bodyValidation = PostBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-      console.error(`[POST /api/households/${householdId}/cats] Invalid body:`, bodyValidation.error.errors);
+      console.error(`[POST /api/households/${householdId}/cats] Invalid body:`, bodyValidation.error.issues);
       return NextResponse.json(
-        { error: 'Dados inválidos', details: bodyValidation.error.errors },
+        { error: 'Dados inválidos', details: bodyValidation.error.issues },
         { status: 400 }
       );
     }
@@ -229,7 +229,7 @@ export async function POST(
       restrictions: cat.restrictions,
       notes: cat.notes,
       feeding_interval: cat.feeding_interval,
-      portion_size: cat.portion_size ?? null
+      portion_size: cat.portion_size?.toNumber() ?? null
     };
 
     return NextResponse.json(formattedCat, { status: 201 });

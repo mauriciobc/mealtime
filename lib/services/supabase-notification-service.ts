@@ -243,7 +243,7 @@ export class SupabaseNotificationService {
       return this.normalizeNotification(data);
     } catch (error) {
       console.error('[SupabaseNotificationService] Failed to normalize created notification:', error, data);
-      throw error;
+      throw new Error(String(error));
     }
   }
 }

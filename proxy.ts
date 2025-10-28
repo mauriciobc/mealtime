@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { imageCache } from '@/lib/image-cache';
 import { metricsMonitor } from '@/lib/monitoring/metrics';
 import { logger } from '@/lib/monitoring/logger';
+
 import { redirectionLogger } from '@/lib/monitoring/redirection-logger';
 import { updateSession } from '@/utils/supabase/middleware';
 import { handleAuthError } from '@/lib/utils/auth-errors';
@@ -163,8 +164,8 @@ function applySecurityHeadersToResponse(response: NextResponse, request: NextReq
   if (supabaseUrlEnv && typeof supabaseUrlEnv === 'string' && supabaseUrlEnv.trim().length > 0) {
     try {
       supabaseUrl = new URL(supabaseUrlEnv);
-    } catch (error) {
-      console.error('Failed to parse NEXT_PUBLIC_SUPABASE_URL:', error);
+    } catch (_error) {
+      console.error('Failed to parse NEXT_PUBLIC_SUPABASE_URL:', _error);
       supabaseUrl = null;
     }
   }
@@ -187,9 +188,9 @@ function applySecurityHeadersToResponse(response: NextResponse, request: NextReq
   const cspHeader = [
     "default-src 'self'",
     `connect-src 'self' ${supabaseUrl ? supabaseUrl.origin : ''} wss://*.supabase.co https://accounts.google.com https://*.google.com https://*.gstatic.com`,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.gstatic.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.gstatic.com https://cdn.jsdelivr.net",
     "font-src 'self' data: https://fonts.gstatic.com",
-    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com https://*.google.com`,
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://*.gstatic.com https://*.google.com https://cdn.jsdelivr.net`,
     `img-src 'self' data: blob: ${supabaseStorageDomain ? `https://${supabaseStorageDomain}` : ''} https://accounts.google.com https://*.googleusercontent.com https://api.dicebear.com`,
     `frame-src 'self' ${supabaseUrl ? supabaseUrl.origin : ''} https://accounts.google.com https://*.google.com`,
     "form-action 'self' https://accounts.google.com https://*.google.com",
@@ -367,9 +368,9 @@ export default async function proxy(request: NextRequest) {
         recordResponseMetrics(startTime, response, method, pathname);
         return response;
         
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        const stack = error instanceof Error ? error.stack : undefined;
+      } catch (_error) {
+        const msg = _error instanceof Error ? _error.message : String(_error);
+        const stack = _error instanceof Error ? _error.stack : undefined;
         
         logger.error('[Middleware API] Error handling API request:', { 
           error: msg,
@@ -414,17 +415,17 @@ export default async function proxy(request: NextRequest) {
     recordResponseMetrics(startTime, response, method, pathname);
     return response;
 
-  } catch (error) {
+  } catch (_error) {
     // Defensive type guard for safe error handling
     let safeMessage: string;
     let errorStack: string | undefined;
-    let errorObject: any = error;
+    let errorObject: any = _error;
     
-    if (error instanceof Error) {
-      safeMessage = error.message;
-      errorStack = error.stack;
+    if (_error instanceof Error) {
+      safeMessage = _error.message;
+      errorStack = _error.stack;
     } else {
-      safeMessage = String(error);
+      safeMessage = String(_error);
       errorStack = undefined;
     }
     
@@ -433,7 +434,7 @@ export default async function proxy(request: NextRequest) {
       message: safeMessage, 
       stack: errorStack,
       path: pathname,
-      errorType: typeof error,
+      errorType: typeof _error,
       errorObject: errorObject
     });
     

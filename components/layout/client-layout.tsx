@@ -23,6 +23,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const isAuthPage = pathname === "/login" || pathname === "/signup"
+  const isApiDocsPage = pathname === "/api-docs"
 
   const { state: { isLoading: profileLoading, currentUser }, authLoading } = useUserContext();
 
@@ -45,7 +46,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     if (typeof window !== "undefined") {
       console.log("[ClientLayout] Showing GlobalLoading spinner (authLoading or profileLoading is true)");
     }
-    return <GlobalLoading mode="fullscreen" />;
+    return <GlobalLoading mode="overlay" />;
   }
 
   const getHeaderProps = (): AppHeaderProps => {
@@ -79,6 +80,20 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       </AnimationProvider>
     );
   };
+
+  // Página de documentação da API - layout limpo sem navegação
+  if (isApiDocsPage) {
+    if (typeof window !== "undefined") {
+      console.log("[ClientLayout] Rendering API Docs layout (no navigation)");
+    }
+    return (
+      <div className="relative flex min-h-screen flex-col">
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   if (isAuthPage) {
     if (typeof window !== "undefined") {

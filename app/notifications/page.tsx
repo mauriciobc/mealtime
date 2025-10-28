@@ -5,7 +5,6 @@ import { ArrowLeft, Bell, Calendar, Check, CheckCheck, Clock, Loader2, Trash2 } 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -14,17 +13,19 @@ import PageTransition from "@/components/page-transition"; // Assuming this comp
 import { useNotifications } from "@/lib/context/NotificationContext";
 import { Notification } from "@/lib/types/notification";
 import { cn } from "@/lib/utils";
-import { GlobalLoading } from "@/components/ui/global-loading";
+
 import { useUserContext } from "@/lib/context/UserContext";
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 import { scheduleNotification } from '@/lib/services/notificationService';
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 // Re-usable Icon component
 const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
-  const icons = {
+  const icons: Record<string, React.ReactElement> = {
     feeding: <Clock className="h-5 w-5 text-primary" />,
     reminder: <Calendar className="h-5 w-5 text-amber-500" />,
     system: <Bell className="h-5 w-5 text-blue-500" />,
+    household: <Bell className="h-5 w-5 text-green-500" />,
   };
   return icons[type] || <Bell className="h-5 w-5 text-muted-foreground" />;
 };
@@ -161,7 +162,7 @@ export default function NotificationsPage() {
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const { state: userState } = useUserContext();
   const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+  const _userLocale = resolveDateFnsLocale(userLanguage);
 
   const handleMarkAllRead = useCallback(async () => {
     if (unreadCount === 0) return;

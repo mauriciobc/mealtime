@@ -190,7 +190,7 @@ export class NotificationSync {
     if (userId === undefined || userId === null || userId.trim() === '') {
       const error = new Error('Invalid userId');
       console.error('[NotificationSync] userId validation failed:', error.message);
-      throw error;
+      throw new Error(String(error));
     }
 
     console.log(`[NotificationSync] Syncing notification update for user ${userId}: ${notification.id}`);
@@ -200,7 +200,7 @@ export class NotificationSync {
       return true;
     } catch (error) {
       console.error('[NotificationSync] Failed to sync notification update:', error);
-      throw error;
+      throw new Error(String(error));
     }
   }
 }

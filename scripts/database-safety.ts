@@ -266,7 +266,7 @@ export class DatabaseSafetyGuard {
     } catch (error) {
       console.error('❌ Erro ao restaurar backup:', error);
       // A transação já fez rollback automaticamente, apenas rethrow o erro
-      throw error;
+      throw new Error(String(error));
     }
   }
 

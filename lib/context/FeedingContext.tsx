@@ -163,8 +163,8 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
     if (loadingIdRef.current) {
       try {
         removeLoadingOperation(loadingIdRef.current);
-      } catch (error) {
-        console.error('[FeedingProvider] Error cleaning up loading:', error);
+      } catch (_error) {
+        console.error('[FeedingProvider] Error cleaning up loading:', _error);
       } finally {
         loadingIdRef.current = null;
       }
@@ -306,7 +306,7 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
       }
       cleanupLoading();
     };
-  }, [currentUser?.householdId, addLoadingOperation, cleanupLoading]);
+  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading]);
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
@@ -395,7 +395,7 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
     
     return enrichedLog;
 
-  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, currentUser]);
+  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats]);
 };
 
 /**
@@ -448,7 +448,7 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
     });
 
     return recentData;
-  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, last7Days]);
+  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats, last7Days]);
 };
 
 
@@ -592,8 +592,8 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
       calculatedFeedings.sort((a, b) => compareAsc(a.nextFeeding, b.nextFeeding));
       return calculatedFeedings.slice(0, limit);
       
-    } catch (error) {
-      console.error("useSelectUpcomingFeedings: Error calculating feedings:", error);
+    } catch (_error) {
+      console.error("useSelectUpcomingFeedings: Error calculating feedings:", _error);
       return []; // Return empty array on error
     }
 

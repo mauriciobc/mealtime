@@ -3,7 +3,7 @@ import { useUserContext } from './UserContext'; // Need user/household context t
 import { useLoading } from './LoadingContext';
 import { toast } from 'sonner';
 import { CatType } from "@/lib/types"; // Use the existing detailed CatType
-import { getCatsByHouseholdId } from "@/lib/services/apiService"; // Reuse the service function
+import { fetchCatsForHousehold } from "@/lib/services/apiService"; // Reuse the service function
 
 // Remove the simple Cat interface, use CatType from types.ts
 // interface Cat {
@@ -136,7 +136,7 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       if (process.env.NODE_ENV === 'development') {
         console.log("[CatsProvider] Loading cats for household:", householdId);
       }
-      const catsData: CatType[] = await getCatsByHouseholdId(householdId, currentUser?.id, undefined, abortController.signal);
+      const catsData: CatType[] = await fetchCatsForHousehold(householdId, currentUser?.id, undefined, abortController.signal);
       if (!isMountedRef.current) return;
       if (process.env.NODE_ENV === 'development') {
         console.log("[CatsProvider] Cats loaded:", catsData.length);

@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { toast } from "sonner";
-import { GlobalLoading } from "@/components/ui/global-loading";
+
 import { Icons } from "@/components/icons";
 import { useSearchParams } from "next/navigation";
 import { getSiteOrigin } from '@/utils/getSiteOrigin';
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 export default function SignupPage() {
   console.log("[Signup] Componente SignupPage renderizando");

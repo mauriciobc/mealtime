@@ -7,8 +7,11 @@ import { cookies } from 'next/headers'; // Import cookies
 
 export async function GET(
   request: Request,
-  { params }: { params: { catId: string } }
+  { params }: { params: Promise<{ catId: string }> }
 ) {
+  const resolvedParams = await params;
+  const catId = resolvedParams.catId;
+  
   // const session = await getServerSession(authOptions);
   const supabase = await createClient(); // Create Supabase client
   const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser(); // Get Supabase user
@@ -17,8 +20,6 @@ export async function GET(
   if (authError || !supabaseUser) { // Check Supabase user
     return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   }
-
-  const catId = params.catId;
 
   if (!catId) {
     return NextResponse.json({ error: 'ID do gato inválido' }, { status: 400 });

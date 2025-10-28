@@ -396,7 +396,7 @@ export default function EditCatPage({ params }: PageProps) {
                   <div className="w-64 aspect-square flex items-center justify-center mx-auto">
                     <ImageUpload
                       type="cat"
-                      userId={currentUser.id}
+                      userId={currentUser!.id}
                       value={formData.photoUrl || ''}
                       onChange={(url) => setFormData(prev => ({ ...prev, photoUrl: url }))}
                       maxSizeMB={50}
@@ -407,8 +407,8 @@ export default function EditCatPage({ params }: PageProps) {
                 <div className="space-y-2">
                   <Label htmlFor="birthdate">Data de Nascimento</Label>
                   <DateTimePicker
-                    value={formData.birthdate ? new Date(formData.birthdate) : undefined}
-                    onChange={date => setFormData(prev => ({ ...prev, birthdate: date ? date.toISOString().split('T')[0] : "" }))}
+                    {...(formData.birthdate ? { value: new Date(formData.birthdate) } : {})}
+                    onChange={date => setFormData(prev => ({ ...prev, birthdate: date ? date.toISOString().split('T')[0] ?? "" : "" }))}
                     fromYear={1980}
                     toYear={2030}
                     placeholder="Selecione uma data"

@@ -89,6 +89,8 @@ export async function POST(req: NextRequest) {
       for (const cat of cats) {
         const lastFeeding = lastFeedingMap.get(cat.id);
         if (!lastFeeding) continue;
+        // Type guard: ensure feeding_interval is not null (should always be true due to query filter)
+        if (!cat.feeding_interval) continue;
         const expectedTime = new Date(new Date(lastFeeding.fed_at).getTime() + cat.feeding_interval * 60 * 60 * 1000);
         const warningTime = new Date(expectedTime.getTime() + twentyMinutesMs);
         if (nowMs > warningTime.getTime()) {
@@ -124,19 +126,10 @@ export async function POST(req: NextRequest) {
         notificationKeys.push(key);
       }
       // Batch fetch existing warnings for these (catId, expectedTime)
+      // Note: We fetch all warning notifications and filter in-memory to avoid complex JSON filters
       const existingWarnings = await prisma.notifications.findMany({
         where: {
           type: 'warning',
-          OR: notificationKeys.map(k => {
-            const [catId, expectedTime] = k.split('|');
-            return {
-              metadata: {
-                path: ['catId'], equals: catId
-              },
-              // created_at >= expectedTime is not enough, must check metadata.expectedTime
-              // We'll filter by metadata.expectedTime below
-            };
-          })
         },
         select: { metadata: true, type: true },
       });

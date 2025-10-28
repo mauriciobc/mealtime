@@ -100,16 +100,8 @@ export default function SchedulesPage() {
     );
   }
 
-  if (!currentUser) {
-    console.log("[SchedulesPage] No currentUser found. Redirecting...");
-    useEffect(() => {
-        toast.error("Autenticação necessária para ver agendamentos.");
-        router.replace("/login?callbackUrl=/schedules");
-    }, [router]);
-    return <Loading text="Redirecionando para login..." />;
-  }
   
-  if (!currentUser.householdId) {
+  if (!currentUser!.householdId) {
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -138,7 +130,7 @@ export default function SchedulesPage() {
   const schedulesToDisplay = schedules;
 
   // Get the user's timezone from currentUser
-  const userTimezone = currentUser.preferences?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const userTimezone = currentUser!.preferences?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const timelineEvents = schedulesToDisplay
     .filter(schedule => schedule.enabled)

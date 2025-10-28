@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Ler o arquivo processado e adicionar ao cache
     const processedImageBuffer = await readFile(tempFilePath);
-    await imageCache.set(processedImagePath, processedImageBuffer, type);
+    await imageCache.set(processedImagePath, processedImageBuffer);
 
     // Return URL of processed image
     const imageUrl = processedImagePath.startsWith('/') ? processedImagePath : `/${processedImagePath}`;

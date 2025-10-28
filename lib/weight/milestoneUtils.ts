@@ -1,7 +1,7 @@
 // Utilitários para cálculo de marcos de perda de peso segura para gatos
 // Todos os textos e comentários em português brasileiro
 
-import { Milestone } from '@/app/weight/page'; // Ajuste o caminho se necessário
+import { Milestone } from '@/types/weight';
 
 /**
  * Calcula a idade do gato em anos completos a partir da data de nascimento (ISO string)
@@ -57,7 +57,7 @@ export function gerarMarcos(
 
     // Avança 2 semanas
     data.setDate(data.getDate() + 14);
-    const dataMarco = data.toISOString().split('T')[0];
+    const dataMarco = data.toISOString().split('T')[0] || '';
 
     marcos.push({
       id: `marco-${indice}`,

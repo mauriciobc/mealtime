@@ -65,7 +65,7 @@ export default function EditProfilePage() {
     setSuccess(false);
     const parsed = profileSchema.safeParse(form);
     if (!parsed.success) {
-      setError(parsed.error.errors[0]?.message || "Dados inválidos");
+      setError(parsed.error.issues[0]?.message || "Dados inválidos");
       setSaving(false);
       return;
     }
@@ -113,7 +113,7 @@ export default function EditProfilePage() {
                 value={form.avatar_url || ""}
                 onChange={(url) => setForm((prev) => prev ? { ...prev, avatar_url: url } : prev)}
                 type="user"
-                userId={currentUser.id}
+                userId={currentUser!.id}
                 className="w-20 h-20"
               />
             </div>

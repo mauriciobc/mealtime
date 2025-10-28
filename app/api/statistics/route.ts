@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { getFeedingStatistics } from "@/lib/services/api/statistics-service";
 import { createClient } from "@/utils/supabase/server";
-import { cookies } from "next/headers";
 import prisma from '@/lib/prisma';
 
 // GET /api/statistics - Obter estatísticas de alimentação
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
     if (authError || !supabaseUser) {
@@ -20,23 +18,34 @@ export async function GET(request: Request) {
     }
 
     // Fetch Prisma user profile to get householdId
-    const prismaUser = await prisma.user.findUnique({
-        where: { auth_id: supabaseUser.id }, // Assumes unique constraint on auth_id
-        select: { householdId: true }
+    const userProfile = await prisma.profiles.findUnique({
+        where: { id: supabaseUser.id },
+        select: { household_members: { select: { household_id: true } } }
     });
 
-    if (!prismaUser || !prismaUser.householdId) {
-        console.error('Authenticated user not found in Prisma or no householdId:', supabaseUser.id);
+    if (!userProfile) {
+        console.error('Authenticated user not found in Prisma:', supabaseUser.id);
         return NextResponse.json(
-          { error: "Usuário não encontrado ou não associado a um domicílio" },
-          { status: 403 } // Use 403 Forbidden as they are authenticated but lack association
+          { error: "Perfil de usuário não encontrado" },
+          { status: 404 }
+        );
+    }
+
+    const userHouseholdIds = userProfile.household_members.map(m => m.household_id);
+    if (userHouseholdIds.length === 0) {
+        console.error('User has no households:', supabaseUser.id);
+        return NextResponse.json(
+          { error: "Usuário não associado a nenhum domicílio" },
+          { status: 403 }
         );
     }
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7dias";
     const catId = searchParams.get("catId") || "todos";
-    const householdId = prismaUser.householdId; // Use householdId from fetched Prisma user
+    // Use the first household (or could accept householdId as param)
+    // Safe to use ! because we already checked the array is not empty above
+    const householdId = userHouseholdIds[0]!;
 
     console.log("Parâmetros recebidos:", { period, catId, householdId });
 

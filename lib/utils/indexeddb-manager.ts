@@ -145,9 +145,9 @@ export class NotificationCacheManager {
           console.error('[IndexedDBManager] Error in saveNotifications clear request:', clearRequest.error);
           reject(clearRequest.error);
         };
-      } catch (error) {
-        console.error('[IndexedDBManager] Error in saveNotifications:', error);
-        reject(error);
+      } catch (_error) {
+        console.error('[IndexedDBManager] Error in saveNotifications:', _error);
+        reject(_error);
       }
     });
   }
@@ -349,9 +349,9 @@ export class NotificationCacheManager {
           console.error('[IndexedDBManager] Error in getUnreadCount cursor request:', request.error);
           reject(request.error);
         };
-      } catch (error) {
-        console.error('[IndexedDBManager] Error creating IDBKeyRange in getUnreadCount:', error);
-        reject(error);
+      } catch (_error) {
+        console.error('[IndexedDBManager] Error creating IDBKeyRange in getUnreadCount:', _error);
+        reject(_error);
       }
     });
   }
@@ -399,9 +399,9 @@ export class NotificationCacheManager {
           console.error('[IndexedDBManager] Error in getTotalCount cursor request:', request.error);
           reject(request.error);
         };
-      } catch (error) {
-        console.error('[IndexedDBManager] Error creating IDBKeyRange in getTotalCount:', error);
-        reject(error);
+      } catch (_error) {
+        console.error('[IndexedDBManager] Error creating IDBKeyRange in getTotalCount:', _error);
+        reject(_error);
       }
     });
   }
@@ -441,9 +441,9 @@ export class NotificationCacheManager {
           console.error('[IndexedDBManager] Error in clearCache cursor request:', request.error);
           reject(request.error);
         };
-      } catch (error) {
-        console.error('[IndexedDBManager] Error in clearCache:', error);
-        reject(error);
+      } catch (_error) {
+        console.error('[IndexedDBManager] Error in clearCache:', _error);
+        reject(_error);
       }
     });
   }

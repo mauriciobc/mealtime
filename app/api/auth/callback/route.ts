@@ -115,7 +115,7 @@ export async function GET(request: Request) {
 
     return response;
   } catch (error) {
-    logger.error('[Auth Callback] Unexpected error:', error);
+    logger.error('[Auth Callback] Unexpected error:', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.redirect(new URL(`/auth/auth-code-error?error=${encodeURIComponent((error as Error).message || 'Unexpected error')}`, request.url));
   }
 } 

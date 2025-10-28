@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useLoading } from '@/lib/hooks/use-loading';
+// import { useLoading } from '@/lib/hooks/use-loading';
 
 interface LoaderOptions<T> {
   id: string;
@@ -21,7 +21,7 @@ export function useDataLoader<T>(
   fetchFn: () => Promise<T>,
   options: LoaderOptions<T>
 ) {
-  const { addLoadingOperation, removeLoadingOperation } = useLoading();
+  // const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const abortControllerRef = useRef<AbortController | null>(null);
   const isMountedRef = useRef(true);
   const hasAttemptedLoadRef = useRef(false);
@@ -31,8 +31,8 @@ export function useDataLoader<T>(
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    removeLoadingOperation(options.id);
-  }, [options.id, removeLoadingOperation]);
+    // removeLoadingOperation(options.id);
+  }, [options.id]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -57,11 +57,11 @@ export function useDataLoader<T>(
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    addLoadingOperation({
-      id: options.id,
-      priority: options.priority ?? 1,
-      description: options.description ?? 'Loading data...'
-    });
+    // addLoadingOperation({
+    //   id: options.id,
+    //   priority: options.priority ?? 1,
+    //   description: options.description ?? 'Loading data...'
+    // });
 
     try {
       const data = await fetchFn();
@@ -83,11 +83,12 @@ export function useDataLoader<T>(
         cleanup();
       }
     }
-  }, [fetchFn, options, addLoadingOperation, cleanup]);
+  }, [fetchFn, options, cleanup]);
 
   useEffect(() => {
     load();
-  }, [...(options.dependencies || []), load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, options.dependencies || []);
 
   return {
     reload: load,

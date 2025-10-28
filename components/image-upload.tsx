@@ -104,7 +104,7 @@ export function ImageUpload({ value, onChange, className, type = 'user' }: Image
       onChange(uploadedUrl);
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error(formatErrorMessage(error));
+      toast.error(formatErrorMessage(error instanceof Error ? error : new Error(String(error))));
       // Reset preview on error
       setPreview(value);
     } finally {

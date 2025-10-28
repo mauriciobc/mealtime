@@ -12,10 +12,12 @@ import { useHousehold } from "@/lib/context/HouseholdContext";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { toast } from "sonner";
+
 import { PageHeader } from "@/components/page-header";
 import { Loading } from "@/components/ui/loading";
 import { Loader2 } from "lucide-react";
 import { GlobalLoading } from "@/components/ui/global-loading";
+
 
 export default function JoinPage() {
   const router = useRouter();
@@ -120,14 +122,6 @@ export default function JoinPage() {
      );
   }
 
-  if (!currentUser) {
-    console.log("[JoinPage] No currentUser found. Redirecting...");
-    useEffect(() => {
-        toast.error("Autenticação necessária para entrar em um domicílio.");
-        router.replace("/login?callbackUrl=/join");
-    }, [router]);
-    return <Loading text="Redirecionando para login..." />;
-  }
   
   return (
     <PageTransition>

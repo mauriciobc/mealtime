@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StorageService } from './StorageService';
+// import { StorageService as BaseStorageService } from './StorageService';
 
 interface StorageOptions {
   version?: number;

@@ -1,6 +1,6 @@
 import { Cache } from './cache';
 
-interface StorageOptions {
+export interface StorageOptions {
   version?: number;
   expiryMs?: number;
 }

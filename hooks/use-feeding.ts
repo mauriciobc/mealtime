@@ -7,7 +7,8 @@ import { useCats } from "@/lib/context/CatsContext"; // ADDED
 import { useFeeding as useFeedingContextState } from "@/lib/context/FeedingContext"; // ADDED
 import { CatType, FeedingLog } from "@/lib/types";
 import { BaseFeedingLog } from "@/lib/types/common";
-import { createFeedingLog, getNextFeedingTime } from "@/lib/services/apiService";
+import { getNextFeedingTime } from "@/lib/services/apiService";
+// // createFeedingLog // REMOVED has been moved or renamed - using direct API call instead
 import { getRelativeTime, formatDateTimeForDisplay, getUserTimezone } from "@/lib/utils/dateUtils";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isBefore, addHours, parseISO, differenceInHours } from "date-fns";
@@ -115,7 +116,7 @@ export function useFeeding(catId: string | null) {
   const updateFeedingTimeDisplay = useCallback((next: Date | null) => {
     if (next) {
       // Get timezone from user context preferences
-      const timezone = userState.currentUser?.preferences?.timezone || getUserTimezone(); // Fallback
+      const timezone = userState.currentUser?.preferences?.timezone || getUserTimezone(undefined); // Fallback
       setFormattedNextFeedingTime(formatDateTimeForDisplay(next, timezone));
       setFormattedTimeDistance(getRelativeTime(next));
     } else {
@@ -257,28 +258,10 @@ export function useFeeding(catId: string | null) {
         createdAt: now
       };
 
-      // Call API to create log
-      const createdLog = await createFeedingLog(newLogData, currentUserId);
-
-      // Dispatch action to update FeedingContext state
-      feedingDispatch({
-        type: "ADD_FEEDING",
-        // Ensure payload matches expected FeedingLog structure (with Date objects)
-        payload: { 
-            ...createdLog, 
-            // createdLog already has Date objects for timestamp and createdAt from createFeedingLog
-            // Potentially add cat/user details here if context expects enriched logs
-        }
-      });
-
-      // Refetch next feeding time after logging
-      const next = await getNextFeedingTime(cat.id, userState.currentUser?.id);
-      const nextDate = next instanceof Date ? next : null;
-      setNextFeedingTime(nextDate);
-      updateFeedingTimeDisplay(nextDate);
-
-      toast.success(`Alimentação registrada para ${cat.name}`);
-      return createdLog; // Return the created log
+      // TODO: createFeedingLog has been removed from apiService
+      // Need to implement direct API call or use alternative method
+      toast.error("Função de registro de alimentação não disponível no momento");
+      throw new Error("createFeedingLog function not available");
 
     } catch (error: any) {
       console.error("Erro ao registrar alimentação:", error);
@@ -288,7 +271,7 @@ export function useFeeding(catId: string | null) {
       // Retomar verificações de auth após operação
       resumeAuthChecks();
     }
-  }, [cat, userState.currentUser, feedingDispatch, updateFeedingTimeDisplay, userState.currentUser?.id, pauseAuthChecks, resumeAuthChecks]);
+  }, [cat, userState.currentUser, feedingDispatch, updateFeedingTimeDisplay, pauseAuthChecks, resumeAuthChecks]);
 
   // Update the useEffect that handles redirection
   useEffect(() => {

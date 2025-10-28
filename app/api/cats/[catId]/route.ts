@@ -310,7 +310,7 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
 });
 
 // DELETE /api/cats/[catId] - Delete a cat
-export const DELETE = withError(async (request: NextRequest, { params }: { params: Promise<{ catId: string }> }) => {
+export const DELETE = withError(async (request: Request, { params }: { params: Promise<{ catId: string }> }) => {
   const supabase = await createSupabaseRouteClient();
   const { catId } = await params;
   

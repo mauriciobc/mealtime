@@ -194,7 +194,11 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
             if (log.weight > maxWeight) maxWeight = log.weight;
           });
           setYAxisDomain([Math.floor(minWeight) - 0.5, Math.ceil(maxWeight) + 0.5]);
-          setDateRange({ start: new Date(filteredLogs[0].date).getTime(), end: new Date(filteredLogs[filteredLogs.length - 1].date).getTime() });
+          const firstLog = filteredLogs[0];
+          const lastLog = filteredLogs[filteredLogs.length - 1];
+          if (firstLog && lastLog) {
+            setDateRange({ start: new Date(firstLog.date).getTime(), end: new Date(lastLog.date).getTime() });
+          }
         } else {
           setYAxisDomain([0, 10]);
           setDateRange(null);
@@ -213,8 +217,12 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
         // Build the map: date (YYYY-MM-DD) -> count
         const map = new Map<string, number>();
         logs.forEach(log => {
-          const dateKey = new Date(log.date).toISOString().split('T')[0];
-          map.set(dateKey, (map.get(dateKey) || 0) + 1);
+          if (log.date) {
+            const dateKey = new Date(log.date).toISOString().split('T')[0];
+            if (dateKey) {
+              map.set(dateKey, (map.get(dateKey) || 0) + 1);
+            }
+          }
         });
         setFeedingDataMap(map);
       } catch (error) {
@@ -251,7 +259,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
     if (period && [30, 60, 90].includes(period) && period !== timeRange) {
       setTimeRange(period as TimeRange);
     }
-  }, [period]);
+  }, [period, timeRange]);
 
   const formatDateTick = (tickItem: string) => {
     const date = new Date(tickItem);
@@ -318,13 +326,14 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
               }}
             />
             <Legend wrapperStyle={{ fontSize: '14px'}} verticalAlign="bottom" />
-            <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot} name="Peso (kg)" />
+            <Line type="monotone" dataKey="weight" strokeWidth={2} stroke={"hsl(var(--primary))"} dot={{ r: 3 }} activeDot={renderCustomActiveDot as any} name="Peso (kg)" />
           </LineChart>
         </ResponsiveContainer>
         {/* Absolutely positioned badges for feeding logs */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
           {chartData.map((log, index) => {
             const dateKey = new Date(log.date).toISOString().split('T')[0];
+            if (!dateKey) return null;
             const feedingCount = feedingDataMap.get(dateKey);
             if (!feedingCount) return null;
 

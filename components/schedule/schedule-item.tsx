@@ -117,7 +117,7 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
           <CardContent className="p-4">
             <div className="flex items-center gap-4">
               <Avatar>
-                <AvatarImage src={schedule.cat?.photoUrl || ""} alt={getCatName()} />
+                <AvatarImage src={schedule.cat?.photo_url || ""} alt={getCatName()} />
                 <AvatarFallback className="bg-amber-100 text-amber-500">
                   {getCatInitials()}
                 </AvatarFallback>
@@ -129,7 +129,7 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
                     <h3 className="font-medium">{getCatName()}</h3>
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>{schedule.time}</span>
+                      <span>{schedule.times}</span>
                       <span className="mx-1">•</span>
                       <span>{formatDays(schedule.days)}</span>
                     </div>

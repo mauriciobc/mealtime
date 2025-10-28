@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         { 
           success: false, 
           error: 'Dados inválidos',
-          details: validationResult.error.errors
+          details: validationResult.error.issues
         },
         { status: 400 }
       );
@@ -101,6 +101,11 @@ export async function POST(request: NextRequest) {
 
     // Criar household, usuário e householdMember em uma única transação
     const result = await prisma.$transaction(async (tx) => {
+      // Garantir que user existe (já verificado acima, mas TypeScript precisa saber)
+      if (!authData.user) {
+        throw new Error('User data is missing');
+      }
+      
       // Criar usuário no Prisma primeiro (profiles table)
       const prismaUser = await tx.profiles.create({
         data: {
@@ -168,17 +173,23 @@ export async function POST(request: NextRequest) {
 
     const { prismaUser, householdId } = result;
 
+    // Verificar se o usuário foi criado corretamente
+    if (!prismaUser) {
+      throw new Error('Failed to create user in database');
+    }
+
     // Preparar dados do usuário para resposta
+    const firstHouseholdMember = prismaUser.household_members[0];
     const userData = {
       id: prismaUser.id,
       auth_id: prismaUser.id, // O ID do profile é o mesmo do auth_id
       full_name: prismaUser.full_name,
       email: prismaUser.email,
       household_id: householdId,
-      household: prismaUser.household_members.length > 0 ? {
-        id: prismaUser.household_members[0].household.id,
-        name: prismaUser.household_members[0].household.name,
-        members: prismaUser.household_members[0].household.household_members
+      household: firstHouseholdMember ? {
+        id: firstHouseholdMember.household.id,
+        name: firstHouseholdMember.household.name,
+        members: firstHouseholdMember.household.household_members
           .filter(member => member.user !== null)
           .map(member => ({
             id: member.user!.id,

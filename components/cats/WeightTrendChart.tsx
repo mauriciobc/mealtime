@@ -27,20 +27,22 @@ export function WeightTrendChart({ weights, feedings }: WeightTrendChartProps) {
   const lastX = React.useRef<number | null>(null);
 
   function handleTouchStart(e: React.TouchEvent<HTMLDivElement>) {
-    touchStartX.current = e.touches[0].clientX;
-    lastX.current = e.touches[0].clientX;
+    touchStartX.current = e.touches[0]?.clientX ?? 0;
+    lastX.current = e.touches[0]?.clientX ?? 0;
   }
   function handleTouchMove(e: React.TouchEvent<HTMLDivElement>) {
-    lastX.current = e.touches[0].clientX;
+    lastX.current = e.touches[0]?.clientX ?? 0;
   }
   function handleTouchEnd(e: React.TouchEvent<HTMLDivElement>) {
     if (touchStartX.current === null || lastX.current === null) return;
     const deltaX = lastX.current - touchStartX.current;
     const currentIdx = ranges.indexOf(range);
     if (deltaX < -50 && currentIdx < ranges.length - 1) {
-      setRange(ranges[currentIdx + 1]); // swipe left: next range
+      const nextRange = ranges[currentIdx + 1];
+      if (nextRange) setRange(nextRange); // swipe left: next range
     } else if (deltaX > 50 && currentIdx > 0) {
-      setRange(ranges[currentIdx - 1]); // swipe right: prev range
+      const prevRange = ranges[currentIdx - 1];
+      if (prevRange) setRange(prevRange); // swipe right: prev range
     }
     touchStartX.current = null;
     lastX.current = null;
@@ -67,9 +69,11 @@ export function WeightTrendChart({ weights, feedings }: WeightTrendChartProps) {
     const deltaX = lastX.current - touchStartX.current;
     const currentIdx = ranges.indexOf(range);
     if (deltaX < -50 && currentIdx < ranges.length - 1) {
-      setRange(ranges[currentIdx + 1]);
+      const nextRange = ranges[currentIdx + 1];
+      if (nextRange) setRange(nextRange);
     } else if (deltaX > 50 && currentIdx > 0) {
-      setRange(ranges[currentIdx - 1]);
+      const prevRange = ranges[currentIdx - 1];
+      if (prevRange) setRange(prevRange);
     }
     touchStartX.current = null;
     lastX.current = null;
@@ -88,9 +92,11 @@ export function WeightTrendChart({ weights, feedings }: WeightTrendChartProps) {
     const deltaX = lastX.current - touchStartX.current;
     const currentIdx = ranges.indexOf(range);
     if (deltaX < -50 && currentIdx < ranges.length - 1) {
-      setRange(ranges[currentIdx + 1]);
+      const nextRange = ranges[currentIdx + 1];
+      if (nextRange) setRange(nextRange);
     } else if (deltaX > 50 && currentIdx > 0) {
-      setRange(ranges[currentIdx - 1]);
+      const prevRange = ranges[currentIdx - 1];
+      if (prevRange) setRange(prevRange);
     }
     touchStartX.current = null;
     lastX.current = null;

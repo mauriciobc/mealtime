@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
-import { ImageCacheError } from './image-errors';
+import { ImageCacheError } from '@/lib/image-errors';
 import { Singleton } from '@/lib/utils/singleton';
 
 const readFile = promisify(fs.readFile);
@@ -19,13 +19,13 @@ interface CacheEntry {
   data: Buffer;
 }
 
-class ImageCache extends Singleton<ImageCache> {
+class ImageCache {
+  private static instance: ImageCache;
   private cache: Map<string, CacheEntry>;
   private maxSize: number;
   private cacheDir: string;
 
-  protected constructor() {
-    super();
+  private constructor() {
     this.cache = new Map();
     this.maxSize = 100 * 1024 * 1024; // 100MB
     this.cacheDir = path.join(process.cwd(), 'tmp', 'image-cache');
@@ -37,7 +37,7 @@ class ImageCache extends Singleton<ImageCache> {
       if (!fs.existsSync(this.cacheDir)) {
         fs.mkdirSync(this.cacheDir, { recursive: true });
       }
-    } catch (error) {
+    } catch (_error) {
       throw new ImageCacheError('Falha ao inicializar diretório de cache');
     }
   }
@@ -61,13 +61,13 @@ class ImageCache extends Singleton<ImageCache> {
           const filePath = path.join(this.cacheDir, key);
           try {
             await unlink(filePath);
-          } catch (error) {
-            console.error(`Erro ao remover arquivo de cache: ${filePath}`, error);
+          } catch (_error) {
+            console.error(`Erro ao remover arquivo de cache: ${filePath}`, _error);
             throw new ImageCacheError('Falha ao remover arquivo de cache');
           }
         }
       }
-    } catch (error) {
+    } catch (_error) {
       throw new ImageCacheError('Falha ao limpar cache');
     }
   }
@@ -85,7 +85,7 @@ class ImageCache extends Singleton<ImageCache> {
       // Tentar carregar do disco
       const filePath = path.join(this.cacheDir, key);
       try {
-        const data = await readFile(filePath);
+        const _data = await readFile(filePath);
         const stats = fs.statSync(filePath);
         
         // Adicionar ao cache em memória
@@ -95,17 +95,17 @@ class ImageCache extends Singleton<ImageCache> {
             size: stats.size,
             type: this.getImageTypeFromKey(key)
           },
-          data
+          data: _data
         });
 
         // Limpar cache se necessário
         await this.cleanupCache();
         
-        return data;
-      } catch (error) {
+        return _data;
+      } catch (_error) {
         return null;
       }
-    } catch (error) {
+    } catch (_error) {
       throw new ImageCacheError('Falha ao obter imagem do cache');
     }
   }
@@ -129,7 +129,7 @@ class ImageCache extends Singleton<ImageCache> {
 
       // Limpar cache se necessário
       await this.cleanupCache();
-    } catch (error) {
+    } catch (_error) {
       throw new ImageCacheError('Falha ao salvar imagem no cache');
     }
   }
@@ -143,11 +143,11 @@ class ImageCache extends Singleton<ImageCache> {
       const filePath = path.join(this.cacheDir, key);
       try {
         await unlink(filePath);
-      } catch (error) {
-        console.error(`Erro ao remover arquivo de cache: ${filePath}`, error);
+      } catch (_error) {
+        console.error(`Erro ao remover arquivo de cache: ${filePath}`, _error);
         throw new ImageCacheError('Falha ao remover arquivo de cache');
       }
-    } catch (error) {
+    } catch (_error) {
       throw new ImageCacheError('Falha ao remover imagem do cache');
     }
   }
@@ -185,14 +185,27 @@ class ImageCache extends Singleton<ImageCache> {
 
   private trimCache(): void {
     while (this.cache.size > this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      const firstKey = this.cache.keys().next().value as string | undefined;
+      if (firstKey) {
+        this.cache.delete(firstKey);
+      } else {
+        break;
+      }
     }
   }
 
   clear(): void {
     this.cache.clear();
   }
+
+  static getInstance(): ImageCache {
+    if (!(ImageCache as any).instance) {
+      (ImageCache as any).instance = new ImageCache();
+    }
+    return (ImageCache as any).instance;
+  }
 }
 
-export const imageCache = ImageCache.getInstance(); 
+// Export singleton instance
+let cachedInstance: ImageCache | null = null;
+export const imageCache = cachedInstance || (cachedInstance = ImageCache.getInstance()); 

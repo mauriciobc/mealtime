@@ -5,15 +5,13 @@ import { BaseUser, BaseCat, BaseFeedingLog, BaseHousehold } from "@/lib/types/co
  */
 export function isValidUser(user: unknown): user is BaseUser {
   if (!user || typeof user !== "object") return false;
-  const u = user as BaseUser;
+  const u = user as any;
   return (
-    typeof u.id === "number" &&
+    typeof u.id === "string" &&
     typeof u.name === "string" &&
     typeof u.email === "string" &&
-    typeof u.role === "string" &&
-    (!u.timezone || typeof u.timezone === "string") &&
-    (!u.language || typeof u.language === "string") &&
-    (!u.householdId || typeof u.householdId === "number")
+    typeof u.role === "string"
+    // timezone and language are not in BaseUser type
   );
 }
 
@@ -22,18 +20,18 @@ export function isValidUser(user: unknown): user is BaseUser {
  */
 export function isValidCat(cat: unknown): cat is BaseCat {
   if (!cat || typeof cat !== "object") return false;
-  const c = cat as BaseCat;
+  const c = cat as any;
   return (
-    typeof c.id === "number" &&
+    typeof c.id === "string" &&
     typeof c.name === "string" &&
     (!c.photoUrl || typeof c.photoUrl === "string") &&
     (!c.birthdate || c.birthdate instanceof Date) &&
     (!c.weight || typeof c.weight === "number") &&
     (!c.restrictions || typeof c.restrictions === "string") &&
     (!c.notes || typeof c.notes === "string") &&
-    typeof c.householdId === "number" &&
-    typeof c.feeding_interval === "number" &&
-    (!c.portion_size || typeof c.portion_size === "number")
+    typeof c.householdId === "string" &&
+    (c.feedingInterval === null || typeof c.feedingInterval === "number") &&
+    (!c.portionSize || typeof c.portionSize === "number")
   );
 }
 

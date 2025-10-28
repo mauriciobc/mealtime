@@ -18,7 +18,7 @@ export function getUserTimezone(userTimezone?: string): string {
   try {
     Intl.DateTimeFormat(undefined, { timeZone: userTimezone });
     return userTimezone;
-  } catch (error) {
+  } catch (_error) {
     console.warn(`[getUserTimezone] Timezone ${userTimezone} inválido, usando America/Sao_Paulo como fallback`);
     return "America/Sao_Paulo";
   }
@@ -68,8 +68,8 @@ export function getAgeString(birthdate?: Date, userTimezone?: string): string {
     }
     
     return `${age} ${age !== 1 ? 'anos' : 'ano'}`;
-  } catch (error) {
-    console.error('Erro ao calcular idade:', error);
+  } catch (_error) {
+    console.error('Erro ao calcular idade:', _error);
     return "Idade desconhecida";
   }
 }
@@ -88,8 +88,8 @@ export function getScheduleText(schedule?: Schedule): string {
     }
     
     return "Agendamento configurado";
-  } catch (error) {
-    console.error('Erro ao gerar texto do agendamento:', error);
+  } catch (_error) {
+    console.error('Erro ao gerar texto do agendamento:', _error);
     return "Agendamento inválido";
   }
 }
@@ -108,8 +108,8 @@ export function formatDateTime(date: Date | string, userTimezone?: string): stri
       return "";
     }
     return formatInTimeZone(dateObj, timezone, "dd 'de' MMM 'às' HH:mm", { locale: ptBR });
-  } catch (error) {
-    console.error('Erro ao formatar data:', error);
+  } catch (_error) {
+    console.error('Erro ao formatar data:', _error);
     return "";
   }
 }
@@ -128,8 +128,8 @@ export function getRelativeTime(date: Date | string | null | undefined, userTime
       return "";
     }
     return formatDistanceToNow(dateObj, { addSuffix: true, locale: ptBR });
-  } catch (error) {
-    console.error('Erro ao calcular tempo relativo:', error);
+  } catch (_error) {
+    console.error('Erro ao calcular tempo relativo:', _error);
     return "";
   }
 }
@@ -140,7 +140,9 @@ export function getRelativeTime(date: Date | string | null | undefined, userTime
 export function parseTimeString(timeString: string, userTimezone?: string): Date {
   try {
     const timezone = getUserTimezone(userTimezone);
-    const [hours, minutes] = timeString.split(':').map(Number);
+    const parts = timeString.split(':').map(Number);
+    const hours = parts[0] ?? 0;
+    const minutes = parts[1] ?? 0;
     
     // Validar formato do horário
     if (isNaN(hours) || isNaN(minutes) || 
@@ -157,8 +159,8 @@ export function parseTimeString(timeString: string, userTimezone?: string): Date
     }
     
     return date;
-  } catch (error) {
-    console.error(`Erro ao processar horário ${timeString}:`, error);
+  } catch (_error) {
+    console.error(`Erro ao processar horário ${timeString}:`, _error);
     return new Date(); // Retorna hora atual em caso de erro
   }
 }
@@ -193,7 +195,9 @@ export function getNextScheduledTime(schedule: Schedule, userTimezone?: string):
     } else if (schedule.type === 'fixedTime' && typeof schedule.times === 'string' && schedule.times.trim()) {
       // Para agendamentos em horários fixos
       try {
-        const [hours, minutes] = schedule.times.split(':').map(Number);
+        const parts = schedule.times.split(':').map(Number);
+        const hours = parts[0] ?? 0;
+        const minutes = parts[1] ?? 0;
         
         // Validar formato do horário
         if (isNaN(hours) || isNaN(minutes) || 
@@ -215,15 +219,15 @@ export function getNextScheduledTime(schedule: Schedule, userTimezone?: string):
         }
         
         return timeToday;
-      } catch (error) {
-        console.error(`Erro ao processar horário ${schedule.times}:`, error);
+      } catch (_error) {
+        console.error(`Erro ao processar horário ${schedule.times}:`, _error);
         return null;
       }
     }
     
     return null;
-  } catch (error) {
-    console.error('Erro ao calcular próximo horário programado:', error);
+  } catch (_error) {
+    console.error('Erro ao calcular próximo horário programado:', _error);
     return null;
   }
 }
@@ -281,8 +285,8 @@ export function calculateNextFeeding(lastFeedingTime: Date, interval: number, us
     console.log('- Offset em horas:', offset / (1000 * 60 * 60));
 
     return nextFeedingLocal;
-  } catch (error) {
-    console.error('Erro ao converter timezone:', error);
+  } catch (_error) {
+    console.error('Erro ao converter timezone:', _error);
     return nextFeedingUTC; // Retornar UTC em caso de erro
   }
 }
@@ -305,8 +309,8 @@ export function formatDateTimeForDisplay(date: Date | string, userTimezone: stri
     
     // Formata a data no timezone local
     return formatInTimeZone(localDate, userTimezone, "dd 'de' MMM 'às' HH:mm", { locale: ptBR });
-  } catch (error) {
-    console.error('Erro ao formatar data:', error);
+  } catch (_error) {
+    console.error('Erro ao formatar data:', _error);
     return "Horário não disponível";
   }
 }
@@ -345,7 +349,9 @@ export function calculateNextFeedingTime(
         // Handle fixed time schedule
         const timeStrings = schedule.times.split(',');
         const todayTimes = timeStrings.map(timeStr => {
-          const [hours, minutes] = timeStr.trim().split(':').map(Number);
+          const parts = timeStr.trim().split(':').map(Number);
+          const hours = parts[0] ?? 0;
+          const minutes = parts[1] ?? 0;
           const time = toDate(new Date(), { timeZone: timezone });
           time.setHours(hours, minutes, 0, 0);
           return time;
@@ -357,7 +363,7 @@ export function calculateNextFeedingTime(
           scheduleNextTime = futureTime;
         } else {
           // If all times today have passed, use the first time tomorrow
-          const tomorrowTime = toDate(todayTimes[0], { timeZone: timezone });
+          const tomorrowTime = todayTimes[0] ? toDate(todayTimes[0], { timeZone: timezone }) : new Date();
           tomorrowTime.setDate(tomorrowTime.getDate() + 1);
           scheduleNextTime = tomorrowTime;
         }
@@ -370,8 +376,8 @@ export function calculateNextFeedingTime(
           scheduleNextTime = addHours(now, schedule.interval);
         }
       }
-    } catch (error) {
-      console.error(`[calculateNextFeedingTime] Error processing schedule: ${error}`);
+    } catch (_error) {
+      console.error(`[calculateNextFeedingTime] Error processing schedule: ${_error}`);
     }
 
     // Update nextFeedingTime if this schedule is sooner
@@ -381,7 +387,7 @@ export function calculateNextFeedingTime(
   });
 
   if (nextFeedingTime) {
-    console.log(`[calculateNextFeedingTime] Calculated next feeding time: ${nextFeedingTime.toISOString()}`);
+    console.log(`[calculateNextFeedingTime] Calculated next feeding time: ${(nextFeedingTime as Date).toISOString()}`);
   } else {
     console.log('[calculateNextFeedingTime] Could not calculate next feeding time');
   }

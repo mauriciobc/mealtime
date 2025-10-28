@@ -44,7 +44,7 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
       };
     }
 
-    const token = bearerMatch[1].trim();
+    const token = bearerMatch[1]?.trim();
     
     if (!token) {
       return {
@@ -101,7 +101,7 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
 
     // Buscar o household_id do primeiro household_member (assumindo que o usuário pertence a apenas um household)
     const householdId = prismaUser.household_members.length > 0 
-      ? prismaUser.household_members[0].household_id 
+      ? prismaUser.household_members[0]?.household_id || null
       : null;
 
     const mobileUser: MobileAuthUser = {

@@ -151,9 +151,9 @@ export async function POST(request: NextRequest) {
       data: {
         cat_id: catId,
         meal_type: mealType, 
-        amount: amount !== undefined && amount !== null ? new Prisma.Decimal(amount) : undefined, // Use Prisma.Decimal for amount
+        amount: amount !== undefined && amount !== null ? new Prisma.Decimal(amount) : new Prisma.Decimal(0), // Use Prisma.Decimal for amount, default to 0
         unit: body.unit || 'g', // Add required unit field, default to grams
-        notes: notes, // Use validated notes
+        notes: notes ?? null, // Use validated notes, convert undefined to null
         fed_by: authUserId, // Use ID from header
         household_id: String(userHouseholdId), // Ensure household_id is a string
         fed_at: new Date(), // Use current timestamp for feeding time

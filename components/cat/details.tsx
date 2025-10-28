@@ -65,7 +65,7 @@ export default function CatDetails({ cat }: CatDetailsProps) {
           {cat.photoUrl ? (
             <AvatarImage src={cat.photoUrl} alt={cat.name} />
           ) : null}
-          <AvatarFallback>{cat.name[0].toUpperCase()}</AvatarFallback>
+          <AvatarFallback>{cat.name[0]!.toUpperCase()}</AvatarFallback>
         </Avatar>
         <CardTitle className="text-2xl font-bold">{cat.name}</CardTitle>
       </CardHeader>

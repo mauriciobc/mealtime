@@ -4,9 +4,10 @@ export abstract class Singleton<T> {
   protected constructor() {}
 
   public static getInstance<T>(this: new () => T): T {
-    if (!this.instance) {
-      this.instance = new this();
+    const ctor = this as any;
+    if (!ctor.instance) {
+      ctor.instance = new this();
     }
-    return this.instance;
+    return ctor.instance;
   }
 } 

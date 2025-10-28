@@ -56,7 +56,7 @@ export function useDataFetching<T>({
         await new Promise(resolve => setTimeout(resolve, retryDelay));
         return fetchWithRetry(retriesLeft - 1);
       }
-      throw error;
+      throw new Error(String(error));
     }
   }, [url, userId, retryDelay, validateUserId]);
 

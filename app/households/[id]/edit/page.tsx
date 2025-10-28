@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, use, useCallback } from "react"
+import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import BottomNav from "@/components/bottom-nav"
 import PageTransition from "@/components/page-transition"
@@ -8,7 +8,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Home, Save, ChevronLeft, AlertTriangle } from "lucide-react"
 import { toast } from "sonner"
 import { useHousehold } from "@/lib/context/HouseholdContext"
@@ -37,42 +36,22 @@ export default function EditHouseholdPage({ params }: PageProps) {
   const [householdName, setHouseholdName] = useState("");
   const [isAuthorized, setIsAuthorized] = useState<boolean | undefined>(undefined);
 
-  if (isLoadingUser) {
-    return <Loading text="Verificando usuário..." />;
-  }
+  const shouldRedirect = !isLoadingUser && !errorUser && !currentUser;
+  const shouldLoadData = !isLoadingUser && !errorUser && currentUser && !errorHousehold;
 
-  if (errorUser) {
-    return (
-      <PageTransition>
-        <div className="p-4 text-center">
-          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
-          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
-        </div>
-      </PageTransition>
-    );
-  }
-
-  if (!currentUser) {
-    console.log("[EditHouseholdPage] No currentUser found. Redirecting to login.");
-    useEffect(() => {
-        toast.error("Autenticação necessária para editar.");
-        router.replace(`/login?callbackUrl=/households/${householdId}/edit`);
-    }, [router, householdId]);
-    return <Loading text="Redirecionando para login..." />;
-  }
-
-  if (errorHousehold) {
-     return (
-       <PageTransition>
-         <div className="p-4 text-center">
-            <p className="text-destructive">Erro ao carregar lista de residências: {errorHousehold}. Tente recarregar a página.</p>
-            <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
-         </div>
-       </PageTransition>
-     );
-  }
-  
+  // Handle redirect for unauthenticated users
   useEffect(() => {
+    if (shouldRedirect) {
+      console.log("[EditHouseholdPage] No currentUser found. Redirecting to login.");
+      toast.error("Autenticação necessária para editar.");
+      router.replace(`/login?callbackUrl=/households/${householdId}/edit`);
+    }
+  }, [shouldRedirect, router, householdId]);
+
+  // Handle loading household data
+  useEffect(() => {
+    if (!shouldLoadData) return;
+
     const opId = "load-edit-household";
     addLoadingOperation({ id: opId, priority: 1, description: "Loading household data..."});
     setIsLoadingData(true);
@@ -102,7 +81,37 @@ export default function EditHouseholdPage({ params }: PageProps) {
     }
     setIsLoadingData(false);
     removeLoadingOperation(opId);
-  }, [currentUser, households, householdId, isLoadingHouseholds, addLoadingOperation, removeLoadingOperation]);
+  }, [shouldLoadData, currentUser, households, householdId, isLoadingHouseholds, addLoadingOperation, removeLoadingOperation]);
+
+  if (isLoadingUser) {
+    return <Loading text="Verificando usuário..." />;
+  }
+
+  if (errorUser) {
+    return (
+      <PageTransition>
+        <div className="p-4 text-center">
+          <p className="text-destructive">Erro ao carregar dados do usuário: {errorUser}. Tente recarregar a página.</p>
+          <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (!currentUser) {
+    return <Loading text="Redirecionando para login..." />;
+  }
+
+  if (errorHousehold) {
+     return (
+       <PageTransition>
+         <div className="p-4 text-center">
+            <p className="text-destructive">Erro ao carregar lista de residências: {errorHousehold}. Tente recarregar a página.</p>
+            <Button onClick={() => router.back()} className="mt-4">Voltar</Button>
+         </div>
+       </PageTransition>
+     );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import type { TimelineEventData, EventType } from "@/components/cat-timeline"
+import type { TimelineEventData, EventType } from "@/components/cat/cat-timeline"
 
 interface AddEventDialogProps {
   open: boolean
@@ -66,7 +66,7 @@ export function AddEventDialog({ open, onOpenChange, onAddEvent }: AddEventDialo
     visible: {
       opacity: 1,
       y: 0,
-      transition: { type: "spring", stiffness: 300, damping: 24 },
+      transition: { type: "spring" as const, stiffness: 300, damping: 24 },
     },
   }
 

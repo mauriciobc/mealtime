@@ -42,8 +42,8 @@ async function main() {
 
     logger.info('Database cleanup completed successfully.');
   } catch (error) {
-    logger.error('Error during database cleanup:', error);
-    throw error;
+    logger.error('Error during database cleanup:', error as any);
+    throw new Error(String(error));
   } finally {
     await prisma.$disconnect();
   }

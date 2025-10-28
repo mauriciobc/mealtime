@@ -10,8 +10,8 @@ export const getLastFeeding = async (catId: string): Promise<BaseFeedingLog | nu
     const response = await fetch(`/api/feedings/last/${catId}`);
     if (!response.ok) return null;
     return response.json();
-  } catch (error) {
-    console.error('Erro ao buscar última alimentação:', error);
+  } catch (_error) {
+    console.error('Erro ao buscar última alimentação:', _error);
     return null;
   }
 };
@@ -24,8 +24,8 @@ export const getCat = async (catId: string): Promise<BaseCat | null> => {
     const response = await fetch(`/api/cats/${catId}`);
     if (!response.ok) return null;
     return response.json();
-  } catch (error) {
-    console.error('Erro ao buscar gato:', error);
+  } catch (_error) {
+    console.error('Erro ao buscar gato:', _error);
     return null;
   }
 };
@@ -87,9 +87,9 @@ export const registerFeeding = async (
     }
 
     return response;
-  } catch (error) {
-    console.error('Erro ao registrar alimentação:', error);
-    throw error;
+  } catch (_error) {
+    console.error('Erro ao registrar alimentação:', _error);
+    throw _error;
   }
 };
 
@@ -133,9 +133,9 @@ export const updateFeedingSchedule = async (
     }
 
     return response;
-  } catch (error) {
-    console.error('Erro ao atualizar horário de alimentação:', error);
-    throw error;
+  } catch (_error) {
+    console.error('Erro ao atualizar horário de alimentação:', _error);
+    throw _error;
   }
 };
 
@@ -151,10 +151,10 @@ export const getNextFeedingTime = async (catId: string, userId: string): Promise
       },
     });
     if (!response.ok) return null;
-    const data = await response.json();
-    return data ? new Date(data) : null;
-  } catch (error) {
-    console.error('Erro ao buscar próxima alimentação:', error);
+    const _data = await response.json();
+    return _data ? new Date(_data) : null;
+  } catch (_error) {
+    console.error('Erro ao buscar próxima alimentação:', _error);
     return null;
   }
 };
@@ -171,7 +171,7 @@ const saveNotifications = async (notifications: Notification[]): Promise<void> =
       },
       body: JSON.stringify(notifications),
     });
-  } catch (error) {
-    console.error('Erro ao salvar notificações:', error);
+  } catch (_error) {
+    console.error('Erro ao salvar notificações:', _error);
   }
 }; 

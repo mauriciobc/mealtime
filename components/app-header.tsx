@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -37,7 +38,6 @@ import {
 } from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import Image from "next/image";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { Progress } from "@/components/ui/progress";
@@ -159,7 +159,7 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
               </Button>
             )}
             <Link href="/" className="flex items-center gap-2 pl-4">
-              <img src="/images/mealtime-logo.svg" alt="MealTime" className="h-8 w-auto" />
+              <Image src="/images/mealtime-logo.svg" alt="MealTime" width={32} height={32} className="h-8 w-auto" />
             </Link>
           </div>
 

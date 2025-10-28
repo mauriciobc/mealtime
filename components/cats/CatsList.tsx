@@ -13,7 +13,7 @@ interface CatsListProps {
 }
 
 export function CatsList({ householdId }: CatsListProps) {
-  const { data: cats, isLoading } = useCats(householdId);
+  const { cats, isLoading } = useCats(householdId);
   const [catToEdit, setCatToEdit] = useState<string | null>(null);
   const [catToDelete, setCatToDelete] = useState<string | null>(null);
 
@@ -36,7 +36,7 @@ export function CatsList({ householdId }: CatsListProps) {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {cats.map((cat) => (
+      {cats.map((cat: any) => (
         <Card key={cat.id}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">

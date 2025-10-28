@@ -45,8 +45,8 @@ export function useNotificationSync() {
         console.log('[useNotificationSync] Auto-sync triggered');
         try {
           await syncNow(currentUserId);
-        } catch (error) {
-          console.error('[useNotificationSync] Auto-sync failed:', error);
+        } catch (_error) {
+          console.error('[useNotificationSync] Auto-sync failed:', _error);
         }
       }, 5 * 60 * 1000); // 5 minutes
 

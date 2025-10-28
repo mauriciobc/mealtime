@@ -78,8 +78,8 @@ export const getDateRange = (period: string): { start: Date; end: Date } => {
           end: endOfDay(now) 
         };
     }
-  } catch (error) {
-    console.error('Error calculating date range:', error);
+  } catch (_error) {
+    console.error('Error calculating date range:', _error);
     // Return a safe fallback
     const now = new Date();
     return {

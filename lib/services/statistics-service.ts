@@ -35,9 +35,9 @@ export function processStatistics(
 
     // Calcular estatísticas básicas
     const totalFeedings = filteredLogs.length;
-    const validPortions = filteredLogs.filter(log => log.portionSize !== null && log.portionSize > 0);
+    const validPortions = filteredLogs.filter(log => log.portionSize !== null && log.portionSize !== undefined && log.portionSize > 0);
     const averagePortionSize = validPortions.length > 0
-      ? validPortions.reduce((sum, log) => sum + (log.portionSize || 0), 0) / validPortions.length
+      ? validPortions.reduce((sum, log) => sum + (log.portionSize ?? 0), 0) / validPortions.length
       : 0;
 
     // Calcular dados de série temporal
@@ -61,8 +61,8 @@ export function processStatistics(
       catPortionData,
       timeDistributionData,
     };
-  } catch (error) {
-    console.error("Erro ao processar estatísticas:", error);
+  } catch (_error) {
+    console.error("Erro ao processar estatísticas:", _error);
     throw new Error("Falha ao processar estatísticas de alimentação");
   }
 }
@@ -72,13 +72,13 @@ function calculateTimeSeriesData(logs: FeedingLog[], startDate: Date, endDate: D
   let currentDate = startDate;
 
   while (currentDate <= endDate) {
-    const dateKey = currentDate.toISOString().split('T')[0];
+    const dateKey = currentDate.toISOString().split('T')[0] ?? '';
     dailyData.set(dateKey, 0);
     currentDate = new Date(currentDate.setDate(currentDate.getDate() + 1));
   }
 
   logs.forEach(log => {
-    const dateKey = new Date(log.timestamp).toISOString().split('T')[0];
+    const dateKey = new Date(log.timestamp).toISOString().split('T')[0] ?? '';
     const currentCount = dailyData.get(dateKey) || 0;
     dailyData.set(dateKey, currentCount + 1);
   });
@@ -92,7 +92,7 @@ function calculateCatPortionData(logs: FeedingLog[]): CatPortion[] {
   logs.forEach(log => {
     if (log.portionSize && log.portionSize > 0 && log.cat) {
       const currentValue = catPortions.get(log.cat.name) || 0;
-      catPortions.set(log.cat.name, currentValue + log.portionSize);
+      catPortions.set(log.cat.name, currentValue + (log.portionSize ?? 0));
     }
   });
 
@@ -112,8 +112,8 @@ function calculateTimeDistributionData(logs: FeedingLog[]): TimeSeriesDataPoint[
   return Array.from(hourDistribution)
     .map(([name, valor]) => ({ name, valor }))
     .sort((a, b) => {
-      const hourA = parseInt(a.name.split(':')[0]);
-      const hourB = parseInt(b.name.split(':')[0]);
+      const hourA = parseInt(a.name.split(':')[0] ?? '0');
+      const hourB = parseInt(b.name.split(':')[0] ?? '0');
       return hourA - hourB;
     });
 }
@@ -129,8 +129,8 @@ function calculateConsecutiveDaysAndMissedSchedules(logs: FeedingLog[]) {
   );
 
   for (let i = 1; i < sortedLogs.length; i++) {
-    const prevDate = new Date(sortedLogs[i - 1].timestamp);
-    const currentDate = new Date(sortedLogs[i].timestamp);
+    const prevDate = new Date(sortedLogs[i - 1]?.timestamp ?? new Date());
+    const currentDate = new Date(sortedLogs[i]?.timestamp ?? new Date());
     
     const diffDays = Math.floor(
       (currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24)

@@ -54,7 +54,9 @@ function findInsertionIndex(logs: FeedingLog[], newLog: FeedingLog): number {
   
   while (left < right) {
     const mid = Math.floor((left + right) / 2);
-    const midTimestamp = new Date(logs[mid].timestamp).getTime();
+    const logAtMid = logs[mid];
+    if (!logAtMid) break;
+    const midTimestamp = new Date(logAtMid.timestamp).getTime();
     
     if (midTimestamp > newTimestamp) {
       left = mid + 1;
@@ -67,11 +69,16 @@ function findInsertionIndex(logs: FeedingLog[], newLog: FeedingLog): number {
 }
 
 function insertLogInOrder(logs: FeedingLog[], newLog: FeedingLog): FeedingLog[] {
-  if (logs.length === 0 || new Date(newLog.timestamp).getTime() > new Date(logs[0].timestamp).getTime()) {
+  if (logs.length === 0) return [newLog];
+  
+  const firstLog = logs[0];
+  const lastLog = logs[logs.length - 1];
+  
+  if (firstLog && new Date(newLog.timestamp).getTime() > new Date(firstLog.timestamp).getTime()) {
     return [newLog, ...logs];
   }
   
-  if (new Date(newLog.timestamp).getTime() < new Date(logs[logs.length - 1].timestamp).getTime()) {
+  if (lastLog && new Date(newLog.timestamp).getTime() < new Date(lastLog.timestamp).getTime()) {
     return [...logs, newLog];
   }
   
@@ -319,7 +326,7 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
       return null;
     }
     
-    const lastLog = feedingLogs[0];
+    const lastLog = feedingLogs[0]!;
     if (!lastLog) return null;
 
     const cat = catsMap.get(lastLog.catId);
@@ -335,7 +342,7 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
     
     return enrichedLog;
 
-  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats]);
+  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats]);
 };
 
 export const useSelectAveragePortionSize = (): number | null => {

@@ -73,15 +73,14 @@ export const createFeedingNotification = (
     title,
     message,
     type,
-    timestamp: new Date(),
-    createdAt: new Date(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     isRead: false,
     userId,
-    catId: cat.id,
-    actionUrl: `/cats/${cat.id}`,
-    icon,
-    data: {
+    metadata: {
       catId: cat.id,
+      actionUrl: `/cats/${cat.id}`,
+      icon,
       scheduledTime: scheduledTime.toISOString()
     }
   };

@@ -373,11 +373,6 @@ export default function CatDetailsClient({ id }: { id: string }) {
                                       A cada {schedule.interval} horas
                                     </p>
                                   )}
-                                  { (schedule['override_until'] ?? schedule['overrideUntil']) && (
-                                    <Badge variant="secondary" className="mt-2">
-                                      Temporário até {format(new Date(schedule['override_until'] ?? schedule['overrideUntil']), "PP")}
-                                    </Badge>
-                                  )}
                                 </div>
                                 <Button variant="outline" size="sm" asChild>
                                   <Link href={`/cats/${cat.id}/schedules/${schedule.id}/edit`}>

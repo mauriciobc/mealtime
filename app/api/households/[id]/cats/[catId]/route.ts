@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 // import { getServerSession } from 'next-auth/next';
 // import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { createClient } from '@/utils/supabase/server'; // Import Supabase client
-import { cookies } from 'next/headers'; // Import cookies
+import { cookies } from 'next/headers'; // Import cookies (required for Next.js 16)
 import { BaseCat } from '@/lib/types/common';
 import { z } from 'zod'; // Import Zod for validation
 
@@ -12,10 +12,10 @@ interface PrismaError extends Error {
   stack?: string;
 }
 
-// Zod schema for route parameters
+// Zod schema for route parameters (IDs are UUIDs, not numbers)
 const RouteParamsSchema = z.object({
-  id: z.string().refine(val => !isNaN(parseInt(val)), { message: "ID do domicílio inválido" }),
-  catId: z.string().refine(val => !isNaN(parseInt(val)), { message: "ID do gato inválido" }),
+  id: z.string().uuid({ message: "ID do domicílio inválido" }),
+  catId: z.string().uuid({ message: "ID do gato inválido" }),
 });
 
 // Zod schema for PATCH request body
@@ -32,27 +32,26 @@ const PatchBodySchema = z.object({
 
 
 // Helper function for authorization
-async function authorizeUser(supabaseUser: any, householdId: number): Promise<{ authorized: boolean; prismaUserId?: number; error?: NextResponse }> {
+async function authorizeUser(supabaseUser: any, householdId: string): Promise<{ authorized: boolean; prismaUserId?: string; error?: NextResponse }> {
   if (!supabaseUser) {
     return { authorized: false, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
   }
 
   try {
-    // Fetch the Prisma user and check household membership using auth_id
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
-      select: { id: true, householdId: true },
+    // Check if user is a member of the household
+    const householdMember = await prisma.household_members.findFirst({
+      where: { 
+        user_id: supabaseUser.id,
+        household_id: householdId 
+      },
+      select: { user_id: true },
     });
 
-    if (!prismaUser) {
-      return { authorized: false, error: NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 }) };
-    }
-
-    if (prismaUser.householdId !== householdId) {
+    if (!householdMember) {
       return { authorized: false, error: NextResponse.json({ error: 'Você não tem permissão para acessar este domicílio' }, { status: 403 }) };
     }
 
-    return { authorized: true, prismaUserId: prismaUser.id };
+    return { authorized: true, prismaUserId: householdMember.user_id };
   } catch (error) {
     console.error('Authorization error:', error);
     return { authorized: false, error: NextResponse.json({ error: 'Erro interno do servidor durante autorização' }, { status: 500 }) };
@@ -63,19 +62,20 @@ async function authorizeUser(supabaseUser: any, householdId: number): Promise<{ 
 // GET /api/households/[id]/cats/[catId] - Obter um gato específico
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; catId: string } }
+  { params }: { params: Promise<{ id: string; catId: string }> }
 ) {
   // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse(params);
+  const resolvedParams = await params;
+  const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
   if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+    return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
   }
 
-  const householdId = parseInt(paramsValidation.data.id);
-  const catId = parseInt(paramsValidation.data.catId);
+  const householdId = paramsValidation.data.id;
+  const catId = paramsValidation.data.catId;
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  await cookies();
+  const supabase = await createClient();
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
   // Authorize user
@@ -86,10 +86,10 @@ export async function GET(
 
   try {
     // Buscar o gato - já sabemos que o usuário pertence ao domicílio
-    const cat = await prisma.cat.findUnique({
+    const cat = await prisma.cats.findFirst({
       where: {
         id: catId,
-        householdId: householdId // Garante que o gato pertença ao domicílio correto
+        household_id: householdId // Garante que o gato pertença ao domicílio correto
       },
       include: {
         schedules: true
@@ -107,12 +107,12 @@ export async function GET(
     const formattedCat: BaseCat = {
       id: cat.id,
       name: cat.name,
-      photoUrl: cat.photoUrl || undefined,
-      birthdate: cat.birthdate || undefined,
-      weight: cat.weight || undefined,
-      restrictions: cat.restrictions || undefined,
-      householdId: cat.householdId,
-      feedingInterval: cat.feedingInterval || 8
+      ...(cat.photo_url && { photoUrl: cat.photo_url }),
+      ...(cat.birth_date && { birthdate: cat.birth_date }),
+      ...(cat.weight && { weight: Number(cat.weight) }),
+      ...(cat.restrictions && { restrictions: cat.restrictions }),
+      householdId: cat.household_id,
+      feedingInterval: cat.feeding_interval || 8
     };
 
     return NextResponse.json(formattedCat);
@@ -128,19 +128,20 @@ export async function GET(
 // PATCH /api/households/[id]/cats/[catId] - Atualizar um gato
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; catId: string } }
+  { params }: { params: Promise<{ id: string; catId: string }> }
 ) {
+  const resolvedParams = await params;
   // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse(params);
+  const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
   if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+    return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
   }
 
-  const householdId = parseInt(paramsValidation.data.id);
-  const catId = parseInt(paramsValidation.data.catId);
+  const householdId = paramsValidation.data.id;
+  const catId = paramsValidation.data.catId;
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  await cookies();
+  const supabase = await createClient();
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
   // Authorize user
@@ -151,8 +152,8 @@ export async function PATCH(
 
   try {
     // Fetch the cat first to ensure it exists and belongs to the household
-    const existingCat = await prisma.cat.findUnique({
-      where: { id: catId, householdId: householdId },
+    const existingCat = await prisma.cats.findFirst({
+      where: { id: catId, household_id: householdId },
     });
 
     if (!existingCat) {
@@ -166,22 +167,22 @@ export async function PATCH(
     const bodyValidation = PatchBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-      return NextResponse.json({ error: bodyValidation.error.errors }, { status: 400 });
+      return NextResponse.json({ error: bodyValidation.error.issues }, { status: 400 });
     }
 
     console.log('Received update request with validated body:', bodyValidation.data);
 
-    // Prepare update data, handling nullable fields correctly
+    // Prepare update data, handling nullable fields correctly (use snake_case for DB fields)
     const updateData: any = {};
     if (bodyValidation.data.name !== undefined) updateData.name = bodyValidation.data.name;
-    if (bodyValidation.data.photoUrl !== undefined) updateData.photoUrl = bodyValidation.data.photoUrl; // Allow null
+    if (bodyValidation.data.photoUrl !== undefined) updateData.photo_url = bodyValidation.data.photoUrl; // Allow null
     if (bodyValidation.data.birthdate !== undefined) {
-        updateData.birthdate = bodyValidation.data.birthdate ? new Date(bodyValidation.data.birthdate) : null;
+        updateData.birth_date = bodyValidation.data.birthdate ? new Date(bodyValidation.data.birthdate) : null;
     }
     if (bodyValidation.data.weight !== undefined) updateData.weight = bodyValidation.data.weight; // Allow null
     if (bodyValidation.data.restrictions !== undefined) updateData.restrictions = bodyValidation.data.restrictions; // Allow null
     if (bodyValidation.data.notes !== undefined) updateData.notes = bodyValidation.data.notes; // Allow null
-    if (bodyValidation.data.feedingInterval !== undefined) updateData.feedingInterval = bodyValidation.data.feedingInterval;
+    if (bodyValidation.data.feedingInterval !== undefined) updateData.feeding_interval = bodyValidation.data.feedingInterval;
     if (bodyValidation.data.portion_size !== undefined) updateData.portion_size = bodyValidation.data.portion_size;
 
     if (Object.keys(updateData).length === 0) {
@@ -191,25 +192,25 @@ export async function PATCH(
     console.log('Attempting to update cat with data:', updateData);
 
     // Atualizar o gato
-    const updatedCat = await prisma.cat.update({
+    const updatedCat = await prisma.cats.update({
       where: { id: catId }, // Already verified householdId
       data: updateData
     });
 
     console.log('Cat updated successfully:', updatedCat);
 
-    // Formatar os dados para a resposta
+    // Formatar os dados para a resposta (convert DB snake_case to camelCase)
     const formattedCat = {
-      id: updatedCat.id, // Use number or string as needed by frontend
+      id: updatedCat.id,
       name: updatedCat.name,
-      photoUrl: updatedCat.photoUrl,
-      birthdate: updatedCat.birthdate,
-      weight: updatedCat.weight,
+      photoUrl: updatedCat.photo_url,
+      birthdate: updatedCat.birth_date,
+      weight: updatedCat.weight ? Number(updatedCat.weight) : null,
       restrictions: updatedCat.restrictions,
       notes: updatedCat.notes,
-      feedingInterval: updatedCat.feedingInterval,
-      portion_size: updatedCat.portion_size,
-      householdId: updatedCat.householdId
+      feedingInterval: updatedCat.feeding_interval,
+      portion_size: updatedCat.portion_size ? Number(updatedCat.portion_size) : null,
+      householdId: updatedCat.household_id
     };
 
     return NextResponse.json(formattedCat);
@@ -242,19 +243,20 @@ export async function PATCH(
 // DELETE /api/households/[id]/cats/[catId] - Deletar um gato
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; catId: string } }
+  { params }: { params: Promise<{ id: string; catId: string }> }
 ) {
+  const resolvedParams = await params;
   // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse(params);
+  const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
   if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+    return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
   }
 
-  const householdId = parseInt(paramsValidation.data.id);
-  const catId = parseInt(paramsValidation.data.catId);
+  const householdId = paramsValidation.data.id;
+  const catId = paramsValidation.data.catId;
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  await cookies();
+  const supabase = await createClient();
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
   // Authorize user
@@ -265,8 +267,8 @@ export async function DELETE(
 
   try {
      // Fetch the cat first to ensure it exists and belongs to the household
-    const existingCat = await prisma.cat.findUnique({
-      where: { id: catId, householdId: householdId },
+    const existingCat = await prisma.cats.findFirst({
+      where: { id: catId, household_id: householdId },
     });
 
     if (!existingCat) {
@@ -277,7 +279,7 @@ export async function DELETE(
     }
 
     // Deletar o gato
-    await prisma.cat.delete({
+    await prisma.cats.delete({
       where: { id: catId } // Already verified householdId
     });
 

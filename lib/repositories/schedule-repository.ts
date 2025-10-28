@@ -1,5 +1,5 @@
 import prisma from '../prisma';
-import { logger } from "@/lib/monitoring/logger";
+
 
 export const ScheduleRepository = {
   // Buscar todos os agendamentos

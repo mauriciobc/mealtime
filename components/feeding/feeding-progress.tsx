@@ -31,7 +31,7 @@ export default function FeedingProgress({
 }: FeedingProgressProps) {
   const { shouldAnimate } = useAnimation()
   const [progress, setProgress] = useState(0)
-  const { currentUser, loading: userLoading } = useUserContext();
+  const { state: { currentUser }, authLoading: userLoading } = useUserContext();
   const timezone = getUserTimezone(currentUser?.preferences?.timezone);
 
   const [nextFeedingTime, setNextFeedingTime] = useState<Date | null>(null);

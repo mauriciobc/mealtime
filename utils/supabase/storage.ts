@@ -46,7 +46,7 @@ export async function uploadImage(
   console.log(`  - FileName: ${fileName}`);
   console.log(`  - File Size: ${file.size}`);
   console.log(`  - User ID: ${userId}`);
-  console.log(`  - Supabase Client URL: ${supabase.supabaseUrl}`); // Check if URL looks correct
+  // console.log(`  - Supabase Client URL: ${supabase.supabaseUrl}`); // supabaseUrl is protected
   // --- END ADDED LOGGING ---
 
   const { data, error } = await supabase.storage
@@ -58,7 +58,7 @@ export async function uploadImage(
 
   if (error) {
     console.error('Storage upload error:', error);
-    throw error;
+    throw new Error(String(error));
   }
 
   // Get public URL
@@ -91,7 +91,7 @@ export async function deleteImage(url: string, type: ImageType) {
 
   if (error) {
     console.error('Storage delete error:', error);
-    throw error;
+    throw new Error(String(error));
   }
 }
 
@@ -112,7 +112,7 @@ export async function listUserImages(type: ImageType, userId: string) {
 
   if (error) {
     console.error('Storage list error:', error);
-    throw error;
+    throw new Error(String(error));
   }
 
   return data.map(file => {

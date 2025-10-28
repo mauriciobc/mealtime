@@ -37,13 +37,13 @@ export async function withModel<T, R>(
     console.log(`[Prisma] Using mapped model: '${modelName}' → '${mappedModelName}'`);
     
     // Try to access the model using the mapped name
-    if (prisma[mappedModelName]) {
+    if ((prisma as any)[mappedModelName]) {
       console.log(`[Prisma] Accessing mapped model '${mappedModelName}' from shared client`);
       try {
-        return await operation(prisma[mappedModelName]);
-      } catch (error) {
-        console.warn(`[Prisma] Error using mapped model '${mappedModelName}': ${error.message}`);
-        throw error; // Rethrow since this is our best mapping
+        return await operation((prisma as any)[mappedModelName]);
+      } catch (_error) {
+        console.warn(`[Prisma] Error using mapped model '${mappedModelName}': ${(_error as Error).message}`);
+        throw _error; // Rethrow since this is our best mapping
       }
     }
   }
@@ -55,9 +55,9 @@ export async function withModel<T, R>(
     try {
       console.log(`[Prisma] Using original accessor for model ${modelName}`);
       return await operation(model);
-    } catch (error) {
-      console.warn(`[Prisma] Error using original accessor for ${modelName}: ${error.message}`);
-      throw error; // Rethrow the error since we've tried all options
+    } catch (_error) {
+      console.warn(`[Prisma] Error using original accessor for ${modelName}: ${(_error as Error).message}`);
+      throw _error; // Rethrow the _error since we've tried all options
     }
   } else {
     console.warn(`[Prisma] Neither mapped model '${mappedModelName}' nor original model '${modelName}' is available`);

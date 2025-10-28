@@ -5,7 +5,7 @@ import { startOfDay, endOfDay, subDays } from "date-fns";
 export async function getFeedingStatistics(
   period: string = "7dias", 
   catId: string = "todos",
-  householdId: number
+  householdId: string
 ): Promise<StatisticsData & { feedingLogs: FeedingLog[] }> {
   try {
     console.log("Buscando logs de alimentação para household:", householdId);
@@ -31,7 +31,7 @@ export async function getFeedingStatistics(
     console.log("Período de busca:", { startDate, endDate });
 
     // Buscar logs de alimentação
-    const rawLogs = await FeedingRepository.getByHousehold(String(householdId));
+    const rawLogs = await FeedingRepository.getByHousehold(householdId);
     console.log("Logs encontrados:", rawLogs.length);
 
     // Map raw logs to FeedingLog type
@@ -73,9 +73,9 @@ export async function getFeedingStatistics(
 
     // Calcular estatísticas básicas
     const totalFeedings = filteredLogs.length;
-    const validPortions = filteredLogs.filter(log => log.portionSize !== null && log.portionSize > 0);
+    const validPortions = filteredLogs.filter(log => log.portionSize !== null && log.portionSize !== undefined && log.portionSize > 0);
     const averagePortionSize = validPortions.length > 0
-      ? validPortions.reduce((sum, log) => sum + (log.portionSize || 0), 0) / validPortions.length
+      ? validPortions.reduce((sum, log) => sum + (log.portionSize ?? 0), 0) / validPortions.length
       : 0;
 
     console.log("Estatísticas básicas:", { totalFeedings, averagePortionSize });
@@ -125,7 +125,7 @@ function calculateTimeSeriesData(logs: FeedingLog[], startDate: Date, endDate: D
     const totalPortions = dayLogs.reduce((sum, log) => sum + (log.portionSize || 0), 0);
 
     dataPoints.push({
-      name: currentDate.toISOString().split('T')[0],
+      name: currentDate.toISOString().split('T')[0] ?? '',
       valor: totalPortions,
     });
 
@@ -141,7 +141,7 @@ function calculateCatPortionData(logs: FeedingLog[]): CatPortion[] {
   logs.forEach(log => {
     if (log.portionSize && log.portionSize > 0 && log.cat) {
       const currentValue = catPortions.get(log.cat.name) || 0;
-      catPortions.set(log.cat.name, currentValue + log.portionSize);
+      catPortions.set(log.cat.name, currentValue + (log.portionSize ?? 0));
     }
   });
 
@@ -180,10 +180,10 @@ function calculateConsecutiveDaysAndMissedSchedules(logs: FeedingLog[]): { maxCo
   let currentStreak = 1;
   let maxStreak = 1;
   let missedSchedules = 0;
-  let lastDate = new Date(sortedLogs[0].timestamp);
+  let lastDate = new Date(sortedLogs[0]?.timestamp ?? new Date());
 
   for (let i = 1; i < sortedLogs.length; i++) {
-    const currentDate = new Date(sortedLogs[i].timestamp);
+    const currentDate = new Date(sortedLogs[i]?.timestamp ?? new Date());
     const daysDiff = Math.floor((currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (daysDiff === 1) {

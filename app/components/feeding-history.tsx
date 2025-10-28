@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+
 import { FeedingHistoryProps } from "@/lib/types";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 export function FeedingHistory({ logs, onMarkAsFed }: FeedingHistoryProps) {
   const { state: userState } = useUserContext();
   const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+  const _userLocale = resolveDateFnsLocale(userLanguage);
 
   if (logs.length === 0) {
     return (

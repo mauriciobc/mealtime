@@ -2,16 +2,11 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { format } from "date-fns"
-import type { Locale } from "date-fns"
 import { PageTransition } from "@/components/ui/page-transition"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, ChevronDown, TrendingUp, AlertTriangle, BarChart3, PieChart, Filter, Calendar, PlusCircle, Users, Utensils, Scale, CalendarCheck } from "lucide-react"
+import { AlertTriangle, BarChart3, Users, Utensils, Scale, Calendar, Filter } from "lucide-react"
 import { useUserContext } from "@/lib/context/UserContext"
-import { useCats } from "@/lib/context/CatsContext"
-import { useFeeding } from "@/lib/context/FeedingContext"
 import { useSelectFeedingStatistics } from "@/lib/selectors/statisticsSelectors"
 import { Button } from "@/components/ui/button"
 import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, Cell } from "recharts"
@@ -21,22 +16,12 @@ import { PageHeader } from "@/components/page-header"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { StatCard } from "@/components/ui/stat-card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
-import { Skeleton } from "@/components/ui/skeleton"
-import { FeedingLog, CatType } from "@/lib/types"
-import { getDateRange, StatisticsData, TimeSeriesDataPoint, CatPortion } from "@/lib/selectors/statisticsSelectors"
-import { toast } from "sonner"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { StatisticsData, TimeSeriesDataPoint, CatPortion } from "@/lib/selectors/statisticsSelectors"
 import { useStatistics } from "@/lib/hooks/useStatistics"
 import { 
-  safeParseISO, 
-  getDateRange as getDateRangeUtil, 
-  formatDate, 
-  isDateInRange, 
-  getHourFromDate, 
-  formatHour,
-  generateDateArray,
   resolveDateFnsLocale,
-  type DateRange,
+  getDateRange,
   type PeriodType
 } from "@/lib/utils/date"
 
@@ -62,14 +47,14 @@ interface TimeDistributionDataPoint {
   valor: number;
 }
 
-interface ChartConfig {
+interface _ChartConfig {
   [key: string]: {
     label: string;
     color: string;
   }
 }
 
-interface CatPortionConfig {
+interface _CatPortionConfig {
   [key: string]: {
     label: string;
     theme: {
@@ -242,14 +227,16 @@ const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
       <ResponsiveContainer width="100%" height="100%">
         <RechartsPieChart>
           <ChartTooltip
-            content={<ChartTooltipContent hideLabel nameKey="name" formatter={(value: number, name: string, entry: any) => {
-              const item = data.find(d => d.name === name);
-              return [`${value.toFixed(1)}g (${item?.percent || 0}%)`];
-            }} />}
+            content={<ChartTooltipContent hideLabel nameKey="name" formatter={((value: any, name: any) => {
+              const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+              const nameStr = String(name);
+              const item = data.find(d => d.name === nameStr);
+              return [`${numValue.toFixed(1)}g (${item?.percent || 0}%)`];
+            }) as any} />}
             cursor={false}
           />
           <Pie
-            data={data}
+            data={data as any[]}
             dataKey="value"
             nameKey="name"
             cx="50%"
@@ -299,7 +286,7 @@ type StatisticsPageState =
 export default function StatisticsPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isMobile } = useResponsive()
+  const { isMobile: _isMobile2 } = useResponsive()
 
   // Hooks existentes
   const { state: userState } = useUserContext()
@@ -335,7 +322,7 @@ export default function StatisticsPage() {
   }, [router, searchParams, selectedPeriod]);
 
   // Calcular o dateRange usando o novo utilitário
-  const dateRange = useMemo(() => getDateRangeUtil(selectedPeriod as PeriodType), [selectedPeriod]);
+  const dateRange = useMemo(() => getDateRange(selectedPeriod as PeriodType), [selectedPeriod]);
 
   // Usar o hook useStatistics diretamente
   const statistics = useStatistics(feedingLogs, cats, dateRange, selectedCatId, userLocale);

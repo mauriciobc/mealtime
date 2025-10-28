@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 
 interface PageTransitionProps {

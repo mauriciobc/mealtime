@@ -100,7 +100,7 @@ export default function FeedingsPage() {
   const [logToEdit, setLogToEdit] = useState<FeedingLog | null>(null)
 
   const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+  const _userLocale = resolveDateFnsLocale(userLanguage);
   
   // React 19 transitions for better UX
   const [isPending, startTransition] = useTransition()
@@ -339,7 +339,7 @@ export default function FeedingsPage() {
                 <React.Fragment key={date}>
                   {/* Date Header */}
                   <h2 className="text-lg font-semibold my-4 sticky top-[68px] bg-background py-2 z-10"> {/* Adjusted sticky top */}
-                    {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: userLocale })}
+                    {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                   </h2>
                   {/* Logs for the Date */}
                   {logsOnDate.map((log) => {
@@ -370,7 +370,7 @@ export default function FeedingsPage() {
                         <div className="flex items-start gap-8 w-full">
                            {/* Time Column */}
                           <div className="text-right text-sm text-muted-foreground pt-1 w-16 flex-shrink-0 tabular-nums -ml-[58px] pl-12"> {/* Use negative margin to pull time back into the padding space */}
-                            {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
+                            {format(new Date(log.timestamp), "HH:mm", { locale: ptBR })}
                           </div>
 
                           {/* Main Content Card (moves to the right of the Avatar/dot) */}
@@ -438,7 +438,7 @@ export default function FeedingsPage() {
                                         <DrawerTitle>Confirmar Exclusão</DrawerTitle>
                                         <DrawerDescription>
                                           Tem certeza que deseja excluir este registro de alimentação?
-                                          {log && ` (Gato: ${cats.find(c => String(c.id) === String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: userLocale })})`}
+                                          {log && ` (Gato: ${cats.find(c => String(c.id) === String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })})`}
                                           <br />
                                           Esta ação não pode ser desfeita.
                                         </DrawerDescription>

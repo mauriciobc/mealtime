@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { flushSync } from 'react-dom';
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -45,6 +44,17 @@ export default function NewHouseholdPage() {
     },
   });
   
+  const shouldRedirect = !isUserLoading && !errorUser && !currentUser;
+
+  // Handle redirect for unauthenticated users
+  useEffect(() => {
+    if (shouldRedirect) {
+      console.log("[NewHouseholdPage] No currentUser found. Redirecting to login.");
+      toast.error('Você precisa estar logado para criar um domicílio.');
+      router.replace('/login?callbackUrl=/households/new');
+    }
+  }, [shouldRedirect, router]);
+  
   // --- Refined Loading and State Checks ---
 
   // 1. Handle User Context Loading FIRST
@@ -65,12 +75,6 @@ export default function NewHouseholdPage() {
   
   // 3. Handle No Authenticated User Found (Redirect)
   if (!currentUser) {
-     // Redirect immediately if no user after loading/error checks
-     useEffect(() => {
-        console.log("[NewHouseholdPage] No currentUser found. Redirecting to login.");
-        toast.error('Você precisa estar logado para criar um domicílio.');
-        router.replace('/login?callbackUrl=/households/new');
-     }, [router]);
      return <Loading text="Redirecionando para login..." />;
   }
 

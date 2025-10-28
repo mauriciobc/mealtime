@@ -35,7 +35,7 @@ async function createWeightLogAndUpdateCat(data: CreateWeightLogBody, measuredBy
         cat_id: catId,
         weight: weight,
         date: logDate,
-        notes: notes,
+        notes: notes ?? null,
         measured_by: measuredById, // Authenticated user ID
       },
     });
@@ -282,7 +282,7 @@ export async function PUT(request: NextRequest) {
         data: {
           weight: weight,
           date: logDate,
-          notes: notes,
+          notes: notes ?? null,
           measured_by: authUserId, // Update measured_by to current user if desired, or keep original
           // cat_id: catId, // cat_id should not change here, already verified
         },

@@ -67,14 +67,14 @@ export default function DashboardContent({
   recentFeedingsData
 }: DashboardContentProps) {
   const [isNewFeedingSheetOpen, setIsNewFeedingSheetOpen] = useState(false);
-  const chartCats = cats || [];
+  const chartCats = useMemo(() => cats || [], [cats]);
 
   const chartConfig = useMemo<ChartConfig>(() => {
     const config: ChartConfig = {};
     chartCats.forEach((cat, index) => {
       config[cat.id] = {
         label: cat.name,
-        color: colorPalette[index % colorPalette.length]
+        color: colorPalette[index % colorPalette.length] ?? "#888888"
       };
     });
     return config;
@@ -313,7 +313,6 @@ export default function DashboardContent({
       <NewFeedingSheet
         isOpen={isNewFeedingSheetOpen}
         onOpenChange={setIsNewFeedingSheetOpen}
-        initialCatId={undefined}
       />
     </motion.div>
   );

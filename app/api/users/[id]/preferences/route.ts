@@ -59,22 +59,18 @@ async function createSupabaseRouteClient() {
 async function updateUserPreferences(
   userId: string,
   body: UpdateUserPreferencesBody
-): Promise<User> {
-  // Update the user's preferences in their profile
+) {
+  // Update the user's timezone in their profile (profiles model doesn't have preferences field)
   const updatedProfile = await prisma.profiles.update({
     where: {
       id: userId,
     },
     data: {
-      preferences: {
-        language: body.language,
-        timezone: body.timezone,
-      },
+      timezone: body.timezone,
     },
   });
 
-  // Cast to User type for frontend compatibility
-  return updatedProfile as unknown as User;
+  return updatedProfile;
 }
 
 // PUT route handler
@@ -92,21 +88,11 @@ export const PUT = withError(
 
     const { id } = await params;
 
-    // Get the Prisma user ID from the auth ID
-    const prismaUser = await prisma.user.findUnique({
-      where: { authId: user.id }
-    });
-
-    if (!prismaUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
-    // Compare Prisma user ID with route param ID
-    if (String(prismaUser.id) !== id) {
+    // Security Check: Ensure the logged-in user matches the id param
+    if (user.id !== id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // This log might be less useful now, but keep for one more test
     console.log('[API PREFERENCES PUT] Request bodyUsed before json():', request.bodyUsed);
     
     const json = await request.json();
@@ -114,7 +100,6 @@ export const PUT = withError(
 
     const updatedUser = await updateUserPreferences(id, body);
 
-    const result: UpdateUserPreferencesResponse = { user: updatedUser }; // `updatedUser` might not fully match User type here
-    return NextResponse.json(result);
+    return NextResponse.json({ user: updatedUser });
   }
 ); 

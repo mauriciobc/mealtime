@@ -19,16 +19,15 @@ async function authorizeUser(supabaseUser: any, householdId: number): Promise<{ 
   }
 
   try {
-    const prismaUser = await prisma.user.findUnique({
-      where: { auth_id: supabaseUser.id },
-      select: { householdId: true },
+    // Check if user is a member of the household
+    const householdMember = await prisma.household_members.findFirst({
+      where: { 
+        user_id: supabaseUser.id,
+        household_id: String(householdId) // Convert to string as household_id is UUID
+      },
     });
 
-    if (!prismaUser) {
-      return { authorized: false, error: NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 }) };
-    }
-
-    if (prismaUser.householdId !== householdId) {
+    if (!householdMember) {
       return { authorized: false, error: NextResponse.json({ error: 'Você não tem permissão para acessar este domicílio' }, { status: 403 }) };
     }
 
@@ -54,17 +53,17 @@ async function authorizeUser(supabaseUser: any, householdId: number): Promise<{ 
 
 export async function GET(
   request: NextRequest, // Use NextRequest
-  { params }: { params: { id: string } } // Destructure params directly
+  { params }: { params: Promise<{ id: string }> } // Destructure params directly
 ) {
+  const resolvedParams = await params;
   // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse(params);
+  const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
   if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
+    return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
   }
   const householdId = parseInt(paramsValidation.data.id);
 
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
   // Authorize user
@@ -79,34 +78,41 @@ export async function GET(
 
   try {
     // Fetch feeding logs for the authorized household
-    const logs = await prisma.feedingLog.findMany({
+    const logs = await prisma.feeding_logs.findMany({
       where: {
         cat: {
-          householdId: householdId
+          household_id: String(householdId) // Convert to string as household_id is UUID
         }
       },
       include: {
         cat: true, // Include cat details
-        user: true // Include user details (optional, consider privacy)
+        feeder: true // Include feeder details (optional, consider privacy)
       },
       orderBy: {
-        timestamp: 'desc'
+        fed_at: 'desc'
       }
     });
 
     // Convert to BaseFeedingLog format (ensure BaseFeedingLog matches Prisma model or adjust)
-    const formattedLogs: BaseFeedingLog[] = logs.map(log => ({
-      id: log.id,
-      catId: log.catId,
-      userId: log.userId,
-      timestamp: log.timestamp,
-      // Adjust these based on your actual BaseFeedingLog definition and Prisma schema
-      quantity: log.quantity || undefined, // Example: Assuming quantity exists
-      notes: log.notes || undefined,
-      createdAt: log.createdAt,
-      // status: log.status || undefined // Example if status exists
-      // Remove fields not in BaseFeedingLog or add them if they are
-    }));
+    const formattedLogs: BaseFeedingLog[] = logs.map(log => {
+      const mapped: any = {
+        id: log.id,
+        catId: log.cat_id,
+        userId: log.fed_by || '', // userId is required in BaseFeedingLog, use empty string as fallback
+        timestamp: log.fed_at,
+        createdAt: log.created_at,
+      };
+      
+      // Only add optional fields if they have values
+      if (log.amount) {
+        mapped.portionSize = parseFloat(log.amount.toString());
+      }
+      if (log.notes) {
+        mapped.notes = log.notes;
+      }
+      
+      return mapped as BaseFeedingLog;
+    });
 
     console.log('Logs encontrados:', formattedLogs.length);
     // Add CORS headers back if not handled by middleware

@@ -34,7 +34,7 @@ export class AuthError extends Error {
 
 // Get the appropriate HTTP status code for an error
 function getStatusCodeForError(code: string): number {
-  return ERROR_STATUS_CODES[code] || ERROR_STATUS_CODES.default;
+  return ERROR_STATUS_CODES[code] || ERROR_STATUS_CODES.default || 500;
 }
 
 // Translate error messages to user-friendly messages
@@ -62,7 +62,7 @@ function getErrorMessage(error: AuthError): string {
 // Main error handler for auth operations
 export function handleAuthError(error: unknown): NextResponse {
   // Log the original error for debugging
-  logger.error('[Auth] Error:', error);
+  logger.error('[Auth] Error:', error as any);
 
   // Handle AuthError instances
   if (error instanceof AuthError) {

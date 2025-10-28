@@ -216,7 +216,7 @@ Deno.serve(async (req: Request) => {
         .eq('is_read', false)
         .select('id');
 
-      if (error) throw error;
+      if (error) throw new Error(String(error));
 
       return new Response(
         JSON.stringify({ 
@@ -252,7 +252,7 @@ Deno.serve(async (req: Request) => {
         .eq('user_id', user.id)
         .select('id');
 
-      if (error) throw error;
+      if (error) throw new Error(String(error));
 
       return new Response(
         JSON.stringify({ 
@@ -285,7 +285,7 @@ Deno.serve(async (req: Request) => {
         .eq('user_id', user.id)
         .select('id');
 
-      if (error) throw error;
+      if (error) throw new Error(String(error));
 
       return new Response(
         JSON.stringify({ 

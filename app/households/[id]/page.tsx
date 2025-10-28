@@ -100,7 +100,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+  const _userLocale = resolveDateFnsLocale(userLanguage);
 
   // Handle authentication and redirection
   useEffect(() => {
@@ -165,7 +165,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         throw new Error(errorData.error || 'Falha ao excluir residência');
       }
 
-      householdDispatch({ type: "SET_HOUSEHOLD", payload: null });
+      householdDispatch({ type: "SET_HOUSEHOLD", payload: undefined });
       toast.success("Residência excluída com sucesso.");
       router.push("/households");
     } catch (error: any) {
@@ -320,7 +320,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         householdDispatch({ type: 'SET_HOUSEHOLD', payload: data });
         
         const isOwner = String(data.owner?.id) === String(currentUser.id);
-        const isMember = data.members?.some(m => String(m.userId) === String(currentUser.id));
+        const isMember = data.members?.some((m: any) => String(m.userId) === String(currentUser.id));
 
         if (!isOwner && !isMember) {
           throw new Error('You do not have access to this household');
@@ -329,9 +329,9 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         const householdCats = allCats.filter(cat => String(cat.householdId) === String(data.id));
         setCats(householdCats);
         
-      } catch (error) {
-        console.error('Error loading household:', error);
-        const errorMessage = (error as Error).message || 'Failed to load household';
+      } catch (_error) {
+        console.error('Error loading household:', _error);
+        const errorMessage = (_error as Error).message || 'Failed to load household';
         setLoadError(errorMessage);
         setHousehold(null);
         setCats([]);
@@ -367,8 +367,8 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     try {
       await navigator.clipboard.writeText(household.inviteCode);
       toast.success("Código de convite copiado!");
-    } catch (error) {
-      console.error("Erro ao copiar código:", error);
+    } catch (_error) {
+      console.error("Erro ao copiar código:", _error);
       toast.error("Não foi possível copiar o código.");
     }
   };

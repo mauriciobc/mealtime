@@ -20,7 +20,7 @@ export function createMiddlewareCookieStore(request: NextRequest, response: Next
     },
     remove(name: string, options: CookieOptions) {
       try {
-        response.cookies.delete(name, options);
+        response.cookies.delete(name);
       } catch (error) {
         logger.error('[Supabase Cookie Store] Middleware error removing cookie:', { name, error });
       }
@@ -52,7 +52,7 @@ export async function createRouteHandlerCookieStore() {
     },
     async remove(name: string, options: CookieOptions) {
       try {
-        await cookieStore.delete(name, options);
+        await cookieStore.delete(name);
       } catch (error) {
         logger.error('[Supabase Cookie Store] Route Handler error removing cookie:', { name, error });
       }

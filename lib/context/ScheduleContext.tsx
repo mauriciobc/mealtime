@@ -232,7 +232,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       cleanupLoading();
     };
     // Depend on householdId and userId to refetch when they change
-  }, [currentUser?.householdId, currentUser?.id]); 
+  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading]); 
 
   const value = useMemo(() => ({ state, dispatch }), [state, dispatch]);
 

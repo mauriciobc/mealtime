@@ -32,7 +32,7 @@ export default function AnimatedIcon({
         repeat: Number.POSITIVE_INFINITY,
         repeatType: "loop" as const,
         duration: 2,
-        ease: "easeInOut",
+        ease: "easeIn",
       },
     },
     bounce: {
@@ -41,7 +41,7 @@ export default function AnimatedIcon({
         repeat: Number.POSITIVE_INFINITY,
         repeatType: "loop" as const,
         duration: 1,
-        ease: "easeInOut",
+        ease: "easeIn",
       },
     },
     spin: {
@@ -59,13 +59,13 @@ export default function AnimatedIcon({
         repeat: Number.POSITIVE_INFINITY,
         repeatType: "loop" as const,
         duration: 0.5,
-        ease: "easeInOut",
+        ease: "easeIn",
       },
     },
   }
 
   return (
-    <motion.div animate={animations[animate]} className="inline-flex">
+    <motion.div animate={animations[animate] as any} className="inline-flex">
       <Icon size={size} className={className} color={color} />
     </motion.div>
   )

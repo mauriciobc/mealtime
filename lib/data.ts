@@ -40,11 +40,11 @@ export async function getCats(householdId?: number) {
         throw new Error("Falha ao processar a resposta do servidor ao buscar gatos.");
     }
 
-  } catch (error) {
-    console.error("Erro ao buscar gatos:", error);
-    // Re-throw the error so the caller knows something failed
-    throw error;
-    // return []; // Avoid masking the error by returning empty array
+  } catch (_error) {
+    console.error("Erro ao buscar gatos:", _error);
+    // Re-throw the _error so the caller knows something failed
+    throw _error;
+    // return []; // Avoid masking the _error by returning empty array
   }
 }
 
@@ -85,8 +85,8 @@ export async function getCatById(id: string) {
     });
     
     return cat;
-  } catch (error) {
-    console.error("Erro ao buscar gato por ID:", error);
+  } catch (_error) {
+    console.error("Erro ao buscar gato por ID:", _error);
     return null;
   }
 }
@@ -135,10 +135,10 @@ export async function getFeedingLogs(catId?: number, limit = 20) {
       console.error("Failed to parse successful JSON response:", parseError);
       throw new Error("Falha ao processar a resposta do servidor ao buscar registros de alimentação.");
     }
-  } catch (error) {
-    console.error("Erro ao buscar registros de alimentação:", error);
-    // Re-throw the error so the caller knows something failed
-    throw error;
+  } catch (_error) {
+    console.error("Erro ao buscar registros de alimentação:", _error);
+    // Re-throw the _error so the caller knows something failed
+    throw _error;
   }
 }
 
@@ -179,10 +179,10 @@ export async function getSchedules(catId?: number) {
         throw new Error("Falha ao processar a resposta do servidor ao buscar agendamentos.");
     }
 
-  } catch (error) {
-    console.error("Erro ao buscar agendamentos:", error);
-    // Re-throw the error so the caller knows something failed
-    throw error;
-    // return []; // Avoid masking the error by returning empty array
+  } catch (_error) {
+    console.error("Erro ao buscar agendamentos:", _error);
+    // Re-throw the _error so the caller knows something failed
+    throw _error;
+    // return []; // Avoid masking the _error by returning empty array
   }
 }

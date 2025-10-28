@@ -52,7 +52,7 @@ export function validateSettings(data: unknown): ValidationResult {
     if (error instanceof z.ZodError) {
       return {
         success: false,
-        errors: error.errors.map(err => ({
+        errors: (error as any).errors.map((err: any) => ({
           field: err.path.join('.'),
           message: err.message
         }))

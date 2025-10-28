@@ -133,12 +133,12 @@ export function sanitizeError(error: Error, context?: Record<string, unknown>): 
 
   // Tentar extrair código de erro se disponível
   if ('code' in error && error.code) {
-    sanitized.code = error.code;
+    sanitized.code = typeof error.code === 'string' || typeof error.code === 'number' ? error.code : String(error.code);
   }
 
   // Tentar extrair tipo de erro se disponível
   if ('type' in error && error.type) {
-    sanitized.type = error.type;
+    sanitized.type = String(error.type);
   }
 
   // Adicionar identificadores de contexto se disponíveis
@@ -162,7 +162,7 @@ export function sanitizeLogContext(context?: Record<string, unknown>): Sanitized
     return {};
   }
 
-  return sanitizeObject(context);
+  return sanitizeObject(context) as SanitizedContext;
 }
 
 /**

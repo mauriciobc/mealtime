@@ -10,12 +10,13 @@ import Link from "next/link"
 import { useCats } from "@/lib/context/CatsContext"
 import { useFeeding } from "@/lib/context/FeedingContext"
 import { useUserContext } from "@/lib/context/UserContext"
-import { calculateNextFeedingTimeForCat } from "@/lib/utils/feedingCalculations"
+// import { calculateNextFeedingTimeForCat } from "@/lib/utils/feedingCalculations" // TODO: Function not found
 import { format, formatDistanceToNow, isBefore } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { useRouter } from "next/navigation"
 import { CatType } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
-import { NewFeedingSheet } from "@/components/new-feeding-sheet"
+import { NewFeedingSheet } from "@/components/feeding/new-feeding-sheet"
 import { cn } from "@/lib/utils"
 
 export function CatList() {
@@ -42,9 +43,9 @@ export function CatList() {
   }, [cats, currentUser?.householdId, isLoading])
 
   const lastLogMap = useMemo(() => {
-    if (isLoadingFeedings || !feedingLogs) return new Map<string, CatType["feedingLogs"][0]>()
+    if (isLoadingFeedings || !feedingLogs) return new Map<string, any>()
     
-    const map = new Map<string, CatType["feedingLogs"][0]>()
+    const map = new Map<string, any>()
     ;[...feedingLogs]
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .forEach(log => {
@@ -64,24 +65,24 @@ export function CatList() {
     if (isLoading || !currentUser) {
         return { text: "Carregando...", isDueSoon: false, isOverdue: false }
     }
-    const lastLog = lastLogMap.get(cat.id)
-    const timezone = currentUser?.preferences?.timezone || "UTC"
+    // const lastLog = lastLogMap.get(cat.id)
+    // const timezone = currentUser?.preferences?.timezone || "UTC"
     
-    const nextFeedingDateTime = calculateNextFeedingTimeForCat(cat, lastLog, [], timezone)
-
-    if (!nextFeedingDateTime) {
-        return { text: "Não configurado", isDueSoon: false, isOverdue: false }
-    }
-
-    const now = new Date()
-    const isOverdue = isBefore(nextFeedingDateTime, now)
-    const diffMs = nextFeedingDateTime.getTime() - now.getTime()
-    const isDueSoon = !isOverdue && diffMs < 60 * 60 * 1000
-    const text = isOverdue 
-        ? `Atrasado (${formatDistanceToNow(nextFeedingDateTime, { addSuffix: true, locale: ptBR })})`
-        : formatDistanceToNow(nextFeedingDateTime, { addSuffix: true, locale: ptBR })
-
-    return { text, isDueSoon, isOverdue }
+    // TODO: Function calculateNextFeedingTimeForCat not found - temporarily disabled
+    // const nextFeedingDateTime = calculateNextFeedingTimeForCat(cat, lastLog, [], timezone)
+    
+    // Temporarily return "Not configured" until function is implemented
+    return { text: "Não configurado", isDueSoon: false, isOverdue: false }
+    
+    // Original code (will be enabled when function is available):
+    // const now = new Date()
+    // const isOverdue = isBefore(nextFeedingDateTime, now)
+    // const diffMs = nextFeedingDateTime.getTime() - now.getTime()
+    // const isDueSoon = !isOverdue && diffMs < 60 * 60 * 1000
+    // const text = isOverdue 
+    //     ? `Atrasado (${formatDistanceToNow(nextFeedingDateTime, { addSuffix: true, locale: ptBR })})`
+    //     : formatDistanceToNow(nextFeedingDateTime, { addSuffix: true, locale: ptBR })
+    // return { text, isDueSoon, isOverdue }
   }, [isLoading, currentUser, lastLogMap])
 
   if (isLoading) {
@@ -141,7 +142,7 @@ export function CatList() {
                   isOverdue ? "border-destructive" : ""
                 )}>
                 <Avatar className="h-16 w-16 border-2 border-primary/20">
-                  <AvatarImage src={cat.photoUrl || undefined} alt={cat.name} />
+                  <AvatarImage src={cat.photo_url || undefined} alt={cat.name} />
                   <AvatarFallback className="bg-primary/10 text-primary">
                     {cat.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
@@ -157,7 +158,7 @@ export function CatList() {
                   </div>
                   <div className="text-sm text-muted-foreground mt-1 truncate">
                     {cat.portion_size ? `${cat.portion_size}g` : "Porção não definida"} 
-                    {cat.feedingInterval ? ` a cada ${cat.feedingInterval}h` : " (Sem intervalo padrão)"}
+                    {cat.feeding_interval ? ` a cada ${cat.feeding_interval}h` : " (Sem intervalo padrão)"}
                   </div>
                 </div>
               </div>

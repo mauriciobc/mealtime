@@ -48,8 +48,8 @@ export async function getData<T>(key: string): Promise<T[]> {
       localStorage.removeItem(key);
       return [];
     }
-  } catch (error) {
-    console.warn(`Erro ao obter ${key}:`, error);
+  } catch (_error) {
+    console.warn(`Erro ao obter ${key}:`, _error);
     return [];
   }
 }
@@ -74,8 +74,8 @@ export async function setData<T>(key: string, data: T[]): Promise<T[]> {
   try {
     localStorage.setItem(key, JSON.stringify(data));
     return data;
-  } catch (error) {
-    console.error(`Error setting ${key}:`, error);
+  } catch (_error) {
+    console.error(`Error setting ${key}:`, _error);
     throw new Error(`Failed to save ${key}`);
   }
 }
@@ -87,7 +87,7 @@ export async function getCats(): Promise<CatType[]> {
   return getData<CatType>('cats');
 }
 
-export async function getCatsByHouseholdId(householdId: string, userId: string | undefined, userTimezone?: string, signal?: AbortSignal): Promise<CatType[]> {
+export async function fetchCatsForHousehold(householdId: string, userId: string | undefined, userTimezone?: string, signal?: AbortSignal): Promise<CatType[]> {
   await delay(300);
   try {
     // Prepare headers
@@ -156,9 +156,9 @@ export async function getCatsByHouseholdId(householdId: string, userId: string |
 
       return mappedCat as CatType;
     });
-  } catch (error) {
-    console.error("Error fetching cats for household:", householdId, error);
-    throw error;
+  } catch (_error) {
+    console.error("Error fetching cats for household:", householdId, _error);
+    throw _error;
   }
 }
 
@@ -174,8 +174,8 @@ export async function getCatById(catId: string, userTimezone?: string): Promise<
       ...cat,
       createdAt: cat.createdAt || toDate(new Date(), { timeZone: getUserTimezone(userTimezone) })
     };
-  } catch (error) {
-    console.error("Erro ao buscar gato por ID:", error);
+  } catch (_error) {
+    console.error("Erro ao buscar gato por ID:", _error);
     return null;
   }
 }
@@ -246,16 +246,16 @@ export async function updateCat(catId: string, catData: Partial<CatType>): Promi
           ...updatedCat,
           id: catId,
           schedules: updatedCat.schedules || existingCat.schedules || [],
-          createdAt: existingCat.createdAt || toDate(new Date(), { timeZone: getUserTimezone() })
+          createdAt: existingCat.createdAt || toDate(new Date(), { timeZone: getUserTimezone(undefined) })
         };
       }
     }
     
     await setData<CatType>('cats', cats);
     return updatedCat;
-  } catch (error) {
-    console.error('Erro ao atualizar gato:', error);
-    throw error;
+  } catch (_error) {
+    console.error('Erro ao atualizar gato:', _error);
+    throw _error;
   }
 }
 
@@ -296,7 +296,7 @@ export async function deleteCat(id: string): Promise<void> {
 export { registerFeeding, updateFeedingSchedule, getNextFeedingTime } from './api-feeding-service';
 
 // Modify signature to accept userId
-export async function createFeedingLog(log: Omit<BaseFeedingLog, 'id'>, userId?: string): Promise<FeedingLog> {
+export async function addFeedingLog(log: Omit<BaseFeedingLog, 'id'>, userId?: string): Promise<FeedingLog> {
   await delay(500); // Keep simulated delay for now
   try {
     // Prepare headers
@@ -351,9 +351,9 @@ export async function createFeedingLog(log: Omit<BaseFeedingLog, 'id'>, userId?:
     // cat is not included in this API response, so we don't set it
     
     return mappedLog as FeedingLog;
-  } catch (error) {
-    console.error('[createFeedingLog] Error creating feeding log:', error);
-    throw error;
+  } catch (_error) {
+    console.error('[createFeedingLog] Error creating feeding log:', _error);
+    throw _error;
   }
 }
 

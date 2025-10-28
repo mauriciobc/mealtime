@@ -116,7 +116,7 @@ export function OnboardingTour({ isOpen, onOpenChange, onComplete }: OnboardingT
             onClick={(e) => e.stopPropagation()}
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            transition={{ type: "spring" as const, stiffness: 300, damping: 30 }}
           >
             <Button
               variant="ghost"
@@ -129,11 +129,11 @@ export function OnboardingTour({ isOpen, onOpenChange, onComplete }: OnboardingT
             </Button>
 
             <div className="mb-6">
-              <div className={cn("rounded-full p-4 inline-flex mb-4", steps[currentStep].color)}>
-                {steps[currentStep].icon}
+              <div className={cn("rounded-full p-4 inline-flex mb-4", steps[currentStep]?.color)}>
+                {steps[currentStep]?.icon}
               </div>
-              <h2 className="text-xl font-semibold mb-2">{steps[currentStep].title}</h2>
-              <p className="text-muted-foreground">{steps[currentStep].description}</p>
+              <h2 className="text-xl font-semibold mb-2">{(steps[currentStep]?.title ?? '')}</h2>
+              <p className="text-muted-foreground">{steps[currentStep]?.description}</p>
             </div>
 
             <div className="flex justify-between items-center">

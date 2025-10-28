@@ -5,7 +5,7 @@ import { Fish, Pill, StickyNote, X } from "lucide-react"
 import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "framer-motion"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import type { TimelineEventData, EventType } from "@/components/cat-timeline"
+import type { TimelineEventData, EventType } from "@/components/cat/cat-timeline"
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 

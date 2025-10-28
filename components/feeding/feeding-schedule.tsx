@@ -13,16 +13,16 @@ import { useRouter } from "next/navigation";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useCats } from "@/lib/context/CatsContext";
 import { useFeeding, useSelectUpcomingFeedings } from "@/lib/context/FeedingContext";
-import { useSchedules } from "@/lib/context/ScheduleContext";
+import { useScheduleContext } from "@/lib/context/ScheduleContext";
 import { getUserTimezone, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
-import { CatType, FeedingLog, Schedule, ID } from "@/lib/types";
+import { CatType, FeedingLog, Schedule } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function FeedingSchedule() {
   const { state: userState } = useUserContext();
   const { state: catsState } = useCats();
   const { state: feedingState } = useFeeding();
-  const { state: schedulesState } = useSchedules();
+  const { state: schedulesState } = useScheduleContext();
   const { currentUser } = userState;
   const timezone = useMemo(() => getUserTimezone(currentUser?.preferences?.timezone), [currentUser?.preferences?.timezone]);
   
@@ -32,7 +32,7 @@ export default function FeedingSchedule() {
   
   const router = useRouter();
 
-  const handleFeedNow = (catId: ID) => {
+  const handleFeedNow = (catId: string) => {
     router.push(`/feedings/new?catId=${catId}`);
   };
 

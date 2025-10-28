@@ -4,11 +4,12 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { Cat, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { GlobalLoading } from "@/components/ui/global-loading";
+
 import { EmptyState } from "@/components/ui/empty-state";
 import { useRouter } from "next/navigation";
 import DashboardContent from "./components/dashboard/dashboard-content";
 import { useDashboard } from "@/lib/hooks/useDashboard";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 export default function Home() {
   const { state: appState, data, currentUser } = useDashboard();

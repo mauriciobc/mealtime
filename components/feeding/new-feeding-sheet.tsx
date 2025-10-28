@@ -97,21 +97,21 @@ export function NewFeedingSheet({
     onConfirm: () => {},
   });
 
-  const statusOptions = [
+  const statusOptions = useMemo(() => [
     { value: "Normal", label: "Normal" },
     { value: "Comeu Pouco", label: "Comeu Pouco" },
     { value: "Recusou", label: "Recusou" },
     { value: "Vomitou", label: "Vomitou" },
     { value: "Outro", label: "Outro (ver notas)" },
-  ];
+  ], []);
 
-  const mealTypeOptions = [
+  const mealTypeOptions = useMemo(() => [
     { value: "dry", label: "Ração Seca" },
     { value: "wet", label: "Ração Úmida" },
     { value: "treat", label: "Petisco" },
     { value: "medicine", label: "Medicamento" },
     { value: "water", label: "Água" },
-  ];
+  ], []);
 
   const householdCats = useMemo(() => {
     if (isLoadingCats || !cats || !currentUser?.householdId) {
@@ -247,9 +247,9 @@ export function NewFeedingSheet({
     setFeedingStatus(prev => ({ ...prev, [catId]: value as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }));
   }, []);
 
-  const handleMealTypeChange = (catId: string, value: "dry" | "wet" | "treat" | "medicine" | "water") => {
+  const handleMealTypeChange = useCallback((catId: string, value: "dry" | "wet" | "treat" | "medicine" | "water") => {
     setMealTypes(prev => ({ ...prev, [catId]: value }));
-  };
+  }, []);
 
   const handleSubmit = async () => {
     if (selectedCats.length === 0) {
@@ -345,7 +345,7 @@ export function NewFeedingSheet({
             name: isCurrentUser ? (currentUser?.name ?? null) : null,
             avatar: isCurrentUser ? (currentUser?.avatar ?? null) : null,
           },
-          status: logsToCreate[0].status,
+          status: logsToCreate[0]?.status || "Normal",
         };
         
         feedingDispatch({ type: "UPDATE_FEEDING", payload: updatedFeedingLog });
@@ -382,18 +382,18 @@ export function NewFeedingSheet({
             const feedingLog: FeedingLog = {
               id: feeding.id,
               catId: feeding.cat_id,
-              userId: feeding.fed_by,
+              userId: feeding.fed_by || '',
               timestamp: new Date(feeding.fed_at),
-              portionSize: feeding.amount,
-              notes: feeding.notes,
+              portionSize: feeding.amount ? Number(feeding.amount) : null,
+              notes: feeding.notes ?? '',
               mealType: feeding.meal_type,
               householdId: feeding.household_id,
               user: {
-                id: feeding.fed_by,
+                id: feeding.fed_by || '',
                 // Usar dados do usuário atual apenas se for o mesmo que alimentou
                 // Caso contrário, definir como null para ser hidratado posteriormente
-                name: isCurrentUser ? (currentUser?.name ?? null) : null,
-                avatar: isCurrentUser ? (currentUser?.avatar ?? null) : null,
+                name: isCurrentUser ? (currentUser?.name || '') : '',
+                avatar: isCurrentUser ? (currentUser?.avatar || undefined) : undefined,
               },
               cat: undefined,
               status: safeStatus,
@@ -554,7 +554,7 @@ export function NewFeedingSheet({
         </motion.div>
       );
     });
-  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, mealTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleMealTypeChange, handleNotesChange, formatRelativeTime]);
+  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, mealTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleMealTypeChange, handleNotesChange, formatRelativeTime, mealTypeOptions, statusOptions]);
 
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>

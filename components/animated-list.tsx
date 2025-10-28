@@ -36,7 +36,7 @@ export default function AnimatedList({ children, delay = 0, staggerDelay = 0.05 
       y: 0,
       transition: {
         duration: 0.4,
-        ease: [0.25, 0.1, 0.25, 1.0],
+        ease: "easeOut",
       },
     },
   }
@@ -44,13 +44,13 @@ export default function AnimatedList({ children, delay = 0, staggerDelay = 0.05 
   // Clone children and wrap each in a motion.div
   const childrenArray = React.Children.toArray(children)
   const animatedChildren = childrenArray.map((child, index) => (
-    <motion.div key={index} variants={item}>
+    <motion.div key={index} variants={item as any}>
       {child}
     </motion.div>
   ))
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show">
+    <motion.div variants={container as any} initial="hidden" animate="show">
       {animatedChildren}
     </motion.div>
   )

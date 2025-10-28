@@ -57,7 +57,7 @@ async function createNotificationForCurrentUser(options: {
 
   } catch (error: any) {
     console.error('❌ Erro ao criar notificação:', error.message);
-    throw error;
+    throw new Error(String(error));
   }
 }
 

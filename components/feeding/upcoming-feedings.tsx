@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Check, Clock } from "lucide-react"
-import FeedingProgress from "@/components/ui/feeding-progress"
+// import FeedingProgress from "@/components/ui/feeding-progress" // TODO: Component not found
 import { motion } from "framer-motion"
 import { format, isBefore, formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -13,18 +13,19 @@ import { Button } from "@/components/ui/button"
 import { formatInTimeZone, toDate } from 'date-fns-tz'
 import { getUserTimezone, formatDateTimeForDisplay } from '@/lib/utils/dateUtils'
 import { toast as sonnerToast } from 'sonner'
-import { BaseCat, BaseUser, ID, FeedingLog } from "@/lib/types/common"
+import { BaseCat, BaseUser, ID } from "@/lib/types/common"
+import { FeedingLog } from "@/lib/types"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useCats } from "@/lib/context/CatsContext"
 import { useFeeding, useSelectUpcomingFeedings } from "@/lib/context/FeedingContext"
-import { useSchedules } from "@/lib/context/ScheduleContext"
+import { useScheduleContext } from "@/lib/context/ScheduleContext"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export default function UpcomingFeedings() {
   const { state: userState } = useUserContext()
   const { state: catsState } = useCats()
   const { state: feedingState, dispatch: feedingDispatch } = useFeeding()
-  const { state: schedulesState } = useSchedules()
+  const { state: schedulesState } = useScheduleContext()
   const { currentUser } = userState
 
   const upcomingFeedings = useSelectUpcomingFeedings(5)

@@ -7,10 +7,10 @@ import { createNotification } from '@/lib/services/notificationService';
 // GET /api/schedules/[id] - Get a specific schedule
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = await context;
+    const params = await context.params;
     const id = params.id;
 
     if (!id) {
@@ -43,10 +43,10 @@ export async function GET(
 // PATCH /api/schedules/[id] - Update a schedule
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = await context;
+    const params = await context.params;
     const id = params.id;
 
     if (!id) {
@@ -128,10 +128,10 @@ export async function PATCH(
 // DELETE /api/schedules/[id] - Delete a schedule
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { params } = await context;
+    const params = await context.params;
     const id = params.id;
 
     if (!id) {

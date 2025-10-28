@@ -7,7 +7,7 @@ import { z } from 'zod';
 // GET /api/profile/[idOrUsername]
 export async function GET(
   request: NextRequest,
-  { params }: { params: { idOrUsername: string } }
+  { params }: { params: Promise<{ idOrUsername: string }> }
 ) {
   try {
     // const cookieStore = cookies();
@@ -108,7 +108,7 @@ const updateProfileSchema = z.object({
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { idOrUsername: string } }
+  { params }: { params: Promise<{ idOrUsername: string }> }
 ) {
   try {
     // const cookieStore = cookies();
@@ -141,12 +141,19 @@ export async function PUT(
     }
 
     const data = parsed.data;
-    // Remove campos vazios/nulos
-    Object.keys(data).forEach((k) => (data[k] == null || data[k] === '') && delete data[k]);
+    // Build update data object, only including defined values
+    const updateData: any = {};
+    Object.keys(data).forEach((k) => {
+      const key = k as keyof typeof data;
+      const value = data[key];
+      if (value != null && value !== '') {
+        updateData[key] = value;
+      }
+    });
 
     const updated = await prisma.profiles.update({
       where: { id: profile.id },
-      data,
+      data: updateData,
     });
 
     return NextResponse.json(updated);

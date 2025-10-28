@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition, useDeferredValue } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -62,7 +63,7 @@ export default function HistoryPage() {
   const [cats, setCats] = useState<CatType[]>([])
   const { state: userState } = useUserContext();
   const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+  const _userLocale = resolveDateFnsLocale(userLanguage);
   
   // React 19 transitions for better UX
   const [isPending, startTransition] = useTransition()
@@ -81,8 +82,8 @@ export default function HistoryPage() {
         // Carregar gatos
         const catsData = await getCats()
         setCats(catsData)
-      } catch (error) {
-        console.error("Erro ao carregar dados:", error)
+      } catch (_error) {
+        console.error("Erro ao carregar dados:", _error)
       } finally {
         setIsLoading(false)
       }
@@ -262,10 +263,10 @@ export default function HistoryPage() {
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-medium">
-                                {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
+                                {format(new Date(log.timestamp), "HH:mm", { locale: ptBR })}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {format(new Date(log.timestamp), "dd/MM/yyyy", { locale: userLocale })}
+                                {format(new Date(log.timestamp), "dd/MM/yyyy", { locale: ptBR })}
                               </p>
                             </div>
                           </div>

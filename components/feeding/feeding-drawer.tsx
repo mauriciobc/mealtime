@@ -18,10 +18,10 @@ interface FeedingDrawerProps {
 
 export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawerProps) {
   const router = useRouter();
-  const [activeSnap, setActiveSnap] = useState<number>(0);
+  const [activeSnap, setActiveSnap] = useState<number | null>(0);
 
-  const handleSnapChange = (snapPoint: string | number) => {
-    setActiveSnap(typeof snapPoint === 'number' ? snapPoint : 0);
+  const handleSnapChange = (snapPoint: string | number | null) => {
+    setActiveSnap(typeof snapPoint === 'number' ? snapPoint : null);
   };
 
   // Transform FeedingLog into BaseFeedingLog with optional cat and user
@@ -30,30 +30,40 @@ export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawe
     catId: feedingLog.catId,
     userId: feedingLog.userId,
     timestamp: new Date(feedingLog.timestamp),
-    portionSize: feedingLog.portionSize,
-    notes: feedingLog.notes,
+    portionSize: feedingLog.portionSize ?? undefined,
+    notes: feedingLog.notes ?? undefined,
     status: feedingLog.status,
-    createdAt: new Date(feedingLog.createdAt),
+    createdAt: feedingLog.createdAt ? new Date(feedingLog.createdAt) : new Date(),
     cat: feedingLog.cat ? {
       id: feedingLog.cat.id,
       name: feedingLog.cat.name,
-      photoUrl: feedingLog.cat.photoUrl,
-      birthdate: feedingLog.cat.birthdate ? new Date(feedingLog.cat.birthdate) : undefined,
-      weight: feedingLog.cat.weight,
-      restrictions: feedingLog.cat.restrictions,
-      notes: feedingLog.cat.notes,
+      photoUrl: feedingLog.cat.photo_url || undefined,
+      birthdate: (() => {
+        if (!feedingLog.cat.birthdate) return undefined;
+        if (typeof feedingLog.cat.birthdate === 'string') {
+          const date = new Date(feedingLog.cat.birthdate);
+          return isNaN(date.getTime()) ? undefined : date;
+        }
+        if (feedingLog.cat.birthdate instanceof Date) {
+          return feedingLog.cat.birthdate;
+        }
+        return undefined;
+      })(),
+      weight: typeof feedingLog.cat.weight === 'number' ? feedingLog.cat.weight : undefined,
+      restrictions: feedingLog.cat.restrictions ?? undefined,
+      notes: feedingLog.cat.notes ?? undefined,
       householdId: feedingLog.cat.householdId,
-      feedingInterval: feedingLog.cat.feedingInterval,
-      portion_size: feedingLog.cat.portion_size
+      feedingInterval: typeof feedingLog.cat.feeding_interval === 'number' ? feedingLog.cat.feeding_interval : 0,
+      portionSize: feedingLog.cat.portion_size ?? undefined
     } : undefined,
     user: feedingLog.user ? {
       id: feedingLog.user.id,
-      name: feedingLog.user.name,
-      email: feedingLog.user.email,
-      avatar: feedingLog.user.avatar,
-      householdId: feedingLog.user.householdId,
-      preferences: feedingLog.user.preferences,
-      role: feedingLog.user.role
+      name: feedingLog.user.name ?? 'Unknown',
+      email: '', // Not available in FeedingLogUser type
+      avatar: feedingLog.user.avatar ?? undefined,
+      householdId: null,  // Not available in FeedingLogUser type
+      preferences: {} as any,  // Not available in FeedingLogUser type  
+      role: 'user'  // Default role
     } : undefined
   };
 
@@ -100,12 +110,12 @@ export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawe
                     transition={{ duration: 0.2 }}
                   >
                     <FeedingForm
-                      catId={transformedLog.cat.id}
-                      catPortionSize={transformedLog.cat.portion_size}
+                      catId={transformedLog.cat!.id}
+                      catPortionSize={transformedLog.cat!.portionSize ? Number(transformedLog.cat!.portionSize) : null}
                       onSuccess={() => onOpenChange(false)}
                     />
                     <FeedingLogItem
-                      log={transformedLog}
+                      log={transformedLog as FeedingLog}
                       onView={() => {
                         onOpenChange(false);
                         router.push(`/feedings/${transformedLog.id}`);

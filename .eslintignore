@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# Prisma generated files
+.prisma/
+
+# Test coverage
+coverage/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+tmp/
+
+# Backup files
+*.bak
+*.backup
+
+# Config files
+next.config.mjs.backup
+next.config.mjs.full-backup
+
+# Documentation
+*.md
+
+# Scripts directory
+scripts/
+
+# Prisma migrations
+prisma/migrations/
+
+# Example and backup component files
+**/*.use-hook-example.tsx
+**/*.backup.tsx
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+

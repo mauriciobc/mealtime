@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       updated_at: cat.updated_at,
       name: cat.name,
       birth_date: cat.birth_date,
-      weight: cat.weight,
+      weight: cat.weight ? parseFloat(cat.weight.toString()) : null,
       household_id: cat.household_id,
       owner_id: cat.owner_id
     }));

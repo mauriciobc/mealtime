@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
       .eq('delivered', false)
       .lte('deliverAt', new Date().toISOString());
 
-    if (error) throw error;
+    if (error) throw new Error(String(error));
     if (!notifications || notifications.length === 0) {
       return new Response(JSON.stringify({ success: true, notificationsSent: 0 }), {
         headers: { 'Content-Type': 'application/json' },

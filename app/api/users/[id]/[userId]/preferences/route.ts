@@ -61,32 +61,28 @@ async function createSupabaseRouteClient() {
 async function updateUserPreferences(
   userId: string,
   body: UpdateUserPreferencesBody
-): Promise<User> {
-  // Find the existing user to get their current preferences
-  const user = await prisma.user.findUnique({
-    where: { id: Number(userId) },
-    select: { preferences: true },
+) {
+  // Find the existing user
+  const user = await prisma.profiles.findUnique({
+    where: { id: userId },
+    select: { id: true, timezone: true },
   });
 
   if (!user) {
     throw new Error("User not found");
   }
 
-  // Update the user's preferences
-  const updatedUser = await prisma.user.update({
+  // Update the user's timezone (profiles model doesn't have a preferences field)
+  const updatedUser = await prisma.profiles.update({
     where: {
-      id: Number(userId),
+      id: userId,
     },
     data: {
-      preferences: {
-        ...(user.preferences as Record<string, any>),
-        language: body.language,
-        timezone: body.timezone,
-      },
+      timezone: body.timezone,
     },
   });
 
-  return updatedUser as User;
+  return updatedUser;
 }
 
 // PUT route handler
@@ -95,7 +91,7 @@ export const PUT = withError(
     request: Request,
     { params }: { params: Promise<{ id: string; userId: string }> }
   ) => {
-    const supabase = createSupabaseRouteClient();
+    const supabase = await createSupabaseRouteClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
     if (!user || authError) {
@@ -104,17 +100,8 @@ export const PUT = withError(
 
     const { userId } = await params;
 
-    // Get the Prisma user ID from the auth ID
-    const prismaUser = await prisma.user.findUnique({
-      where: { authId: user.id }
-    });
-
-    if (!prismaUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-
     // Security Check: Ensure the logged-in user matches the userId param
-    if (String(prismaUser.id) !== userId) {
+    if (user.id !== userId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -125,7 +112,6 @@ export const PUT = withError(
 
     const updatedUser = await updateUserPreferences(userId, body);
 
-    const result: UpdateUserPreferencesResponse = { user: updatedUser };
-    return NextResponse.json(result);
+    return NextResponse.json({ user: updatedUser });
   }
 ); 

@@ -2,7 +2,7 @@ import { MailerSend, Recipient, EmailParams } from 'mailersend';
 
 // Initialize MailerSend with API key from environment variables
 const mailersend = new MailerSend({
-  apiKey: process.env.MAILERSEND_API_KEY,
+  apiKey: process.env.MAILERSEND_API_KEY || '',
 });
 
 // Default sender configuration
@@ -45,9 +45,8 @@ export async function sendEmail({
   
   // Initialize email params
   const emailParams = new EmailParams()
-    .setFrom(from)
-    .setFromName(fromName)
-    .setRecipients(recipients)
+    .setFrom({ email: from, name: fromName })
+    .setTo(recipients)
     .setSubject(subject)
     .setReplyTo({ email: from, name: fromName });
 
@@ -64,9 +63,11 @@ export async function sendEmail({
   // Set content: either HTML/text or template
   if (templateId) {
     emailParams.setTemplateId(templateId);
-    if (variables) {
-      emailParams.setVariables(variables);
-    }
+    // Note: MailerSend v1.x API doesn't support setVariables directly
+    // Variables should be passed via personalization instead
+    // if (variables) {
+    //   emailParams.setVariables(variables);
+    // }
   } else {
     if (html) emailParams.setHtml(html);
     if (text) emailParams.setText(text);

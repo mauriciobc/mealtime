@@ -11,7 +11,7 @@ const errorReportSchema = z.object({
   message: z.string(),
   stack: z.string().optional(),
   timestamp: z.string().datetime(), // Use datetime for validation
-  context: z.record(z.unknown()).optional(),
+  context: z.record(z.string(), z.unknown()).optional(),
   severity: z.enum(['low', 'medium', 'high', 'critical']),
   source: z.string(),
   // userId will be added server-side if user is authenticated
@@ -23,8 +23,7 @@ export async function POST(request: NextRequest) { // Use NextRequest
 
   try {
     // Attempt to get Supabase user - this might fail if cookies are invalid/missing, which is okay for logging
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
     if (supabaseUser) {
         supabaseUserId = supabaseUser.id;
@@ -36,7 +35,7 @@ export async function POST(request: NextRequest) { // Use NextRequest
     const validationResult = errorReportSchema.safeParse(body);
     if (!validationResult.success) {
       // Log the validation error itself, but don't expose details potentially
-      logger.warn('Invalid error report received', { validationErrors: validationResult.error.errors, rawBody: body });
+      logger.warn('Invalid error report received', { validationErrors: validationResult.error.issues, rawBody: body });
       return NextResponse.json(
         { error: 'Dados de erro inválidos' },
         { status: 400 }
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) { // Use NextRequest
       clientReport: errorReport, // Log the validated client data
       supabaseUserId: supabaseUserId, // Add Supabase user ID if available
       userAgent: request.headers.get('user-agent'),
-      ip: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? request.ip, // Get IP address
+      ip: request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip'), // Get IP address from headers only
       // Add any other relevant server-side context
     });
 

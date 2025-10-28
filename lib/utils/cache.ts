@@ -16,8 +16,10 @@ export class Cache<K = string, V = any> {
 
   set(key: K, value: V): void {
     if (this.cache.size >= this.maxSize) {
-      const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      const firstKey = this.cache.keys().next().value as K | undefined;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
     }
 
     this.cache.set(key, {
@@ -27,7 +29,7 @@ export class Cache<K = string, V = any> {
   }
 
   get(key: K): V | undefined {
-    const item = this.cache.get(key);
+    const item = this.cache.get(key!);
     
     if (!item) return undefined;
 

@@ -107,7 +107,7 @@ export async function addFeedingOptimisticAction(formData: FormData) {
   } catch (error) {
     // Propaga o erro para ser tratado no componente cliente
     if (error instanceof Error) {
-      throw error;
+      throw new Error(String(error));
     }
     throw new Error('Erro desconhecido ao salvar alimentação');
   }

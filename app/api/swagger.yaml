@@ -1,0 +1,1107 @@
+openapi: 3.0.0
+info:
+  title: MealTime API
+  version: 1.0.0
+  description: API completa para gerenciamento de alimentação de gatos
+  contact:
+    name: MealTime Support
+    email: support@mealtime.app
+
+servers:
+  - url: http://localhost:3000/api
+    description: Servidor de desenvolvimento
+  - url: https://mealtime.app/api
+    description: Servidor de produção
+
+tags:
+  - name: Auth
+    description: Autenticação e autorização
+  - name: Cats
+    description: Gerenciamento de gatos
+  - name: Feedings
+    description: Registro de alimentações
+  - name: Households
+    description: Gerenciamento de domicílios
+  - name: Schedules
+    description: Agendamento de alimentações
+  - name: Weight
+    description: Controle de peso dos gatos
+  - name: Users
+    description: Gerenciamento de usuários
+  - name: Notifications
+    description: Sistema de notificações
+  - name: Statistics
+    description: Estatísticas e relatórios
+  - name: Upload
+    description: Upload de arquivos
+
+paths:
+  # ==================== AUTH ====================
+  /auth/callback:
+    get:
+      tags: [Auth]
+      summary: Callback de autenticação OAuth
+      description: Endpoint para callback do Supabase Auth
+      responses:
+        '302':
+          description: Redirecionamento após autenticação
+        '400':
+          description: Erro no processo de autenticação
+
+  /auth/mobile/register:
+    post:
+      tags: [Auth]
+      summary: Registro de usuário mobile
+      description: Cria uma nova conta de usuário via mobile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 6
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Usuário criado com sucesso
+        '400':
+          description: Dados inválidos
+
+  # ==================== CATS ====================
+  /cats:
+    get:
+      tags: [Cats]
+      summary: Listar gatos
+      description: Retorna lista de gatos do usuário
+      parameters:
+        - name: householdId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de gatos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cat'
+    
+    post:
+      tags: [Cats]
+      summary: Criar gato
+      description: Adiciona um novo gato
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatInput'
+      responses:
+        '201':
+          description: Gato criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cat'
+
+  /cats/{catId}:
+    get:
+      tags: [Cats]
+      summary: Obter gato por ID
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhes do gato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cat'
+    
+    put:
+      tags: [Cats]
+      summary: Atualizar gato
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatInput'
+      responses:
+        '200':
+          description: Gato atualizado
+    
+    delete:
+      tags: [Cats]
+      summary: Deletar gato
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Gato deletado com sucesso
+
+  /cats/{catId}/next-feeding:
+    get:
+      tags: [Cats]
+      summary: Próxima alimentação do gato
+      description: Retorna informações sobre a próxima alimentação agendada
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Informações da próxima alimentação
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nextFeeding:
+                    type: string
+                    format: date-time
+                  schedule:
+                    $ref: '#/components/schemas/Schedule'
+
+  # ==================== FEEDINGS ====================
+  /feedings:
+    get:
+      tags: [Feedings]
+      summary: Listar alimentações
+      description: Retorna histórico de alimentações
+      parameters:
+        - name: catId
+          in: query
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Lista de alimentações
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Feeding'
+    
+    post:
+      tags: [Feedings]
+      summary: Registrar alimentação
+      description: Cria um novo registro de alimentação
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedingInput'
+      responses:
+        '201':
+          description: Alimentação registrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feeding'
+
+  /feedings/{id}:
+    get:
+      tags: [Feedings]
+      summary: Obter alimentação por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhes da alimentação
+    
+    put:
+      tags: [Feedings]
+      summary: Atualizar alimentação
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeedingInput'
+      responses:
+        '200':
+          description: Alimentação atualizada
+    
+    delete:
+      tags: [Feedings]
+      summary: Deletar alimentação
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Alimentação deletada
+
+  /feedings/batch:
+    post:
+      tags: [Feedings]
+      summary: Registrar múltiplas alimentações
+      description: Cria múltiplos registros de alimentação de uma vez
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                feedings:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FeedingInput'
+      responses:
+        '201':
+          description: Alimentações registradas em lote
+
+  /feedings/last/{catId}:
+    get:
+      tags: [Feedings]
+      summary: Última alimentação do gato
+      description: Retorna a última alimentação registrada para o gato
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Última alimentação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feeding'
+
+  /feedings/stats:
+    get:
+      tags: [Feedings]
+      summary: Estatísticas de alimentação
+      description: Retorna estatísticas detalhadas sobre alimentações
+      parameters:
+        - name: catId
+          in: query
+          schema:
+            type: string
+        - name: days
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 7
+      responses:
+        '200':
+          description: Estatísticas de alimentação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedingStats'
+
+  # ==================== HOUSEHOLDS ====================
+  /households:
+    get:
+      tags: [Households]
+      summary: Listar domicílios
+      description: Retorna domicílios do usuário
+      responses:
+        '200':
+          description: Lista de domicílios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Household'
+    
+    post:
+      tags: [Households]
+      summary: Criar domicílio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Domicílio criado
+
+  /households/{id}:
+    get:
+      tags: [Households]
+      summary: Obter domicílio por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhes do domicílio
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Household'
+    
+    put:
+      tags: [Households]
+      summary: Atualizar domicílio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Domicílio atualizado
+    
+    delete:
+      tags: [Households]
+      summary: Deletar domicílio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Domicílio deletado
+
+  /households/{id}/cats:
+    get:
+      tags: [Households]
+      summary: Gatos do domicílio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de gatos do domicílio
+
+  /households/{id}/members:
+    get:
+      tags: [Households]
+      summary: Membros do domicílio
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lista de membros
+    
+    post:
+      tags: [Households]
+      summary: Adicionar membro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                role:
+                  type: string
+                  enum: [owner, admin, member]
+      responses:
+        '201':
+          description: Membro adicionado
+
+  /households/{id}/invite-code:
+    get:
+      tags: [Households]
+      summary: Obter código de convite
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Código de convite
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inviteCode:
+                    type: string
+
+  /households/join:
+    post:
+      tags: [Households]
+      summary: Entrar em domicílio via código
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inviteCode]
+              properties:
+                inviteCode:
+                  type: string
+      responses:
+        '200':
+          description: Usuário entrou no domicílio
+
+  # ==================== SCHEDULES ====================
+  /schedules:
+    get:
+      tags: [Schedules]
+      summary: Listar agendamentos
+      responses:
+        '200':
+          description: Lista de agendamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Schedule'
+    
+    post:
+      tags: [Schedules]
+      summary: Criar agendamento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleInput'
+      responses:
+        '201':
+          description: Agendamento criado
+
+  /schedules/{id}:
+    get:
+      tags: [Schedules]
+      summary: Obter agendamento por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhes do agendamento
+    
+    put:
+      tags: [Schedules]
+      summary: Atualizar agendamento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleInput'
+      responses:
+        '200':
+          description: Agendamento atualizado
+    
+    delete:
+      tags: [Schedules]
+      summary: Deletar agendamento
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Agendamento deletado
+
+  # ==================== WEIGHT ====================
+  /weight-logs:
+    get:
+      tags: [Weight]
+      summary: Histórico de peso
+      parameters:
+        - name: catId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Histórico de peso do gato
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WeightLog'
+    
+    post:
+      tags: [Weight]
+      summary: Registrar peso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeightLogInput'
+      responses:
+        '201':
+          description: Peso registrado
+
+  /weight/goals:
+    get:
+      tags: [Weight]
+      summary: Metas de peso
+      parameters:
+        - name: catId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Metas de peso do gato
+    
+    post:
+      tags: [Weight]
+      summary: Criar meta de peso
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [catId, targetWeight]
+              properties:
+                catId:
+                  type: string
+                targetWeight:
+                  type: number
+                targetDate:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Meta criada
+
+  # ==================== USERS ====================
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Obter usuário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detalhes do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    
+    put:
+      tags: [Users]
+      summary: Atualizar usuário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Usuário atualizado
+
+  /users/{id}/preferences:
+    get:
+      tags: [Users]
+      summary: Preferências do usuário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Preferências do usuário
+    
+    put:
+      tags: [Users]
+      summary: Atualizar preferências
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                notifications:
+                  type: boolean
+                theme:
+                  type: string
+                language:
+                  type: string
+      responses:
+        '200':
+          description: Preferências atualizadas
+
+  # ==================== NOTIFICATIONS ====================
+  /scheduled-notifications:
+    get:
+      tags: [Notifications]
+      summary: Listar notificações agendadas
+      responses:
+        '200':
+          description: Lista de notificações agendadas
+    
+    post:
+      tags: [Notifications]
+      summary: Criar notificação agendada
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, message, scheduledFor]
+              properties:
+                title:
+                  type: string
+                message:
+                  type: string
+                scheduledFor:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Notificação criada
+
+  /scheduled-notifications/deliver:
+    post:
+      tags: [Notifications]
+      summary: Entregar notificações pendentes
+      description: Processa e envia notificações agendadas
+      responses:
+        '200':
+          description: Notificações entregues
+
+  # ==================== STATISTICS ====================
+  /statistics:
+    get:
+      tags: [Statistics]
+      summary: Estatísticas gerais
+      description: Retorna estatísticas consolidadas do sistema
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: week
+      responses:
+        '200':
+          description: Estatísticas gerais
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalFeedings:
+                    type: integer
+                  activeCats:
+                    type: integer
+                  averageDaily:
+                    type: number
+
+  # ==================== UPLOAD ====================
+  /upload:
+    post:
+      tags: [Upload]
+      summary: Upload de arquivo
+      description: Faz upload de imagem (foto de gato)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  fileId:
+                    type: string
+
+  # ==================== PROFILE ====================
+  /profile/{idOrUsername}:
+    get:
+      tags: [Users]
+      summary: Perfil público do usuário
+      parameters:
+        - name: idOrUsername
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Perfil público do usuário
+
+components:
+  schemas:
+    Cat:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        photoUrl:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        weight:
+          type: number
+        householdId:
+          type: string
+        ownerId:
+          type: string
+        portionSize:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CatInput:
+      type: object
+      required: [name, householdId]
+      properties:
+        name:
+          type: string
+        photoUrl:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        weight:
+          type: number
+        householdId:
+          type: string
+        portionSize:
+          type: number
+
+    Feeding:
+      type: object
+      properties:
+        id:
+          type: string
+        catId:
+          type: string
+        userId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        mealType:
+          type: string
+          enum: [breakfast, lunch, dinner, snack]
+        portionSize:
+          type: number
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    FeedingInput:
+      type: object
+      required: [catId, timestamp]
+      properties:
+        catId:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        mealType:
+          type: string
+        portionSize:
+          type: number
+        notes:
+          type: string
+
+    FeedingStats:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            days:
+              type: integer
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+        totals:
+          type: object
+          properties:
+            feedings:
+              type: integer
+            dailyAverage:
+              type: number
+        dailyStats:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              feedings:
+                type: integer
+        catStats:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              totalFeedings:
+                type: integer
+              dailyAverage:
+                type: number
+
+    Household:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        ownerId:
+          type: string
+        inviteCode:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    Schedule:
+      type: object
+      properties:
+        id:
+          type: string
+        catId:
+          type: string
+        time:
+          type: string
+          format: time
+        days:
+          type: array
+          items:
+            type: string
+        mealType:
+          type: string
+        active:
+          type: boolean
+
+    ScheduleInput:
+      type: object
+      required: [catId, time, days]
+      properties:
+        catId:
+          type: string
+        time:
+          type: string
+        days:
+          type: array
+          items:
+            type: string
+        mealType:
+          type: string
+        active:
+          type: boolean
+
+    WeightLog:
+      type: object
+      properties:
+        id:
+          type: string
+        catId:
+          type: string
+        weight:
+          type: number
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    WeightLogInput:
+      type: object
+      required: [catId, weight]
+      properties:
+        catId:
+          type: string
+        weight:
+          type: number
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        photoUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+

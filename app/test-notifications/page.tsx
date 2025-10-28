@@ -8,10 +8,11 @@ import { useNotifications } from "@/lib/context/NotificationContext";
 import { notificationService } from "@/lib/services/supabase-notification-service";
 import { useUserContext } from "@/lib/context/UserContext";
 import { toast } from "sonner";
+
 import { NotificationType } from "@/lib/types/notification";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+
 import { cn } from "@/lib/utils";
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
 import { useCats } from "@/lib/context/CatsContext";
@@ -51,7 +52,7 @@ export default function TestNotificationsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+  const _userLocale = resolveDateFnsLocale(userLanguage);
   const [intervalMinutes, setIntervalMinutes] = useState(0);
   const [intervalSeconds, setIntervalSeconds] = useState(0);
   const [selectedCatId, setSelectedCatId] = useState<string>(cats[0]?.id || "");
@@ -156,9 +157,9 @@ export default function TestNotificationsPage() {
       await refreshNotifications();
       console.log("[TestNotificationsPage] refreshNotifications completed.");
       
-    } catch (error) {
-      console.error("[TestNotificationsPage] Error creating notification:", error);
-      const errorMsg = error instanceof Error ? error.message : "Erro desconhecido ao criar notificação";
+    } catch (_error) {
+      console.error("[TestNotificationsPage] Error creating notification:", _error);
+      const errorMsg = _error instanceof Error ? _error.message : "Erro desconhecido ao criar notificação";
       
       addLog({
         timestamp: new Date(),
@@ -168,7 +169,7 @@ export default function TestNotificationsPage() {
         status: "error",
         details: {
           error: errorMsg,
-          errorObject: error,
+          errorObject: _error,
           context: {
             currentUser: userState.currentUser,
             payload: { type, title, message }
@@ -253,17 +254,17 @@ export default function TestNotificationsPage() {
       
       toast.success("Notificação agendada com sucesso!");
       await refreshNotifications();
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Erro desconhecido ao agendar notificação";
+    } catch (_error) {
+      const _errorMsg = _error instanceof Error ? _error.message : "Erro desconhecido ao agendar notificação";
       addLog({
         timestamp: new Date(),
         type,
         title,
         message,
         status: "error",
-        details: { error: errorMsg, errorObject: error, context: { currentUser: userState.currentUser } }
+        details: { error: (_error instanceof Error ? _error.message : String(_error)), errorObject: _error, context: { currentUser: userState.currentUser } }
       });
-      toast.error(errorMsg);
+      toast.error(_errorMsg);
     } finally {
       setIsLoading(false);
     }

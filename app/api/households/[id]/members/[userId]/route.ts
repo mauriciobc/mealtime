@@ -22,7 +22,7 @@ const PatchBodySchema = z.object({
 // Debug utility: logs only in development
 function debugLog(...args: any[]) {
   if (process.env.NODE_ENV === 'development') {
-    // eslint-disable-next-line no-console
+     
     console.log(...args);
   }
 }
@@ -154,13 +154,13 @@ async function getFormattedHousehold(householdId: string) {
 // PATCH /api/households/[id]/members/[userId] - Atualizar papel de um membro
 export async function PATCH(
   request: NextRequest,
-  context: { params: { id: string; userId: string } | Promise<{ id: string; userId: string }> }
+  context: { params: Promise<{ id: string; userId: string }> }
 ) {
   const params = await context.params;
   // Validate route parameters
   const paramsValidation = RouteParamsSchema.safeParse(params);
   if (!paramsValidation.success) {
-    const errorMessages = paramsValidation.error.errors.map(e => e.message).join(', ');
+    const errorMessages = paramsValidation.error.issues.map(e => e.message).join(', ');
     return NextResponse.json({ error: errorMessages }, { status: 400 });
   }
   const householdId = paramsValidation.data.id; // Get as string
@@ -198,7 +198,7 @@ export async function PATCH(
     const body = await request.json();
     const bodyValidation = PatchBodySchema.safeParse(body);
     if (!bodyValidation.success) {
-      const errorMessages = bodyValidation.error.errors.map(e => e.message).join(', ');
+      const errorMessages = bodyValidation.error.issues.map(e => e.message).join(', ');
       return NextResponse.json({ error: errorMessages }, { status: 400 });
     }
     const { role: newRole } = bodyValidation.data;
@@ -233,7 +233,7 @@ export async function PATCH(
 // DELETE /api/households/[id]/members/[userId] - Remover membro do domicílio
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string; userId: string } | Promise<{ id: string; userId: string }> }
+  context: { params: Promise<{ id: string; userId: string }> }
 ) {
   const params = await context.params;
   debugLog('[API DEBUG] params:', params, 'type:', typeof params);
@@ -244,7 +244,7 @@ export async function DELETE(
   // Validate route parameters
   const paramsValidation = RouteParamsSchema.safeParse(params);
   if (!paramsValidation.success) {
-    const errorMessages = paramsValidation.error.errors.map(e => e.message).join(', ');
+    const errorMessages = paramsValidation.error.issues.map(e => e.message).join(', ');
     console.log('[API DEBUG] Returning params validation error:', { error: errorMessages });
     return NextResponse.json({ error: errorMessages }, { status: 400 });
   }
