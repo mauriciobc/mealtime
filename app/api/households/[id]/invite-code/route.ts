@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // Helper function to check admin/owner status (can be shared if needed)
 async function isUserAdmin(userId: string, householdId: string): Promise<boolean> {

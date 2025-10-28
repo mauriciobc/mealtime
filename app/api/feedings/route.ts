@@ -14,6 +14,7 @@ console.log(`[API /feedings] DATABASE_URL set: ${!!process.env.DATABASE_URL}`); 
 import { headers } from 'next/headers';
 import { isDuplicateFeeding } from '@/lib/services/feeding-notification-service';
 import { createNotification } from '@/lib/services/notificationService';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // Log Runtime
 console.log('[/api/feedings] Runtime:', process.env.NEXT_RUNTIME);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // GET /api/feedings/[id] - Buscar detalhes de um registro de alimentação
 export async function GET(

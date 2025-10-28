@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { handleApiError, handleValidationError } from '@/lib/utils/api-error-handling';
 import { headers } from 'next/headers';
 import { createNotification } from '@/lib/services/notificationService';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // GET /api/schedules/[id] - Get a specific schedule
 export async function GET(

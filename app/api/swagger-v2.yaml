@@ -1,0 +1,630 @@
+openapi: 3.0.0
+info:
+  title: MealTime API v2
+  version: 2.0.0
+  description: API v2 com autenticação JWT e respostas padronizadas
+  contact:
+    name: MealTime Support
+    email: support@mealtime.app
+
+servers:
+  - url: http://localhost:3000/api/v2
+    description: Servidor de desenvolvimento
+  - url: https://mealtime.app/api/v2
+    description: Servidor de produção
+
+tags:
+  - name: Cats
+    description: Gerenciamento de gatos
+  - name: Feedings
+    description: Registro de alimentações
+  - name: Weight
+    description: Controle de peso dos gatos
+  - name: Goals
+    description: Metas de peso
+  - name: Schedules
+    description: Agendamento de alimentações
+  - name: Households
+    description: Gerenciamento de domicílios
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtido via /api/auth/mobile
+    
+  schemas:
+    ApiResponse:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+        count:
+          type: integer
+        error:
+          type: string
+          
+    Cat:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        photo_url:
+          type: string
+          nullable: true
+        birth_date:
+          type: string
+          format: date-time
+          nullable: true
+        weight:
+          type: number
+          nullable: true
+        household_id:
+          type: string
+          format: uuid
+        owner_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+paths:
+  # ==================== CATS ====================
+  /cats:
+    get:
+      tags: [Cats]
+      summary: Listar gatos (v2)
+      description: Retorna lista de gatos do household do usuário
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: householdId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de gatos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Cat'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado
+    
+    post:
+      tags: [Cats]
+      summary: Criar gato (v2)
+      description: Cria um novo gato
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - householdId
+              properties:
+                name:
+                  type: string
+                householdId:
+                  type: string
+                  format: uuid
+                photoUrl:
+                  type: string
+                  nullable: true
+                birthdate:
+                  type: string
+                  format: date-time
+                weight:
+                  type: number
+                feeding_interval:
+                  type: integer
+                  minimum: 1
+                  maximum: 24
+      responses:
+        '201':
+          description: Gato criado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Cat'
+        '400':
+          description: Dados inválidos
+        '403':
+          description: Acesso negado
+
+  # ==================== FEEDINGS ====================
+  /feedings:
+    get:
+      tags: [Feedings]
+      summary: Listar alimentações (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: householdId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de alimentações
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+    
+    post:
+      tags: [Feedings]
+      summary: Registrar alimentação (v2)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - catId
+              properties:
+                catId:
+                  type: string
+                  format: uuid
+                amount:
+                  type: number
+                notes:
+                  type: string
+                meal_type:
+                  type: string
+                  enum: [manual, scheduled, automatic]
+      responses:
+        '201':
+          description: Alimentação registrada
+        '409':
+          description: Alimentação duplicada
+
+  /feedings/{id}:
+    get:
+      tags: [Feedings]
+      summary: Buscar alimentação (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados da alimentação
+        '404':
+          description: Alimentação não encontrada
+    
+    delete:
+      tags: [Feedings]
+      summary: Deletar alimentação (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Alimentação deletada
+        '404':
+          description: Alimentação não encontrada
+
+  /feedings/stats:
+    get:
+      tags: [Feedings]
+      summary: Estatísticas de alimentação (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: catId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 7
+            minimum: 1
+            maximum: 90
+      responses:
+        '200':
+          description: Estatísticas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+
+  # ==================== WEIGHT LOGS ====================
+  /weight-logs:
+    get:
+      tags: [Weight]
+      summary: Listar registros de peso (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: catId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de registros
+    
+    post:
+      tags: [Weight]
+      summary: Criar registro de peso (v2)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - catId
+                - weight
+                - date
+              properties:
+                catId:
+                  type: string
+                  format: uuid
+                weight:
+                  type: number
+                date:
+                  type: string
+                  pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+                notes:
+                  type: string
+      responses:
+        '201':
+          description: Registro criado
+    
+    put:
+      tags: [Weight]
+      summary: Atualizar registro de peso (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - catId
+                - weight
+                - date
+              properties:
+                catId:
+                  type: string
+                  format: uuid
+                weight:
+                  type: number
+                date:
+                  type: string
+      responses:
+        '200':
+          description: Registro atualizado
+    
+    delete:
+      tags: [Weight]
+      summary: Deletar registro de peso (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Registro deletado
+
+  # ==================== GOALS ====================
+  /goals:
+    get:
+      tags: [Goals]
+      summary: Listar metas de peso (v2)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de metas
+    
+    post:
+      tags: [Goals]
+      summary: Criar meta de peso (v2)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - cat_id
+                - goal_name
+                - target_weight
+              properties:
+                cat_id:
+                  type: string
+                  format: uuid
+                goal_name:
+                  type: string
+                target_weight:
+                  type: number
+                unit:
+                  type: string
+                  enum: [kg, lbs]
+      responses:
+        '201':
+          description: Meta criada
+
+  # ==================== SCHEDULES ====================
+  /schedules:
+    get:
+      tags: [Schedules]
+      summary: Listar agendamentos (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: householdId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de agendamentos
+    
+    post:
+      tags: [Schedules]
+      summary: Criar agendamento (v2)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - catId
+                - type
+              properties:
+                catId:
+                  type: string
+                  format: uuid
+                type:
+                  type: string
+                  enum: [interval, fixedTime]
+                interval:
+                  type: integer
+                times:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Agendamento criado
+
+  /schedules/{id}:
+    get:
+      tags: [Schedules]
+      summary: Buscar agendamento (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do agendamento
+    
+    patch:
+      tags: [Schedules]
+      summary: Atualizar agendamento (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Agendamento atualizado
+    
+    delete:
+      tags: [Schedules]
+      summary: Deletar agendamento (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Agendamento deletado
+
+  # ==================== HOUSEHOLDS ====================
+  /households/{id}/cats:
+    get:
+      tags: [Households]
+      summary: Listar gatos do household (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de gatos
+    
+    post:
+      tags: [Households]
+      summary: Adicionar gato ao household (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                weight:
+                  type: number
+      responses:
+        '201':
+          description: Gato adicionado
+
+  /households/{id}/invite:
+    post:
+      tags: [Households]
+      summary: Convidar membro (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Convite enviado
+
+  /households/{id}/invite-code:
+    patch:
+      tags: [Households]
+      summary: Regenerar código de convite (v2)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Código regenerado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          inviteCode:
+                            type: string
+

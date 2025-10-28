@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import prisma from '@/lib/prisma';
 import { calculateNextFeedingTime } from '@/lib/utils/dateUtils'; // Assuming this utility exists and works server-side
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 export const dynamic = 'force-dynamic'; // Ensure fresh data
 

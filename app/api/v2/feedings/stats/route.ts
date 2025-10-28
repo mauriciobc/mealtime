@@ -1,27 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
-import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
+import { withHybridAuth } from "@/lib/middleware/hybrid-auth";
+import { MobileAuthUser } from "@/lib/middleware/mobile-auth";
+import { logger } from "@/lib/monitoring/logger";
 
 // Validation schema for query parameters
 const statsQuerySchema = z.object({
-  catId: z.string().uuid({ message: "Invalid cat ID format" }).optional(),
+  catId: z.string().uuid({ message: "Invalid cat ID format" }).nullable().optional(),
   days: z.string().regex(/^\d+$/).transform(Number).pipe(
     z.number().int().positive().max(90)
   ).optional().default(7),
 });
 
-export async function GET(request: NextRequest) {
+export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
   try {
-    // Get the X-User-ID header
-    const userId = request.headers.get("X-User-ID");
-    
-    if (!userId) {
-      return NextResponse.json(
-        { error: "Authentication required", details: "User ID is missing" },
-        { status: 401 }
-      );
-    }
+    logger.debug('[GET /api/v2/feedings/stats] Request from user:', user.id);
 
     // Parse and validate query parameters
     const { searchParams } = new URL(request.url);
@@ -31,13 +25,12 @@ export async function GET(request: NextRequest) {
     });
 
     if (!validationResult.success) {
-      return NextResponse.json(
-        { 
-          error: "Invalid query parameters", 
-          details: validationResult.error.format() 
-        },
-        { status: 400 }
-      );
+      logger.warn('[GET /api/v2/feedings/stats] Invalid query parameters:', validationResult.error);
+      return NextResponse.json({
+        success: false,
+        error: "Invalid query parameters",
+        details: validationResult.error.format()
+      }, { status: 400 });
     }
 
     const { catId, days } = validationResult.data;
@@ -57,6 +50,22 @@ export async function GET(request: NextRequest) {
     
     if (catId) {
       where.cat_id = catId;
+    }
+
+    // Verify user has access to the cat if catId is provided
+    if (catId && user.household_id) {
+      const cat = await prisma.cats.findUnique({
+        where: { id: catId },
+        select: { household_id: true }
+      });
+      
+      if (!cat || cat.household_id !== user.household_id) {
+        logger.warn(`[GET /api/v2/feedings/stats] User ${user.id} not authorized for cat ${catId}`);
+        return NextResponse.json({
+          success: false,
+          error: 'Access denied to this cat'
+        }, { status: 403 });
+      }
     }
 
     // Get feeding data for the period
@@ -85,7 +94,7 @@ export async function GET(request: NextRequest) {
     
     feedings.forEach(feeding => {
       const date = feeding.fed_at.toISOString().split('T')[0];
-      if (!date) return; // Skip if date parsing fails
+      if (!date) return;
       
       const catId = feeding.cat_id;
       const mealType = feeding.meal_type;
@@ -135,7 +144,7 @@ export async function GET(request: NextRequest) {
     const allDates: string[] = [];
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateStr = d.toISOString().split('T')[0];
-      if (!dateStr) continue; // Skip if date parsing fails
+      if (!dateStr) continue;
       
       allDates.push(dateStr);
       
@@ -149,7 +158,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Format the response
-    const response = {
+    const responseData = {
       period: {
         start: startDate.toISOString(),
         end: endDate.toISOString(),
@@ -167,18 +176,29 @@ export async function GET(request: NextRequest) {
     // Calculate totals by meal type
     feedings.forEach(feeding => {
       const mealType = feeding.meal_type;
-      if (!response.totals.byType[mealType]) {
-        response.totals.byType[mealType] = 0;
+      if (!responseData.totals.byType[mealType]) {
+        responseData.totals.byType[mealType] = 0;
       }
-      response.totals.byType[mealType] += 1;
+      responseData.totals.byType[mealType] += 1;
     });
 
-    return NextResponse.json(response);
+    logger.info(`[GET /api/v2/feedings/stats] Retrieved stats for user ${user.id}:`, {
+      totalFeedings: feedings.length,
+      days,
+      catId: catId || 'all'
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: responseData
+    });
   } catch (error) {
-    console.error("Error fetching feeding statistics:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch feeding statistics", details: (error as Error).message },
-      { status: 500 }
-    );
+    logger.error("[GET /api/v2/feedings/stats] Error fetching feeding statistics:", error);
+    return NextResponse.json({
+      success: false,
+      error: "Failed to fetch feeding statistics",
+      details: (error as Error).message
+    }, { status: 500 });
   }
-} 
+});
+

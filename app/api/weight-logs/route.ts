@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '@/lib/prisma'; // Adjusted path based on memory.md (lib/prisma.ts)
 import { headers } from 'next/headers';
 import { Prisma } from '@prisma/client';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // Zod schema for request body validation
 const CreateWeightLogBodySchema = z.object({

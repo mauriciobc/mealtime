@@ -13,6 +13,7 @@ import { z } from "zod";
 import { createClient } from "@/utils/supabase/server";
 import { cookies } from "next/headers";
 import { logger } from "@/lib/monitoring/logger";
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';

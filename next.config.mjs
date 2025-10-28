@@ -52,27 +52,9 @@ const nextConfig = {
     },
     serverSourceMaps: true,
   },
-  webpack: (config, { dev, isServer }) => {
-    if (!isServer) {
-      config.devtool = dev ? 'eval-source-map' : 'source-map';
-      
-      config.output = {
-        ...config.output,
-        devtoolModuleFilenameTemplate: (info) =>
-          `webpack:///${info.resourcePath}?${info.loaders}`,
-      };
-    }
-
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': '.',
-    }
-    config.watchOptions = {
-      ...config.watchOptions,
-      aggregateTimeout: 300,
-    }
-    return config
-  },
+  // Turbopack é o bundler padrão no Next.js 16
+  // Config vazio indica que queremos usar Turbopack sem configuração customizada
+  turbopack: {},
 }
 
 // Função utilitária para extrair hostname de uma URL de forma segura

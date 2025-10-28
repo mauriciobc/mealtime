@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import { handleApiError, handleAuthError, handleValidationError } from '@/lib/utils/api-error-handling';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // GET /api/schedules - Listar agendamentos for a specific household
 export async function GET(request: NextRequest) {

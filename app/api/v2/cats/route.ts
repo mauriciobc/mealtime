@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { logger } from '@/lib/monitoring/logger'; // Import the logger
-import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
+import { logger } from '@/lib/monitoring/logger';
+import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
+import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 
 /**
  * Valida e normaliza o peso do gato
@@ -83,47 +84,36 @@ function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | n
   return { isValid: true, value: date };
 }
 
-// Log Runtime
-logger.debug('[/api/cats] Runtime:', { runtime: process.env.NEXT_RUNTIME });
-
-// GET /api/cats - Listar todos os gatos (filtragem opcional por householdId)
-export async function GET(request: NextRequest) {
-  // Remove header dump log
-  /*
-  // --- Add Log for Received Headers ---
-  console.log(`[GET /api/cats] Received Headers: ${JSON.stringify(Object.fromEntries(request.headers.entries()))}`);
-  // --- End Log for Received Headers ---
-  */
-
-  // Read user ID from request header
-  const authUserId = request.headers.get('X-User-ID');
-  if (!authUserId) {
-    // Use logger.warn for auth failures
-    logger.warn('[GET /api/cats] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
-    return NextResponse.json({ error: 'Não autorizado - Cabeçalho de usuário ausente' }, { status: 401 });
-  }
-  logger.debug(`[GET /api/cats] Authenticated User ID from header: ${authUserId}`);
+// GET /api/v2/cats - Listar todos os gatos (filtragem opcional por householdId)
+export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
+  logger.debug('[GET /api/v2/cats] Authenticated user:', { userId: user.id, householdId: user.household_id });
 
   try {
-    // Get user's households for authorization using profiles model (which works with shared client)
+    // Get user's households for authorization
     const userProfile = await prisma.profiles.findUnique({
-        where: { id: authUserId },
-        select: { household_members: { select: { household_id: true } } }
+      where: { id: user.id },
+      select: { household_members: { select: { household_id: true } } }
     });
 
     if (!userProfile) {
-        // Use logger.error for unexpected data inconsistencies
-        logger.error(`[GET /api/cats] Prisma profile not found for auth user ID: ${authUserId}`);
-        // Return 404 or 403 depending on desired behavior
-        return NextResponse.json({ error: 'Perfil de usuário não encontrado' }, { status: 404 });
+      logger.error(`[GET /api/v2/cats] Prisma profile not found for auth user ID: ${user.id}`);
+      return NextResponse.json({ 
+        success: false,
+        error: 'Perfil de usuário não encontrado' 
+      }, { status: 404 });
     }
 
     const userHouseholdIds = userProfile.household_members.map(m => m.household_id);
     if (userHouseholdIds.length === 0) {
-        logger.info(`[GET /api/cats] User ${authUserId} belongs to no households. Returning empty.`);
-        return NextResponse.json([]); // Return empty array if user has no households
+      logger.info(`[GET /api/v2/cats] User ${user.id} belongs to no households. Returning empty.`);
+      return NextResponse.json({ 
+        success: true,
+        data: [],
+        count: 0
+      });
     }
-    logger.debug(`[GET /api/cats] User ${authUserId} authorized for households:`, { householdIds: userHouseholdIds });
+    
+    logger.debug(`[GET /api/v2/cats] User ${user.id} authorized for households:`, { householdIds: userHouseholdIds });
 
     const searchParams = request.nextUrl.searchParams;
     const requestedHouseholdId = searchParams.get('householdId');
@@ -133,15 +123,18 @@ export async function GET(request: NextRequest) {
     if (requestedHouseholdId) {
       // If a specific household is requested, check authorization
       if (!userHouseholdIds.includes(requestedHouseholdId)) {
-        logger.warn(`[GET /api/cats] User ${authUserId} not authorized for requested household ${requestedHouseholdId}`);
-        return NextResponse.json({ error: 'Não autorizado para este domicílio' }, { status: 403 });
+        logger.warn(`[GET /api/v2/cats] User ${user.id} not authorized for requested household ${requestedHouseholdId}`);
+        return NextResponse.json({ 
+          success: false,
+          error: 'Não autorizado para este domicílio' 
+        }, { status: 403 });
       }
       targetHouseholdIds = [requestedHouseholdId];
-      logger.debug(`[GET /api/cats] Filtering by requested household: ${requestedHouseholdId}`);
+      logger.debug(`[GET /api/v2/cats] Filtering by requested household: ${requestedHouseholdId}`);
     } else {
       // If no specific household is requested, fetch for all user's households
       targetHouseholdIds = userHouseholdIds;
-      logger.debug(`[GET /api/cats] Fetching for all authorized households.`);
+      logger.debug(`[GET /api/v2/cats] Fetching for all authorized households.`);
     }
 
     // Define where clause based on authorized households
@@ -151,9 +144,8 @@ export async function GET(request: NextRequest) {
       } 
     };
 
-    logger.debug(`[GET /api/cats] Querying cats with where clause:`, { where: JSON.stringify(where) });
+    logger.debug(`[GET /api/v2/cats] Querying cats with where clause:`, { where: JSON.stringify(where) });
     
-    // Use direct access to the cats model as it exists in the schema
     const cats = await prisma.cats.findMany({
       where,
       select: {
@@ -163,46 +155,44 @@ export async function GET(request: NextRequest) {
         birth_date: true,
         weight: true,
         household_id: true,
-        owner_id: true
+        owner_id: true,
+        created_at: true,
+        updated_at: true
       },
       orderBy: {
         name: 'asc'
       }
     });
 
-    const response = NextResponse.json(cats);
-    return addDeprecatedWarning(response);
+    return NextResponse.json({
+      success: true,
+      data: cats,
+      count: cats.length
+    });
   } catch (error: any) {
-    // Log the actual error object using logger.logError
     logger.logError(error, { message: 'Erro ao buscar gatos', requestUrl: request.nextUrl.toString() });
-    const errorResponse = NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar os gatos' },
-      { status: 500 }
-    );
-    return addDeprecatedWarning(errorResponse);
+    return NextResponse.json({
+      success: false,
+      error: 'Ocorreu um erro ao buscar os gatos'
+    }, { status: 500 });
   }
-}
+});
 
-// POST /api/cats - Criar um novo perfil de gato
-export async function POST(request: NextRequest) {
-  const authUserId = request.headers.get('X-User-ID');
-  if (!authUserId) {
-    logger.warn('[POST /api/cats] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
-    return NextResponse.json({ error: 'Não autorizado - Cabeçalho de usuário ausente' }, { status: 401 });
-  }
-  logger.debug(`[POST /api/cats] Authenticated User ID from header: ${authUserId}`);
+// POST /api/v2/cats - Criar um novo perfil de gato
+export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
+  logger.debug(`[POST /api/v2/cats] Authenticated user:`, { userId: user.id });
 
   try {
     const body = await request.json();
-    logger.debug('[POST /api/cats] Received request body:', body);
+    logger.debug('[POST /api/v2/cats] Received request body:', body);
 
     // Validate required fields
     if (!body.name || !body.householdId) {
-      logger.warn('[POST /api/cats] Missing required fields:', { body });
-      return NextResponse.json(
-        { error: 'Nome e ID do domicílio são obrigatórios' },
-        { status: 400 }
-      );
+      logger.warn('[POST /api/v2/cats] Missing required fields:', { body });
+      return NextResponse.json({
+        success: false,
+        error: 'Nome e ID do domicílio são obrigatórios'
+      }, { status: 400 });
     }
 
     // Validate feeding interval (if provided)
@@ -210,11 +200,11 @@ export async function POST(request: NextRequest) {
     if (body.feeding_interval) {
       const hours = parseInt(String(body.feeding_interval));
       if (isNaN(hours) || hours < 1 || hours > 24) {
-        logger.warn('[POST /api/cats] Invalid feeding interval:', body.feeding_interval);
-        return NextResponse.json(
-          { error: 'Intervalo de alimentação deve ser entre 1 e 24 horas' },
-          { status: 400 }
-        );
+        logger.warn('[POST /api/v2/cats] Invalid feeding interval:', body.feeding_interval);
+        return NextResponse.json({
+          success: false,
+          error: 'Intervalo de alimentação deve ser entre 1 e 24 horas'
+        }, { status: 400 });
       }
       feedingInterval = hours;
     }
@@ -223,11 +213,11 @@ export async function POST(request: NextRequest) {
     if (body.weight !== undefined) {
       const weightValidation = validateWeight(body.weight);
       if (!weightValidation.isValid) {
-        logger.warn('[POST /api/cats] Invalid weight:', body.weight);
-        return NextResponse.json(
-          { error: weightValidation.error },
-          { status: 400 }
-        );
+        logger.warn('[POST /api/v2/cats] Invalid weight:', body.weight);
+        return NextResponse.json({
+          success: false,
+          error: weightValidation.error
+        }, { status: 400 });
       }
     }
 
@@ -235,29 +225,29 @@ export async function POST(request: NextRequest) {
     if (body.birthdate !== undefined) {
       const birthDateValidation = validateBirthDate(body.birthdate);
       if (!birthDateValidation.isValid) {
-        logger.warn('[POST /api/cats] Invalid birthdate:', body.birthdate);
-        return NextResponse.json(
-          { error: birthDateValidation.error },
-          { status: 400 }
-        );
+        logger.warn('[POST /api/v2/cats] Invalid birthdate:', body.birthdate);
+        return NextResponse.json({
+          success: false,
+          error: birthDateValidation.error
+        }, { status: 400 });
       }
     }
 
     // Check if the user is a member of the target household
     const householdMember = await prisma.household_members.findFirst({
       where: {
-        user_id: authUserId,
+        user_id: user.id,
         household_id: body.householdId
       },
       select: { user_id: true }
     });
 
     if (!householdMember) {
-      logger.warn(`[POST /api/cats] User ${authUserId} not authorized for household ${body.householdId}`);
-      return NextResponse.json(
-        { error: 'Usuário não autorizado para este domicílio' },
-        { status: 403 }
-      );
+      logger.warn(`[POST /api/v2/cats] User ${user.id} not authorized for household ${body.householdId}`);
+      return NextResponse.json({
+        success: false,
+        error: 'Usuário não autorizado para este domicílio'
+      }, { status: 403 });
     }
 
     // Preparar dados para criação com validações aplicadas
@@ -265,7 +255,7 @@ export async function POST(request: NextRequest) {
       name: body.name.trim(),
       photo_url: body.photoUrl || null,
       household_id: body.householdId,
-      owner_id: authUserId,
+      owner_id: user.id,
       restrictions: body.restrictions?.trim() || null,
       notes: body.notes?.trim() || null,
       feeding_interval: feedingInterval,
@@ -295,14 +285,13 @@ export async function POST(request: NextRequest) {
           data: {
             cat_id: newCat.id,
             weight: parseFloat(body.weight),
-            date: new Date(), // Use current date for the initial log
-            measured_by: authUserId, // Associate with the user creating the cat
+            date: new Date(),
+            measured_by: user.id,
           }
         });
-        logger.debug(`[POST /api/cats] Initial weight log created for cat ${newCat.id}`);
+        logger.debug(`[POST /api/v2/cats] Initial weight log created for cat ${newCat.id}`);
       } catch (logError: any) {
-        // Log the error but don't fail the cat creation, as logging weight is secondary
-        logger.error(`[POST /api/cats] Failed to create initial weight log for cat ${newCat.id}:`, {
+        logger.error(`[POST /api/v2/cats] Failed to create initial weight log for cat ${newCat.id}:`, {
           error: logError,
           message: logError.message,
           stack: logError.stack,
@@ -310,11 +299,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    logger.debug(`[POST /api/cats] Cat created successfully:`, newCat);
-    const response = NextResponse.json(newCat, { status: 201 });
-    return addDeprecatedWarning(response);
+    logger.debug(`[POST /api/v2/cats] Cat created successfully:`, newCat);
+    return NextResponse.json({
+      success: true,
+      data: newCat
+    }, { status: 201 });
   } catch (error: any) {
-    logger.error('[POST /api/cats] Error creating cat:', {
+    logger.error('[POST /api/v2/cats] Error creating cat:', {
       error: error,
       message: error.message,
       code: error.code,
@@ -323,17 +314,16 @@ export async function POST(request: NextRequest) {
     });
     
     if (error.code === '22P02') {
-      const response = NextResponse.json(
-        { error: 'Formato inválido para um ou mais campos' },
-        { status: 400 }
-      );
-      return addDeprecatedWarning(response);
+      return NextResponse.json({
+        success: false,
+        error: 'Formato inválido para um ou mais campos'
+      }, { status: 400 });
     }
     
-    const errorResponse = NextResponse.json(
-      { error: `Erro ao criar o perfil do gato: ${error.message}` },
-      { status: 500 }
-    );
-    return addDeprecatedWarning(errorResponse);
+    return NextResponse.json({
+      success: false,
+      error: `Erro ao criar o perfil do gato: ${error.message}`
+    }, { status: 500 });
   }
-} 
+});
+

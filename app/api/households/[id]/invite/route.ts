@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { createClient } from '@/utils/supabase/server'; // For regular user auth check
 import { createAdminClient } from '@/utils/supabase/admin'; // For admin actions like inviteUserByEmail
 import { sendHouseholdInviteEmail } from '@/lib/mailersend';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // Define input schema
 const inviteSchema = z.object({

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
 import { Prisma } from '@prisma/client';
+import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 
 // Placeholder for WeightGoal and Milestone interfaces if not centrally defined
 // You should import these from a shared types definition if available
