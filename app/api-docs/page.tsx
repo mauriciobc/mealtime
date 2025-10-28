@@ -31,16 +31,25 @@ export default function ApiDocsPage() {
     // Aguarda o DOM estar pronto antes de inicializar
     const timer = setTimeout(() => {
       try {
-        window.SwaggerUIBundle({
+        // Verificação de tipo segura antes de chamar
+        const SwaggerUIBundle = window.SwaggerUIBundle;
+        const SwaggerUIStandalonePreset = window.SwaggerUIStandalonePreset;
+        
+        if (!SwaggerUIBundle || !SwaggerUIStandalonePreset) {
+          console.error('Swagger UI não está disponível');
+          return;
+        }
+
+        SwaggerUIBundle({
           url: `/api/swagger?v=${Date.now()}`,
           dom_id: '#swagger-ui',
           deepLinking: true,
           presets: [
-            window.SwaggerUIBundle.presets.apis,
-            window.SwaggerUIStandalonePreset
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIStandalonePreset
           ],
           plugins: [
-            window.SwaggerUIBundle.plugins.DownloadUrl
+            SwaggerUIBundle.plugins.DownloadUrl
           ],
           layout: 'StandaloneLayout',
         });
