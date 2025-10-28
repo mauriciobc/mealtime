@@ -142,7 +142,13 @@ Adicionado plugin explícito conforme [changelog do Netlify](https://www.netlify
 - **IMPORTANTE:** Não especificar `publish` - o plugin gerencia automaticamente
 - Necessário para deploy confiável de projetos Next.js 16
 
-**Erro 404:** Causado por `publish = ".next"` - o plugin Next.js não funciona com `publish` explícito.
+**Erro 404 (Causa 1):** Causado por `publish = ".next"` - o plugin Next.js não funciona com `publish` explícito.
+
+**Erro 404 (Causa 2 - REAL):** Redirects manuais no `netlify.toml` estavam conflitando com o plugin:
+- Deploy mostrava apenas 6 redirects (muito pouco para Next.js)
+- Plugin `@netlify/plugin-nextjs` gerencia TUDO automaticamente
+- Redirects manuais `[[redirects]]` impedem o plugin de funcionar
+- **Solução:** Remover TODOS os redirects e headers manuais do `netlify.toml`
 
 ---
 
