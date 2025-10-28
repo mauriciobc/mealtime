@@ -209,7 +209,8 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       feedingInterval = hours;
     }
 
-    // Validar peso se fornecido
+    // Validar e capturar peso se fornecido
+    let validatedWeight: number | null | undefined = undefined;
     if (body.weight !== undefined) {
       const weightValidation = validateWeight(body.weight);
       if (!weightValidation.isValid) {
@@ -219,9 +220,11 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
           error: weightValidation.error
         }, { status: 400 });
       }
+      validatedWeight = weightValidation.value;
     }
 
-    // Validar data de nascimento se fornecida
+    // Validar e capturar data de nascimento se fornecida
+    let validatedBirthDate: Date | null | undefined = undefined;
     if (body.birthdate !== undefined) {
       const birthDateValidation = validateBirthDate(body.birthdate);
       if (!birthDateValidation.isValid) {
@@ -231,6 +234,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
           error: birthDateValidation.error
         }, { status: 400 });
       }
+      validatedBirthDate = birthDateValidation.value;
     }
 
     // Check if the user is a member of the target household
@@ -262,15 +266,13 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       portion_size: body.portion_size || null
     };
 
-    // Aplicar validações de peso e data de nascimento
-    if (body.weight !== undefined) {
-      const weightValidation = validateWeight(body.weight);
-      createData.weight = weightValidation.value;
+    // Usar valores já validados (sem re-validação redundante)
+    if (validatedWeight !== undefined) {
+      createData.weight = validatedWeight;
     }
 
-    if (body.birthdate !== undefined) {
-      const birthDateValidation = validateBirthDate(body.birthdate);
-      createData.birth_date = birthDateValidation.value;
+    if (validatedBirthDate !== undefined) {
+      createData.birth_date = validatedBirthDate;
     }
 
     // Create the cat using Prisma's create method
@@ -278,13 +280,13 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       data: createData
     });
 
-    // If weight was provided, create an initial weight log
-    if (newCat && body.weight && !isNaN(parseFloat(body.weight))) {
+    // If weight was provided, create an initial weight log using validated value
+    if (newCat && validatedWeight !== null && validatedWeight !== undefined) {
       try {
         await prisma.cat_weight_logs.create({
           data: {
             cat_id: newCat.id,
-            weight: parseFloat(body.weight),
+            weight: validatedWeight,
             date: new Date(),
             measured_by: user.id,
           }
@@ -322,7 +324,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     
     return NextResponse.json({
       success: false,
-      error: `Erro ao criar o perfil do gato: ${error.message}`
+      error: 'Erro ao criar o perfil do gato'
     }, { status: 500 });
   }
 });

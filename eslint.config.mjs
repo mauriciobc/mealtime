@@ -24,6 +24,7 @@ export default [
       '**/*.test.tsx',
       '**/*.spec.ts',
       '**/*.spec.tsx',
+      '**/public/swagger-ui/**',
     ],
   },
   {

@@ -10,7 +10,28 @@ import { logger } from '@/lib/monitoring/logger';
 const CreateWeightLogBodySchema = z.object({
   catId: z.string().uuid(),
   weight: z.number().positive(),
-  date: z.string().regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, { message: "Date must be in YYYY-MM-DD format." }),
+  date: z.string()
+    .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, { message: "Date must be in YYYY-MM-DD format." })
+    .refine((dateStr) => {
+      // Parse the date components
+      // The regex already ensures the format is YYYY-MM-DD, so we can safely assert non-null
+      const [yearStr, monthStr, dayStr] = dateStr.split('-');
+      const year = parseInt(yearStr!, 10);
+      const month = parseInt(monthStr!, 10);
+      const day = parseInt(dayStr!, 10);
+      
+      // Create a UTC date to avoid timezone issues
+      const date = new Date(Date.UTC(year, month - 1, day));
+      
+      // Check if the date is valid and matches the input components
+      // This catches invalid dates like 2024-02-30, 2024-13-01, etc.
+      return (
+        !isNaN(date.getTime()) &&
+        date.getUTCFullYear() === year &&
+        date.getUTCMonth() === month - 1 &&
+        date.getUTCDate() === day
+      );
+    }, { message: "Invalid calendar date" }),
   notes: z.string().optional(),
 });
 
@@ -66,13 +87,13 @@ async function syncCatWeightWithLatestLog(tx: Prisma.TransactionClient, catId: s
 // POST handler for creating a new weight log
 export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
   try {
-    logger.debug('[POST /api/v2/weight-logs] Request from user:', user.id);
+    logger.debug('[POST /api/v2/weight-logs] Request from user', { userId: user.id });
 
     const json = await request.json();
     const validatedBody = CreateWeightLogBodySchema.safeParse(json);
 
     if (!validatedBody.success) {
-      logger.warn('[POST /api/v2/weight-logs] Invalid request body:', validatedBody.error);
+      logger.warn('[POST /api/v2/weight-logs] Invalid request body', { error: validatedBody.error.format() });
       return NextResponse.json({
         success: false,
         error: 'Invalid request body',
@@ -93,7 +114,9 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }, { status: 404 });
     }
 
-    if (user.household_id && cat.household_id !== user.household_id) {
+    // Deny access if household IDs don't match (no admin bypass currently implemented)
+    // TODO: Add admin role check when MobileAuthUser includes role information
+    if (cat.household_id !== user.household_id) {
       logger.warn(`[POST /api/v2/weight-logs] User ${user.id} not authorized for cat ${validatedBody.data.catId}`);
       return NextResponse.json({
         success: false,
@@ -111,7 +134,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     }, { status: 201 });
 
   } catch (error) {
-    logger.error('[POST /api/v2/weight-logs] Error:', error);
+    logger.error('[POST /api/v2/weight-logs] Error', { error });
     if (error instanceof z.ZodError) {
       return NextResponse.json({
         success: false,
@@ -129,7 +152,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 // GET handler for fetching weight logs for a cat
 export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
   try {
-    logger.debug('[GET /api/v2/weight-logs] Request from user:', user.id);
+    logger.debug('[GET /api/v2/weight-logs] Request from user', { userId: user.id });
 
     const { searchParams } = new URL(request.url);
     const catId = searchParams.get('catId');
@@ -154,7 +177,9 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 404 });
     }
 
-    if (user.household_id && cat.household_id !== user.household_id) {
+    // Deny access if household IDs don't match (no admin bypass currently implemented)
+    // TODO: Add admin role check when MobileAuthUser includes role information
+    if (cat.household_id !== user.household_id) {
       logger.warn(`[GET /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
       return NextResponse.json({
         success: false,
@@ -180,7 +205,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     });
 
   } catch (error) {
-    logger.error('[GET /api/v2/weight-logs] Error:', error);
+    logger.error('[GET /api/v2/weight-logs] Error', { error });
     return NextResponse.json({
       success: false,
       error: 'Internal Server Error'
@@ -191,7 +216,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 // PUT handler for updating an existing weight log
 export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
   try {
-    logger.debug('[PUT /api/v2/weight-logs] Request from user:', user.id);
+    logger.debug('[PUT /api/v2/weight-logs] Request from user', { userId: user.id });
 
     const { searchParams } = new URL(request.url);
     const logId = searchParams.get('id');
@@ -207,7 +232,7 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     const validatedBody = UpdateWeightLogBodySchema.safeParse(json);
     
     if (!validatedBody.success) {
-      logger.warn('[PUT /api/v2/weight-logs] Invalid request body:', validatedBody.error);
+      logger.warn('[PUT /api/v2/weight-logs] Invalid request body', { error: validatedBody.error.format() });
       return NextResponse.json({
         success: false,
         error: 'Invalid request body',
@@ -231,7 +256,9 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 404 });
     }
 
-    if (user.household_id && catToUpdate.household_id !== user.household_id) {
+    // Deny access if household IDs don't match (no admin bypass currently implemented)
+    // TODO: Add admin role check when MobileAuthUser includes role information
+    if (catToUpdate.household_id !== user.household_id) {
       logger.warn(`[PUT /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
       return NextResponse.json({
         success: false,
@@ -283,7 +310,7 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     });
 
   } catch (error) {
-    logger.error('[PUT /api/v2/weight-logs] Error:', error);
+    logger.error('[PUT /api/v2/weight-logs] Error', { error });
     return NextResponse.json({
       success: false,
       error: 'Internal Server Error'
@@ -294,7 +321,7 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 // DELETE handler for deleting a weight log
 export const DELETE = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
   try {
-    logger.debug('[DELETE /api/v2/weight-logs] Request from user:', user.id);
+    logger.debug('[DELETE /api/v2/weight-logs] Request from user', { userId: user.id });
 
     const { searchParams } = new URL(request.url);
     const logId = searchParams.get('id');
@@ -334,7 +361,9 @@ export const DELETE = withHybridAuth(async (request: NextRequest, user: MobileAu
       }, { status: 404 });
     }
 
-    if (user.household_id && cat.household_id !== user.household_id) {
+    // Deny access if household IDs don't match (no admin bypass currently implemented)
+    // TODO: Add admin role check when MobileAuthUser includes role information
+    if (cat.household_id !== user.household_id) {
       logger.warn(`[DELETE /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
       return NextResponse.json({
         success: false,
@@ -358,7 +387,7 @@ export const DELETE = withHybridAuth(async (request: NextRequest, user: MobileAu
     });
 
   } catch (error) {
-    logger.error('[DELETE /api/v2/weight-logs] Error:', error);
+    logger.error('[DELETE /api/v2/weight-logs] Error', { error });
     return NextResponse.json({
       success: false,
       error: 'Internal Server Error'

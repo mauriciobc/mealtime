@@ -4,7 +4,6 @@ import { z } from "zod";
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import { isDuplicateFeeding } from '@/lib/services/feeding-notification-service';
-import { createNotification } from '@/lib/services/notificationService';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
@@ -18,8 +17,10 @@ export const dynamic = 'force-dynamic';
 // Schema de validação
 const createFeedingSchema = z.object({
   catId: z.string().uuid({ message: "Invalid cat ID format" }),
-  amount: z.number().positive().nullable().optional(),
+  amount: z.union([z.number().positive(), z.null()]).optional(),
   notes: z.string().max(255).optional(),
+  meal_type: z.enum(['manual', 'scheduled', 'automatic']).default('manual'),
+  unit: z.enum(['g', 'ml', 'cups', 'oz']).default('g'),
 });
 
 // POST /api/v2/feedings - Criar um novo registro de alimentação
@@ -31,7 +32,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     // Validate the request body against schema
     const validationResult = createFeedingSchema.safeParse(body);
     if (!validationResult.success) {
-      logger.error("[POST /api/v2/feedings] Invalid body:", validationResult.error.format());
+      logger.error("[POST /api/v2/feedings] Invalid body", { errors: validationResult.error.format() });
       return NextResponse.json({
         success: false,
         error: "Invalid request data",
@@ -39,8 +40,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }, { status: 400 });
     }
 
-    const { catId, amount, notes } = validationResult.data;
-    const mealType = body.meal_type || "manual";
+    const { catId, amount, notes, meal_type: mealType, unit } = validationResult.data;
 
     // Authorization & Validation
     logger.debug(`[POST /api/v2/feedings] Verifying access for user ${user.id} and cat ${catId}`);
@@ -88,19 +88,26 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     // Duplicate Feeding Detection
     if (lastFeedingLog && isDuplicateFeeding(new Date(lastFeedingLog.fed_at))) {
       try {
-        await createNotification({
-          title: 'Alimentação duplicada',
-          message: `O gato ${cat.name} já foi alimentado recentemente.`,
-          type: 'warning',
-          metadata: {
-            catId: cat.id,
-            householdId: String(cat.household_id),
-            actionUrl: `/cats/${cat.id}`,
-            duplicate: true,
+        await prisma.notifications.create({
+          data: {
+            id: crypto.randomUUID(),
+            user_id: user.id, // Recipient: the authenticated user attempting the duplicate feeding
+            title: 'Alimentação duplicada',
+            message: `O gato ${cat.name} já foi alimentado recentemente.`,
+            type: 'warning',
+            metadata: {
+              catId: cat.id,
+              userId: user.id, // Added for consistency with other notifications
+              householdId: String(cat.household_id),
+              actionUrl: `/cats/${cat.id}`,
+              duplicate: true,
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
         });
       } catch (notifyError) {
-        logger.error('[POST /api/v2/feedings] Failed to create duplicate warning notification:', notifyError);
+        logger.error('[POST /api/v2/feedings] Failed to create duplicate warning notification', { notifyError });
       }
       return NextResponse.json({
         success: false,
@@ -114,8 +121,8 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       data: {
         cat_id: catId,
         meal_type: mealType,
-        amount: amount !== undefined && amount !== null ? new Prisma.Decimal(amount) : new Prisma.Decimal(0),
-        unit: body.unit || 'g',
+        amount: amount != null ? new Prisma.Decimal(amount) : new Prisma.Decimal(0),
+        unit: unit,
         notes: notes ?? null,
         fed_by: user.id,
         household_id: String(userHouseholdId),
@@ -133,21 +140,27 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     });
     logger.info(`[POST /api/v2/feedings] Feeding log created successfully: ${feedingLog.id}`);
 
-    // Event-driven notification: feeding
+    // Event-driven notification: feeding (for the user who registered the feeding)
     try {
-      await createNotification({
-        title: `Alimentação registrada para o gato`,
-        message: `O gato foi alimentado com sucesso.`,
-        type: 'feeding',
-        metadata: {
-          catId: catId,
-          userId: user.id,
-          feedingLogId: feedingLog.id,
-          householdId: userHouseholdId,
+      await prisma.notifications.create({
+        data: {
+          id: crypto.randomUUID(),
+          user_id: user.id, // Recipient: the user who registered the feeding
+          title: `Alimentação registrada para o gato`,
+          message: `O gato foi alimentado com sucesso.`,
+          type: 'feeding',
+          metadata: {
+            catId: catId,
+            userId: user.id,
+            feedingLogId: feedingLog.id,
+            householdId: userHouseholdId,
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
       });
     } catch (notifyError) {
-      logger.error('[POST /api/v2/feedings] Failed to create feeding notification:', notifyError);
+      logger.error('[POST /api/v2/feedings] Failed to create feeding notification', { notifyError });
     }
 
     // Notify all other users in the household
@@ -189,7 +202,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     if (cat.feeding_interval && cat.feeding_interval > 0) {
       const reminderTime = new Date(Date.now() + cat.feeding_interval * 60 * 60 * 1000);
       const reminderMembers = householdMembers.map(member => member.user_id);
-      logger.debug('[POST /api/v2/feedings] Scheduling reminders for:', reminderMembers);
+      logger.debug('[POST /api/v2/feedings] Scheduling reminders for:', { reminderMembers });
       
       const reminderNotifications = reminderMembers.map(userId => ({
         id: crypto.randomUUID(),
@@ -209,7 +222,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
           const result = await prisma.scheduledNotification.createMany({ data: reminderNotifications });
           logger.debug('[POST /api/v2/feedings] Scheduled notifications created successfully:', result);
         } catch (err) {
-          logger.error('[POST /api/v2/feedings] Failed to create scheduled notifications:', err);
+          logger.error('[POST /api/v2/feedings] Failed to create scheduled notifications', { err });
         }
       }
     }
@@ -220,7 +233,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     }, { status: 201 });
 
   } catch (error) {
-    logger.error("[POST /api/v2/feedings] Error creating feeding log:", error);
+    logger.error("[POST /api/v2/feedings] Error creating feeding log", { error });
     return NextResponse.json({
       success: false,
       error: "Failed to create feeding log",
@@ -254,7 +267,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 403 });
     }
   } catch (error) {
-    logger.error('[GET /api/v2/feedings] Failed to verify household access:', error);
+    logger.error('[GET /api/v2/feedings] Failed to verify household access', { error });
     return NextResponse.json({
       success: false,
       error: 'Failed to verify household access',
@@ -280,7 +293,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       count: feedings.length
     });
   } catch (error) {
-    logger.error("[GET /api/v2/feedings] Error fetching feeding data:", error);
+    logger.error("[GET /api/v2/feedings] Error fetching feeding data", { error });
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch feeding data',

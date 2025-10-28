@@ -372,22 +372,57 @@ export async function POST(
             }, { status: 200 });
         }
         
-        // If all checks pass, we can proceed with adding the user
-        console.log(`DEBUG: All safety checks passed, adding user ${targetUser.id} to household ${householdId}`);
+        // If all checks pass, send invitation notification instead of adding directly
+        console.log(`DEBUG: All safety checks passed, creating invite notification for user ${targetUser.id}`);
         
-        // If user exists in Supabase Auth but not in the household, add them directly
-        await prisma.household_members.create({
-            data: {
-                user_id: targetUser.id,
-                household_id: householdId,
-                role: 'member', // Default role for added members
-            },
+        // Check for existing pending invites to avoid duplicates
+        const existingInvite = await prisma.notifications.findFirst({
+          where: {
+            user_id: targetUser.id,
+            type: 'household_invite',
+            is_read: false,
+            metadata: {
+              path: ['householdId'],
+              equals: householdId
+            }
+          }
         });
-        // Optionally, send a simple notification email here instead of a full Supabase invite
-        // Note: profiles table doesn't have household_id field directly
-        // The relationship is managed through household_members table
 
-        return NextResponse.json({ message: 'Existing user added to household successfully' }, { status: 200 });
+        if (existingInvite) {
+          console.log(`DEBUG: Pending invite already exists for user ${targetUser.id} to household ${householdId}`);
+          return NextResponse.json({ 
+            message: 'Invitation already sent to this user',
+            details: 'A pending invitation already exists for this user.'
+          }, { status: 200 });
+        }
+
+        // Create notification with invite metadata - requires user consent
+        await prisma.notifications.create({
+          data: {
+            id: crypto.randomUUID(),
+            user_id: targetUser.id,
+            title: `Convite para ${household.name}`,
+            message: `${inviterName} convidou você para participar do domicílio "${household.name}". Você pode aceitar ou rejeitar este convite nas suas notificações.`,
+            type: 'household_invite',
+            is_read: false,
+            metadata: {
+              householdId,
+              householdName: household.name,
+              invitedBy: authUserId,
+              inviterName,
+              invitedAt: new Date().toISOString()
+            },
+            created_at: new Date(),
+            updated_at: new Date()
+          }
+        });
+
+        console.log(`DEBUG: Invite notification created successfully for user ${targetUser.id}`);
+
+        return NextResponse.json({ 
+          message: 'Invitation sent successfully. The user will need to accept it.',
+          details: 'User will receive an in-app notification to accept or reject the invitation.'
+        }, { status: 200 });
 
     } else {
         // User does not exist in Supabase Auth, send an invite

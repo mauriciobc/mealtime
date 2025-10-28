@@ -203,47 +203,67 @@ export class SupabaseNotificationService {
   }
 
   /**
-   * Create a new notification (usually called from Edge Functions)
+   * Create a new notification via API route
+   * This ensures proper authentication and authorization through the API layer
    */
   async createNotification(
     payload: Omit<Notification, 'id' | 'createdAt' | 'updatedAt' | 'userId'>
   ): Promise<Notification> {
-    console.log('[SupabaseNotificationService] createNotification');
+    console.log('[SupabaseNotificationService] createNotification via API');
     
-    const { data: { user } } = await this.supabase.auth.getUser();
-    if (!user) {
-      throw new Error('Unauthorized');
-    }
-
-    const { data, error } = await this.supabase
-      .from('notifications')
-      .insert({
-        user_id: user.id,
-        title: payload.title,
-        message: payload.message,
-        type: payload.type,
-        is_read: payload.isRead,
-        metadata: payload.metadata || {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[SupabaseNotificationService] Create error:', error);
-      throw new Error(error.message);
-    }
-
-    if (!data) {
-      throw new Error('Failed to create notification: no data returned');
+    // Get the auth session to include in the request
+    const { data: { session } } = await this.supabase.auth.getSession();
+    if (!session) {
+      throw new Error('Unauthorized: No active session');
     }
 
     try {
-      return this.normalizeNotification(data);
+      // Call the API route to create the notification
+      const response = await fetch('/api/v2/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          title: payload.title,
+          message: payload.message,
+          type: payload.type,
+          isRead: payload.isRead ?? false,
+          metadata: payload.metadata || {},
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || `Failed to create notification: ${response.statusText}`;
+        console.error('[SupabaseNotificationService] API error:', errorMessage, errorData);
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success || !result.data) {
+        throw new Error('Invalid response from API: missing data');
+      }
+
+      console.log('[SupabaseNotificationService] Notification created successfully:', result.data.id);
+      
+      // Return the notification in the expected format
+      return {
+        id: result.data.id,
+        title: result.data.title,
+        message: result.data.message,
+        type: result.data.type,
+        isRead: result.data.isRead,
+        createdAt: result.data.createdAt,
+        updatedAt: result.data.updatedAt,
+        userId: result.data.userId,
+        metadata: result.data.metadata,
+      };
     } catch (error) {
-      console.error('[SupabaseNotificationService] Failed to normalize created notification:', error, data);
-      throw new Error(String(error));
+      console.error('[SupabaseNotificationService] Create notification error:', error);
+      throw error instanceof Error ? error : new Error('Failed to create notification');
     }
   }
 }

@@ -4,6 +4,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { Prisma } from '@prisma/client';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
+import { sanitizeError, sanitizeDatabaseError } from '@/lib/utils/error-sanitizer';
 
 interface NewGoalData {
   cat_id: string;
@@ -56,18 +57,15 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
         userId: user.id, 
         requestUrl: request.nextUrl.toString() 
       });
-      return NextResponse.json({
-        success: false,
-        error: 'An error occurred while fetching weight goals'
-      }, { status: 500 });
+      
+      const sanitized = sanitizeDatabaseError(error, 'fetch weight goals');
+      return NextResponse.json(sanitized, { status: 500 });
     }
   } catch (err: any) {
-    logger.error('[GET /api/v2/goals] Unhandled Exception', err);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: err?.message || err
-    }, { status: 500 });
+    logger.error('[GET /api/v2/goals] Unhandled Exception', { err });
+    
+    const sanitized = sanitizeError(err, 'Internal server error');
+    return NextResponse.json(sanitized, { status: 500 });
   }
 });
 
@@ -103,7 +101,28 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
         }, { status: 400 });
       }
       
-      if (new Date(target_date) <= new Date(start_date)) {
+      // Parse and validate dates
+      const sd = new Date(start_date);
+      const td = new Date(target_date);
+      
+      // Check if start_date is valid
+      if (isNaN(sd.getTime())) {
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid start_date format. Please provide a valid date string.'
+        }, { status: 400 });
+      }
+      
+      // Check if target_date is valid
+      if (isNaN(td.getTime())) {
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid target_date format. Please provide a valid date string.'
+        }, { status: 400 });
+      }
+      
+      // Now safely compare the dates
+      if (td <= sd) {
         return NextResponse.json({
           success: false,
           error: 'Target date must be after start date'
@@ -174,26 +193,21 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }, { status: 201 });
 
     } catch (error) {
-      logger.error('[POST /api/v2/goals] Error:', error);
+      logger.error('[POST /api/v2/goals] Error', { error });
+      
       if (error instanceof SyntaxError) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid request body'
-        }, { status: 400 });
+        const sanitized = sanitizeError(error, 'Invalid request body');
+        return NextResponse.json(sanitized, { status: 400 });
       }
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to create goal',
-        details: error instanceof Error ? error.message : String(error)
-      }, { status: 500 });
+      
+      const sanitized = sanitizeDatabaseError(error, 'create goal');
+      return NextResponse.json(sanitized, { status: 500 });
     }
   } catch (err: any) {
-    logger.error('[POST /api/v2/goals] Unhandled Exception', err);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: err?.message || err
-    }, { status: 500 });
+    logger.error('[POST /api/v2/goals] Unhandled Exception', { err });
+    
+    const sanitized = sanitizeError(err, 'Internal server error');
+    return NextResponse.json(sanitized, { status: 500 });
   }
 });
 

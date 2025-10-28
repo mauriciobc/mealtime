@@ -4,20 +4,64 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 
+/**
+ * Extrai e valida o ID do parâmetro de rota de forma robusta
+ * @param context - Contexto com params do Next.js (fonte confiável)
+ * @param request - Request para fallback sanitizado
+ * @returns ID validado ou null se inválido
+ */
+function extractAndValidateId(
+  context: { params: Promise<{ id: string }> } | undefined,
+  request: NextRequest
+): string | null {
+  // Priorizar context.params (método confiável do Next.js)
+  if (context?.params) {
+    return null; // Será resolvido no handler
+  }
+
+  // Fallback sanitizado: extrair último segmento não-vazio
+  const pathname = request.nextUrl.pathname.replace(/\/+$/, ''); // Remove trailing slashes
+  const segments = pathname.split('/').filter(s => s.length > 0);
+  const lastSegment = segments[segments.length - 1];
+
+  // Validar formato UUID (padrão esperado para IDs no banco)
+  // UUID v4: 8-4-4-4-12 caracteres hexadecimais
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  
+  if (!lastSegment || !uuidPattern.test(lastSegment)) {
+    return null; // ID inválido
+  }
+
+  return lastSegment;
+}
+
 // GET /api/v2/feedings/[id] - Buscar detalhes de um registro de alimentação
 export const GET = withHybridAuth(async (
   request: NextRequest,
   user: MobileAuthUser,
   context?: { params: Promise<{ id: string }> }
 ) => {
-  // Extrair params da URL se context não estiver disponível
-  const params = context ? await context.params : null;
-  const logId = params?.id || request.nextUrl.pathname.split('/').pop();
+  // Extrair e validar ID de forma robusta
+  let logId: string | null = null;
+  
+  if (context?.params) {
+    const params = await context.params;
+    logId = params.id;
+    
+    // Validar formato UUID mesmo quando vem do context
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(logId)) {
+      logId = null;
+    }
+  } else {
+    logId = extractAndValidateId(context, request);
+  }
 
   if (!logId) {
+    logger.warn('[GET /api/v2/feedings/[id]] Invalid or missing ID');
     return NextResponse.json({
       success: false,
-      error: 'ID do registro inválido'
+      error: 'ID do registro inválido ou ausente'
     }, { status: 400 });
   }
 
@@ -110,11 +154,13 @@ export const GET = withHybridAuth(async (
       data: transformedLog
     });
   } catch (error) {
-    logger.error(`[GET /api/v2/feedings/${logId}] Error fetching feeding log:`, error);
+    logger.error(`[GET /api/v2/feedings/${logId}] Error fetching feeding log`, { error });
     return NextResponse.json({
       success: false,
       error: 'Ocorreu um erro ao buscar o registro de alimentação',
-      details: (error instanceof Error) ? error.message : 'Unknown error'
+      ...(process.env.NODE_ENV === 'development' && {
+        details: (error instanceof Error) ? error.message : 'Unknown error'
+      })
     }, { status: 500 });
   }
 });
@@ -125,14 +171,27 @@ export const DELETE = withHybridAuth(async (
   user: MobileAuthUser,
   context?: { params: Promise<{ id: string }> }
 ) => {
-  // Extrair params da URL se context não estiver disponível
-  const params = context ? await context.params : null;
-  const logId = params?.id || request.nextUrl.pathname.split('/').pop();
+  // Extrair e validar ID de forma robusta (mesma lógica do GET)
+  let logId: string | null = null;
+  
+  if (context?.params) {
+    const params = await context.params;
+    logId = params.id;
+    
+    // Validar formato UUID mesmo quando vem do context
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidPattern.test(logId)) {
+      logId = null;
+    }
+  } else {
+    logId = extractAndValidateId(context, request);
+  }
 
   if (!logId) {
+    logger.warn('[DELETE /api/v2/feedings/[id]] Invalid or missing ID');
     return NextResponse.json({
       success: false,
-      error: 'ID do registro inválido'
+      error: 'ID do registro inválido ou ausente'
     }, { status: 400 });
   }
 
@@ -189,7 +248,7 @@ export const DELETE = withHybridAuth(async (
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    logger.error(`[DELETE /api/v2/feedings/${logId}] Error deleting feeding log:`, error);
+    logger.error(`[DELETE /api/v2/feedings/${logId}] Error deleting feeding log`, { error });
     if (error instanceof Error && (error as any).code === 'P2025') {
       return NextResponse.json({
         success: false,
@@ -199,7 +258,9 @@ export const DELETE = withHybridAuth(async (
     return NextResponse.json({
       success: false,
       error: 'An error occurred while deleting the feeding log',
-      details: (error instanceof Error) ? error.message : 'Unknown error'
+      ...(process.env.NODE_ENV === 'development' && {
+        details: (error instanceof Error) ? error.message : 'Unknown error'
+      })
     }, { status: 500 });
   }
 });

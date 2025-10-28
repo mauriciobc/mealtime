@@ -69,7 +69,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       count: mappedSchedules.length
     });
   } catch (error) {
-    logger.error('[GET /api/v2/schedules] Error:', error);
+    logger.error('[GET /api/v2/schedules] Error', { error });
     return NextResponse.json({
       success: false,
       error: 'Failed to fetch schedules',
@@ -100,12 +100,11 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     }
     
     // Authorization & Validation
-    const [cat, userProfile] = await Promise.all([
-      prisma.cats.findUnique({ where: { id: catId }, select: { household_id: true } }),
-      prisma.profiles.findUnique({ where: { id: user.id }, select: { household_members: { select: { household_id: true }, take: 1 } } })
-    ]);
-
-    const userHouseholdId = userProfile?.household_members[0]?.household_id;
+    // First, fetch the cat
+    const cat = await prisma.cats.findUnique({
+      where: { id: catId },
+      select: { household_id: true }
+    });
 
     if (!cat) {
       return NextResponse.json({
@@ -113,16 +112,18 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
         error: 'Cat not found'
       }, { status: 404 });
     }
-    
-    if (!userHouseholdId) {
-      return NextResponse.json({
-        success: false,
-        error: 'User profile or household not found'
-      }, { status: 403 });
-    }
-    
-    if (cat.household_id !== userHouseholdId) {
-      logger.warn(`[POST /api/v2/schedules] Access denied: Cat ${catId} not in user ${user.id} household`);
+
+    // Then, verify user's membership in the cat's household
+    logger.debug(`[POST /api/v2/schedules] Verifying user ${user.id} membership in household ${cat.household_id}`);
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: cat.household_id,
+      },
+    });
+
+    if (!userMembership) {
+      logger.warn(`[POST /api/v2/schedules] Access denied: User ${user.id} is not a member of household ${cat.household_id} (cat ${catId})`);
       return NextResponse.json({
         success: false,
         error: 'Access denied: Cat does not belong to user\'s household'
@@ -152,8 +153,30 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }, { status: 400 });
     }
 
+    // Validate each time entry format for fixedTime schedules
+    if (type === 'fixedTime') {
+      const timeFormatRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+      const invalidTimes: string[] = [];
+
+      times.forEach((time: unknown, index: number) => {
+        if (typeof time !== 'string') {
+          invalidTimes.push(`Entry at index ${index} is not a string: ${JSON.stringify(time)}`);
+        } else if (!timeFormatRegex.test(time)) {
+          invalidTimes.push(`"${time}" (invalid format, expected HH:MM)`);
+        }
+      });
+
+      if (invalidTimes.length > 0) {
+        return NextResponse.json({
+          success: false,
+          error: 'Invalid time format detected',
+          details: `The following times are invalid: ${invalidTimes.join(', ')}. Times must be in HH:MM 24-hour format (e.g., "08:30", "14:00", "23:59").`
+        }, { status: 400 });
+      }
+    }
+
     // Create the schedule
-    logger.debug(`[POST /api/v2/schedules] Creating schedule for cat ${catId} in household ${userHouseholdId}`);
+    logger.debug(`[POST /api/v2/schedules] Creating schedule for cat ${catId} in household ${cat.household_id}`);
     const schedule = await prisma.schedules.create({
       data: {
         cat_id: catId,
@@ -180,7 +203,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       data: schedule
     }, { status: 201 });
   } catch (error) {
-    logger.error('[POST /api/v2/schedules] Error:', error);
+    logger.error('[POST /api/v2/schedules] Error', { error });
     return NextResponse.json({
       success: false,
       error: 'Failed to create schedule',

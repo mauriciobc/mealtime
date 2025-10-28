@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (err: any) {
-    logger.error('[GET /api/goals] Unhandled Exception', err);
+    logger.error('[GET /api/goals] Unhandled Exception', { err });
     return NextResponse.json(
       { error: 'Internal server error', details: err?.message || err },
       {
@@ -260,7 +260,7 @@ export async function POST(request: Request) {
       );
     }
   } catch (err: any) {
-    logger.error('[POST /api/goals] Unhandled Exception', err);
+    logger.error('[POST /api/goals] Unhandled Exception', { err });
     return NextResponse.json(
       { error: 'Internal server error', details: err?.message || err },
       {

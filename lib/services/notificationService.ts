@@ -65,12 +65,22 @@ export async function deleteNotification(id: string): Promise<void> {
 }
 
 /**
- * @deprecated Esta função não deve ser usada no cliente.
- * Criação de notificações deve ser feita via Edge Functions ou API routes.
+ * @deprecated Use notificationService.createNotification() do SupabaseNotificationService
+ * Esta função agora chama a API v2 através do SupabaseNotificationService
  */
 export async function createNotification(payload: CreateNotificationPayload): Promise<Notification> {
-  console.warn('[NotificationService] createNotification is deprecated for client use. Use Edge Functions or API routes instead.');
-  throw new Error('createNotification is deprecated for client use. Use Edge Functions or API routes instead.');
+  console.warn('[NotificationService] createNotification is deprecated. Use notificationService.createNotification() instead.');
+  
+  // Convert payload format to match the SupabaseNotificationService signature
+  const servicePayload = {
+    title: payload.title,
+    message: payload.message,
+    type: payload.type,
+    isRead: false,
+    metadata: payload.metadata || {},
+  };
+  
+  return await notificationService.createNotification(servicePayload);
 }
 
 /**

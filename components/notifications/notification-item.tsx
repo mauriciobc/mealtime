@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/lib/context/NotificationContext";
+import { HouseholdInviteNotification } from "./household-invite-notification";
 
 interface NotificationItemProps {
   notification: Notification;
@@ -30,8 +31,14 @@ export function NotificationItem({
   onClick, 
   showActions = false 
 }: NotificationItemProps) {
+  // Hooks must be called at the top level, before any conditional returns
   const { removeNotification } = useNotifications();
   const router = useRouter();
+  
+  // Handle household invites with special component
+  if (notification.type === 'household_invite') {
+    return <HouseholdInviteNotification notification={notification} onClick={onClick} />;
+  }
   
   // Get createdAt
   const createdAt = notification.createdAt;
@@ -52,6 +59,7 @@ export function NotificationItem({
       case 'reminder':
         return <Utensils className="h-5 w-5 text-primary" />;
       case 'household':
+      case 'household_invite':
         return <Users className="h-5 w-5 text-emerald-500" />;
       case 'warning':
         return <AlertTriangle className="h-5 w-5 text-yellow-500" />;

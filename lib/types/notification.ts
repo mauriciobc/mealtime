@@ -3,6 +3,7 @@ export type NotificationType =
   | 'feeding'    // Feeding notifications
   | 'reminder'   // Feeding reminders
   | 'household'  // Household member related notifications
+  | 'household_invite'  // Household invite notifications
   | 'system'     // System notifications
   | 'info'       // General information
   | 'warning'    // Warnings

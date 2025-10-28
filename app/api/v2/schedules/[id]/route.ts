@@ -60,11 +60,17 @@ export const GET = withHybridAuth(async (
       data: schedule
     });
   } catch (error) {
-    logger.error('[GET /api/v2/schedules/[id]] Error:', error);
+    // Log full error details server-side for debugging (including stack trace)
+    logger.error('[GET /api/v2/schedules/[id]] Error', { 
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id 
+    });
+    
+    // Return generic error message to client (no internal details)
     return NextResponse.json({
       success: false,
-      error: 'Failed to fetch schedule',
-      details: error instanceof Error ? error.message : String(error)
+      error: 'Failed to fetch schedule'
     }, { status: 500 });
   }
 });
@@ -133,33 +139,56 @@ export const PATCH = withHybridAuth(async (
       }, { status: 400 });
     }
 
-    // Validate type-specific data
-    if (type === 'interval' && interval !== undefined && interval <= 0) {
+    // Determine the effective type (new type or existing type)
+    const effectiveType = type ?? existingSchedule.type;
+
+    // Validate type-specific data against the effective type
+    if (effectiveType === 'interval' && interval !== undefined && interval <= 0) {
       return NextResponse.json({
         success: false,
         error: 'Interval must be greater than zero'
       }, { status: 400 });
     }
 
-    if (type === 'fixedTime' && times !== undefined && times.trim() === '') {
-      return NextResponse.json({
-        success: false,
-        error: 'Times are required for fixed time schedules'
-      }, { status: 400 });
+    if (effectiveType === 'fixedTime' && times !== undefined) {
+      const trimmedTimes = typeof times === 'string' ? times.trim() : '';
+      if (trimmedTimes === '') {
+        return NextResponse.json({
+          success: false,
+          error: 'Times are required for fixed time schedules'
+        }, { status: 400 });
+      }
     }
 
-    // Prepare update data
+    // Build update data in a single clear pass
     const updateData: any = {};
     const updatedFields: string[] = [];
 
-    if (type !== undefined) { updateData.type = type; updatedFields.push('type'); }
-    if (type === 'interval' && interval !== undefined) { updateData.interval = interval; updateData.times = ''; updatedFields.push('interval'); }
-    else if (type === 'fixedTime' && times !== undefined) { updateData.times = times; updateData.interval = 0; updatedFields.push('times'); }
-    else {
-      if (interval !== undefined && existingSchedule.type === 'interval') { updateData.interval = interval; updatedFields.push('interval'); }
-      if (times !== undefined && existingSchedule.type === 'fixedTime') { updateData.times = times; updatedFields.push('times'); }
+    // Include type if provided
+    if (type !== undefined) {
+      updateData.type = type;
+      updatedFields.push('type');
     }
-    if (overrideUntil !== undefined) { updateData.overrideUntil = overrideUntil ? new Date(overrideUntil) : null; updatedFields.push('overrideUntil'); }
+
+    // Handle interval type: set interval and clear times
+    if (effectiveType === 'interval' && interval !== undefined) {
+      updateData.interval = interval;
+      updateData.times = '';
+      updatedFields.push('interval');
+    }
+
+    // Handle fixed time type: set times and clear interval
+    if (effectiveType === 'fixedTime' && times !== undefined) {
+      updateData.times = times;
+      updateData.interval = 0;
+      updatedFields.push('times');
+    }
+
+    // Handle overrideUntil independently
+    if (overrideUntil !== undefined) {
+      updateData.overrideUntil = overrideUntil ? new Date(overrideUntil) : null;
+      updatedFields.push('overrideUntil');
+    }
 
     // Update schedule
     const schedule = await prisma.schedules.update({
@@ -189,7 +218,7 @@ export const PATCH = withHybridAuth(async (
         },
       });
     } catch (notifyError) {
-      logger.error('[PATCH /api/v2/schedules/[id]] Failed to create schedule update notification:', notifyError);
+      logger.error('[PATCH /api/v2/schedules/[id]] Failed to create schedule update notification', { notifyError });
     }
 
     logger.info(`[PATCH /api/v2/schedules/${id}] Schedule updated successfully`);
@@ -199,11 +228,17 @@ export const PATCH = withHybridAuth(async (
       data: schedule
     });
   } catch (error) {
-    logger.error('[PATCH /api/v2/schedules/[id]] Error:', error);
+    // Log full error details server-side for debugging (including stack trace)
+    logger.error('[PATCH /api/v2/schedules/[id]] Error', { 
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id 
+    });
+    
+    // Return generic error message to client (no internal details)
     return NextResponse.json({
       success: false,
-      error: 'Failed to update schedule',
-      details: error instanceof Error ? error.message : String(error)
+      error: 'Failed to update schedule'
     }, { status: 500 });
   }
 });
@@ -267,11 +302,17 @@ export const DELETE = withHybridAuth(async (
       message: 'Schedule deleted successfully'
     });
   } catch (error) {
-    logger.error('[DELETE /api/v2/schedules/[id]] Error:', error);
+    // Log full error details server-side for debugging (including stack trace)
+    logger.error('[DELETE /api/v2/schedules/[id]] Error', { 
+      error,
+      stack: error instanceof Error ? error.stack : undefined,
+      userId: user.id 
+    });
+    
+    // Return generic error message to client (no internal details)
     return NextResponse.json({
       success: false,
-      error: 'Failed to delete schedule',
-      details: error instanceof Error ? error.message : String(error)
+      error: 'Failed to delete schedule'
     }, { status: 500 });
   }
 });

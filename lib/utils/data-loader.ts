@@ -32,7 +32,7 @@ export function useDataLoader<T>(
       abortControllerRef.current = null;
     }
     // removeLoadingOperation(options.id);
-  }, [options.id]);
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;

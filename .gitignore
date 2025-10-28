@@ -42,3 +42,12 @@ app/globals copy.csbkp
 .cursor/rules/senior-engineer-task-execution-rule.mdc
 
 .config/
+
+# Documentation files
+# Ignore all markdown files
+*.md
+# Except these important ones
+!README.md
+!CONTRIBUTING.md
+# And keep docs folder structure visible
+!docs/**/*.md

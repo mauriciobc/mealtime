@@ -36,14 +36,25 @@ async function isUserAdmin(userId: string, householdId: string): Promise<boolean
     const role = membership?.role?.toLowerCase();
     return role === 'admin' || role === 'owner';
   } catch (error) {
-    logger.error('[isUserAdmin] Error checking admin status:', error);
+    logger.error('[isUserAdmin] Error checking admin status', { error });
     return false;
   }
 }
 
 // Helper to generate a unique invite code
-function generateInviteCode(): string {
-  return uuidv4().substring(0, 8);
+async function generateInviteCode(): Promise<string> {
+  const maxAttempts = 5;
+  for (let i = 0; i < maxAttempts; i++) {
+    const code = uuidv4().substring(0, 8);
+    const existing = await prisma.households.findFirst({
+      where: { inviteCode: code },
+      select: { id: true }
+    });
+    if (!existing) {
+      return code;
+    }
+  }
+  throw new Error('Failed to generate unique invite code after multiple attempts');
 }
 
 export const PATCH = withHybridAuth(async (
@@ -74,7 +85,7 @@ export const PATCH = withHybridAuth(async (
   }
 
   try {
-    const newInviteCode = generateInviteCode();
+    const newInviteCode = await generateInviteCode();
 
     // Update the household with the new invite code
     const updatedHousehold = await prisma.households.update({
@@ -82,13 +93,6 @@ export const PATCH = withHybridAuth(async (
       data: { inviteCode: newInviteCode },
       select: { inviteCode: true },
     });
-
-    if (!updatedHousehold) {
-      return NextResponse.json({
-        success: false,
-        error: 'Household not found'
-      }, { status: 404 });
-    }
 
     logger.info(`[PATCH /api/v2/households/invite-code] Invite code regenerated for household ${householdId}`);
 
@@ -98,7 +102,16 @@ export const PATCH = withHybridAuth(async (
     });
 
   } catch (error) {
-    logger.error('[PATCH /api/v2/households/invite-code] Error regenerating invite code:', error);
+    // Handle Prisma P2025 error (record not found)
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+      return NextResponse.json({
+        success: false,
+        error: 'Household not found'
+      }, { status: 404 });
+    }
+
+    // Handle all other errors
+    logger.error('[PATCH /api/v2/households/invite-code] Error regenerating invite code', { error });
     return NextResponse.json({
       success: false,
       error: 'Internal server error'

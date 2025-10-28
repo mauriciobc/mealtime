@@ -30,9 +30,23 @@ export const GET = withHybridAuth(async (
   user: MobileAuthUser,
   context?: { params: Promise<{ id: string }> }
 ) => {
-  const params = context ? await context.params : null;
-  const householdId = params?.id || request.nextUrl.pathname.split('/')[4];
   const requestId = request.headers.get("x-request-id") || "unknown";
+
+  // Fail fast if framework doesn't provide route parameters
+  if (!context?.params) {
+    logger.error("[GET /api/v2/households/[id]/cats] Missing context.params from framework", {
+      requestId,
+      userId: user.id,
+      url: request.url
+    });
+    return NextResponse.json({
+      success: false,
+      error: "Internal routing error: missing route parameters"
+    }, { status: 500 });
+  }
+
+  const params = await context.params;
+  const householdId = params.id;
 
   logger.info("[GET /api/v2/households/[id]/cats] Starting request", {
     requestId,
@@ -40,11 +54,11 @@ export const GET = withHybridAuth(async (
     userId: user.id
   });
 
-  if (!householdId) {
-    logger.warn("[GET /api/v2/households/[id]/cats] Missing household ID", { requestId });
+  if (!householdId || typeof householdId !== 'string' || householdId.length === 0) {
+    logger.error(`[GET /api/v2/households/cats] Invalid or missing householdId`, { householdId });
     return NextResponse.json({
       success: false,
-      error: "Household ID is required"
+      error: "ID do domicílio inválido ou ausente"
     }, { status: 400 });
   }
 
@@ -117,11 +131,11 @@ export const GET = withHybridAuth(async (
       error,
     });
     
-    if (error instanceof Error && error.message.includes('connect')) {
+    // Check for Prisma connection errors (P1001, P1002, P1003, etc.)
+    if ((error as any)?.code?.startsWith('P1')) {
       return NextResponse.json({
         success: false,
-        error: "Database connection error",
-        details: error.message
+        error: "Database connection error"
       }, { status: 503 });
     }
     
@@ -138,13 +152,25 @@ export const POST = withHybridAuth(async (
   user: MobileAuthUser,
   context?: { params: Promise<{ id: string }> }
 ) => {
-  const params = context ? await context.params : null;
-  const householdId = params?.id || request.nextUrl.pathname.split('/')[4];
+  // Fail fast if framework doesn't provide route parameters
+  if (!context?.params) {
+    logger.error("[POST /api/v2/households/[id]/cats] Missing context.params from framework", {
+      userId: user.id,
+      url: request.url
+    });
+    return NextResponse.json({
+      success: false,
+      error: "Internal routing error: missing route parameters"
+    }, { status: 500 });
+  }
+
+  const params = await context.params;
+  const householdId = params.id;
 
   logger.debug(`[POST /api/v2/households/${householdId}/cats] Using householdId: ${householdId}`);
 
   if (!householdId || typeof householdId !== 'string' || householdId.length === 0) {
-    logger.error(`[POST /api/v2/households/cats] Invalid or missing householdId:`, householdId);
+    logger.error(`[POST /api/v2/households/cats] Invalid or missing householdId`, { householdId });
     return NextResponse.json({
       success: false,
       error: "ID do domicílio inválido ou ausente"
@@ -172,7 +198,7 @@ export const POST = withHybridAuth(async (
     const bodyValidation = PostBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-      logger.error(`[POST /api/v2/households/${householdId}/cats] Invalid body:`, bodyValidation.error.issues);
+      logger.error(`[POST /api/v2/households/${householdId}/cats] Invalid body`, { issues: bodyValidation.error.issues });
       return NextResponse.json({
         success: false,
         error: 'Dados inválidos',
@@ -222,7 +248,7 @@ export const POST = withHybridAuth(async (
       data: formattedCat
     }, { status: 201 });
   } catch (error) {
-    logger.error(`[POST /api/v2/households/${householdId}/cats] Error creating cat:`, error);
+    logger.error(`[POST /api/v2/households/${householdId}/cats] Error creating cat`, { error });
     
     if (error instanceof Error && error.message.includes('connect')) {
       return NextResponse.json({

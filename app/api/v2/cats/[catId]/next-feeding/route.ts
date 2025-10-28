@@ -17,7 +17,7 @@ export const GET = withHybridAuth(async (
   const catId = params?.catId || request.nextUrl.pathname.split('/').filter(Boolean)[3];
 
   if (typeof catId !== 'string' || !catId) {
-    logger.error('[GET /api/v2/cats/next-feeding] Invalid or missing catId parameter:', catId);
+    logger.error('[GET /api/v2/cats/[catId]/next-feeding] Invalid or missing catId parameter', { catId });
     return NextResponse.json({
       success: false,
       error: 'Invalid cat ID'
@@ -119,7 +119,7 @@ export const GET = withHybridAuth(async (
     });
 
   } catch (error) {
-    logger.error(`[GET /api/v2/cats/${catId}/next-feeding] Error:`, error);
+    logger.error(`[GET /api/v2/cats/${catId}/next-feeding] Error`, { error });
     return NextResponse.json({
       success: false,
       error: 'Failed to calculate next feeding time',

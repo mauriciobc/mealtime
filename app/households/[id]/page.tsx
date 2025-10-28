@@ -438,38 +438,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
 
   const isAdmin = isCurrentUserAdmin();
 
-  if ((householdState.isLoading || catsState.isLoading) && !loadError) {
-    return <Loading text="Carregando dados da residência..." />;
-  }
-
-  // Redirect if household not found or user is not authorized
-  if (!household || !isAdmin) {
-    // Added check for loading states to prevent premature redirect
-    if (!householdState.isLoading && !userState.isLoading) {
-        toast.error("Residência não encontrada ou acesso não autorizado.");
-        router.push("/households");
-        return <Loading text="Redirecionando..." />;
-    }
-    // If still loading, let the loading spinner show
-    return <Loading text="Carregando dados..." />;
-  }
-
-  if (loadError && !household) {
-    // This case handles errors specifically, maybe keep EmptyState?
-    // For now, let the redirect above handle it if household is null.
-    // If we want a specific error page/state here, we can adjust.
-    return (
-      <EmptyState
-        IconComponent={AlertTriangle}
-        title="Erro"
-        description={loadError}
-        actionButton={
-          <Button onClick={() => router.push("/households")}>Voltar para Residências</Button>
-        }
-      />
-    );
-  }
-
   return (
     <PageTransition>
       <div className="flex flex-col min-h-screen bg-background">

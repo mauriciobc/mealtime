@@ -83,7 +83,7 @@ export function CatList() {
     //     ? `Atrasado (${formatDistanceToNow(nextFeedingDateTime, { addSuffix: true, locale: ptBR })})`
     //     : formatDistanceToNow(nextFeedingDateTime, { addSuffix: true, locale: ptBR })
     // return { text, isDueSoon, isOverdue }
-  }, [isLoading, currentUser, lastLogMap])
+  }, [isLoading, currentUser])
 
   if (isLoading) {
     return (

@@ -271,7 +271,7 @@ export function useFeeding(catId: string | null) {
       // Retomar verificações de auth após operação
       resumeAuthChecks();
     }
-  }, [cat, userState.currentUser, feedingDispatch, updateFeedingTimeDisplay, pauseAuthChecks, resumeAuthChecks]);
+  }, [cat, userState.currentUser, pauseAuthChecks, resumeAuthChecks]);
 
   // Update the useEffect that handles redirection
   useEffect(() => {

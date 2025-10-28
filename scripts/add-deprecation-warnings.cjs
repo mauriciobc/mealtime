@@ -35,15 +35,32 @@ function addWarningToFile(filePath) {
       return;
     }
     
-    // Add import after the last import statement
-    const lastImportIndex = content.lastIndexOf('\nimport ');
-    if (lastImportIndex === -1) {
+    // Add import after the last import statement using regex
+    // This pattern finds all import statements, including those on the first line
+    const importPattern = /^\s*import\b/gm;
+    const matches = [];
+    let match;
+    
+    while ((match = importPattern.exec(content)) !== null) {
+      matches.push(match.index);
+    }
+    
+    if (matches.length === 0) {
       console.log(`  ⚠️  Warning: No import statements found`);
       return;
     }
     
-    const nextLineAfterLastImport = content.indexOf('\n', lastImportIndex + 1);
-    content = content.slice(0, nextLineAfterLastImport + 1) + IMPORT_STATEMENT + '\n' + content.slice(nextLineAfterLastImport + 1);
+    // Get the last import match index
+    const lastImportIndex = matches[matches.length - 1];
+    
+    // Find the end of that line
+    const nextLineAfterLastImport = content.indexOf('\n', lastImportIndex);
+    if (nextLineAfterLastImport === -1) {
+      // If no newline found, append at the end
+      content = content + '\n' + IMPORT_STATEMENT + '\n';
+    } else {
+      content = content.slice(0, nextLineAfterLastImport + 1) + IMPORT_STATEMENT + '\n' + content.slice(nextLineAfterLastImport + 1);
+    }
     
     // Add warning to all NextResponse.json() returns
     // This is a simplified approach - manual review recommended
