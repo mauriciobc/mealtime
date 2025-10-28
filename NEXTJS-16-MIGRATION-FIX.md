@@ -128,6 +128,10 @@ Please use "./proxy.ts" only.
 Adicionado plugin explícito conforme [changelog do Netlify](https://www.netlify.com/changelog/next-js-16-deploy-on-netlify/):
 
 ```toml
+[build]
+  command = "npm run build"
+  # NO publish directory - plugin handles it automatically
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 ```
@@ -135,7 +139,10 @@ Adicionado plugin explícito conforme [changelog do Netlify](https://www.netlify
 **Por quê?**
 - O adaptador "automático" pode usar versão desatualizada
 - Plugin explícito garante versão mais recente com suporte ao Next.js 16
+- **IMPORTANTE:** Não especificar `publish` - o plugin gerencia automaticamente
 - Necessário para deploy confiável de projetos Next.js 16
+
+**Erro 404:** Causado por `publish = ".next"` - o plugin Next.js não funciona com `publish` explícito.
 
 ---
 
