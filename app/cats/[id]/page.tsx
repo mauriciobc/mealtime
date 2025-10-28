@@ -10,7 +10,7 @@ import { GlobalLoading } from '@/components/ui/global-loading'
 import { validate as validateUUID } from 'uuid'
 
 interface PageProps {
-  params: Promise<{ id: string }> | { id: string }
+  params: Promise<{ id: string }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

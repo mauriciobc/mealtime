@@ -1,10 +1,13 @@
 # Netlify configuration for Next.js 16
-# Usando adaptador automático Netlify Next Runtime v5
-# Configuração minimalista seguindo template oficial: github.com/netlify-templates/next-platform-starter
+# Configuração otimizada para OpenNext v3 Adapter
 
 [build]
   command = "npm run build"
+  # Build usa --webpack flag para compatibilidade com config webpack customizada
 
 [build.environment]
   NODE_VERSION = "20.18.0"
   NPM_FLAGS = "--include=dev"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

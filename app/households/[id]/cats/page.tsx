@@ -7,12 +7,13 @@ import { AlertCircle } from 'lucide-react';
 import { GlobalLoading } from '@/components/ui/global-loading';
 
 interface CatsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function CatsPage({ params }: CatsPageProps) {
+export default async function CatsPage({ params }: CatsPageProps) {
+  const resolvedParams = await params;
   const isLoading = false; // Replace with actual loading logic
 
   if (isLoading) {
@@ -23,7 +24,7 @@ export default function CatsPage({ params }: CatsPageProps) {
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold tracking-tight">Cats</h1>
-        <AddCatButton householdId={params.id} />
+        <AddCatButton householdId={resolvedParams.id} />
       </div>
 
       <ErrorBoundary
@@ -44,7 +45,7 @@ export default function CatsPage({ params }: CatsPageProps) {
             </div>
           }
         >
-          <CatsList householdId={params.id} />
+          <CatsList householdId={resolvedParams.id} />
         </Suspense>
       </ErrorBoundary>
     </div>

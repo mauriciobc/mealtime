@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
-  turbopack: {},
+  // REMOVIDO: output: 'standalone' - incompatível com Netlify
+  // Netlify usa OpenNext v3 automaticamente
   productionBrowserSourceMaps: false,
   images: {
     remotePatterns: [

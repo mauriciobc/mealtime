@@ -5,7 +5,7 @@ import { headers } from 'next/headers';
 // GET /api/feedings/[id] - Buscar detalhes de um registro de alimentação
 export async function GET(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const headersList = await headers();
   const authUserId = headersList.get('X-User-ID');
@@ -111,7 +111,7 @@ export async function GET(
 // DELETE /api/feedings/[id] - Excluir um registro de alimentação
 export async function DELETE(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> | { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   const headersList = await headers();
   const authUserId = headersList.get('X-User-ID');
