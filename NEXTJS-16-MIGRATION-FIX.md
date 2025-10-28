@@ -111,20 +111,17 @@ O Netlify MCP revelou que o deploy está usando `@netlify/plugin-nextjs@5.14.4` 
 
 ### 🔧 Soluções Implementadas
 
-#### 1. Wrapper de Compatibilidade `middleware.ts`
+#### 1. ~~Wrapper de Compatibilidade `middleware.ts`~~ ❌ REMOVIDO
 
-Criado `middleware.ts` como **wrapper de compatibilidade** que:
-1. Importa e re-exporta o `proxy.ts`
-2. Mantém suporte ao Next.js 16 localmente
-3. Funciona com o plugin Netlify desatualizado
-4. Será removido quando o plugin for atualizado
+**Tentativa inicial (ERRO):** Criei `middleware.ts` como wrapper, mas Next.js 16 **NÃO PERMITE** ter ambos os arquivos.
 
-**Arquivo:** `middleware.ts`
-```typescript
-import proxyFunction from './proxy';
-export default proxyFunction;
-export { config } from './proxy';
+**Erro do build:**
 ```
+Error: Both middleware file "./middleware.ts" and proxy file "./proxy.ts" are detected. 
+Please use "./proxy.ts" only.
+```
+
+**Solução:** Removido `middleware.ts` completamente. O plugin Netlify atualizado deve funcionar apenas com `proxy.ts`.
 
 #### 2. Atualização do `netlify.toml`
 
@@ -188,7 +185,8 @@ Adicionado plugin explícito conforme [changelog do Netlify](https://www.netlify
 - [x] Todos os `cookies()` sendo await
 - [x] Todos os `headers()` sendo await (já estava correto)
 - [x] Problema do Netlify identificado via MCP
-- [x] Workaround `middleware.ts` criado para Netlify
+- [x] ~~Workaround `middleware.ts` criado~~ ❌ Removido (conflito Next.js 16)
+- [x] Plugin Netlify explícito adicionado ao netlify.toml
 - [ ] Testes manuais realizados
 - [ ] Build de produção funcionando
 - [ ] Deploy realizado com sucesso
