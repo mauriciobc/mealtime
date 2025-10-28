@@ -88,7 +88,7 @@ export default async function CatSettingsPage({ params }: { params: Promise<{ id
   // For now, return basic structure or placeholder
   return (
     <div>
-       <h1>Cat Settings Server Component (ID: {params.id})</h1>
+       <h1>Cat Settings Server Component (ID: {resolvedParams.id})</h1>
        <p>User: {supabaseUser.email}</p>
        <p>Cat: {cat?.name}</p>
        {/* <SettingsClientPage cat={cat} /> */}

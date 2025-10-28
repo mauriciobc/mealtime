@@ -126,13 +126,16 @@ async function getCatData(id: string, userId: string): Promise<CatData | null> {
 
 export default async function DefaultCatPage({ params }: PageProps) {
   try {
-    // Validate params first
-    if (typeof params.id !== 'string' || !params.id) {
+    // Await params first (required in Next.js 16)
+    const resolvedParams = await params
+    
+    // Validate params
+    if (typeof resolvedParams.id !== 'string' || !resolvedParams.id) {
       console.error("[CatPage] Invalid params", { 
-        params,
+        params: resolvedParams,
         timestamp: new Date().toISOString()
       })
-      redirectionLogger.logNotFoundRedirection(`/cats/${params.id}`, undefined)
+      redirectionLogger.logNotFoundRedirection(`/cats/${resolvedParams.id}`, undefined)
       notFound()
     }
 
@@ -157,15 +160,15 @@ export default async function DefaultCatPage({ params }: PageProps) {
     }
 
     // Fetch data with authorization
-    const cat = await getCatData(params.id, user.id)
+    const cat = await getCatData(resolvedParams.id, user.id)
     
     if (!cat) {
       console.error("[CatPage] Cat not found or not authorized", { 
-        id: params.id,
+        id: resolvedParams.id,
         userId: user.id,
         timestamp: new Date().toISOString()
       })
-      redirectionLogger.logNotFoundRedirection(`/cats/${params.id}`, user.id)
+      redirectionLogger.logNotFoundRedirection(`/cats/${resolvedParams.id}`, user.id)
       notFound()
     }
 

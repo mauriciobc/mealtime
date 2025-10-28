@@ -89,7 +89,7 @@ export async function GET(
   }
   const householdId = parseInt(paramsValidation.data.id);
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
@@ -143,7 +143,7 @@ export async function POST(
   }
   const householdId = parseInt(paramsValidation.data.id);
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 
@@ -236,7 +236,7 @@ export async function DELETE(
   const householdId = parseInt(paramsValidation.data.id);
   const userIdToRemove = params.userId;
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 

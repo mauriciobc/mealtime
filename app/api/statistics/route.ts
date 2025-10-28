@@ -7,7 +7,7 @@ import prisma from '@/lib/prisma';
 // GET /api/statistics - Obter estatísticas de alimentação
 export async function GET(request: Request) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 

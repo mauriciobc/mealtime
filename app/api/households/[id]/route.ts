@@ -108,7 +108,7 @@ export async function GET(
     }
     const householdId = paramsValidation.data.id;
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = await createClient(cookieStore);
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
@@ -205,7 +205,7 @@ export async function PATCH(
     if (!paramsValidation.success) return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
     const householdId = paramsValidation.data.id;
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = await createClient(cookieStore);
     const { data: { user: supabaseUser }, error: authError } = await supabase.auth.getUser();
 
@@ -299,7 +299,7 @@ export async function DELETE(
   if (!paramsValidation.success) return NextResponse.json({ error: paramsValidation.error.errors }, { status: 400 });
   const householdId = paramsValidation.data.id;
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = await createClient(cookieStore);
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 

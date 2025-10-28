@@ -63,7 +63,7 @@ export async function GET(
   }
   const householdId = parseInt(paramsValidation.data.id);
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const { data: { user: supabaseUser } } = await supabase.auth.getUser();
 

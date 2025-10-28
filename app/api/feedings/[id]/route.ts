@@ -5,11 +5,12 @@ import { headers } from 'next/headers';
 // GET /api/feedings/[id] - Buscar detalhes de um registro de alimentação
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   const headersList = await headers();
   const authUserId = headersList.get('X-User-ID');
-  const logId = context.params.id;
+  const params = await context.params;
+  const logId = params.id;
 
   if (!authUserId) {
     console.log(`[GET /api/feedings/${logId}] Failed: Missing X-User-ID header`);
@@ -110,11 +111,12 @@ export async function GET(
 // DELETE /api/feedings/[id] - Excluir um registro de alimentação
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   const headersList = await headers();
   const authUserId = headersList.get('X-User-ID');
-  const logId = context.params.id;
+  const params = await context.params;
+  const logId = params.id;
 
   if (!authUserId) {
     console.log(`[DELETE /api/feedings/${logId}] Failed: Missing X-User-ID header`);

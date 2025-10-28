@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) { // Use NextRequest
 
   try {
     // Attempt to get Supabase user - this might fail if cookies are invalid/missing, which is okay for logging
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const { data: { user: supabaseUser } } = await supabase.auth.getUser();
     if (supabaseUser) {

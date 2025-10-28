@@ -19,8 +19,8 @@ export type UpdateUserPreferencesResponse = {
 };
 
 // Helper function to create Supabase client in API routes using async cookie store
-function createSupabaseRouteClient() {
-  const cookieStore = cookies();
+async function createSupabaseRouteClient() {
+  const cookieStore = await cookies();
 
   // Define the async cookie store based on utils/supabase/server.ts pattern
   const asyncCookieStore = {

@@ -1,5 +1,6 @@
 # Netlify configuration for Next.js 16
-# Using automatic OpenNext adapter (no plugin needed)
+# Updated for Next.js 16 support with explicit plugin
+# See: https://www.netlify.com/changelog/next-js-16-deploy-on-netlify/
 
 [build]
   command = "npm run build"
@@ -8,6 +9,10 @@
 [build.environment]
   NODE_VERSION = "20.18.0"
   NPM_FLAGS = "--include=dev"
+
+# Next.js 16 requires explicit plugin configuration
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 # Serve static assets directly from Netlify's CDN and don't proxy them to the function
 [[redirects]]
