@@ -44,16 +44,24 @@ model cats {
   @@schema("public")
 }
 
+/// Enum for household member roles
+enum household_role {
+  admin
+  member
+
+  @@schema("public")
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model household_members {
-  id           String     @id @default(uuid()) @db.Uuid
-  household_id String     @db.Uuid
-  user_id      String     @db.Uuid
-  role         String
-  created_at   DateTime   @default(now()) @db.Timestamptz(6)
-  household    households @relation(fields: [household_id], references: [id])
-  user         profiles   @relation(fields: [user_id], references: [id])
+  id           String          @id @default(uuid()) @db.Uuid
+  household_id String          @db.Uuid
+  user_id      String          @db.Uuid
+  role         household_role
+  created_at   DateTime        @default(now()) @db.Timestamptz(6)
+  household    households      @relation(fields: [household_id], references: [id])
+  user         profiles        @relation(fields: [user_id], references: [id])
 
   @@unique([household_id, user_id])
   @@index([household_id])

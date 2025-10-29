@@ -43,10 +43,10 @@ async function isUserAdmin(userId: string, householdId: string): Promise<boolean
       select: { role: true },
     });
     
-    const role = membership?.role?.toLowerCase();
-    const hasPermission = role === 'admin' || role === 'owner';
+    const role = membership?.role;
+    const hasPermission = role === 'admin';
     
-    logger.debug(`[isUserAdmin] User ${userId} ${hasPermission ? 'has' : 'does not have'} admin/owner permissions. Role: "${membership?.role}"`);
+    logger.debug(`[isUserAdmin] User ${userId} ${hasPermission ? 'has' : 'does not have'} admin permissions. Role: "${role}"`);
     
     return hasPermission;
   } catch (error) {

@@ -19,7 +19,7 @@ const RouteParamsSchema = z.object({
 // Zod schema for POST request body
 const PostBodySchema = z.object({
   email: z.string().email("Email inválido"),
-  role: z.enum(['admin', 'member', 'ADMIN', 'MEMBER'], { 
+  role: z.enum(['admin', 'member'], { 
     message: 'Papel inválido. Deve ser "admin" ou "member"' 
   }),
 }).strict();
@@ -65,7 +65,7 @@ async function authorizeAdmin(userId: string, householdId: string): Promise<{
       };
     }
 
-    if (membership.role !== 'admin' && membership.role !== 'ADMIN') {
+    if (membership.role !== 'admin') {
       return { 
         authorized: false, 
         error: NextResponse.json({
@@ -310,54 +310,52 @@ export const POST = withHybridAuth(async (
       }, { status: 404 });
     }
 
-    // Check if the user is already in THIS household
-    const existingMembership = await prisma.household_members.findUnique({
-      where: {
-        household_id_user_id: {
-          household_id: householdId,
-          user_id: userToAdd.id
-        }
-      }
-    });
-
-    if (existingMembership) {
-      return NextResponse.json({
-        success: false,
-        error: 'Este usuário já pertence a este domicílio.'
-      }, { status: 400 });
-    }
-
-    // Check if the user is already in ANOTHER household
-    const otherMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: userToAdd.id,
-        household_id: { not: householdId }
-      }
-    });
-
-    if (otherMembership) {
-      return NextResponse.json({
-        success: false,
-        error: 'Este usuário já pertence a outro domicílio.'
-      }, { status: 400 });
-    }
-
-    // Add user to the household by creating a membership record
-    const newMembership = await prisma.household_members.create({
-      data: {
-        household_id: householdId,
-        user_id: userToAdd.id,
-        role: roleToAdd.toUpperCase()
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            full_name: true,
-            email: true,
+    // Use transaction to prevent race conditions
+    // All validation checks and creation happen atomically
+    const newMembership = await prisma.$transaction(async (tx) => {
+      // Check if the user is already in THIS household
+      const existingMembership = await tx.household_members.findUnique({
+        where: {
+          household_id_user_id: {
+            household_id: householdId,
+            user_id: userToAdd.id
           }
         }
+      });
+
+      if (existingMembership) {
+        throw new Error('ALREADY_IN_HOUSEHOLD');
       }
+
+      // Check if the user is already in ANOTHER household
+      const otherMembership = await tx.household_members.findFirst({
+        where: {
+          user_id: userToAdd.id,
+          household_id: { not: householdId }
+        }
+      });
+
+      if (otherMembership) {
+        throw new Error('ALREADY_IN_OTHER_HOUSEHOLD');
+      }
+
+      // Add user to the household by creating a membership record
+      return await tx.household_members.create({
+        data: {
+          household_id: householdId,
+          user_id: userToAdd.id,
+          role: roleToAdd.toUpperCase()
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              full_name: true,
+              email: true,
+            }
+          }
+        }
+      });
     });
 
     // Format response
@@ -379,6 +377,21 @@ export const POST = withHybridAuth(async (
     }, { status: 201 });
 
   } catch (error) {
+    // Handle custom transaction errors
+    if ((error as Error).message === 'ALREADY_IN_HOUSEHOLD') {
+      return NextResponse.json({
+        success: false,
+        error: 'Este usuário já pertence a este domicílio.'
+      }, { status: 400 });
+    }
+    
+    if ((error as Error).message === 'ALREADY_IN_OTHER_HOUSEHOLD') {
+      return NextResponse.json({
+        success: false,
+        error: 'Este usuário já pertence a outro domicílio.'
+      }, { status: 400 });
+    }
+    
     logger.error('[POST /api/v2/households/[id]/members] Error adding member:', {
       requestId,
       error

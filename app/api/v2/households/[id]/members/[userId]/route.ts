@@ -57,7 +57,7 @@ async function authorizeAdmin(userId: string, householdId: string): Promise<{
       };
     }
 
-    if (membership.role !== 'admin' && membership.role !== 'ADMIN') {
+    if (membership.role !== 'admin') {
       return { 
         authorized: false, 
         error: NextResponse.json({
@@ -122,6 +122,14 @@ export const DELETE = withHybridAuth(async (
       userIdToRemove
     });
 
+    // Prevent self-removal (early check, before any DB access)
+    if (userIdToRemove === user.id) {
+      return NextResponse.json({
+        success: false,
+        error: 'Você não pode remover a si mesmo. Peça a outro administrador para removê-lo.'
+      }, { status: 400 });
+    }
+
     // Authorize: Only admins can remove members
     const authResult = await authorizeAdmin(user.id, householdId);
     if (!authResult.authorized) {
@@ -149,41 +157,32 @@ export const DELETE = withHybridAuth(async (
       }, { status: 404 });
     }
 
-    // Prevent removing the last admin
-    if (membershipToRemove.role === 'admin' || membershipToRemove.role === 'ADMIN') {
-      const adminCount = await prisma.household_members.count({
+    // Atomically check admin count and delete member in a transaction to prevent race conditions
+    await prisma.$transaction(async (tx) => {
+      // If removing an admin, check that it's not the last one
+      if (membershipToRemove.role === 'admin') {
+        const adminCount = await tx.household_members.count({
+          where: {
+            household_id: householdId,
+            role: 'admin'
+          }
+        });
+
+        if (adminCount <= 1) {
+          // Throw sentinel error instead of deleting
+          throw new Error('LAST_ADMIN');
+        }
+      }
+
+      // Remove the member (only executes if admin check passed)
+      await tx.household_members.delete({
         where: {
-          household_id: householdId,
-          role: {
-            in: ['admin', 'ADMIN']
+          household_id_user_id: {
+            household_id: householdId,
+            user_id: userIdToRemove
           }
         }
       });
-
-      if (adminCount <= 1) {
-        return NextResponse.json({
-          success: false,
-          error: 'Não é possível remover o último administrador do domicílio'
-        }, { status: 400 });
-      }
-    }
-
-    // Prevent self-removal (optional - could allow if there's another admin)
-    if (userIdToRemove === user.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Você não pode remover a si mesmo. Peça a outro administrador para removê-lo.'
-      }, { status: 400 });
-    }
-
-    // Remove the member
-    await prisma.household_members.delete({
-      where: {
-        household_id_user_id: {
-          household_id: householdId,
-          user_id: userIdToRemove
-        }
-      }
     });
 
     logger.info("[DELETE /api/v2/households/[id]/members/[userId]] Successfully removed member", {
@@ -197,6 +196,18 @@ export const DELETE = withHybridAuth(async (
     }, { status: 200 });
 
   } catch (error) {
+    // Handle sentinel error for last admin removal attempt
+    if (error instanceof Error && error.message === 'LAST_ADMIN') {
+      logger.warn('[DELETE /api/v2/households/[id]/members/[userId]] Attempted to remove last admin', {
+        requestId,
+        householdId: context?.params ? (await context.params).id : 'unknown'
+      });
+      return NextResponse.json({
+        success: false,
+        error: 'Não é possível remover o último administrador do domicílio'
+      }, { status: 400 });
+    }
+
     logger.error('[DELETE /api/v2/households/[id]/members/[userId]] Error removing member:', {
       requestId,
       error

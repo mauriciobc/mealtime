@@ -16,6 +16,11 @@ const createHouseholdSchema = z.object({
   name: z.string().min(1, 'Nome do domicílio é obrigatório'),
 });
 
+const paginationSchema = z.object({
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  page: z.coerce.number().int().positive().default(1),
+});
+
 // GET /api/v2/households - Get all households for the user
 export const GET = withHybridAuth(async (
   request: NextRequest,
@@ -29,6 +34,35 @@ export const GET = withHybridAuth(async (
   });
 
   try {
+    // Parse and validate pagination parameters
+    const { searchParams } = new URL(request.url);
+    const paginationResult = paginationSchema.safeParse({
+      limit: searchParams.get('limit') || '20',
+      page: searchParams.get('page') || '1',
+    });
+
+    if (!paginationResult.success) {
+      logger.error('[GET /api/v2/households] Pagination validation error', {
+        requestId,
+        issues: paginationResult.error.issues
+      });
+      return NextResponse.json({
+        success: false,
+        error: 'Parâmetros de paginação inválidos',
+        details: paginationResult.error.issues
+      }, { status: 400 });
+    }
+
+    const { limit, page } = paginationResult.data;
+    const skip = (page - 1) * limit;
+
+    logger.info("[GET /api/v2/households] Pagination params", {
+      requestId,
+      limit,
+      page,
+      skip
+    });
+
     // Fetch households the user is a member of using Prisma profile ID
     const userWithHouseholds = await prisma.profiles.findUnique({
       where: {
@@ -36,6 +70,8 @@ export const GET = withHybridAuth(async (
       },
       select: {
         household_members: {
+          skip,
+          take: limit,
           select: {
             household: {
               include: {
@@ -63,44 +99,71 @@ export const GET = withHybridAuth(async (
       return NextResponse.json({
         success: true,
         data: [],
-        count: 0
+        count: 0,
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0
+        }
       });
     }
+
+    // Get total count for pagination metadata
+    const totalCount = await prisma.household_members.count({
+      where: { user_id: user.id }
+    });
     
     const households = userWithHouseholds.household_members.map(member => {
       const household = member.household;
       
-      // Find the owner info from members list
-      const ownerMember = household.household_members.find(m => m.user.id === household.owner_id);
+      // Filter out members with null user to avoid runtime errors
+      const validMembers = household.household_members.filter(m => m.user !== null);
+      
+      // Find the owner info from members list (with null check)
+      const ownerMember = validMembers.find(m => m.user?.id === household.owner_id);
       
       return {
         ...household,
         // Add owner property mapped from owner_id
-        owner: ownerMember ? {
+        owner: ownerMember?.user ? {
           id: ownerMember.user.id,
-          name: ownerMember.user.full_name,
-          email: ownerMember.user.email
+          name: ownerMember.user.full_name || 'Usuário sem nome',
+          email: ownerMember.user.email || ''
         } : undefined,
-        members: household.household_members.map(m => ({
+        // Only map members with valid user data
+        members: validMembers.map(m => ({
           id: m.id,
-          userId: m.user.id,
-          name: m.user.full_name,
-          email: m.user.email,
+          userId: m.user!.id, // Safe because we filtered null users
+          name: m.user!.full_name || 'Usuário sem nome',
+          email: m.user!.email || '',
           role: m.role,
           joinedAt: m.created_at
         }))
       };
     });
 
+    const totalPages = Math.ceil(totalCount / limit);
+
     logger.info(`[GET /api/v2/households] Found ${households.length} households`, {
       requestId,
-      count: households.length
+      count: households.length,
+      page,
+      totalPages
     });
 
     return NextResponse.json({
       success: true,
       data: households,
-      count: households.length
+      count: households.length,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      }
     });
 
   } catch (error: any) {
@@ -110,24 +173,12 @@ export const GET = withHybridAuth(async (
       message: error?.message
     });
     
-    // Check for specific Prisma errors
+    // Check for specific Prisma errors relevant to read operations
     if (error?.code === 'P2021') {
       return NextResponse.json({
         success: false,
         error: 'Tabela não encontrada. Verifique se as migrações foram aplicadas.'
       }, { status: 500 });
-    }
-    if (error?.code === 'P2002') {
-      return NextResponse.json({
-        success: false,
-        error: 'Conflito de dados.'
-      }, { status: 409 });
-    }
-    if (error?.code === 'P2025') {
-      return NextResponse.json({
-        success: false,
-        error: 'Registro não encontrado.'
-      }, { status: 404 });
     }
     
     return NextResponse.json({
@@ -150,9 +201,6 @@ export const POST = withHybridAuth(async (
   });
 
   try {
-    // Ensure database connection
-    await prisma.$connect();
-
     const body = await request.json();
     
     // Validate request body
@@ -180,7 +228,7 @@ export const POST = withHybridAuth(async (
           household_members: {
             create: {
               user_id: user.id,
-              role: 'ADMIN',
+              role: 'admin',
             },
           },
         },

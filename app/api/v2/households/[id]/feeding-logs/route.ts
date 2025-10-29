@@ -17,6 +17,38 @@ const RouteParamsSchema = z.object({
   id: z.string().uuid({ message: "ID do domicílio inválido" }),
 });
 
+// Helper function to safely parse and validate numeric query parameters
+function parsePositiveInteger(
+  value: string | null, 
+  defaultValue: number, 
+  maxValue?: number
+): number {
+  // Se não tem valor, retorna o padrão
+  if (!value) {
+    return defaultValue;
+  }
+
+  // Tenta converter para número
+  const parsed = parseInt(value, 10);
+
+  // Verifica se é um número válido (não NaN e é finito)
+  if (Number.isNaN(parsed) || !Number.isFinite(parsed)) {
+    return defaultValue;
+  }
+
+  // Garante que não é negativo
+  if (parsed < 0) {
+    return defaultValue;
+  }
+
+  // Se tem limite máximo, aplica ele
+  if (maxValue !== undefined && parsed > maxValue) {
+    return maxValue;
+  }
+
+  return parsed;
+}
+
 // Helper function for authorization
 async function authorizeMember(userId: string, householdId: string): Promise<{ 
   authorized: boolean; 
@@ -103,9 +135,13 @@ export const GET = withHybridAuth(async (
 
     // Parse query parameters for filtering
     const searchParams = request.nextUrl.searchParams;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 100;
-    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0;
-    const catId = searchParams.get('catId');
+    
+    // Sanitize and validate numeric parameters with safe defaults and max limits
+    const limit = parsePositiveInteger(searchParams.get('limit'), 100, 500);
+    const offset = parsePositiveInteger(searchParams.get('offset'), 0);
+    
+    // Handle catId as string or null
+    const catId = searchParams.get('catId') || null;
 
     // Build where clause
     const whereClause: any = {

@@ -158,9 +158,6 @@ export async function POST(request: NextRequest) {
   console.log("\n--- [POST /api/households] Start ---");
 
   try {
-    // Ensure database connection
-    await prisma.$connect();
-
     // Get authenticated user using getUser() for security
     const supabase = await createSupabaseRouteClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();

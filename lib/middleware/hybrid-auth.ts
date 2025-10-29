@@ -124,11 +124,12 @@ export async function validateHybridAuth(request: NextRequest): Promise<{
 
 /**
  * Wrapper para endpoints que requerem autenticação híbrida (JWT ou Session)
+ * Suporta context com params dinâmicos do Next.js 16
  */
-export function withHybridAuth(
-  handler: (request: NextRequest, user: MobileAuthUser) => Promise<NextResponse>
+export function withHybridAuth<P = any>(
+  handler: (request: NextRequest, user: MobileAuthUser, context?: { params: Promise<P> }) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest) => {
+  return async (request: NextRequest, context?: { params: Promise<P> }) => {
     const authResult = await validateHybridAuth(request);
     
     if (!authResult.success) {
@@ -141,7 +142,7 @@ export function withHybridAuth(
       );
     }
     
-    return handler(request, authResult.user!);
+    return handler(request, authResult.user!, context);
   };
 }
 

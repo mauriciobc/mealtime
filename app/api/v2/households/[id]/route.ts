@@ -107,7 +107,7 @@ async function authorizeAdmin(userId: string, householdId: string): Promise<{ au
       };
     }
     
-    if (membership.role !== 'admin' && membership.role !== 'ADMIN') {
+    if (membership.role.trim().toLowerCase() !== 'admin') {
       return { 
         authorized: false, 
         error: NextResponse.json({
@@ -220,9 +220,19 @@ export const GET = withHybridAuth(async (
 
     // Find the owner (admin member)
     const ownerMember = household.household_members.find(
-      member => member.role?.toLowerCase() === 'admin'
+      member => member.role === 'admin'
     );
     const ownerUser = ownerMember?.user;
+
+    // Helper function to normalize role from database to expected type
+    const normalizeRole = (dbRole: string): 'Admin' | 'Member' => {
+      // DB now enforces lowercase via enum, so direct comparison is safe
+      if (dbRole === 'admin') {
+        return 'Admin';
+      }
+      // Default to 'Member' for any other value
+      return 'Member';
+    };
 
     // Format the response
     const formattedHousehold = {
@@ -234,7 +244,7 @@ export const GET = withHybridAuth(async (
         userId: member.user.id,
         name: member.user.full_name,
         email: member.user.email,
-        role: member.role as 'Admin' | 'Member',
+        role: normalizeRole(member.role),
         joinedAt: member.created_at
       })),
       cats: household.cats.map(cat => cat.id),

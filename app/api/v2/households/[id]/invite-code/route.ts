@@ -33,8 +33,8 @@ async function isUserAdmin(userId: string, householdId: string): Promise<boolean
       select: { role: true },
     });
     
-    const role = membership?.role?.toLowerCase();
-    return role === 'admin' || role === 'owner';
+    const role = membership?.role;
+    return role === 'admin';
   } catch (error) {
     logger.error('[isUserAdmin] Error checking admin status', { error });
     return false;
