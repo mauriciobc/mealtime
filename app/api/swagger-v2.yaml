@@ -524,6 +524,433 @@ paths:
           description: Agendamento deletado
 
   # ==================== HOUSEHOLDS ====================
+  /households:
+    get:
+      tags: [Households]
+      summary: Listar domicílios (v2)
+      description: Retorna todos os domicílios do usuário autenticado
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Lista de domicílios
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                            owner_id:
+                              type: string
+                              format: uuid
+                            created_at:
+                              type: string
+                              format: date-time
+                            members:
+                              type: array
+                              items:
+                                type: object
+        '401':
+          description: Não autorizado
+    
+    post:
+      tags: [Households]
+      summary: Criar domicílio (v2)
+      description: Cria um novo domicílio e adiciona o usuário como admin
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: "Minha Casa"
+      responses:
+        '201':
+          description: Domicílio criado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          owner_id:
+                            type: string
+                            format: uuid
+                          members:
+                            type: array
+        '400':
+          description: Dados inválidos
+        '401':
+          description: Não autorizado
+
+  /households/{id}:
+    get:
+      tags: [Households]
+      summary: Buscar domicílio (v2)
+      description: Retorna detalhes de um domicílio específico
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalhes do domicílio
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          inviteCode:
+                            type: string
+                          members:
+                            type: array
+                          cats:
+                            type: array
+                          owner:
+                            type: object
+        '403':
+          description: Acesso negado
+        '404':
+          description: Domicílio não encontrado
+    
+    patch:
+      tags: [Households]
+      summary: Atualizar domicílio (v2)
+      description: Atualiza informações do domicílio (apenas admins)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+      responses:
+        '200':
+          description: Domicílio atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: Dados inválidos
+        '403':
+          description: Apenas administradores podem atualizar
+        '404':
+          description: Domicílio não encontrado
+    
+    delete:
+      tags: [Households]
+      summary: Deletar domicílio (v2)
+      description: Deleta um domicílio e todos os dados relacionados (apenas admins)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Domicílio deletado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        '403':
+          description: Apenas administradores podem deletar
+        '404':
+          description: Domicílio não encontrado
+
+  /households/{id}/members:
+    get:
+      tags: [Households]
+      summary: Listar membros (v2)
+      description: Retorna lista de membros do domicílio
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de membros
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                            email:
+                              type: string
+                            role:
+                              type: string
+                              enum: [admin, ADMIN, member, MEMBER]
+                            isCurrentUser:
+                              type: boolean
+        '403':
+          description: Acesso negado
+        '404':
+          description: Domicílio não encontrado
+    
+    post:
+      tags: [Households]
+      summary: Adicionar membro (v2)
+      description: Adiciona um novo membro ao domicílio por email (apenas admins)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - role
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "amigo@example.com"
+                role:
+                  type: string
+                  enum: [admin, member, ADMIN, MEMBER]
+                  example: "member"
+      responses:
+        '201':
+          description: Membro adicionado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          name:
+                            type: string
+                          email:
+                            type: string
+                          role:
+                            type: string
+        '400':
+          description: Usuário já é membro ou pertence a outro domicílio
+        '403':
+          description: Apenas administradores podem adicionar membros
+        '404':
+          description: Usuário não encontrado
+
+  /households/{id}/members/{userId}:
+    delete:
+      tags: [Households]
+      summary: Remover membro (v2)
+      description: Remove um membro do domicílio (apenas admins)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do domicílio
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do usuário a ser removido
+      responses:
+        '200':
+          description: Membro removido com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        '400':
+          description: Não é possível remover o último admin ou remover a si mesmo
+        '403':
+          description: Apenas administradores podem remover membros
+        '404':
+          description: Membro não encontrado
+
+  /households/{id}/feeding-logs:
+    get:
+      tags: [Households]
+      summary: Buscar logs de alimentação (v2)
+      description: Retorna logs de alimentação dos gatos do domicílio com paginação
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 500
+          description: Número máximo de registros a retornar
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Número de registros para pular (paginação)
+        - name: catId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por gato específico
+      responses:
+        '200':
+          description: Lista de logs de alimentação
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            catId:
+                              type: string
+                              format: uuid
+                            userId:
+                              type: string
+                              format: uuid
+                            timestamp:
+                              type: string
+                              format: date-time
+                            portionSize:
+                              type: number
+                            notes:
+                              type: string
+                      totalCount:
+                        type: integer
+                      pagination:
+                        type: object
+                        properties:
+                          limit:
+                            type: integer
+                          offset:
+                            type: integer
+                          hasMore:
+                            type: boolean
+        '403':
+          description: Acesso negado
+        '404':
+          description: Domicílio não encontrado
+
   /households/{id}/cats:
     get:
       tags: [Households]
