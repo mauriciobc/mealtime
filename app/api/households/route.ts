@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
           household_members: {
             create: {
               user_id: user.id,
-              role: 'ADMIN',
+              role: 'admin',
             },
           },
         },
