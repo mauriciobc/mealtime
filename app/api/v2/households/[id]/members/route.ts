@@ -344,7 +344,7 @@ export const POST = withHybridAuth(async (
         data: {
           household_id: householdId,
           user_id: userToAdd.id,
-          role: roleToAdd.toUpperCase()
+          role: roleToAdd.toLowerCase() as 'admin' | 'member'
         },
         include: {
           user: {

@@ -12,9 +12,17 @@ export const GET = withHybridAuth(async (
   user: MobileAuthUser,
   context?: { params: Promise<{ catId: string }> }
 ) => {
-  // Extrair catId do context ou da URL
-  const params = context ? await context.params : null;
-  const catId = params?.catId || request.nextUrl.pathname.split('/').filter(Boolean)[3];
+  // Extrair catId do context
+  if (!context?.params) {
+    logger.error('[GET /api/v2/cats/[catId]/next-feeding] Missing context.params');
+    return NextResponse.json({
+      success: false,
+      error: 'Internal routing error: missing route parameters'
+    }, { status: 500 });
+  }
+  
+  const params = await context.params;
+  const catId = params.catId;
 
   if (typeof catId !== 'string' || !catId) {
     logger.error('[GET /api/v2/cats/[catId]/next-feeding] Invalid or missing catId parameter', { catId });

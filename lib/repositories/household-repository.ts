@@ -73,7 +73,7 @@ export const HouseholdRepository = {
       data: {
         household_id: householdId,
         user_id: userId,
-        role,
+        role: role.toLowerCase() as 'admin' | 'member',
       },
     });
   },
@@ -99,7 +99,7 @@ export const HouseholdRepository = {
           user_id: userId,
         },
       },
-      data: { role },
+      data: { role: role.toLowerCase() as 'admin' | 'member' },
     });
   },
 }; 

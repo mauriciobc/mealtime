@@ -129,7 +129,7 @@ export async function validateHybridAuth(request: NextRequest): Promise<{
 export function withHybridAuth<P = any>(
   handler: (request: NextRequest, user: MobileAuthUser, context?: { params: Promise<P> }) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest, context?: { params: Promise<P> }) => {
+  return async (request: NextRequest, context: { params: Promise<P> }) => {
     const authResult = await validateHybridAuth(request);
     
     if (!authResult.success) {

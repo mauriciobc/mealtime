@@ -116,7 +116,7 @@ async function debugUser(email: string) {
         data: {
           user_id: authUser.id,
           household_id: household.id,
-          role: 'owner',
+          role: 'admin',
         }
       });
       console.log(`✅ Usuário adicionado ao household como owner\n`);

@@ -120,7 +120,7 @@ async function createTestUser() {
       data: {
         user_id: user.id,
         household_id: household.id,
-        role: 'owner',
+        role: 'admin',
       }
     });
     console.log('✅ Usuário adicionado como owner do household\n');

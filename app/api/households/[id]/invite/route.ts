@@ -45,11 +45,11 @@ async function isUserAdmin(userId: string, householdId: string): Promise<boolean
     
     console.log(`[isUserAdmin] Membership check result:`, membership);
     
-    // Check if role is admin or owner, case-insensitive
+    // Check if role is admin (case-insensitive)
     const role = membership?.role?.toLowerCase();
-    const hasPermission = role === 'admin' || role === 'owner' || role === 'Admin' || role === 'Owner' || role === 'ADMIN' || role === 'OWNER';
+    const hasPermission = role === 'admin';
     
-    console.log(`[isUserAdmin] User ${userId} ${hasPermission ? 'has' : 'does not have'} admin/owner permissions for household ${householdId}. Role is "${membership?.role}"`);
+    console.log(`[isUserAdmin] User ${userId} ${hasPermission ? 'has' : 'does not have'} admin permissions for household ${householdId}. Role is "${membership?.role}"`);
     
     return hasPermission;
   } catch (error) {

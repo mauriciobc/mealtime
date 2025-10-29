@@ -157,6 +157,16 @@ export async function GET(
     const ownerMember = household.household_members.find(member => member.role?.toLowerCase() === 'admin');
     const ownerUser = ownerMember?.user;
 
+    // Helper function to normalize role from database to expected type
+    const normalizeRole = (dbRole: string): 'Admin' | 'Member' => {
+      // DB now enforces lowercase via enum, so direct comparison is safe
+      if (dbRole === 'admin') {
+        return 'Admin';
+      }
+      // Default to 'Member' for any other value
+      return 'Member';
+    };
+
     // Format the response to match the Household interface from lib/types.ts
     const formattedHousehold = {
       id: household.id,
@@ -167,7 +177,7 @@ export async function GET(
         userId: member.user.id,
         name: member.user.full_name,
         email: member.user.email,
-        role: member.role as 'Admin' | 'Member',
+        role: normalizeRole(member.role),
         joinedAt: member.created_at
       })),
       cats: household.cats.map(cat => cat.id),
