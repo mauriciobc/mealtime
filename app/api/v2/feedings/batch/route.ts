@@ -6,6 +6,51 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 
+/**
+ * Helper function to report errors to monitoring/alerting services
+ * Currently logs to console with detailed context, but can be extended
+ * to integrate with Sentry, Datadog, or other monitoring services.
+ */
+function reportSchedulingError(
+  error: unknown,
+  context: {
+    catId: string;
+    catName: string;
+    feedingId: string;
+    reminderCount: number;
+    userId: string;
+    householdId: string;
+  }
+) {
+  const errorDetails = {
+    error: error instanceof Error ? {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    } : String(error),
+    context,
+    timestamp: new Date().toISOString(),
+    severity: 'warning' as const
+  };
+
+  // Log with detailed context for debugging
+  logger.error('[POST /api/v2/feedings/batch] Scheduling notification failed', errorDetails);
+
+  // TODO: Integrate with external monitoring services
+  // Example for Sentry:
+  // if (process.env.SENTRY_DSN) {
+  //   Sentry.captureException(error, {
+  //     tags: { component: 'notification-scheduling' },
+  //     extra: context
+  //   });
+  // }
+  
+  // Example for Datadog:
+  // if (process.env.DATADOG_API_KEY) {
+  //   datadogLogger.error('Notification scheduling failed', errorDetails);
+  // }
+}
+
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
 
@@ -115,13 +160,29 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
             unit: log.unit,
             notes: log.notes ?? null,
             fed_by: user.id,
-            fed_at: new Date(log.timestamp)
+            fed_at: new Date(log.timestamp),
+            // Include status only when provided (null/undefined-safe)
+            ...(log.status !== undefined && log.status !== null && { status: log.status })
           }
         })
       )
     );
 
     logger.info(`[POST /api/v2/feedings/batch] Created ${createdFeedings.length} feeding logs`);
+
+    // Fetch household members once (excluding the user who fed)
+    const householdMembers = await prisma.household_members.findMany({
+      where: {
+        household_id: userHousehold.household_id,
+        user_id: { not: user.id }
+      },
+      select: { user_id: true }
+    });
+    
+    const reminderMemberIds = householdMembers.map(member => member.user_id);
+
+    // Track scheduling warnings to include in response
+    const schedulingWarnings: string[] = [];
 
     // Scheduled notification logic for each feeding
     for (const feeding of createdFeedings) {
@@ -132,24 +193,13 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
         continue;
       }
 
-      // Fetch household members (excluding the user who fed)
-      const householdMembers = await prisma.household_members.findMany({
-        where: {
-          household_id: cat.household_id,
-          user_id: { not: user.id }
-        },
-        select: { user_id: true }
-      });
-      
-      const reminderMembers = householdMembers.map(member => member.user_id);
-      
-      if (reminderMembers.length === 0) {
+      if (reminderMemberIds.length === 0) {
         logger.debug(`[POST /api/v2/feedings/batch] No reminder members for cat ${feeding.cat_id}`);
         continue;
       }
 
       const reminderTime = new Date(new Date(feeding.fed_at).getTime() + cat.feeding_interval * 60 * 60 * 1000);
-      const reminderNotifications = reminderMembers.map(userId => ({
+      const reminderNotifications = reminderMemberIds.map(userId => ({
         id: crypto.randomUUID(),
         userId: userId,
         catId: cat.id,
@@ -167,7 +217,20 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
           await prisma.scheduledNotification.createMany({ data: reminderNotifications });
           logger.debug(`[POST /api/v2/feedings/batch] Scheduled ${reminderNotifications.length} reminder notifications for cat ${cat.id}`);
         } catch (err) {
-          logger.error(`[POST /api/v2/feedings/batch] Failed to create scheduled notifications for cat ${cat.id}`, { err });
+          // Report error to monitoring/alerting with detailed context
+          reportSchedulingError(err, {
+            catId: cat.id,
+            catName: cat.name,
+            feedingId: feeding.id,
+            reminderCount: reminderNotifications.length,
+            userId: user.id,
+            householdId: cat.household_id
+          });
+
+          // Add warning to response payload
+          schedulingWarnings.push(
+            `Falha ao agendar ${reminderNotifications.length} lembrete(s) para o gato ${cat.name}. Os lembretes podem não ser enviados.`
+          );
         }
       }
     }
@@ -178,13 +241,32 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       tempId: logs[index]?.tempId
     }));
 
-    return NextResponse.json({
+    // Build response payload with optional warnings
+    const responsePayload: {
+      success: boolean;
+      data: {
+        count: number;
+        logs: typeof logsWithTempId;
+      };
+      warnings?: string[];
+    } = {
       success: true,
       data: {
         count: createdFeedings.length,
         logs: logsWithTempId
       }
-    }, { status: 201 });
+    };
+
+    // Include warnings if any scheduling failures occurred
+    if (schedulingWarnings.length > 0) {
+      responsePayload.warnings = schedulingWarnings;
+      logger.warn(`[POST /api/v2/feedings/batch] Response includes ${schedulingWarnings.length} scheduling warning(s)`, {
+        warnings: schedulingWarnings,
+        userId: user.id
+      });
+    }
+
+    return NextResponse.json(responsePayload, { status: 201 });
   } catch (error) {
     logger.error('[POST /api/v2/feedings/batch] Error creating batch feeding logs', { error });
     return NextResponse.json({

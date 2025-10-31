@@ -16,6 +16,9 @@ export const GET = withHybridAuth(async (
   user: MobileAuthUser,
   context?: { params: Promise<{ catId: string }> }
 ) => {
+  // UUID pattern for validation
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  
   // Extract and validate catId
   let catId: string | null = null;
   
@@ -24,7 +27,6 @@ export const GET = withHybridAuth(async (
     catId = params.catId;
     
     // Validate UUID format
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidPattern.test(catId)) {
       catId = null;
     }
@@ -33,7 +35,6 @@ export const GET = withHybridAuth(async (
     const pathname = request.nextUrl.pathname.replace(/\/+$/, '');
     const segments = pathname.split('/').filter(s => s.length > 0);
     const lastSegment = segments[segments.length - 1];
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
     if (lastSegment && uuidPattern.test(lastSegment)) {
       catId = lastSegment;
@@ -149,7 +150,8 @@ export const GET = withHybridAuth(async (
 
     return NextResponse.json({
       success: true,
-      data: transformedLog
+      data: transformedLog,
+      count: 1
     });
   } catch (error) {
     logger.error(`[GET /api/v2/feedings/last/${catId}] Error fetching last feeding`, { error });
