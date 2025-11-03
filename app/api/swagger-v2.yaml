@@ -26,6 +26,18 @@ tags:
     description: Agendamento de alimentações
   - name: Households
     description: Gerenciamento de domicílios
+  - name: Users
+    description: Gerenciamento de usuários e preferências
+  - name: Notifications
+    description: Gerenciamento de notificações
+  - name: Statistics
+    description: Estatísticas e relatórios
+  - name: Upload
+    description: Upload de arquivos
+  - name: Profile
+    description: Perfil público de usuários
+  - name: ScheduledNotifications
+    description: Notificações agendadas
 
 components:
   securitySchemes:
@@ -80,6 +92,68 @@ components:
         updated_at:
           type: string
           format: date-time
+    
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          nullable: true
+        full_name:
+          type: string
+          nullable: true
+        email:
+          type: string
+        timezone:
+          type: string
+          nullable: true
+        avatar_url:
+          type: string
+          nullable: true
+    
+    UserPreferences:
+      type: object
+      required:
+        - timezone
+      properties:
+        timezone:
+          type: string
+          description: Timezone do usuário (ex: America/Sao_Paulo)
+        language:
+          type: string
+          nullable: true
+          description: Idioma do usuário (não persistido no banco de dados)
+    
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [feeding, reminder, household, household_invite, system, info, warning, error]
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        userId:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties: true
 
 paths:
   # ==================== CATS ====================
@@ -165,6 +239,179 @@ paths:
         '403':
           description: Acesso negado
 
+  /cats/{catId}:
+    get:
+      tags: [Cats]
+      summary: Buscar gato por ID (v2)
+      description: Retorna detalhes de um gato específico
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do gato
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Cat'
+        '400':
+          description: ID inválido
+        '403':
+          description: Acesso negado
+        '404':
+          description: Gato não encontrado
+    
+    put:
+      tags: [Cats]
+      summary: Atualizar gato (v2)
+      description: Atualiza informações de um gato
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                photoUrl:
+                  type: string
+                  nullable: true
+                birthDate:
+                  type: string
+                  format: date-time
+                weight:
+                  oneOf:
+                    - type: number
+                    - type: "null"
+                feeding_interval:
+                  type: integer
+                  minimum: 1
+                  maximum: 24
+                portion_size:
+                  type: number
+                  minimum: 0
+                restrictions:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Gato atualizado
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Cat'
+        '400':
+          description: Dados inválidos
+        '403':
+          description: Acesso negado
+        '404':
+          description: Gato não encontrado
+    
+    delete:
+      tags: [Cats]
+      summary: Deletar gato (v2)
+      description: Deleta um gato e todos os registros relacionados
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Gato deletado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        '400':
+          description: ID inválido
+        '403':
+          description: Acesso negado
+        '404':
+          description: Gato não encontrado
+
+  /cats/{catId}/next-feeding:
+    get:
+      tags: [Cats]
+      summary: Calcular próxima alimentação (v2)
+      description: Calcula a próxima data/hora de alimentação baseado nos agendamentos e última alimentação
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Próxima alimentação calculada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          nextFeeding:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          catId:
+                            type: string
+                            format: uuid
+                          hasSchedules:
+                            type: boolean
+                          lastFeedingTime:
+                            type: string
+                            format: date-time
+                            nullable: true
+        '403':
+          description: Acesso negado
+        '404':
+          description: Gato não encontrado
+
   # ==================== FEEDINGS ====================
   /feedings:
     get:
@@ -233,6 +480,116 @@ paths:
       responses:
         '200':
           description: Dados da alimentação
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          catId:
+                            type: string
+                            format: uuid
+                          userId:
+                            type: string
+                            format: uuid
+                          timestamp:
+                            type: string
+                            format: date-time
+                          portionSize:
+                            type: number
+                          notes:
+                            type: string
+                            nullable: true
+                          mealType:
+                            type: string
+                          unit:
+                            type: string
+                          householdId:
+                            type: string
+                            format: uuid
+        '400':
+          description: ID inválido
+        '403':
+          description: Acesso negado
+        '404':
+          description: Alimentação não encontrada
+    
+    put:
+      tags: [Feedings]
+      summary: Atualizar alimentação (v2)
+      description: Atualiza um registro de alimentação
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  oneOf:
+                    - type: number
+                      minimum: 0
+                    - type: "null"
+                notes:
+                  type: string
+                  maxLength: 255
+                meal_type:
+                  type: string
+                  enum: [manual, scheduled, automatic]
+                unit:
+                  type: string
+                  enum: [g, ml, cups, oz]
+      responses:
+        '200':
+          description: Alimentação atualizada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          catId:
+                            type: string
+                            format: uuid
+                          timestamp:
+                            type: string
+                            format: date-time
+                          portionSize:
+                            type: number
+                          notes:
+                            type: string
+                            nullable: true
+                          mealType:
+                            type: string
+                          unit:
+                            type: string
+        '400':
+          description: Dados inválidos
+        '403':
+          description: Acesso negado
         '404':
           description: Alimentação não encontrada
     
@@ -251,6 +608,14 @@ paths:
       responses:
         '200':
           description: Alimentação deletada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '400':
+          description: ID inválido
+        '403':
+          description: Acesso negado
         '404':
           description: Alimentação não encontrada
 
@@ -280,6 +645,174 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse'
+
+  /feedings/last/{catId}:
+    get:
+      tags: [Feedings]
+      summary: Buscar última alimentação do gato (v2)
+      description: Retorna a última alimentação registrada para um gato específico
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Última alimentação ou null se não houver
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        nullable: true
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          catId:
+                            type: string
+                            format: uuid
+                          userId:
+                            type: string
+                            format: uuid
+                          timestamp:
+                            type: string
+                            format: date-time
+                          portionSize:
+                            type: number
+                          notes:
+                            type: string
+                            nullable: true
+                          mealType:
+                            type: string
+                          unit:
+                            type: string
+                          householdId:
+                            type: string
+                            format: uuid
+        '403':
+          description: Acesso negado
+        '404':
+          description: Gato não encontrado
+
+  /feedings/batch:
+    post:
+      tags: [Feedings]
+      summary: Registrar múltiplas alimentações (v2)
+      description: Cria múltiplos registros de alimentação em uma única requisição
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - logs
+              properties:
+                logs:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - catId
+                      - portionSize
+                      - timestamp
+                    properties:
+                      catId:
+                        type: string
+                        format: uuid
+                      portionSize:
+                        type: number
+                        minimum: 0
+                      timestamp:
+                        type: string
+                        format: date-time
+                      notes:
+                        type: string
+                      status:
+                        type: string
+                        enum: [Normal, Comeu Pouco, Recusou, Vomitou, Outro]
+                      mealType:
+                        type: string
+                        enum: [dry, wet, treat, medicine, water, manual, scheduled, automatic]
+                        default: manual
+                      unit:
+                        type: string
+                        enum: [g, ml, cups, oz]
+                        default: g
+                      tempId:
+                        type: string
+      responses:
+        '201':
+          description: Alimentações criadas com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          count:
+                            type: integer
+                          logs:
+                            type: array
+                            items:
+                              type: object
+                      warnings:
+                        type: array
+                        items:
+                          type: string
+        '400':
+          description: Dados inválidos
+        '403':
+          description: Acesso negado
+
+  /feedings/cats:
+    get:
+      tags: [Feedings]
+      summary: Listar gatos para alimentação (v2)
+      description: Retorna lista de gatos do household para uso em formulários de alimentação
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: householdId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lista de gatos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Cat'
+        '400':
+          description: householdId obrigatório
+        '403':
+          description: Acesso negado
 
   # ==================== WEIGHT LOGS ====================
   /weight-logs:
@@ -1054,4 +1587,998 @@ paths:
                         properties:
                           inviteCode:
                             type: string
+
+  /households/invites/{notificationId}/accept:
+    post:
+      tags: [Households]
+      summary: Aceitar convite para domicílio (v2)
+      description: Aceita um convite para participar de um domicílio baseado no ID da notificação
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID da notificação de convite
+      responses:
+        '200':
+          description: Convite aceito com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                      data:
+                        type: object
+                        properties:
+                          household:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                                format: uuid
+                              name:
+                                type: string
+        '400':
+          description: Dados inválidos ou tipo de notificação inválido
+        '403':
+          description: Convite não pertence ao usuário autenticado
+        '404':
+          description: Notificação ou domicílio não encontrado
+
+  /households/invites/{notificationId}/reject:
+    post:
+      tags: [Households]
+      summary: Rejeitar convite para domicílio (v2)
+      description: Rejeita um convite para participar de um domicílio baseado no ID da notificação
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID da notificação de convite
+      responses:
+        '200':
+          description: Convite rejeitado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        '400':
+          description: Dados inválidos ou tipo de notificação inválido
+        '403':
+          description: Convite não pertence ao usuário autenticado
+        '404':
+          description: Notificação não encontrada
+
+  # ==================== NOTIFICATIONS ====================
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Listar notificações do usuário (v2)
+      description: Retorna lista paginada de notificações do usuário autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Número da página
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+          description: Itens por página
+        - name: unreadOnly
+          in: query
+          schema:
+            type: string
+            enum: [true, false]
+            default: false
+          description: Retornar apenas notificações não lidas
+      responses:
+        '200':
+          description: Lista de notificações
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          notifications:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/Notification'
+                          pagination:
+                            type: object
+                            properties:
+                              page:
+                                type: integer
+                              limit:
+                                type: integer
+                              total:
+                                type: integer
+                              totalPages:
+                                type: integer
+                              hasMore:
+                                type: boolean
+        '400':
+          description: Parâmetros inválidos
+    
+    post:
+      tags: [Notifications]
+      summary: Criar notificação (v2)
+      description: Cria uma nova notificação para o usuário autenticado
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - message
+                - type
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                type:
+                  type: string
+                  enum: [feeding, reminder, household, household_invite, system, info, warning, error]
+                isRead:
+                  type: boolean
+                  default: false
+                metadata:
+                  type: object
+                  additionalProperties: true
+      responses:
+        '201':
+          description: Notificação criada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Notification'
+        '400':
+          description: Dados inválidos
+
+  /notifications/bulk:
+    patch:
+      tags: [Notifications]
+      summary: Operações em lote em notificações (v2)
+      description: Marcar múltiplas notificações como lidas ou marcar todas como lidas
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [mark_as_read, mark_all_as_read]
+                  description: Ação a ser executada
+                ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 100
+                  description: IDs das notificações (obrigatório para mark_as_read)
+      responses:
+        '200':
+          description: Operação realizada com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          updatedCount:
+                            type: integer
+                          action:
+                            type: string
+                      message:
+                        type: string
+        '400':
+          description: Dados inválidos
+    
+    delete:
+      tags: [Notifications]
+      summary: Deletar múltiplas notificações (v2)
+      description: Deleta múltiplas notificações do usuário autenticado
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - ids
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  minItems: 1
+                  maxItems: 100
+      responses:
+        '200':
+          description: Notificações deletadas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          deletedCount:
+                            type: integer
+                      message:
+                        type: string
+        '400':
+          description: Dados inválidos
+
+  /notifications/{id}:
+    get:
+      tags: [Notifications]
+      summary: Buscar notificação específica (v2)
+      description: Retorna uma notificação específica do usuário autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados da notificação
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Notification'
+        '404':
+          description: Notificação não encontrada
+    
+    patch:
+      tags: [Notifications]
+      summary: Atualizar notificação (v2)
+      description: Atualiza uma notificação (principalmente para marcar como lida/não lida)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isRead:
+                  type: boolean
+      responses:
+        '200':
+          description: Notificação atualizada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Notification'
+        '404':
+          description: Notificação não encontrada
+    
+    delete:
+      tags: [Notifications]
+      summary: Deletar notificação (v2)
+      description: Deleta uma notificação específica do usuário autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notificação deletada com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+        '404':
+          description: Notificação não encontrada
+
+  # ==================== STATISTICS ====================
+  /statistics:
+    get:
+      tags: [Statistics]
+      summary: Obter estatísticas de alimentação (v2)
+      description: Retorna estatísticas consolidadas de alimentação
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7dias, 30dias, 3meses]
+            default: 7dias
+          description: Período para calcular estatísticas
+        - name: catId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por gato específico (opcional, "todos" por padrão)
+      responses:
+        '200':
+          description: Estatísticas de alimentação
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          totalFeedings:
+                            type: integer
+                          averagePortionSize:
+                            type: number
+                          maxConsecutiveDays:
+                            type: integer
+                          missedSchedules:
+                            type: integer
+                          timeSeriesData:
+                            type: array
+                            items:
+                              type: object
+                          catPortionData:
+                            type: array
+                            items:
+                              type: object
+                          timeDistributionData:
+                            type: array
+                            items:
+                              type: object
+                          feedingLogs:
+                            type: array
+        '400':
+          description: Parâmetros inválidos
+        '403':
+          description: Acesso negado
+        '404':
+          description: Perfil não encontrado
+
+  # ==================== UPLOAD ====================
+  /upload:
+    post:
+      tags: [Upload]
+      summary: Upload de arquivo (v2)
+      description: Faz upload de imagem (foto de gato ou usuário)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Arquivo de imagem
+                type:
+                  type: string
+                  enum: [user, cat, thumbnail]
+                  default: user
+                  description: Tipo de upload
+      responses:
+        '201':
+          description: Upload realizado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url:
+                            type: string
+                            format: uri
+        '400':
+          description: Arquivo inválido ou ausente
+        '401':
+          description: Não autenticado
+
+  # ==================== PROFILE ====================
+  /profile/{idOrUsername}:
+    get:
+      tags: [Profile]
+      summary: Buscar perfil público (v2)
+      description: Retorna perfil público de um usuário (por ID ou username)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: idOrUsername
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID do usuário (UUID) ou username
+      responses:
+        '200':
+          description: Perfil público do usuário
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          username:
+                            type: string
+                            nullable: true
+                          full_name:
+                            type: string
+                            nullable: true
+                          avatar_url:
+                            type: string
+                            nullable: true
+                          email:
+                            type: string
+                          timezone:
+                            type: string
+                            nullable: true
+                          household_members:
+                            type: array
+                            items:
+                              type: object
+                          owned_cats:
+                            type: array
+                            items:
+                              type: object
+        '400':
+          description: ID ou username inválido
+        '404':
+          description: Perfil não encontrado
+    
+    put:
+      tags: [Profile]
+      summary: Atualizar perfil público (v2)
+      description: Atualiza o próprio perfil (usuário deve estar autenticado e ser o dono do perfil)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: idOrUsername
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID do usuário (UUID) ou username
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 30
+                email:
+                  type: string
+                  format: email
+                avatar_url:
+                  type: string
+                  nullable: true
+                  format: uri
+                timezone:
+                  type: string
+                  maxLength: 50
+      responses:
+        '200':
+          description: Perfil atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+        '400':
+          description: Dados inválidos
+        '403':
+          description: Acesso negado (usuário não pode atualizar outro perfil)
+        '404':
+          description: Perfil não encontrado
+
+  # ==================== HOUSEHOLDS JOIN ====================
+  /households/join:
+    post:
+      tags: [Households]
+      summary: Entrar em domicílio via código (v2)
+      description: Entra em um domicílio usando um código de convite
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - inviteCode
+              properties:
+                inviteCode:
+                  type: string
+                  minLength: 1
+                  example: "ABC123"
+      responses:
+        '201':
+          description: Usuário entrou no domicílio com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          name:
+                            type: string
+                          inviteCode:
+                            type: string
+                          members:
+                            type: array
+                            items:
+                              type: object
+                          cats:
+                            type: array
+                            items:
+                              type: object
+        '400':
+          description: Código inválido ou usuário já pertence a domicílio
+        '403':
+          description: Acesso negado
+        '404':
+          description: Código de convite inválido
+
+  # ==================== SCHEDULED NOTIFICATIONS ====================
+  /scheduled-notifications:
+    get:
+      tags: [ScheduledNotifications]
+      summary: Listar notificações agendadas (v2)
+      description: Retorna lista de notificações agendadas do usuário
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: delivered
+          in: query
+          schema:
+            type: boolean
+          description: Filtrar por entregue ou não (true/false)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Número máximo de registros
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Offset para paginação
+      responses:
+        '200':
+          description: Lista de notificações agendadas
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          notifications:
+                            type: array
+                            items:
+                              type: object
+                          pagination:
+                            type: object
+                            properties:
+                              limit:
+                                type: integer
+                              offset:
+                                type: integer
+                              total:
+                                type: integer
+                              hasMore:
+                                type: boolean
+    
+    post:
+      tags: [ScheduledNotifications]
+      summary: Criar notificação agendada (v2)
+      description: Agenda uma notificação para ser entregue em uma data futura
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - title
+                - message
+                - scheduledFor
+              properties:
+                type:
+                  type: string
+                  minLength: 1
+                title:
+                  type: string
+                  minLength: 1
+                message:
+                  type: string
+                  minLength: 1
+                scheduledFor:
+                  type: string
+                  format: date-time
+                  description: Data/hora em formato ISO-8601 (UTC) para entrega
+                catId:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        '201':
+          description: Notificação agendada criada
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                          userId:
+                            type: string
+                            format: uuid
+                          type:
+                            type: string
+                          title:
+                            type: string
+                          message:
+                            type: string
+                          deliverAt:
+                            type: string
+                            format: date-time
+                          delivered:
+                            type: boolean
+        '400':
+          description: Dados inválidos ou data no passado
+        '401':
+          description: Não autenticado
+
+  /scheduled-notifications/deliver:
+    post:
+      tags: [ScheduledNotifications]
+      summary: Entregar notificações pendentes (v2)
+      description: Processa e entrega notificações agendadas que estão vencidas
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Notificações entregues
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          delivered:
+                            type: integer
+                          notifications:
+                            type: array
+                            items:
+                              type: object
+        '500':
+          description: Erro interno do servidor
+
+  # ==================== USERS ====================
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Obter informações do usuário (v2)
+      description: Retorna informações do perfil do usuário autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do usuário (deve corresponder ao usuário autenticado)
+      responses:
+        '200':
+          description: Informações do usuário
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado (usuário tentando acessar dados de outro usuário)
+        '404':
+          description: Usuário não encontrado
+    
+    put:
+      tags: [Users]
+      summary: Atualizar informações do usuário (v2)
+      description: Atualiza informações do perfil do usuário autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do usuário (deve corresponder ao usuário autenticado)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  minLength: 1
+                  description: Nome completo do usuário
+                username:
+                  type: string
+                  minLength: 1
+                  description: Nome de usuário único
+                avatar_url:
+                  type: string
+                  nullable: true
+                  format: uri
+                  description: URL do avatar do usuário
+      responses:
+        '200':
+          description: Usuário atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Dados inválidos
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado (usuário tentando atualizar dados de outro usuário)
+        '404':
+          description: Usuário não encontrado
+
+  /users/{id}/preferences:
+    get:
+      tags: [Users]
+      summary: Obter preferências do usuário (v2)
+      description: Retorna preferências do usuário autenticado
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do usuário (deve corresponder ao usuário autenticado)
+      responses:
+        '200':
+          description: Preferências do usuário
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserPreferences'
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado (usuário tentando acessar preferências de outro usuário)
+        '404':
+          description: Usuário não encontrado
+    
+    put:
+      tags: [Users]
+      summary: Atualizar preferências do usuário (v2)
+      description: Atualiza preferências do usuário autenticado. Nota: o campo 'language' não é persistido no banco de dados, apenas 'timezone' é salvo.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID do usuário (deve corresponder ao usuário autenticado)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - language
+                - timezone
+              properties:
+                language:
+                  type: string
+                  minLength: 1
+                  description: Idioma do usuário (não persistido no banco de dados)
+                timezone:
+                  type: string
+                  minLength: 1
+                  description: Timezone do usuário (ex: America/Sao_Paulo)
+      responses:
+        '200':
+          description: Preferências atualizadas com sucesso
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserPreferences'
+        '400':
+          description: Dados inválidos
+        '401':
+          description: Não autenticado
+        '403':
+          description: Acesso negado (usuário tentando atualizar preferências de outro usuário)
+        '404':
+          description: Usuário não encontrado
 
