@@ -268,7 +268,7 @@ async function deliverScheduledNotifications(request: NextRequest) {
 
 // POST /api/v2/scheduled-notifications/deliver - Entregar notificações pendentes
 // Aceita chamadas de cron jobs (via X-Cron-Secret) ou usuários autenticados
-export const POST = async (request: NextRequest, context?: { params: Promise<any> }) => {
+export const POST = async (request: NextRequest, context: { params: Promise<any> }) => {
   // Verifica se é uma chamada de cron job
   const cronSecret = request.headers.get('X-Cron-Secret');
   const expectedSecret = process.env.CRON_SECRET;
@@ -285,7 +285,6 @@ export const POST = async (request: NextRequest, context?: { params: Promise<any
     return deliverScheduledNotifications(request);
   });
   
-  const handlerContext = context || { params: Promise.resolve({}) };
-  return authenticatedHandler(request, handlerContext);
+  return authenticatedHandler(request, context);
 };
 
