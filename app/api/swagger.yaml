@@ -59,6 +59,10 @@ tags:
     description: Estatísticas e relatórios
   - name: Upload
     description: Upload de arquivos
+  - name: Profile
+    description: Perfil público de usuários
+  - name: ScheduledNotifications
+    description: Notificações agendadas
 
 paths:
   # ==================== AUTH ====================
@@ -180,6 +184,118 @@ paths:
               schema:
                 $ref: '#/components/schemas/V2Response'
 
+  /v2/cats/{catId}:
+    get:
+      tags: [V2 - Cats]
+      summary: 🆕 Buscar gato por ID (V2)
+      description: Retorna detalhes de um gato específico
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do gato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: ID inválido
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Gato não encontrado
+    
+    put:
+      tags: [V2 - Cats]
+      summary: 🆕 Atualizar gato (V2)
+      description: Atualiza informações de um gato
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                photoUrl:
+                  type: string
+                birthDate:
+                  type: string
+                  format: date-time
+                weight:
+                  oneOf:
+                    - type: number
+                    - type: "null"
+                feeding_interval:
+                  type: integer
+                  minimum: 1
+                  maximum: 24
+                portion_size:
+                  type: number
+                  minimum: 0
+                restrictions:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Gato atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: Dados inválidos
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Gato não encontrado
+    
+    delete:
+      tags: [V2 - Cats]
+      summary: 🆕 Deletar gato (V2)
+      description: Deleta um gato e todos os registros relacionados
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Gato deletado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: ID inválido
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Gato não encontrado
+
   /v2/cats/{catId}/next-feeding:
     get:
       tags: [V2 - Cats]
@@ -277,6 +393,53 @@ paths:
       responses:
         '200':
           description: Dados da alimentação
+    
+    put:
+      tags: [V2 - Feedings]
+      summary: 🆕 Atualizar alimentação (V2)
+      description: Atualiza um registro de alimentação
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  minimum: 0
+                  exclusiveMinimum: true
+                notes:
+                  type: string
+                  maxLength: 255
+                meal_type:
+                  type: string
+                  enum: [manual, scheduled, automatic]
+                unit:
+                  type: string
+                  enum: [g, ml, cups, oz]
+      responses:
+        '200':
+          description: Alimentação atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: Dados inválidos
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Alimentação não encontrada
     
     delete:
       tags: [V2 - Feedings]
@@ -643,6 +806,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/V2Response'
+
+  /v2/households/join:
+    post:
+      tags: [V2 - Households]
+      summary: 🆕 Entrar em domicílio via código (V2)
+      description: Entra em um domicílio usando um código de convite
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - inviteCode
+              properties:
+                inviteCode:
+                  type: string
+                  minLength: 1
+                  example: "ABC123"
+      responses:
+        '201':
+          description: Usuário entrou no domicílio com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: Código inválido ou usuário já pertence a domicílio
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Código de convite inválido
 
   # ==================== CATS (V1 - DEPRECATED) ====================
   /cats:
@@ -1385,6 +1582,142 @@ paths:
         '200':
           description: Notificações entregues
 
+  # ==================== V2 - SCHEDULED NOTIFICATIONS (RECOMENDADO) ====================
+  /v2/scheduled-notifications:
+    get:
+      tags: [ScheduledNotifications]
+      summary: 🆕 Listar notificações agendadas (V2)
+      description: Retorna lista de notificações agendadas do usuário
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: delivered
+          in: query
+          schema:
+            type: boolean
+          description: Filtrar por entregue ou não (true/false)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            minimum: 1
+            maximum: 100
+          description: Número máximo de registros
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+          description: Offset para paginação
+      responses:
+        '200':
+          description: Lista de notificações agendadas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+    
+    post:
+      tags: [ScheduledNotifications]
+      summary: 🆕 Criar notificação agendada (V2)
+      description: Agenda uma notificação para ser entregue em uma data futura
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - title
+                - message
+                - scheduledFor
+              properties:
+                type:
+                  type: string
+                  minLength: 1
+                title:
+                  type: string
+                  minLength: 1
+                message:
+                  type: string
+                  minLength: 1
+                scheduledFor:
+                  type: string
+                  format: date-time
+                  description: Data/hora em formato ISO-8601 (UTC) para entrega
+                catId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Notificação agendada criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: Dados inválidos ou data no passado
+        '401':
+          description: Não autenticado
+
+  /v2/scheduled-notifications/deliver:
+    post:
+      tags: [ScheduledNotifications]
+      summary: 🆕 Entregar notificações pendentes (V2)
+      description: Processa e entrega notificações agendadas que estão vencidas
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Notificações entregues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '500':
+          description: Erro interno do servidor
+
+  # ==================== V2 - STATISTICS (RECOMENDADO) ====================
+  /v2/statistics:
+    get:
+      tags: [Statistics]
+      summary: 🆕 Obter estatísticas de alimentação (V2)
+      description: Retorna estatísticas consolidadas de alimentação
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7dias, 30dias, 3meses]
+            default: 7dias
+          description: Período para calcular estatísticas
+        - name: catId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filtrar por gato específico (opcional)
+      responses:
+        '200':
+          description: Estatísticas de alimentação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: Parâmetros inválidos
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Perfil não encontrado
+
   # ==================== STATISTICS ====================
   /statistics:
     get:
@@ -1412,6 +1745,44 @@ paths:
                     type: integer
                   averageDaily:
                     type: number
+
+  # ==================== V2 - UPLOAD (RECOMENDADO) ====================
+  /v2/upload:
+    post:
+      tags: [Upload]
+      summary: 🆕 Upload de arquivo (V2)
+      description: Faz upload de imagem (foto de gato ou usuário)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Arquivo de imagem
+                type:
+                  type: string
+                  enum: [user, cat, thumbnail]
+                  default: user
+                  description: Tipo de upload
+      responses:
+        '201':
+          description: Upload realizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: Arquivo inválido ou ausente
+        '401':
+          description: Não autenticado
 
   # ==================== UPLOAD ====================
   /upload:
@@ -1441,6 +1812,84 @@ paths:
                     type: string
                   fileId:
                     type: string
+
+  # ==================== V2 - PROFILE (RECOMENDADO) ====================
+  /v2/profile/{idOrUsername}:
+    get:
+      tags: [Profile]
+      summary: 🆕 Buscar perfil público (V2)
+      description: Retorna perfil público de um usuário (por ID ou username)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrUsername
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID do usuário (UUID) ou username
+      responses:
+        '200':
+          description: Perfil público do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: ID ou username inválido
+        '404':
+          description: Perfil não encontrado
+    
+    put:
+      tags: [Profile]
+      summary: 🆕 Atualizar perfil público (V2)
+      description: Atualiza o próprio perfil (usuário deve estar autenticado e ser o dono do perfil)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: idOrUsername
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID do usuário (UUID) ou username
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  minLength: 2
+                  maxLength: 100
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 30
+                email:
+                  type: string
+                  format: email
+                avatar_url:
+                  type: string
+                  format: uri
+                timezone:
+                  type: string
+                  maxLength: 50
+      responses:
+        '200':
+          description: Perfil atualizado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+        '400':
+          description: Dados inválidos
+        '403':
+          description: Acesso negado (usuário não pode atualizar outro perfil)
+        '404':
+          description: Perfil não encontrado
 
   # ==================== PROFILE ====================
   /profile/{idOrUsername}:
