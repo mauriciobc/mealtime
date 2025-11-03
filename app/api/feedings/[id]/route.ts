@@ -86,6 +86,7 @@ export async function GET(
       portionSize: feedingLog.amount,
       notes: feedingLog.notes,
       mealType: feedingLog.meal_type,
+      food_type: feedingLog.food_type,
       householdId: feedingLog.household_id,
       cat: feedingLog.cat ? {
         id: feedingLog.cat.id,

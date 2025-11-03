@@ -88,6 +88,7 @@ export interface FeedingLog {
   createdAt?: Date | string; // This might not be directly available from /api/feedings GET
   status?: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro"; // Keep for now, but API uses meal_type
   mealType?: "dry" | "wet" | "treat" | "medicine" | "water"; // Added based on API `meal_type`
+  food_type?: string | null; // Added based on API `food_type` field
   householdId?: string; // Added based on API `household_id`
 
   // Updated relations based on API response

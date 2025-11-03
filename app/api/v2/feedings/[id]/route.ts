@@ -138,6 +138,7 @@ export const GET = withHybridAuth(async (
       portionSize: feedingLog.amount,
       notes: feedingLog.notes,
       mealType: feedingLog.meal_type,
+      food_type: feedingLog.food_type,
       householdId: feedingLog.household_id,
       cat: feedingLog.cat ? {
         id: feedingLog.cat.id,
@@ -177,6 +178,7 @@ const updateFeedingSchema = z.object({
   notes: z.string().max(255).optional(),
   meal_type: z.enum(['manual', 'scheduled', 'automatic']).optional(),
   unit: z.enum(['g', 'ml', 'cups', 'oz']).optional(),
+  food_type: z.string().max(255).optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'Pelo menos um campo deve ser fornecido para atualização',
 });
@@ -188,6 +190,7 @@ type UpdateFeedingData = {
   notes?: string | null;
   meal_type?: string;
   unit?: string;
+  food_type?: string | null;
 };
 
 // PUT /api/v2/feedings/[id] - Atualizar um registro de alimentação
@@ -307,6 +310,11 @@ export const PUT = withHybridAuth(async (
       updateData.unit = validatedData.unit;
     }
 
+    if (validatedData.food_type !== undefined) {
+      // Preservar string vazia ou null explicitamente
+      updateData.food_type = validatedData.food_type;
+    }
+
     // Update the feeding log
     // amount não pode ser null pois é obrigatório no schema do banco
     const updatedLog = await prisma.feeding_logs.update({
@@ -342,6 +350,7 @@ export const PUT = withHybridAuth(async (
       portionSize: updatedLog.amount,
       notes: updatedLog.notes,
       mealType: updatedLog.meal_type,
+      food_type: updatedLog.food_type,
       unit: updatedLog.unit,
       householdId: updatedLog.household_id,
       cat: updatedLog.cat ? {
