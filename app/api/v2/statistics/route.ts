@@ -35,11 +35,20 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7dias";
-    const catId = searchParams.get("catId") || "todos";
+    const catIdParam = searchParams.get("catId");
     
     // Use the first household (or could accept householdId as param)
     // Safe to use ! because we already checked the array is not empty above
     const householdId = userHouseholdIds[0]!;
+
+    // Fetch user's cats for validation
+    const userCats = await prisma.cats.findMany({
+      where: {
+        household_id: { in: userHouseholdIds }
+      },
+      select: { id: true }
+    });
+    const validCatIds = ["todos", ...userCats.map(cat => cat.id)];
 
     // Validate period
     const validPeriods = ["7dias", "30dias", "3meses"];
@@ -48,6 +57,20 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       return NextResponse.json({
         success: false,
         error: 'Período inválido. Use: 7dias, 30dias ou 3meses'
+      }, { status: 400 });
+    }
+
+    // Validate catId
+    const catId = catIdParam || "todos";
+    if (!validCatIds.includes(catId)) {
+      logger.warn(`[GET /api/v2/statistics] Invalid catId: ${catId}`, {
+        userId: user.id,
+        householdIds: userHouseholdIds,
+        validCatIds: validCatIds
+      });
+      return NextResponse.json({
+        success: false,
+        error: 'ID do gato inválido ou não autorizado'
       }, { status: 400 });
     }
 

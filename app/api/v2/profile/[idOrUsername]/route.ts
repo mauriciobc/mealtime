@@ -10,7 +10,7 @@ const updateProfileSchema = z.object({
   full_name: z.string().min(2).max(100).optional(),
   username: z.string().min(3).max(30).optional(),
   email: z.string().email().optional(),
-  avatar_url: z.string().url().optional().or(z.literal('')).nullable(),
+  avatar_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
   timezone: z.string().max(50).optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'Pelo menos um campo deve ser fornecido para atualização',
@@ -40,7 +40,7 @@ export const GET = withHybridAuth(async (
     });
 
     // Detecta se é UUID (id) ou username
-    const isUuid = /^[0-9a-fA-F-]{36}$/.test(idOrUsername);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrUsername);
     const userWhere = isUuid
       ? { id: idOrUsername }
       : { username: idOrUsername };
@@ -158,7 +158,7 @@ export const PUT = withHybridAuth(async (
       requestedIdOrUsername: idOrUsername
     });
 
-    const isUuid = /^[0-9a-fA-F-]{36}$/.test(idOrUsername);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrUsername);
     const userWhere = isUuid
       ? { id: idOrUsername }
       : { username: idOrUsername };
@@ -205,7 +205,7 @@ export const PUT = withHybridAuth(async (
     Object.keys(data).forEach((k) => {
       const key = k as keyof typeof data;
       const value = data[key];
-      if (value != null && value !== '') {
+      if (value !== undefined) {
         updateData[key] = value;
       }
     });

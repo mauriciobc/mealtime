@@ -183,6 +183,7 @@ model feeding_logs {
   @@index([household_id])
   @@index([fed_by])
   @@index([fed_at])
+  @@index([cat_id, fed_at])
   @@schema("public")
 }
 

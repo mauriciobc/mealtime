@@ -7,8 +7,12 @@ import { z } from 'zod';
 
 // Schema de validação para atualização de usuário
 const updateUserSchema = z.object({
-  full_name: z.string().min(1).optional(),
-  username: z.string().min(1).optional(),
+  full_name: z.string().min(1).refine((val) => val.trim().length > 0, {
+    message: 'Nome completo não pode ser apenas espaços em branco'
+  }).optional(),
+  username: z.string().min(1).refine((val) => val.trim().length > 0, {
+    message: 'Nome de usuário não pode ser apenas espaços em branco'
+  }).optional(),
   avatar_url: z.string().url().nullable().optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'Pelo menos um campo deve ser fornecido para atualização',
@@ -21,7 +25,7 @@ export const GET = withHybridAuth(async (
   context?: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const resolvedParams = await context?.params || { id: user.id };
+    const resolvedParams = await Promise.resolve(context?.params).catch(() => ({ id: user.id })) || { id: user.id };
     const userId = resolvedParams.id;
 
     logger.debug('[GET /api/v2/users/[id]] Authenticated user:', { 
@@ -87,7 +91,7 @@ export const PUT = withHybridAuth(async (
   context?: { params: Promise<{ id: string }> }
 ) => {
   try {
-    const resolvedParams = await context?.params || { id: user.id };
+    const resolvedParams = await Promise.resolve(context?.params).catch(() => ({ id: user.id })) || { id: user.id };
     const userId = resolvedParams.id;
 
     logger.debug('[PUT /api/v2/users/[id]] Authenticated user:', { 
@@ -137,18 +141,32 @@ export const PUT = withHybridAuth(async (
     }
 
     // Update the user profile
-    const updatedUser = await prisma.profiles.update({
-      where: { id: userId },
-      data: updatePayload,
-      select: {
-        id: true,
-        username: true,
-        full_name: true,
-        email: true,
-        timezone: true,
-        avatar_url: true,
+    let updatedUser;
+    try {
+      updatedUser = await prisma.profiles.update({
+        where: { id: userId },
+        data: updatePayload,
+        select: {
+          id: true,
+          username: true,
+          full_name: true,
+          email: true,
+          timezone: true,
+          avatar_url: true,
+        }
+      });
+    } catch (updateError: any) {
+      // Handle Prisma unique constraint errors (e.g., duplicate username)
+      if (updateError.code === 'P2002') {
+        logger.warn('[PUT /api/v2/users/[id]] Username already exists:', { userId });
+        return NextResponse.json({
+          success: false,
+          error: 'Este nome de usuário já está em uso'
+        }, { status: 409 });
       }
-    });
+      // Re-throw to be handled by outer catch block
+      throw updateError;
+    }
 
     logger.info('[PUT /api/v2/users/[id]] User profile updated successfully:', { userId });
 
@@ -157,9 +175,19 @@ export const PUT = withHybridAuth(async (
       data: updatedUser
     });
   } catch (error: any) {
+    // Handle Prisma unique constraint errors (e.g., duplicate username)
+    if (error.code === 'P2002') {
+      const resolvedParams = await Promise.resolve(context?.params).catch(() => ({ id: user.id })) || { id: user.id };
+      logger.warn('[PUT /api/v2/users/[id]] Username already exists:', { userId: resolvedParams.id });
+      return NextResponse.json({
+        success: false,
+        error: 'Este nome de usuário já está em uso'
+      }, { status: 409 });
+    }
+
     // Handle Prisma errors
     if (error.code === 'P2025') {
-      const resolvedParams = await context?.params || { id: user.id };
+      const resolvedParams = await Promise.resolve(context?.params).catch(() => ({ id: user.id })) || { id: user.id };
       logger.warn('[PUT /api/v2/users/[id]] User not found for update:', { userId: resolvedParams.id });
       return NextResponse.json({
         success: false,

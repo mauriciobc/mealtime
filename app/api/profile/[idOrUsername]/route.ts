@@ -146,7 +146,7 @@ export async function PUT(
     Object.keys(data).forEach((k) => {
       const key = k as keyof typeof data;
       const value = data[key];
-      if (value != null && value !== '') {
+      if (value !== undefined) {
         updateData[key] = value;
       }
     });

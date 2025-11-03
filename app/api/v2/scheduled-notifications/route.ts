@@ -21,8 +21,24 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
   try {
     const { searchParams } = new URL(request.url);
     const delivered = searchParams.get('delivered');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    
+    // Função auxiliar para validar e parsear números inteiros não-negativos
+    const parsePositiveInt = (value: string | null, defaultValue: number): number => {
+      if (value === null) return defaultValue;
+      const parsed = parseInt(value, 10);
+      if (!Number.isFinite(parsed) || isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+        return defaultValue;
+      }
+      return parsed;
+    };
+
+    // Validar e parsear limit e offset com valores padrão
+    let limit = parsePositiveInt(searchParams.get('limit'), 50);
+    let offset = parsePositiveInt(searchParams.get('offset'), 0);
+
+    // Clamp de limit e offset a valores sensatos
+    limit = Math.min(Math.max(limit, 1), 100); // Entre 1 e 100
+    offset = Math.max(offset, 0); // Mínimo 0 (não há máximo prático, mas deve ser não-negativo)
 
     const where: any = {
       userId: user.id
@@ -36,7 +52,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       prisma.scheduledNotification.findMany({
         where,
         orderBy: { deliverAt: 'desc' },
-        take: Math.min(limit, 100), // Max 100 per page
+        take: limit,
         skip: offset
       }),
       prisma.scheduledNotification.count({ where })

@@ -168,14 +168,27 @@ export const GET = withHybridAuth(async (
 });
 
 // Schema de validação para atualização de alimentação
+// amount: aceita apenas número positivo ou pode ser omitido (undefined)
+// null não é permitido pois o campo é obrigatório no banco de dados
 const updateFeedingSchema = z.object({
-  amount: z.union([z.number().positive(), z.null()]).optional(),
+  amount: z.number().positive({
+    message: 'O campo amount deve ser um número positivo'
+  }).optional(),
   notes: z.string().max(255).optional(),
   meal_type: z.enum(['manual', 'scheduled', 'automatic']).optional(),
   unit: z.enum(['g', 'ml', 'cups', 'oz']).optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'Pelo menos um campo deve ser fornecido para atualização',
 });
+
+// Tipo para os dados de atualização do Prisma
+// amount não pode ser null pois o campo é obrigatório no schema do banco
+type UpdateFeedingData = {
+  amount?: Prisma.Decimal;
+  notes?: string | null;
+  meal_type?: string;
+  unit?: string;
+};
 
 // PUT /api/v2/feedings/[id] - Atualizar um registro de alimentação
 export const PUT = withHybridAuth(async (
@@ -273,17 +286,17 @@ export const PUT = withHybridAuth(async (
     logger.info(`[PUT /api/v2/feedings/${logId}] User ${user.id} authorized`);
 
     // Build update data object with only provided fields
-    const updateData: any = {};
+    const updateData: UpdateFeedingData = {};
     const validatedData = validationResult.data;
 
+    // amount: apenas números positivos são aceitos (null não é permitido)
     if (validatedData.amount !== undefined) {
-      updateData.amount = validatedData.amount != null 
-        ? new Prisma.Decimal(validatedData.amount) 
-        : new Prisma.Decimal(0);
+      updateData.amount = new Prisma.Decimal(validatedData.amount);
     }
 
     if (validatedData.notes !== undefined) {
-      updateData.notes = validatedData.notes || null;
+      // Preservar string vazia ou null explicitamente, não usar ||
+      updateData.notes = validatedData.notes;
     }
 
     if (validatedData.meal_type !== undefined) {
@@ -295,6 +308,7 @@ export const PUT = withHybridAuth(async (
     }
 
     // Update the feeding log
+    // amount não pode ser null pois é obrigatório no schema do banco
     const updatedLog = await prisma.feeding_logs.update({
       where: { id: logId },
       data: updateData,

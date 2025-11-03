@@ -7,7 +7,6 @@ import { z } from 'zod';
 
 // Schema de validação para atualização de preferências
 const updatePreferencesSchema = z.object({
-  language: z.string().min(1, 'Language é obrigatório'),
   timezone: z.string().min(1, 'Timezone é obrigatório'),
 });
 
@@ -55,12 +54,8 @@ export const GET = withHybridAuth(async (
       }, { status: 404 });
     }
 
-    // Note: The profiles table only stores timezone, not language
-    // Language is not stored in the database currently
-    // Returning null for language as it's not persisted
     const preferences = {
       timezone: userProfile.timezone || '',
-      language: null as string | null, // Language not stored in database
     };
 
     logger.info('[GET /api/v2/users/[id]/preferences] User preferences retrieved successfully:', { userId });
@@ -123,10 +118,8 @@ export const PUT = withHybridAuth(async (
       }, { status: 400 });
     }
 
-    const { timezone, language } = validationResult.data;
+    const { timezone } = validationResult.data;
 
-    // Note: The profiles table only has timezone field, not language
-    // We update timezone and log that language was provided but not persisted
     const updatedProfile = await prisma.profiles.update({
       where: { id: userId },
       data: {
@@ -140,16 +133,11 @@ export const PUT = withHybridAuth(async (
 
     logger.info('[PUT /api/v2/users/[id]/preferences] User preferences updated successfully:', { 
       userId,
-      timezoneUpdated: true,
-      languageProvided: !!language,
-      note: 'Language provided but not persisted (not stored in database)'
+      timezoneUpdated: true
     });
 
-    // Return the updated preferences
-    // Note: Language is not persisted, so we return the provided value or null
     const preferences = {
       timezone: updatedProfile.timezone || '',
-      language: language || null, // Return the provided language even though not persisted
     };
 
     return NextResponse.json({

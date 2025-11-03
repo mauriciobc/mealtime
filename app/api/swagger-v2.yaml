@@ -125,7 +125,7 @@ components:
         language:
           type: string
           nullable: true
-          description: Idioma do usuário (não persistido no banco de dados)
+          description: Idioma do usuário (sempre retorna null pois não é persistido no banco de dados)
     
     Notification:
       type: object
@@ -542,13 +542,14 @@ paths:
               type: object
               properties:
                 amount:
-                  oneOf:
-                    - type: number
-                      minimum: 0
-                    - type: "null"
+                  type: number
+                  minimum: 0
+                  exclusiveMinimum: true
+                  description: "Quantidade de alimento (deve ser um número positivo). Não pode ser null pois o campo é obrigatório no banco de dados."
                 notes:
                   type: string
                   maxLength: 255
+                  nullable: true
                 meal_type:
                   type: string
                   enum: [manual, scheduled, automatic]
@@ -2550,7 +2551,6 @@ paths:
             schema:
               type: object
               required:
-                - language
                 - timezone
               properties:
                 language:

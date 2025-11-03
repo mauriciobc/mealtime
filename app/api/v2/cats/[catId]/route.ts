@@ -502,11 +502,18 @@ export const DELETE = withHybridAuth(async (
       message: 'Erro ao deletar gato',
       requestUrl: request.nextUrl.toString()
     });
-    return NextResponse.json({
+    
+    const errorResponse: { success: false; error: string; details?: string } = {
       success: false,
-      error: 'Ocorreu um erro ao deletar o gato',
-      details: (error instanceof Error) ? error.message : 'Unknown error'
-    }, { status: 500 });
+      error: 'Ocorreu um erro ao deletar o gato'
+    };
+    
+    // Apenas incluir detalhes do erro em ambientes não-produção
+    if (process.env.NODE_ENV !== 'production') {
+      errorResponse.details = (error instanceof Error) ? error.message : 'Unknown error';
+    }
+    
+    return NextResponse.json(errorResponse, { status: 500 });
   }
 });
 

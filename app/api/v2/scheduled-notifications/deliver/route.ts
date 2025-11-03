@@ -4,10 +4,9 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 
-// POST /api/v2/scheduled-notifications/deliver - Entregar notificações pendentes
-// Nota: Este endpoint pode ser chamado por cron jobs ou funções agendadas
-// Considerar adicionar autenticação especial (ex: header X-Cron-Secret) para endpoints internos
-export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
+// Handler interno para processar a entrega de notificações agendadas
+// Pode ser chamado com ou sem autenticação de usuário
+async function deliverScheduledNotifications(request: NextRequest) {
   logger.debug('[POST /api/v2/scheduled-notifications/deliver] Processing scheduled notifications');
 
   try {
@@ -41,21 +40,31 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       .filter((n) => n.type === 'reminder' && n.catId && n.deliverAt)
       .map((n) => ({ catId: n.catId!, deliverAt: n.deliverAt! }));
 
-    // 3. Batch fetch all relevant feeding logs
+    // 3. Batch fetch all relevant feeding logs (in chunks to avoid oversized queries)
     let fedMap = new Map<string, Date>();
     if (reminderPairs.length > 0) {
-      const fedLogs = await prisma.feeding_logs.findMany({
-        where: {
-          OR: reminderPairs.map(({ catId, deliverAt }) => ({
-            cat_id: catId,
-            fed_at: { gte: deliverAt },
-          })),
-        },
-        select: { cat_id: true, fed_at: true },
-      });
-      // For each log, mark that this cat has been fed after deliverAt
-      for (const log of fedLogs) {
-        fedMap.set(log.cat_id, log.fed_at);
+      // Split reminderPairs into chunks of 150 items to avoid oversized OR queries
+      const CHUNK_SIZE = 150;
+      const chunks: Array<Array<{ catId: string; deliverAt: Date }>> = [];
+      for (let i = 0; i < reminderPairs.length; i += CHUNK_SIZE) {
+        chunks.push(reminderPairs.slice(i, i + CHUNK_SIZE));
+      }
+
+      // Execute findMany query for each chunk and aggregate results
+      for (const chunk of chunks) {
+        const fedLogs = await prisma.feeding_logs.findMany({
+          where: {
+            OR: chunk.map(({ catId, deliverAt }) => ({
+              cat_id: catId,
+              fed_at: { gte: deliverAt },
+            })),
+          },
+          select: { cat_id: true, fed_at: true },
+        });
+        // For each log, mark that this cat has been fed after deliverAt
+        for (const log of fedLogs) {
+          fedMap.set(log.cat_id, log.fed_at);
+        }
       }
     }
 
@@ -255,5 +264,28 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       error: 'Erro interno do servidor'
     }, { status: 500 });
   }
-});
+}
+
+// POST /api/v2/scheduled-notifications/deliver - Entregar notificações pendentes
+// Aceita chamadas de cron jobs (via X-Cron-Secret) ou usuários autenticados
+export const POST = async (request: NextRequest, context?: { params: Promise<any> }) => {
+  // Verifica se é uma chamada de cron job
+  const cronSecret = request.headers.get('X-Cron-Secret');
+  const expectedSecret = process.env.CRON_SECRET;
+
+  if (cronSecret && expectedSecret && cronSecret === expectedSecret) {
+    // Autenticação via cron secret - permite chamadas sem contexto de usuário
+    logger.debug('[POST /api/v2/scheduled-notifications/deliver] Authenticated via X-Cron-Secret');
+    return deliverScheduledNotifications(request);
+  }
+
+  // Caso contrário, usa autenticação híbrida para usuários autenticados
+  const authenticatedHandler = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
+    logger.debug('[POST /api/v2/scheduled-notifications/deliver] Authenticated via user auth');
+    return deliverScheduledNotifications(request);
+  });
+  
+  const handlerContext = context || { params: Promise.resolve({}) };
+  return authenticatedHandler(request, handlerContext);
+};
 
