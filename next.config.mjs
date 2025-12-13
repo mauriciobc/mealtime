@@ -52,7 +52,7 @@ const nextConfig = {
     },
     serverSourceMaps: true,
   },
-  // Turbopack é o bundler padrão no Next.js 16
+  // Turbopack é o bundler padrão no Next.js 15
   // Config vazio indica que queremos usar Turbopack sem configuração customizada
   turbopack: {},
 }
