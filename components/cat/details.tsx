@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { CalendarOff } from 'lucide-react'
+import EmptyState from '@/components/ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -117,7 +119,11 @@ export default function CatDetails({ cat }: CatDetailsProps) {
                 </ul>
               </div>
             ) : (
-              <p className="text-gray-600">Nenhuma agenda de alimentação definida</p>
+              <EmptyState
+                IconComponent={CalendarOff}
+                title="Nenhuma Agenda Definida"
+                description="Este gato ainda não possui uma agenda de alimentação. Adicione uma para garantir que ele seja alimentado nos horários corretos."
+              />
             )}
           </TabsContent>
         </Tabs>
