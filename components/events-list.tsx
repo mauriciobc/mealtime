@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { format, formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -16,6 +16,17 @@ export default function EventsList() {
   const { feedingLogs, isLoading, error } = feedingState
   const { state: catsState } = useCats()
   const { cats, isLoading: isLoadingCats } = catsState
+
+  // ⚡ Bolt: Create a memoized map of cats for O(1) lookup.
+  // This avoids an O(n) `find` operation inside the `map` loop below,
+  // which can be a performance bottleneck with many cats.
+  const catsById = useMemo(() => {
+    const map = new Map()
+    for (const cat of cats) {
+      map.set(String(cat.id), cat)
+    }
+    return map
+  }, [cats])
 
   if (isLoading) {
     return (
@@ -71,7 +82,8 @@ export default function EventsList() {
       {recentLogs.map((log, index) => {
         let cat = log.cat
         if (!cat || !cat.name) {
-          cat = cats.find(c => String(c.id) === String(log.catId))
+          // ⚡ Bolt: Use the O(1) map lookup instead of O(n) find.
+          cat = catsById.get(String(log.catId))
         }
         const catName = cat?.name || "Gato Desconhecido"
         const catPhoto = cat?.photo_url || cat?.photo_url || undefined
