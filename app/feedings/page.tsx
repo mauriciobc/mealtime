@@ -106,9 +106,16 @@ export default function FeedingsPage() {
   const [isPending, startTransition] = useTransition()
   const deferredSearchTerm = useDeferredValue(searchTerm)
 
+  // ⚡ Bolt: Create a lookup map for cats to avoid O(n²) loops.
+  // This improves performance by allowing O(1) access to cat data inside the filter and render loops.
+  const catsMap = useMemo(() => {
+    if (!cats) return new Map();
+    return new Map(cats.map(cat => [String(cat.id), cat]));
+  }, [cats]);
+
   // Memoized filtering and sorting with useTransition
   const filteredAndSortedLogs = useMemo(() => {
-    if (!feedingLogs || !cats) return []
+    if (!feedingLogs || !catsMap) return []
 
     let logs = [...feedingLogs]
 
@@ -116,7 +123,8 @@ export default function FeedingsPage() {
     if (deferredSearchTerm) {
       const lowerSearchTerm = deferredSearchTerm.toLowerCase()
       logs = logs.filter(log => {
-          const catName = cats.find(c => String(c.id) === String(log.catId))?.name.toLowerCase() || ""
+          // ⚡ Bolt: Replaced O(m) find with O(1) map lookup.
+          const catName = catsMap.get(String(log.catId))?.name.toLowerCase() || ""
           const notes = log.notes?.toLowerCase() || ""
           const userName = log.user?.name?.toLowerCase() || ""
           return catName.includes(lowerSearchTerm) || notes.includes(lowerSearchTerm) || userName.includes(lowerSearchTerm)
@@ -132,7 +140,7 @@ export default function FeedingsPage() {
     })
 
     return logs
-  }, [feedingLogs, cats, deferredSearchTerm, sortOrder])
+  }, [feedingLogs, catsMap, deferredSearchTerm, sortOrder])
 
   // Memoized grouping by date
   const groupedLogs = useMemo(() => {
@@ -343,7 +351,8 @@ export default function FeedingsPage() {
                   </h2>
                   {/* Logs for the Date */}
                   {logsOnDate.map((log) => {
-                    const cat = cats.find(c => String(c.id) === String(log.catId))
+                    // ⚡ Bolt: Replaced O(m) find with O(1) map lookup.
+                    const cat = catsMap.get(String(log.catId));
                     const displayStatusIcon = getStatusIcon(log.status);
                     const displayStatusVariant = getStatusVariant(log.status);
                     const displayStatusText = getStatusText(log.status);
@@ -438,7 +447,8 @@ export default function FeedingsPage() {
                                         <DrawerTitle>Confirmar Exclusão</DrawerTitle>
                                         <DrawerDescription>
                                           Tem certeza que deseja excluir este registro de alimentação?
-                                          {log && ` (Gato: ${cats.find(c => String(c.id) === String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })})`}
+                                           {/* ⚡ Bolt: Replaced O(m) find with O(1) map lookup. */}
+                                          {log && ` (Gato: ${catsMap.get(String(log.catId))?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })})`}
                                           <br />
                                           Esta ação não pode ser desfeita.
                                         </DrawerDescription>
