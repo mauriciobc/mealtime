@@ -170,7 +170,7 @@ export function AppHeader({ title, showBackButton }: AppHeaderProps) {
                 <NotificationCenter />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" aria-label="Abrir menu do usuário">
                       {/* Use User icon as placeholder or integrate Avatar logic if needed */}
                       <User className="h-5 w-5" /> 
                     </Button>
