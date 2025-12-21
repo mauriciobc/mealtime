@@ -180,12 +180,12 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <GlobalLoading mode="spinner" size="sm" />
-                ) : (
-                  "Entrar com Email"
-                )}
+              <Button
+                type="submit"
+                className="w-full"
+                loading={isLoading}
+              >
+                Entrar com Email
               </Button>
             </form>
 
@@ -202,18 +202,12 @@ export default function LoginPage() {
 
             <Button
               onClick={handleGoogleLogin}
-              disabled={isLoading}
+              loading={isLoading}
               className="w-full"
               variant="outline"
             >
-              {isLoading ? (
-                <GlobalLoading mode="spinner" size="sm" />
-              ) : (
-                <>
-                  <Icons.google className="mr-2 h-4 w-4" />
-                  Entrar com Google
-                </>
-              )}
+              <Icons.google className="mr-2 h-4 w-4" />
+              Entrar com Google
             </Button>
           </CardContent>
           <CardFooter className="flex flex-col items-center space-y-2 text-center text-sm text-muted-foreground">
