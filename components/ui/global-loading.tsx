@@ -75,7 +75,6 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
               className="flex flex-col items-center gap-4"
               role="status"
               aria-live="polite"
-              aria-label="Carregando"
             >
               <Spinner size={size} text={displayText} />
             </div>
@@ -86,7 +85,6 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
               className="flex items-center gap-2"
               role="status"
               aria-live="polite"
-              aria-label="Carregando"
             >
               <Spinner size={size} text={displayText} />
             </div>
@@ -97,7 +95,6 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
               className="flex flex-col items-center gap-4"
               role="status"
               aria-live="polite"
-              aria-label="Carregando"
             >
               <div className="w-48 h-48">
                 <Lottie
