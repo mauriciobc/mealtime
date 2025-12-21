@@ -55,6 +55,20 @@ const nextConfig = {
   // Turbopack é o bundler padrão no Next.js 16
   // Config vazio indica que queremos usar Turbopack sem configuração customizada
   turbopack: {},
+  webpack: (config, { isServer }) => {
+    // Exclude Node.js modules from client bundle
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        dns: false,
+        child_process: false,
+      };
+    }
+    return config;
+  },
 }
 
 // Função utilitária para extrair hostname de uma URL de forma segura

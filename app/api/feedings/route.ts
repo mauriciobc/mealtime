@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from "zod";
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 // Add top-level logging
 console.log(`[API /feedings] Module loaded. typeof prisma: ${typeof prisma}. Keys:`, prisma ? Object.keys(prisma) : 'prisma is null/undefined');
 console.log(`[API /feedings] DATABASE_URL set: ${!!process.env.DATABASE_URL}`); // Check if DB URL env var exists

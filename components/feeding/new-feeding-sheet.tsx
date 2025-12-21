@@ -21,7 +21,8 @@ interface ApiFeedingResponse {
   fed_at: string;
   amount: number;
   notes: string | null;
-  meal_type: "dry" | "wet" | "treat" | "medicine" | "water";
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  food_type?: string | null;
   household_id: string;
   tempId?: string; // Identificador temporário para lookup do status
 }
@@ -86,7 +87,7 @@ export function NewFeedingSheet({
   const [portions, setPortions] = useState<{ [key: string]: string }>({});
   const [notes, setNotes] = useState<{ [key: string]: string }>({});
   const [feedingStatus, setFeedingStatus] = useState<{ [key: string]: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }>({});
-  const [mealTypes, setMealTypes] = useState<{ [key: string]: "dry" | "wet" | "treat" | "medicine" | "water" }>({});
+  const [foodTypes, setFoodTypes] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -105,12 +106,19 @@ export function NewFeedingSheet({
     { value: "Outro", label: "Outro (ver notas)" },
   ], []);
 
-  const mealTypeOptions = useMemo(() => [
-    { value: "dry", label: "Ração Seca" },
-    { value: "wet", label: "Ração Úmida" },
-    { value: "treat", label: "Petisco" },
-    { value: "medicine", label: "Medicamento" },
-    { value: "water", label: "Água" },
+
+  const foodTypeOptions = useMemo(() => [
+    { value: "ração seca premium", label: "Ração Seca Premium" },
+    { value: "ração seca standard", label: "Ração Seca Standard" },
+    { value: "ração úmida sachê", label: "Ração Úmida Sachê" },
+    { value: "ração úmida lata", label: "Ração Úmida Lata" },
+    { value: "petisco", label: "Petisco" },
+    { value: "ração terapêutica", label: "Ração Terapêutica" },
+    { value: "ração para filhotes", label: "Ração para Filhotes" },
+    { value: "ração para idosos", label: "Ração para Idosos" },
+    { value: "comida caseira", label: "Comida Caseira" },
+    { value: "medicamento", label: "Medicamento" },
+    { value: "outro", label: "Outro" },
   ], []);
 
   const householdCats = useMemo(() => {
@@ -155,7 +163,7 @@ export function NewFeedingSheet({
         setPortions({ [initialFeedingLog.catId]: initialFeedingLog.portionSize?.toString() || "" });
         setNotes({ [initialFeedingLog.catId]: initialFeedingLog.notes || "" });
         setFeedingStatus({ [initialFeedingLog.catId]: initialFeedingLog.status || "Normal" });
-        setMealTypes({ [initialFeedingLog.catId]: initialFeedingLog.mealType || "dry" });
+        setFoodTypes({ [initialFeedingLog.catId]: initialFeedingLog.food_type || "" });
       } else {
         // Criação padrão
         const initialPortions: { [key: string]: string } = {};
@@ -168,11 +176,11 @@ export function NewFeedingSheet({
         if (initialCatIdStr && householdCats.some(cat => cat.id === initialCatIdStr)) {
             setSelectedCats([initialCatIdStr]);
             setFeedingStatus({ [initialCatIdStr]: "Normal" });
-            setMealTypes({ [initialCatIdStr]: "dry" });
+            setFoodTypes({ [initialCatIdStr]: "" });
         } else {
             setSelectedCats([]);
             setFeedingStatus({});
-            setMealTypes({});
+            setFoodTypes({});
         }
       }
     } else {
@@ -180,7 +188,7 @@ export function NewFeedingSheet({
       setPortions({});
       setNotes({});
       setFeedingStatus({});
-      setMealTypes({});
+      setFoodTypes({});
       setIsSubmitting(false);
       setError(null);
     }
@@ -247,8 +255,30 @@ export function NewFeedingSheet({
     setFeedingStatus(prev => ({ ...prev, [catId]: value as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }));
   }, []);
 
-  const handleMealTypeChange = useCallback((catId: string, value: "dry" | "wet" | "treat" | "medicine" | "water") => {
-    setMealTypes(prev => ({ ...prev, [catId]: value }));
+
+  const handleFoodTypeChange = useCallback((catId: string, value: string) => {
+    setFoodTypes(prev => ({ ...prev, [catId]: value }));
+  }, []);
+
+  // Função para determinar meal_type automaticamente baseado no horário
+  const getMealTypeFromTime = useCallback((timestamp: Date | string): "breakfast" | "lunch" | "dinner" | "snack" => {
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    const hour = date.getHours();
+    
+    // Breakfast: 5h - 10h
+    if (hour >= 5 && hour < 11) {
+      return "breakfast";
+    }
+    // Lunch: 11h - 14h
+    if (hour >= 11 && hour < 15) {
+      return "lunch";
+    }
+    // Dinner: 17h - 20h
+    if (hour >= 17 && hour < 21) {
+      return "dinner";
+    }
+    // Snack: resto do tempo (default)
+    return "snack";
   }, []);
 
   const handleSubmit = async () => {
@@ -270,7 +300,9 @@ export function NewFeedingSheet({
       const portion = portions[catId];
       const note = notes[catId] || "";
       const status = feedingStatus[catId] || "Normal";
-      const mealType = mealTypes[catId] || "dry";
+      const foodType = foodTypes[catId] || "";
+      // Determinar meal_type automaticamente baseado no horário
+      const mealType = getMealTypeFromTime(timestamp);
       let portionNum = null;
       if (portion) {
         portionNum = parseFloat(portion);
@@ -290,6 +322,7 @@ export function NewFeedingSheet({
         notes: note,
         status,
         mealType,
+        food_type: foodType?.trim() || undefined,
         unit: 'g',
         tempId // Adicionar tempId para lookup do status
       });
@@ -314,12 +347,25 @@ export function NewFeedingSheet({
         statusLookup.set(log.tempId!, log.status);
       });
       
-      if (initialFeedingLog) {
-        // Edição: PUT em /api/feedings/[id]
-        response = await fetch(`/api/feedings/${initialFeedingLog.id}`, {
+      if (initialFeedingLog && logsToCreate.length > 0) {
+        // Edição: PUT em /api/v2/feedings/[id]
+        const firstLog = logsToCreate[0]!; // Non-null assertion pois verificamos length > 0
+        const updatePayload: any = {
+          amount: firstLog.portionSize,
+          notes: firstLog.notes,
+          meal_type: getMealTypeFromTime(initialFeedingLog.timestamp),
+          unit: firstLog.unit,
+        };
+        
+        // Só incluir food_type se não for undefined
+        if (firstLog.food_type !== undefined) {
+          updatePayload.food_type = firstLog.food_type || null;
+        }
+        
+        response = await fetch(`/api/v2/feedings/${initialFeedingLog.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(logsToCreate[0]),
+          body: JSON.stringify(updatePayload),
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
@@ -339,6 +385,7 @@ export function NewFeedingSheet({
           portionSize: result.amount,
           notes: result.notes,
           mealType: result.meal_type,
+          food_type: result.food_type ?? null,
           householdId: result.household_id,
           user: {
             id: result.fed_by,
@@ -387,6 +434,7 @@ export function NewFeedingSheet({
               portionSize: feeding.amount ? Number(feeding.amount) : null,
               notes: feeding.notes ?? '',
               mealType: feeding.meal_type,
+              food_type: feeding.food_type ?? null,
               householdId: feeding.household_id,
               user: {
                 id: feeding.fed_by || '',
@@ -444,7 +492,7 @@ export function NewFeedingSheet({
       const lastFeeding = getLastFeedingLog(cat.id);
       const portion = portions[cat.id] || "";
       const status = feedingStatus[cat.id] || "Normal";
-      const mealType = mealTypes[cat.id] || "dry";
+      const foodType = foodTypes[cat.id] || "";
       const note = notes[cat.id] || "";
 
       return (
@@ -492,8 +540,8 @@ export function NewFeedingSheet({
                       transition={{ duration: 0.2 }}
                       className="space-y-4"
                     >
-                      <div className="flex gap-4">
-                        <div className="flex-1">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
                           <Label htmlFor={`portion-${cat.id}`}>Porção (g)</Label>
                           <Input
                             id={`portion-${cat.id}`}
@@ -505,7 +553,7 @@ export function NewFeedingSheet({
                             placeholder={cat.portion_size?.toString() || "0"}
                           />
                         </div>
-                        <div className="flex-1">
+                        <div>
                           <Label htmlFor={`status-${cat.id}`}>Status</Label>
                           <Select value={status} onValueChange={(value) => handleStatusChange(cat.id, value as any)}>
                             <SelectTrigger id={`status-${cat.id}`}>
@@ -520,14 +568,17 @@ export function NewFeedingSheet({
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex-1">
-                          <Label htmlFor={`meal-type-${cat.id}`}>Tipo</Label>
-                          <Select value={mealType} onValueChange={(value) => handleMealTypeChange(cat.id, value as any)}>
-                            <SelectTrigger id={`meal-type-${cat.id}`}>
-                              <SelectValue />
+                        <div className="col-span-2">
+                          <Label htmlFor={`food-type-${cat.id}`}>Tipo de Comida</Label>
+                          <Select 
+                            value={foodType || undefined} 
+                            onValueChange={(value) => handleFoodTypeChange(cat.id, value)}
+                          >
+                            <SelectTrigger id={`food-type-${cat.id}`}>
+                              <SelectValue placeholder="Não especificado" />
                             </SelectTrigger>
                             <SelectContent>
-                              {mealTypeOptions.map(option => (
+                              {foodTypeOptions.map(option => (
                                 <SelectItem key={option.value} value={option.value}>
                                   {option.label}
                                 </SelectItem>
@@ -554,7 +605,7 @@ export function NewFeedingSheet({
         </motion.div>
       );
     });
-  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, mealTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleMealTypeChange, handleNotesChange, formatRelativeTime, mealTypeOptions, statusOptions]);
+  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, foodTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleFoodTypeChange, handleNotesChange, formatRelativeTime, foodTypeOptions, statusOptions]);
 
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
