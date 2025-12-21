@@ -91,3 +91,8 @@
 {"location":"lib/prisma.ts:49","message":"Adapter loaded","data":{"hasAdapter":true,"isServer":true},"timestamp":1766280342157,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
 {"location":"lib/prisma.ts:58","message":"Before PrismaClient instantiation with adapter","data":{"logConfig":["warn","error"],"hasAdapter":true},"timestamp":1766280342159,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
 {"location":"lib/prisma.ts:70","message":"After PrismaClient instantiation with adapter","data":{"clientType":"object","hasConnect":true},"timestamp":1766280342172,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
+{"location":"lib/prisma.ts:43","message":"prismaClientSingleton entry","data":{"nodeEnv":"production","hasDbUrl":true,"isServer":true},"timestamp":1766280346784,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
+{"location":"lib/prisma.ts:12","message":"Loading adapter modules (server-side only)","data":{"isServer":true},"timestamp":1766280346787,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
+{"location":"lib/prisma.ts:49","message":"Adapter loaded","data":{"hasAdapter":true,"isServer":true},"timestamp":1766280346790,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
+{"location":"lib/prisma.ts:58","message":"Before PrismaClient instantiation with adapter","data":{"logConfig":["warn","error"],"hasAdapter":true},"timestamp":1766280346791,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
+{"location":"lib/prisma.ts:70","message":"After PrismaClient instantiation with adapter","data":{"clientType":"object","hasConnect":true},"timestamp":1766280346791,"sessionId":"debug-session","runId":"run3","hypothesisId":"E"}
