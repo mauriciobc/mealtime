@@ -17,15 +17,13 @@ export default function EventsList() {
   const { state: catsState } = useCats()
   const { cats, isLoading: isLoadingCats } = catsState
 
-  // ⚡ Bolt: Create a memoized map of cats for O(1) lookup.
+  // ⚡ Bolt: Memoize cats lookup for O(1) performance instead of O(n) inside the loop.
+  // This prevents re-calculating the map on every render and speeds up cat lookups.
   // This avoids an O(n) `find` operation inside the `map` loop below,
   // which can be a performance bottleneck with many cats.
-  const catsById = useMemo(() => {
-    const map = new Map()
-    for (const cat of cats) {
-      map.set(String(cat.id), cat)
-    }
-    return map
+  const catsMap = useMemo(() => {
+    if (!cats) return new Map()
+    return new Map(cats.map(cat => [String(cat.id), cat]))
   }, [cats])
 
   if (isLoading) {
@@ -80,13 +78,11 @@ export default function EventsList() {
       transition={{ staggerChildren: 0.1 }}
     >
       {recentLogs.map((log, index) => {
-        let cat = log.cat
-        if (!cat || !cat.name) {
-          // ⚡ Bolt: Use the O(1) map lookup instead of O(n) find.
-          cat = catsById.get(String(log.catId))
-        }
+        // ⚡ Bolt: Prioritize log.cat, falling back to the memoized O(1) catsMap lookup.
+        // Use the O(1) map lookup instead of O(n) find.
+        const cat = (log.cat && log.cat.name) ? log.cat : catsMap.get(String(log.catId));
         const catName = cat?.name || "Gato Desconhecido"
-        const catPhoto = cat?.photo_url || cat?.photo_url || undefined
+        const catPhoto = cat?.photo_url || undefined
         const catInitials = catName.substring(0, 2).toUpperCase()
         return (
           <motion.div
