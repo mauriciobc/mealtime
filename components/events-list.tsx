@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import { format, formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -16,6 +16,13 @@ export default function EventsList() {
   const { feedingLogs, isLoading, error } = feedingState
   const { state: catsState } = useCats()
   const { cats, isLoading: isLoadingCats } = catsState
+
+  // ⚡ Bolt: Memoize cats data to prevent re-creating the Map on every render.
+  // This is especially useful when the component re-renders due to other state changes.
+  const catsMap = useMemo(() => {
+    if (!cats) return new Map()
+    return new Map(cats.map(cat => [String(cat.id), cat]))
+  }, [cats])
 
   if (isLoading) {
     return (
@@ -70,8 +77,10 @@ export default function EventsList() {
     >
       {recentLogs.map((log, index) => {
         let cat = log.cat
+        // ⚡ Bolt: Replaced O(n) `find` with O(1) `get` for significant performance gain,
+        // especially with many cats or frequent re-renders.
         if (!cat || !cat.name) {
-          cat = cats.find(c => String(c.id) === String(log.catId))
+          cat = catsMap.get(String(log.catId))
         }
         const catName = cat?.name || "Gato Desconhecido"
         const catPhoto = cat?.photo_url || cat?.photo_url || undefined
