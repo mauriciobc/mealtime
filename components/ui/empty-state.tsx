@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useId } from 'react';
 import { LucideIcon } from 'lucide-react'; // To accept any Lucide icon
 import { cn } from '@/lib/utils';
 
@@ -21,8 +21,14 @@ export function EmptyState({
   className,
   iconClassName,
 }: EmptyStateProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+
   return (
     <div
+      role="region"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
       className={cn(
         "flex flex-col items-center justify-center text-center p-8 space-y-4 h-full bg-muted/50 rounded-lg border border-dashed",
         className
@@ -30,10 +36,11 @@ export function EmptyState({
     >
       <IconComponent 
         className={cn("w-16 h-16 text-muted-foreground/70 mb-4", iconClassName)} 
-        strokeWidth={1.5} 
+        strokeWidth={1.5}
+        aria-hidden="true"
       />
-      <h3 className="text-xl font-semibold text-foreground">{title}</h3>
-      <p className="text-sm text-muted-foreground max-w-xs">
+      <h3 id={titleId} className="text-xl font-semibold text-foreground">{title}</h3>
+      <p id={descriptionId} className="text-sm text-muted-foreground max-w-xs">
         {description}
       </p>
       {actionButton && <div className="pt-4">{actionButton}</div>}
