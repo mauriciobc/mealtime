@@ -79,9 +79,13 @@ export default function EventsList() {
       transition={{ staggerChildren: 0.1 }}
     >
       {recentLogs.map((log, index) => {
-        // ⚡ Bolt: O(1) lookup instead of O(n)
+        let cat = log.cat
+        // ⚡ Bolt: Replaced O(n) `find` with O(1) `get` for significant performance gain,
+        // especially with many cats or frequent re-renders.
         // Prioritize log.cat, falling back to the memoized O(1) catsMap lookup.
-        const cat = log.cat || catsMap.get(String(log.catId))
+        if (!cat || !cat.name) {
+          cat = catsMap.get(String(log.catId))
+        }
         const catName = cat?.name || "Gato Desconhecido"
         const catPhoto = cat?.photo_url || undefined
         const catInitials = catName.substring(0, 2).toUpperCase()
