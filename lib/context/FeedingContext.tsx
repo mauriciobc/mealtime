@@ -330,11 +330,23 @@ export const useSelectTodayFeedingCount = (): number => {
   const { feedingLogs, isLoading } = state;
 
   return useMemo(() => {
-    if (isLoading || !feedingLogs || feedingLogs.length === 0) {
+    if (isLoading || !feedingLogs || !feedingLogs.length) {
       return 0;
     }
+
     const today = startOfDay(new Date());
-    return feedingLogs.filter(log => isEqual(startOfDay(new Date(log.timestamp)), today)).length;
+    let count = 0;
+    for (const log of feedingLogs) {
+      const logDay = startOfDay(new Date(log.timestamp));
+      if (isEqual(logDay, today)) {
+        count++;
+      } else if (isBefore(logDay, today)) {
+        // Since logs are sorted descending, we can stop
+        // counting once we're past today.
+        break;
+      }
+    }
+    return count;
   }, [feedingLogs, isLoading]);
 };
 
