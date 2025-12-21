@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { format, formatDistanceToNow } from "date-fns"
+import { useMemo } from "react"
+import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
@@ -17,7 +17,8 @@ export default function EventsList() {
   const { state: catsState } = useCats()
   const { cats, isLoading: isLoadingCats } = catsState
 
-  // ⚡ Bolt: Memoize cats lookup for O(1) performance instead of O(n) inside the loop.
+  // ⚡ Bolt: Memoize cats into a Map for O(1) lookup
+  // This prevents the O(n*m) complexity of calling cats.find() inside the feedingLogs.map()
   // This prevents re-calculating the map on every render and speeds up cat lookups.
   // This avoids an O(n) `find` operation inside the `map` loop below,
   // which can be a performance bottleneck with many cats.
@@ -78,9 +79,9 @@ export default function EventsList() {
       transition={{ staggerChildren: 0.1 }}
     >
       {recentLogs.map((log, index) => {
-        // ⚡ Bolt: Prioritize log.cat, falling back to the memoized O(1) catsMap lookup.
-        // Use the O(1) map lookup instead of O(n) find.
-        const cat = (log.cat && log.cat.name) ? log.cat : catsMap.get(String(log.catId));
+        // ⚡ Bolt: O(1) lookup instead of O(n)
+        // Prioritize log.cat, falling back to the memoized O(1) catsMap lookup.
+        const cat = log.cat || catsMap.get(String(log.catId))
         const catName = cat?.name || "Gato Desconhecido"
         const catPhoto = cat?.photo_url || undefined
         const catInitials = catName.substring(0, 2).toUpperCase()
