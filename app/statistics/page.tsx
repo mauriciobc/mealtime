@@ -393,11 +393,11 @@ export default function StatisticsPage() {
               title="Sem Residência Associada"
               description="Associe-se a uma residência para ver estatísticas."
               actionButton={
-                <Link href="/settings" passHref legacyBehavior>
-                  <Button asChild variant="default" className="mt-4">
+                <Button asChild variant="default" className="mt-4">
+                  <Link href="/settings">
                     Ir para Configurações
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               }
               className="mt-8"
             />
@@ -433,11 +433,11 @@ export default function StatisticsPage() {
               title="Sem Dados"
               description="Não há dados de alimentação para exibir no período selecionado."
               actionButton={
-                <Link href="/feeding" passHref legacyBehavior>
-                  <Button asChild variant="default" className="mt-4">
+                <Button asChild variant="default" className="mt-4">
+                  <Link href="/feeding">
                     Registrar Alimentação
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               }
               className="mt-8"
             />

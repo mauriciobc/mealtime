@@ -108,6 +108,7 @@ export function NewFeedingSheet({
 
 
   const foodTypeOptions = useMemo(() => [
+    { value: "__none__", label: "Não especificado" },
     { value: "ração seca premium", label: "Ração Seca Premium" },
     { value: "ração seca standard", label: "Ração Seca Standard" },
     { value: "ração úmida sachê", label: "Ração Úmida Sachê" },
@@ -257,29 +258,58 @@ export function NewFeedingSheet({
 
 
   const handleFoodTypeChange = useCallback((catId: string, value: string) => {
-    setFoodTypes(prev => ({ ...prev, [catId]: value }));
+    // Convert __none__ sentinel value to empty string for internal state storage
+    const storedValue = value === "__none__" ? "" : value;
+    setFoodTypes(prev => ({ ...prev, [catId]: storedValue }));
   }, []);
 
   // Função para determinar meal_type automaticamente baseado no horário
   const getMealTypeFromTime = useCallback((timestamp: Date | string): "breakfast" | "lunch" | "dinner" | "snack" => {
+    // #region agent log
+    const userTimezone = getUserTimezone(currentUser?.preferences?.timezone);
+    const timestampRaw = typeof timestamp === 'string' ? timestamp : timestamp.toISOString();
+    fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:264',message:'getMealTypeFromTime entry',data:{timestampRaw,timestampType:typeof timestamp,userTimezone,userTimezonePreference:currentUser?.preferences?.timezone},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
-    const hour = date.getHours();
+    // Usar timezone do usuário para obter a hora correta
+    const hourStr = formatInTimeZone(date, userTimezone, 'H');
+    const hour = parseInt(hourStr, 10);
+    
+    // #region agent log
+    const hourFromGetHours = date.getHours();
+    const dateIso = date.toISOString();
+    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:272',message:'Hour calculation using user timezone',data:{hourFromGetHours,hourFromUserTimezone:hour,dateIso,browserTimezone,userTimezone,areHoursDifferent:hourFromGetHours !== hour,usingCorrectMethod:true},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
     
     // Breakfast: 5h - 10h
     if (hour >= 5 && hour < 11) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:278',message:'Meal type inferred as breakfast',data:{hour,mealType:'breakfast'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+      // #endregion
       return "breakfast";
     }
     // Lunch: 11h - 14h
     if (hour >= 11 && hour < 15) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:283',message:'Meal type inferred as lunch',data:{hour,mealType:'lunch'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+      // #endregion
       return "lunch";
     }
     // Dinner: 17h - 20h
     if (hour >= 17 && hour < 21) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:288',message:'Meal type inferred as dinner',data:{hour,mealType:'dinner'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+      // #endregion
       return "dinner";
     }
     // Snack: resto do tempo (default)
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:293',message:'Meal type inferred as snack',data:{hour,mealType:'snack'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+    // #endregion
     return "snack";
-  }, []);
+  }, [currentUser?.preferences?.timezone]);
 
   const handleSubmit = async () => {
     if (selectedCats.length === 0) {
@@ -372,28 +402,43 @@ export function NewFeedingSheet({
           throw new Error(errorData.error || `Falha ao editar (${response.status})`);
         }
         result = await response.json();
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:401',message:'PUT response received',data:{result,hasData:!!result.data,resultKeys:Object.keys(result)},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+        
         toast.success("Alimentação editada com sucesso!");
         
-        // Converter o resultado da API para FeedingLog
-        const isCurrentUser = result.fed_by === currentUser?.id;
+        // A API v2 retorna { success: true, data: {...} }
+        const resultData = result.data || result;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:407',message:'Processing resultData',data:{resultData,resultDataKeys:Object.keys(resultData),hasId:!!resultData.id,hasCatId:!!resultData.catId,hasUserId:!!resultData.userId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+        
+        const isCurrentUser = resultData.userId === currentUser?.id;
 
         const updatedFeedingLog: FeedingLog = {
-          id: result.id,
-          catId: result.cat_id,
-          userId: result.fed_by,
-          timestamp: new Date(result.fed_at),
-          portionSize: result.amount,
-          notes: result.notes,
-          mealType: result.meal_type,
-          food_type: result.food_type ?? null,
-          householdId: result.household_id,
-          user: {
-            id: result.fed_by,
+          id: resultData.id,
+          catId: resultData.catId,
+          userId: resultData.userId,
+          timestamp: typeof resultData.timestamp === 'string' ? new Date(resultData.timestamp) : resultData.timestamp,
+          portionSize: resultData.portionSize,
+          notes: resultData.notes,
+          mealType: resultData.mealType,
+          food_type: resultData.food_type ?? null,
+          householdId: resultData.householdId,
+          user: resultData.user || {
+            id: resultData.userId,
             name: isCurrentUser ? (currentUser?.name ?? null) : null,
             avatar: isCurrentUser ? (currentUser?.avatar ?? null) : null,
           },
           status: logsToCreate[0]?.status || "Normal",
         };
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:427',message:'FeedingLog created successfully',data:{updatedFeedingLogId:updatedFeedingLog.id,hasId:!!updatedFeedingLog.id,hasCatId:!!updatedFeedingLog.catId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         
         feedingDispatch({ type: "UPDATE_FEEDING", payload: updatedFeedingLog });
       } else {
@@ -494,6 +539,10 @@ export function NewFeedingSheet({
       const status = feedingStatus[cat.id] || "Normal";
       const foodType = foodTypes[cat.id] || "";
       const note = notes[cat.id] || "";
+      
+      // Convert empty string to __none__ sentinel value for Select component
+      // (Radix UI Select doesn't allow empty string values in SelectItem)
+      const selectValue = foodType === "" ? "__none__" : foodType;
 
       return (
         <motion.div
@@ -571,7 +620,7 @@ export function NewFeedingSheet({
                         <div className="col-span-2">
                           <Label htmlFor={`food-type-${cat.id}`}>Tipo de Comida</Label>
                           <Select 
-                            value={foodType || undefined} 
+                            value={selectValue} 
                             onValueChange={(value) => handleFoodTypeChange(cat.id, value)}
                           >
                             <SelectTrigger id={`food-type-${cat.id}`}>
