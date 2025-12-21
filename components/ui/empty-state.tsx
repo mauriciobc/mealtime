@@ -23,14 +23,17 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
+      role="region"
+      aria-live="polite"
       className={cn(
         "flex flex-col items-center justify-center text-center p-8 space-y-4 h-full bg-muted/50 rounded-lg border border-dashed",
         className
       )}
     >
-      <IconComponent 
-        className={cn("w-16 h-16 text-muted-foreground/70 mb-4", iconClassName)} 
-        strokeWidth={1.5} 
+      <IconComponent
+        className={cn("w-16 h-16 text-muted-foreground/70 mb-4", iconClassName)}
+        strokeWidth={1.5}
+        aria-hidden="true"
       />
       <h3 className="text-xl font-semibold text-foreground">{title}</h3>
       <p className="text-sm text-muted-foreground max-w-xs">
