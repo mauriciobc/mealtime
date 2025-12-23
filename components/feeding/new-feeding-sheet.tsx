@@ -566,7 +566,10 @@ export function NewFeedingSheet({
                 />
                 <div className="flex-grow space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <Label
+                      htmlFor={`cat-${cat.id}`}
+                      className="flex flex-grow items-center gap-3 cursor-pointer"
+                    >
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={cat.photo_url || ""} alt={cat.name} />
                         <AvatarFallback>
@@ -579,7 +582,7 @@ export function NewFeedingSheet({
                           Última refeição: {formatRelativeTime(lastFeeding?.timestamp)}
                         </p>
                       </div>
-                    </div>
+                    </Label>
                   </div>
                   {isSelected && (
                     <motion.div
