@@ -412,6 +412,8 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
 
 /**
  * Selects data formatted for the recent feedings bar chart.
+ * This refactored version improves performance from O(D * L) to O(L) by
+ * iterating over the logs only once.
  */
 export const useSelectRecentFeedingsChartData = (): any[] => {
   const { state: feedingState } = useFeeding();
@@ -420,15 +422,6 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
   const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
   const { cats, isLoading: isLoadingCats } = catsState;
 
-  // Memoize the last 7 days array to avoid recalculating on every render
-  const last7Days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      return startOfDay(date); // Use startOfDay for consistent comparison
-    }).reverse();
-  }, []); // Empty dependency array since this only depends on current date
-
   // Memoize cats map for O(1) lookup
   const catsMap = useMemo(() => {
     if (!cats) return new Map();
@@ -436,31 +429,59 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
   }, [cats]);
 
   return useMemo(() => {
-    if (isLoadingFeedings || isLoadingCats || !feedingLogs || !cats) {
+    if (isLoadingFeedings || isLoadingCats || !feedingLogs || !cats || cats.length === 0) {
       return [];
     }
 
-    const recentData = last7Days.map(date => {
-      const dayLogs = feedingLogs.filter(log => isEqual(startOfDay(new Date(log.timestamp)), date));
+    // 1. Initialize data structure for the last 7 days
+    const chartDataMap = new Map<string, any>();
+    const last7Days: Date[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = startOfDay(subDays(new Date(), i));
+      last7Days.push(date);
+      const formattedDate = format(date, 'yyyy-MM-dd');
 
-      const catData: Record<string, number> = {};
+      // Initialize with day name and zero values for all cats
+      const initialCatData = Array.from(catsMap.values()).reduce((acc, cat) => {
+        acc[cat.id] = 0;
+        return acc;
+      }, {} as Record<string, number>);
+
+      chartDataMap.set(formattedDate, {
+        name: format(date, 'EEE'),
+        ...initialCatData
+      });
+    }
+
+    // Get the start of the 7-day window for efficient filtering
+    const sevenDaysAgo = last7Days[0];
+    if (!sevenDaysAgo) {
+      // This should not happen if last7Days is populated correctly
+      return [];
+    }
+
+    // 2. Iterate over logs once
+    for (const log of feedingLogs) {
+      const logDate = startOfDay(new Date(log.timestamp));
       
-      // Use for...of loop for better performance than reduce
-      for (const log of dayLogs) {
-        const catId = log.catId;
-        if (catsMap.has(catId)) {
-          catData[catId] = (catData[catId] || 0) + (log.portionSize || 0);
-        }
+      // Since logs are sorted descending, we can break the loop early once we are
+      // past the 7-day window. This is a crucial performance improvement.
+      if (isBefore(logDate, sevenDaysAgo)) {
+        break;
       }
 
-      return {
-        name: format(date, 'EEE'), // Format day name
-        ...catData
-      };
-    });
+      const formattedDate = format(logDate, 'yyyy-MM-dd');
+      const dayData = chartDataMap.get(formattedDate);
 
-    return recentData;
-  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats, last7Days]);
+      if (dayData && catsMap.has(log.catId)) {
+        dayData[log.catId] = (dayData[log.catId] || 0) + (log.portionSize || 0);
+      }
+    }
+
+    // 3. Convert map to array for the chart
+    return Array.from(chartDataMap.values());
+
+  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats]);
 };
 
 
