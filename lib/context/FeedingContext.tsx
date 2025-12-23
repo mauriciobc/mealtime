@@ -440,21 +440,57 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
       return [];
     }
 
-    const recentData = last7Days.map(date => {
-      const dayLogs = feedingLogs.filter(log => isEqual(startOfDay(new Date(log.timestamp)), date));
+    // --- OPTIMIZATION ---
+    // Instead of iterating over logs for each day (O(7 * L)), this implementation
+    // iterates over the logs just once and groups them by day (O(L)), which is
+    // significantly faster for users with a large feeding history.
 
-      const catData: Record<string, number> = {};
+    // 1. Get the start of the 7-day window for quick filtering.
+    const sevenDaysAgo = last7Days[0];
+
+    // 2. Group portions by day in a single pass.
+    // The Map is structured as: Map<string (YYYY-MM-DD), Map<string (catId), number (totalPortion)>>
+    const dailyPortionsMap = new Map<string, Map<string, number>>();
+
+    for (const log of feedingLogs) {
+      const logDate = new Date(log.timestamp);
+
+      // Since logs are sorted descending, we can break the loop early once we are
+      // past the 7-day window. This is a crucial performance improvement.
+      if (isBefore(logDate, sevenDaysAgo)) {
+        break;
+      }
+
+      const dayKey = format(startOfDay(logDate), 'yyyy-MM-dd');
+
+      if (!dailyPortionsMap.has(dayKey)) {
+        dailyPortionsMap.set(dayKey, new Map());
+      }
+      const dayMap = dailyPortionsMap.get(dayKey)!;
+
+      const catId = log.catId;
+      // Ensure the cat is still valid before adding its data
+      if (catsMap.has(catId)) {
+        const currentPortion = dayMap.get(catId) || 0;
+        dayMap.set(catId, currentPortion + (log.portionSize || 0));
+      }
+    }
+
+    // 3. Format the data for the chart using the pre-computed map. This is a fast O(7) operation.
+    const recentData = last7Days.map(date => {
+      const dayKey = format(date, 'yyyy-MM-dd');
+      const dayData = dailyPortionsMap.get(dayKey);
       
-      // Use for...of loop for better performance than reduce
-      for (const log of dayLogs) {
-        const catId = log.catId;
-        if (catsMap.has(catId)) {
-          catData[catId] = (catData[catId] || 0) + (log.portionSize || 0);
+      const catData: Record<string, number> = {};
+      if (dayData) {
+        // Convert the map entries to a plain object for the chart component
+        for (const [catId, totalPortion] of dayData.entries()) {
+            catData[catId] = totalPortion;
         }
       }
 
       return {
-        name: format(date, 'EEE'), // Format day name
+        name: format(date, 'EEE'), // Format day name, e.g., "Mon"
         ...catData
       };
     });
