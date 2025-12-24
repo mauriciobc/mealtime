@@ -185,13 +185,14 @@ export default function DashboardContent({
                   />
                 )}
               </CardContent>
-              <CardFooter className="flex justify-between sm:justify-end items-center gap-2">
-                <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
-                  <Link href="/feedings" className="flex items-center">
-                    Ver todas
-                    <ArrowRight className="ml-1 h-4 w-4" />
-                  </Link>
-                </Button>
+              <CardFooter className="p-0">
+                <Link
+                  href="/feedings"
+                  className="flex h-full w-full items-center justify-end gap-2 rounded-b-lg p-6 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Ver todas
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </Link>
               </CardFooter>
             </Card>
           </motion.div>
@@ -279,13 +280,14 @@ export default function DashboardContent({
                 />
               )}
             </CardContent>
-             <CardFooter className="justify-end">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/cats" className="flex items-center">
-                   Ver todos os gatos
-                  <ArrowRight className="ml-1 h-4 w-4" />
-                </Link>
-              </Button>
+            <CardFooter className="p-0">
+              <Link
+                href="/cats"
+                className="flex h-full w-full items-center justify-end gap-2 rounded-b-lg p-6 text-sm font-medium text-muted-foreground hover:bg-muted/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Ver todos os gatos
+                <ArrowRight className="ml-1 h-4 w-4" />
+              </Link>
             </CardFooter>
           </Card>
         </motion.div>
