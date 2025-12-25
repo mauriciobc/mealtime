@@ -420,15 +420,6 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
   const { feedingLogs, isLoading: isLoadingFeedings } = feedingState;
   const { cats, isLoading: isLoadingCats } = catsState;
 
-  // Memoize the last 7 days array to avoid recalculating on every render
-  const last7Days = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      return startOfDay(date); // Use startOfDay for consistent comparison
-    }).reverse();
-  }, []); // Empty dependency array since this only depends on current date
-
   // Memoize cats map for O(1) lookup
   const catsMap = useMemo(() => {
     if (!cats) return new Map();
@@ -436,31 +427,57 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
   }, [cats]);
 
   return useMemo(() => {
+    // ⚡ Bolt: Refactored from O(D*L) to O(L) for significant performance gain.
+    // Instead of iterating through all logs for each of the last 7 days (7 * L),
+    // this new implementation iterates through the logs just once.
     if (isLoadingFeedings || isLoadingCats || !feedingLogs || !cats) {
       return [];
     }
 
-    const recentData = last7Days.map(date => {
-      const dayLogs = feedingLogs.filter(log => isEqual(startOfDay(new Date(log.timestamp)), date));
-
-      const catData: Record<string, number> = {};
-      
-      // Use for...of loop for better performance than reduce
-      for (const log of dayLogs) {
-        const catId = log.catId;
-        if (catsMap.has(catId)) {
-          catData[catId] = (catData[catId] || 0) + (log.portionSize || 0);
-        }
-      }
-
+    // 1. Initialize data structure for the last 7 days.
+    const today = startOfDay(new Date());
+    const initialChartData = Array.from({ length: 7 }, (_, i) => {
+      const date = subDays(today, 6 - i); // Go from 6 days ago to today
       return {
-        name: format(date, 'EEE'), // Format day name
-        ...catData
+        name: format(date, 'EEE'),
+        // Initialize with all cat IDs to ensure consistent chart series
+        ...Object.fromEntries(cats.map(cat => [cat.id, 0]))
       };
     });
 
-    return recentData;
-  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats, last7Days]);
+    // 2. Create a fast lookup map from date string to index in our chartData array.
+    const dateToIndexMap = new Map<string, number>();
+    initialChartData.forEach((_, i) => {
+      const date = subDays(today, 6 - i);
+      dateToIndexMap.set(format(date, 'yyyy-MM-dd'), i);
+    });
+
+    const sevenDaysAgo = subDays(today, 6);
+
+    // 3. Single pass (O(L)) through feeding logs.
+    for (const log of feedingLogs) {
+      const logDate = startOfDay(new Date(log.timestamp));
+
+      // Optimization: Since logs are sorted descending, we can break early.
+      if (isBefore(logDate, sevenDaysAgo)) {
+        break;
+      }
+
+      const dateKey = format(logDate, 'yyyy-MM-dd');
+      const index = dateToIndexMap.get(dateKey);
+
+      // If the log is within our 7-day window and for a known cat
+      if (index !== undefined && catsMap.has(log.catId)) {
+        const portion = log.portionSize || 0;
+        if (portion > 0) {
+          // Directly update the data at the correct index.
+          (initialChartData[index] as Record<string, any>)[log.catId] += portion;
+        }
+      }
+    }
+
+    return initialChartData;
+  }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats]);
 };
 
 
