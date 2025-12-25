@@ -688,10 +688,14 @@ export function NewFeedingSheet({
          {error && (
             <p className="px-6 py-2 text-sm text-destructive text-center">Erro: {error}</p>
          )}
-        <DrawerFooter className="pt-4 border-t">
+        <DrawerFooter className="pt-4 border-t flex-row gap-2">
+          <DrawerClose asChild>
+            <Button variant="outline" className="w-full">Cancelar</Button>
+          </DrawerClose>
           <Button 
             onClick={handleSubmit}
             disabled={selectedCats.length === 0 || isSubmitting}
+            className="w-full"
           >
             {isSubmitting ? <Loading size="sm" className="mr-2"/> : <Check className="mr-2 h-4 w-4" />} 
             Confirmar Alimentação ({selectedCats.length})
