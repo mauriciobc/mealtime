@@ -412,6 +412,7 @@ export const useSelectLastFeedingLog = (): FeedingLog | null => {
 
 /**
  * Selects data formatted for the recent feedings bar chart.
+ * Optimized from O(D*L) to O(L) by using a single pass over feeding logs.
  */
 export const useSelectRecentFeedingsChartData = (): any[] => {
   const { state: feedingState } = useFeeding();
@@ -440,26 +441,46 @@ export const useSelectRecentFeedingsChartData = (): any[] => {
       return [];
     }
 
-    const recentData = last7Days.map(date => {
-      const dayLogs = feedingLogs.filter(log => isEqual(startOfDay(new Date(log.timestamp)), date));
+    // ⚡ Bolt: Performance Optimization
+    // Old method: O(D*L) - Mapped 7 days and filtered all logs for each day.
+    // New method: O(L) - Single pass over logs, mapping them to a day.
 
-      const catData: Record<string, number> = {};
-      
-      // Use for...of loop for better performance than reduce
-      for (const log of dayLogs) {
-        const catId = log.catId;
-        if (catsMap.has(catId)) {
-          catData[catId] = (catData[catId] || 0) + (log.portionSize || 0);
-        }
-      }
-
-      return {
-        name: format(date, 'EEE'), // Format day name
-        ...catData
-      };
+    // 1. Initialize a map with the last 7 days as keys.
+    // This preserves the order and ensures all 7 days are present.
+    const dateMap = new Map<string, any>();
+    last7Days.forEach(date => {
+      const dateKey = format(date, 'yyyy-MM-dd');
+      dateMap.set(dateKey, {
+        name: format(date, 'EEE'),
+      });
     });
 
-    return recentData;
+    // Get the start of the 7-day window for an early exit condition.
+    const sevenDaysAgo = last7Days[0];
+
+    // 2. Iterate through logs once. Since logs are sorted descending,
+    // we can break early once we pass the 7-day window.
+    for (const log of feedingLogs) {
+      const logDay = startOfDay(new Date(log.timestamp));
+
+      // Optimization: if the log is older than our window, stop processing.
+      if (isBefore(logDay, sevenDaysAgo)) {
+        break;
+      }
+
+      const dateKey = format(logDay, 'yyyy-MM-dd');
+      const catId = log.catId;
+
+      // If the log is within our 7-day window and for a valid cat, add its data.
+      if (dateMap.has(dateKey) && catsMap.has(catId)) {
+        const dayData = dateMap.get(dateKey);
+        dayData[catId] = (dayData[catId] || 0) + (log.portionSize || 0);
+      }
+    }
+
+    // 3. Return the values from the map, which are now populated and in order.
+    return Array.from(dateMap.values());
+
   }, [feedingLogs, isLoadingFeedings, catsMap, isLoadingCats, cats, last7Days]);
 };
 
