@@ -670,10 +670,10 @@ export function NewFeedingSheet({
              {selectedCats.length} de {householdCats.length} gatos selecionados
            </p>
            <div className="space-x-2">
-              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0 || isSubmitting}>
                  Todos
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0 || isSubmitting}>
                  Limpar
               </Button>
            </div>
