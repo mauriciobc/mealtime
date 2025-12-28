@@ -266,7 +266,7 @@ export default function DashboardContent({
                             {cat.weight ? `${cat.weight} kg` : "- kg"}
                           </p>
                         </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" aria-hidden="true" />
                       </Link>
                     </li>
                   ))}
