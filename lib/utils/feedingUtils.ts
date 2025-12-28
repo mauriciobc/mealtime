@@ -12,22 +12,30 @@ interface GroupedLogs {
  * @returns Object with dates as keys and arrays of logs as values
  */
 export function groupLogsByDate(logs: FeedingLog[]): GroupedLogs {
-  return logs.reduce((groups: GroupedLogs, log) => {
+  // ⚡ Bolt: Optimization
+  // The original implementation sorted the logs array on every single item insertion,
+  // which is inefficient (O(n^2) in the worst case).
+  // This optimized version first groups all logs by date in a single pass (O(n))
+  // and then sorts each group once, which is much more performant.
+
+  // First, group logs by date without sorting
+  const grouped = logs.reduce((groups: GroupedLogs, log) => {
     const date = format(new Date(log.timestamp), 'yyyy-MM-dd');
-    
     if (!groups[date]) {
       groups[date] = [];
     }
-    
     groups[date].push(log);
-    
-    // Sort logs within each day by timestamp descending (most recent first)
-    groups[date].sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-    
     return groups;
   }, {});
+
+  // Now, sort the logs for each date
+  for (const date in grouped) {
+    grouped[date].sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }
+
+  return grouped;
 }
 
 /**
