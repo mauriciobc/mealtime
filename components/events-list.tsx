@@ -1,15 +1,12 @@
 "use client"
 
 import { useMemo } from "react"
-import { formatDistanceToNow } from "date-fns"
-import { ptBR } from "date-fns/locale"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 import { motion } from "framer-motion"
 import { useFeeding } from "@/lib/context/FeedingContext"
-import { FeedingLog } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCats } from "@/lib/context/CatsContext"
+import EventListItem from "./event-list-item"
 
 export default function EventsList() {
   const { state: feedingState } = useFeeding()
@@ -72,74 +69,19 @@ export default function EventsList() {
   }
 
   return (
-    <motion.div 
+    <motion.div
       className="space-y-3"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ staggerChildren: 0.1 }}
     >
       {recentLogs.map((log, index) => {
-        let cat = log.cat
         // ⚡ Bolt: Replaced O(n) `find` with O(1) `get` for significant performance gain,
         // especially with many cats or frequent re-renders.
-        // Prioritize log.cat, falling back to the memoized O(1) catsMap lookup.
-        if (!cat || !cat.name) {
-          cat = catsMap.get(String(log.catId))
-        }
-        const catName = cat?.name || "Gato Desconhecido"
-        const catPhoto = cat?.photo_url || undefined
-        const catInitials = catName.substring(0, 2).toUpperCase()
-        return (
-          <motion.div
-            key={log.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-          >
-            <Card>
-              <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={catPhoto} alt={catName} />
-                    <AvatarFallback>
-                      {catInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{catName}</h3>
-                        {log.user && (
-                          <p className="text-xs text-muted-foreground">
-                            Alimentado por {log.user?.name || "Usuário Desconhecido"}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(log.timestamp), { 
-                            addSuffix: true,
-                            locale: ptBR
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    {log.portionSize != null && (
-                      <p className="text-xs mt-1">
-                        <span className="font-medium">Quantidade:</span> {log.portionSize}g
-                      </p>
-                    )}
-                    {log.notes && (
-                      <p className="text-xs mt-1 text-muted-foreground">
-                        <span className="font-medium">Notas:</span> {log.notes}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )
+        // The `cat` object is passed to the memoized `EventListItem`, preventing
+        // re-renders unless the cat's data itself changes.
+        const cat = log.cat || catsMap.get(String(log.catId))
+        return <EventListItem key={log.id} log={log} cat={cat} index={index} />
       })}
     </motion.div>
   )
