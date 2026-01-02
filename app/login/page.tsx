@@ -164,13 +164,16 @@ export default function LoginPage() {
                     disabled={isLoading}
                     onChange={handleInputChange}
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-auto"
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
                     {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
