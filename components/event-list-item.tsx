@@ -5,13 +5,13 @@ import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { motion } from "framer-motion"
 
-import type { Cat, FeedingLog } from "@/lib/types"
+import type { CatType, FeedingLog } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Card, CardContent } from "@/components/ui/card"
 
 interface EventListItemProps {
   log: FeedingLog
-  cat: Cat | undefined
+  cat: CatType | undefined
   index: number
 }
 
