@@ -136,12 +136,14 @@ export default function FeedingsPage() {
       )
     }
 
-    // Apply sorting
-    logs.sort((a, b) => {
-      const dateA = new Date(a.timestamp).getTime()
-      const dateB = new Date(b.timestamp).getTime()
-      return sortOrder === "desc" ? dateB - dateA : dateA - dateB
-    })
+    // ⚡ Bolt: Skip redundant sort if order is 'desc' since data is pre-sorted.
+    // The `feedingLogs` from context are already sorted descending by timestamp.
+    // We only need to reverse the array if the user requests ascending order.
+    // This avoids an O(n log n) sort operation on every render for the default case.
+    if (sortOrder === "asc") {
+      // Return a reversed copy without mutating the original `logs` array
+      return logs.slice().reverse();
+    }
 
     return logs
   }, [feedingLogs, catsMap, deferredSearchTerm, sortOrder])
