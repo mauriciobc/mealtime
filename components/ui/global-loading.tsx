@@ -14,7 +14,7 @@ interface SpinnerProps {
   className?: string;
 }
 
-function Spinner({ size = 'md', text, className }: SpinnerProps) {
+export function Spinner({ size = 'md', text, className }: SpinnerProps) {
   return (
     <>
       <motion.div

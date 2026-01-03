@@ -1,6 +1,6 @@
 "use client";
 
-import { GlobalLoading } from "@/components/ui/global-loading";
+import { Spinner } from "@/components/ui/global-loading";
 
 interface LoadingSpinnerProps {
   size?: "sm" | "md" | "lg";
@@ -8,5 +8,5 @@ interface LoadingSpinnerProps {
 }
 
 export default function LoadingSpinner({ size = "md" }: LoadingSpinnerProps) {
-  return <GlobalLoading mode="spinner" size={size} />;
-} 
+  return <Spinner size={size} />;
+}
