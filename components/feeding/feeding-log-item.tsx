@@ -1,229 +1,192 @@
-"use client";
+// ⚡ Bolt: This component is memoized with React.memo to prevent unnecessary re-renders.
+// By isolating the render logic for a single log item, we ensure that only the items
+// whose props have actually changed will re-render during filtering or sorting,
+// significantly improving the performance of the feeding list.
+"use client"
 
-import { useState, useMemo, memo, useCallback } from "react";
-import { motion } from "framer-motion";
+import React, { useState } from 'react';
 import { format } from "date-fns";
-import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
+import { ptBR } from "date-fns/locale";
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { FeedingLog } from "@/lib/types";
-import { useCats } from "@/lib/context/CatsContext";
-import { useUserContext } from "@/lib/context/UserContext";
-import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
+import { Badge } from "@/components/ui/badge";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription, DrawerFooter, DrawerClose, DrawerTrigger } from "@/components/ui/drawer";
+import { Loading } from "@/components/ui/loading";
+import { FeedingLog, Cat } from "@/lib/types";
+import { CheckCircle2, AlertCircle, Ban, AlertTriangle, HelpCircle, Trash2, Edit } from "lucide-react";
+
+// Helper functions for status display (kept internal to the component)
+const getStatusIcon = (status: string | undefined) => {
+  switch (status) {
+    case "Normal":
+      return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+    case "Comeu Pouco":
+      return <AlertCircle className="h-5 w-5 text-yellow-500" />;
+    case "Recusou":
+      return <Ban className="h-5 w-5 text-red-500" />;
+    case "Vomitou":
+      return <AlertTriangle className="h-5 w-5 text-red-500" />;
+    case "Outro":
+      return <HelpCircle className="h-5 w-5 text-blue-500" />;
+    default:
+      return null;
+  }
+};
+
+const getStatusVariant = (status: string | undefined): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status) {
+    case "Normal":
+      return "default";
+    case "Comeu Pouco":
+      return "secondary";
+    case "Recusou":
+    case "Vomitou":
+      return "destructive";
+    case "Outro":
+      return "secondary";
+    default:
+      return "outline";
+  }
+};
+
+const getStatusText = (status: string | undefined) => {
+  return status || "-";
+};
 
 interface FeedingLogItemProps {
   log: FeedingLog;
-  onView?: () => void;
-  onEdit?: () => void;
-  onDelete?: () => void;
+  cat?: Cat;
+  onEdit: (log: FeedingLog) => void;
+  onDelete: (logId: string) => void;
+  isDeleting: boolean;
 }
 
-export const FeedingLogItem = memo(function FeedingLogItem({ log, onView, onEdit, onDelete }: FeedingLogItemProps) {
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const { state: catsState } = useCats();
-  const { cats, isLoading: isLoadingCats } = catsState;
-  const { state: userState } = useUserContext();
-  const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+const FeedingLogItem: React.FC<FeedingLogItemProps> = ({ log, cat, onEdit, onDelete, isDeleting }) => {
+  const [isDeleteDrawerOpen, setDeleteDrawerOpen] = useState(false);
 
-  // Memoize cat lookup for better performance
-  const cat = useMemo(() => {
-    return cats?.find(c => c.id === log.catId);
-  }, [cats, log.catId]);
+  const displayStatusIcon = getStatusIcon(log.status);
+  const displayStatusVariant = getStatusVariant(log.status);
+  const displayStatusText = getStatusText(log.status);
 
-  const showActions = onView || onEdit || onDelete;
-
-  const handleDeleteClick = useCallback(() => {
-    setShowDeleteDialog(true);
-  }, []);
-
-  const confirmDelete = useCallback(() => {
-    if (onDelete) {
-      onDelete();
+  const handleDelete = () => {
+    if (log.id) {
+        onDelete(String(log.id));
     }
-    setShowDeleteDialog(false);
-  }, [onDelete]);
-
-  const getCatName = useMemo(() => {
-    if (isLoadingCats) return "Carregando...";
-    return cat?.name || "Gato não identificado";
-  }, [isLoadingCats, cat?.name]);
-
-  const getCatInitials = useMemo(() => {
-    if (isLoadingCats) return "..";
-    const name = cat?.name || "??";
-    return name.substring(0, 2).toUpperCase();
-  }, [isLoadingCats, cat?.name]);
-
-  // Improved photo URL handling
-  const catPhotoUrl = useMemo(() => {
-    if (isLoadingCats) return "";
-    if (!cat) return "";
-    return cat.photo_url || "";
-  }, [isLoadingCats, cat]);
-
-  // Memoize click handler
-  const handleCardClick = useCallback((e: React.MouseEvent) => {
-    if (onView) {
-      e.stopPropagation();
-      onView();
-    } 
-  }, [onView]);
-
-  // Show loading state while cats are being loaded
-  if (isLoadingCats) {
-    return (
-      <Card className="overflow-hidden transition-all duration-300">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
-            <div className="flex-1">
-              <div className="h-4 w-24 bg-muted animate-pulse rounded mb-2" />
-              <div className="h-3 w-32 bg-muted animate-pulse rounded" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  };
 
   return (
-    <>
-      <motion.div 
-        whileHover={{ y: -2, transition: { duration: 0.2 } }}
-        className={`cursor-pointer ${!onView ? 'pointer-events-none' : ''}`}
-        onClick={handleCardClick}
-      >
-        <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Avatar>
-                <AvatarImage src={catPhotoUrl} alt={getCatName} />
-                <AvatarFallback className="bg-emerald-100 text-emerald-500">
-                  {getCatInitials}
-                </AvatarFallback>
-              </Avatar>
-
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">{getCatName}</h3>
-                    {log.user?.name && (
-                      <p className="text-sm text-muted-foreground">
-                        Alimentado por {log.user.name}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center">
-                    <div className="text-right mr-2">
-                      <p className="text-sm font-medium">
-                        {format(new Date(log.timestamp), "HH:mm", { locale: userLocale })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(log.timestamp), "dd/MM/yyyy", { locale: userLocale })}
-                      </p>
-                    </div>
-                    {showActions && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {onView && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView(); }}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              <span>Visualizar</span>
-                            </DropdownMenuItem>
-                          )}
-                          {onEdit && (
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              <span>Editar</span>
-                            </DropdownMenuItem>
-                          )}
-                          {onDelete && (
-                            <DropdownMenuItem 
-                              onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }} 
-                              className="text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              <span>Excluir</span>
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-2 text-sm">
-                  <div className="flex flex-col gap-1">
-                    {log.mealType && (
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium">Refeição:</span>
-                        <span>{log.mealType === 'breakfast' ? 'Café da Manhã' :
-                               log.mealType === 'lunch' ? 'Almoço' :
-                               log.mealType === 'dinner' ? 'Jantar' :
-                               log.mealType === 'snack' ? 'Lanche' : log.mealType}</span>
-                      </div>
-                    )}
-                    {log.portionSize !== undefined && (
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium">Quantidade:</span>
-                        <span>{log.portionSize} g</span>
-                      </div>
-                    )}
-                    {log.notes && (
-                      <div className="mt-1 text-muted-foreground">
-                        {log.notes}
-                      </div>
-                    )}
-                  </div>
-                </div>
+    <div className="relative pl-[58px] mb-4 group">
+      <div className="absolute left-0 top-0 flex-shrink-0">
+        {cat?.id ? (
+          <Link href={`/cats/${cat.id}`} aria-label={`Ver perfil de ${cat?.name}`}>
+            <Avatar className="h-10 w-10 border shadow-md">
+              <AvatarImage src={cat?.photo_url || undefined} alt={cat?.name} />
+              <AvatarFallback>{cat?.name?.substring(0, 1).toUpperCase() || "?"}</AvatarFallback>
+            </Avatar>
+          </Link>
+        ) : (
+          <Avatar className="h-10 w-10 border shadow-md">
+            <AvatarFallback>?</AvatarFallback>
+          </Avatar>
+        )}
+      </div>
+      <div className="flex items-start gap-8 w-full">
+        <div className="text-right text-sm text-muted-foreground pt-1 w-16 flex-shrink-0 tabular-nums -ml-[58px] pl-12">
+          {format(new Date(log.timestamp), "HH:mm", { locale: ptBR })}
+        </div>
+        <Card className="flex-grow shadow-sm transition-shadow hover:shadow-md ml-2">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                {cat?.id ? (
+                  <Link href={`/cats/${cat.id}`} className="font-medium truncate hover:underline text-sm sm:text-base">
+                    {cat?.name || "Gato Desconhecido"}
+                  </Link>
+                ) : (
+                  <span className="font-medium truncate text-sm sm:text-base text-muted-foreground">
+                    {cat?.name || "Gato Desconhecido"}
+                  </span>
+                )}
+                {log.user && (
+                  <p className="text-xs text-muted-foreground truncate" title={`Registrado por ${log.user?.name}`}>
+                    por {log.user?.name || "Usuário Desconhecido"}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                {log.portionSize != null && log.portionSize > 0 && (
+                  <Badge variant="outline" className="text-xs px-1.5 sm:px-2.5">
+                    {log.portionSize}g
+                  </Badge>
+                )}
+                {displayStatusIcon && (
+                  <span title={displayStatusText}>{displayStatusIcon}</span>
+                )}
+                {log.status && log.status !== 'Normal' && (
+                  <Badge variant={displayStatusVariant} className="text-xs px-1.5 sm:px-2.5">
+                    {displayStatusText}
+                  </Badge>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                  onClick={() => onEdit(log)}
+                  aria-label="Editar registro"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Drawer open={isDeleteDrawerOpen} onOpenChange={setDeleteDrawerOpen}>
+                  <DrawerTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10 p-1"
+                      aria-label="Excluir registro"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </DrawerTrigger>
+                  <DrawerContent>
+                    <DrawerHeader>
+                      <DrawerTitle>Confirmar Exclusão</DrawerTitle>
+                      <DrawerDescription>
+                        Tem certeza que deseja excluir este registro de alimentação?
+                        {` (Gato: ${cat?.name || 'Desconhecido'}, Data: ${format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm', { locale: ptBR })})`}
+                        <br />
+                        Esta ação não pode ser desfeita.
+                      </DrawerDescription>
+                    </DrawerHeader>
+                    <DrawerFooter>
+                      <DrawerClose asChild>
+                        <Button variant="outline" disabled={isDeleting}>
+                          Cancelar
+                        </Button>
+                      </DrawerClose>
+                      <Button
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="bg-destructive hover:bg-destructive/90 focus-visible:ring-destructive text-white"
+                      >
+                        {isDeleting ? <Loading text="Excluindo..." size="sm" className="text-white"/> : "Excluir"}
+                      </Button>
+                    </DrawerFooter>
+                  </DrawerContent>
+                </Drawer>
               </div>
             </div>
+            {log.notes && (
+              <p className="text-xs text-muted-foreground mt-2 italic">
+                &quot;{log.notes}&quot;
+              </p>
+            )}
           </CardContent>
         </Card>
-      </motion.div>
-
-      {onDelete && (
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-              <AlertDialogDescription>
-                Tem certeza que deseja excluir este registro de alimentação? 
-                Esta ação não pode ser desfeita.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">
-                Excluir
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </>
+      </div>
+    </div>
   );
-}); 
+};
+
+export default React.memo(FeedingLogItem);
