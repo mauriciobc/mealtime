@@ -24,8 +24,10 @@ function Spinner({ size = 'md', text, className }: SpinnerProps) {
           duration: 1,
           ease: "linear",
         }}
+        role={!text ? "status" : undefined}
       >
         <Loader2 className={cn("text-primary", sizeClasses[size])} />
+        {!text && <span className="sr-only">Carregando...</span>}
       </motion.div>
       {text && (
         <p className={cn("text-sm text-muted-foreground", className)}>{text}</p>
