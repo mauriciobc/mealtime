@@ -9,6 +9,7 @@ import {
   Trash2, 
   Calendar,
   Weight,
+  Loader2,
 } from "lucide-react";
 import { CatType, FeedingLog } from "@/lib/types";
 import {
@@ -46,12 +47,13 @@ import { useUserContext } from "@/lib/context/UserContext";
 interface CatCardProps {
   cat: CatType;
   latestFeedingLog?: FeedingLog | null;
+  isDeleting?: boolean;
   onView: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  onDelete: () => Promise<void>;
 }
 
-export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: CatCardProps) {
+export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete, isDeleting = false }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isImageLoading, setIsImageLoading] = useState(true);
   const { state: userState } = useUserContext();
@@ -84,8 +86,8 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
     onEdit();
   }, [onEdit]);
 
-  const confirmDelete = useCallback(() => {
-    onDelete();
+  const confirmDelete = useCallback(async () => {
+    await onDelete();
     setShowDeleteDialog(false);
   }, [onDelete]);
 
@@ -214,9 +216,21 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir
+            <AlertDialogCancel
+              onClick={(e) => e.stopPropagation()}
+              disabled={isDeleting}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {isDeleting ? "Excluindo..." : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

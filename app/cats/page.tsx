@@ -89,29 +89,26 @@ export default function CatsPage() {
   }, [feedingLogs]);
 
   const handleDeleteCat = async (catId: string) => {
-    const previousCats = cats
-    const opId = `delete-cat-${catId}`
-    addLoadingOperation({ id: opId, priority: 1, description: `Deleting cat ${catId}...` })
-    setIsDeleting(catId)
-    
-    catsDispatch({ type: "REMOVE_CAT", payload: catId })
+    const previousCats = cats;
+    setIsDeleting(catId);
+
+    catsDispatch({ type: "REMOVE_CAT", payload: catId });
 
     try {
-      const response = await fetch(`/api/cats/${catId}`, { method: 'DELETE' })
+      const response = await fetch(`/api/cats/${catId}`, { method: "DELETE" });
       if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}))
-         throw new Error(errorData.error || 'Failed to delete cat')
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to delete cat");
       }
-      toast.success("Gato excluído com sucesso!")
+      toast.success("Gato excluído com sucesso!");
     } catch (error: any) {
-      console.error("Erro ao excluir gato:", error)
-      toast.error(`Erro ao excluir gato: ${error.message}`)
-      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats })
+      console.error("Erro ao excluir gato:", error);
+      toast.error(`Erro ao excluir gato: ${error.message}`);
+      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats });
     } finally {
-      setIsDeleting(null)
-      removeLoadingOperation(opId)
+      setIsDeleting(null);
     }
-  }
+  };
 
   // Show loading state while user or cats are loading
   if (isLoadingUser || isLoadingCats) {
@@ -214,6 +211,7 @@ export default function CatsPage() {
                     key={cat.id}
                     cat={cat}
                     latestFeedingLog={latestLog}
+                    isDeleting={isDeleting === cat.id}
                     onView={() => router.push(`/cats/${cat.id}`)}
                     onEdit={() => router.push(`/cats/${cat.id}/edit`)}
                     onDelete={() => handleDeleteCat(cat.id)}
