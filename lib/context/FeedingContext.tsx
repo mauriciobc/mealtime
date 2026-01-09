@@ -539,7 +539,11 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
       
       // Pre-compute last log for each cat
       const lastLogMap = new Map<string, FeedingLog>();
-      householdLogs.sort((a, b) => compareAsc(new Date(a.timestamp), new Date(b.timestamp))); // Sort once
+      // ⚡ Bolt: Optimization & Bug Fix
+      // The original code sorted all logs ascending (O(L log L)) and then incorrectly
+      // picked the *oldest* log for each cat.
+      // This new version iterates the pre-sorted `householdLogs` array (descending) once (O(L)),
+      // correctly and efficiently picking the *newest* log for each cat.
       householdLogs.forEach(log => {
           if (!lastLogMap.has(log.catId)) {
               lastLogMap.set(log.catId, log);
