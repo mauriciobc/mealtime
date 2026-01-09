@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 import { useUserContext } from "@/lib/context/UserContext";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Eye, EyeOff } from "lucide-react";
 import { Icons } from "@/components/icons";
 import { logger } from "@/lib/monitoring/logger";
@@ -164,16 +165,25 @@ export default function LoginPage() {
                     disabled={isLoading}
                     onChange={handleInputChange}
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-auto"
-                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-auto"
+                          aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{showPassword ? 'Ocultar senha' : 'Mostrar senha'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
 
