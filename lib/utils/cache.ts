@@ -65,12 +65,10 @@ export function memoize<T extends (...args: any[]) => any>(
 
   return function (...args: Parameters<T>): ReturnType<T> {
     const key = JSON.stringify(args);
-    
-    if (cache.has(key)) {
-      const cachedValue = cache.get(key);
-      if (cachedValue !== undefined) {
-        return cachedValue;
-      }
+    // PERF: Combine .has() and .get() into a single map lookup.
+    const cachedValue = cache.get(key);
+    if (cachedValue !== undefined) {
+      return cachedValue;
     }
 
     const result = fn(...args);
