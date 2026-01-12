@@ -537,14 +537,22 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
       const householdLogs = feedingLogs.filter(log => householdCats.some(cat => cat.id === log.catId));
       const householdSchedules = schedules.filter(sch => householdCats.some(cat => cat.id === sch.catId));
       
-      // Pre-compute last log for each cat
+      // ⚡ Bolt: Performance & Bug Fix
+      // The original code sorted the entire `householdLogs` array (O L log L) to find the
+      // oldest log for each cat, which was a bug.
+      // This optimized version iterates through the *already descending-sorted* `householdLogs`
+      // just once (O L) to find the newest log for each cat, significantly improving
+      // performance and fixing the bug.
+
+      // Pre-compute the *most recent* log for each cat
       const lastLogMap = new Map<string, FeedingLog>();
-      householdLogs.sort((a, b) => compareAsc(new Date(a.timestamp), new Date(b.timestamp))); // Sort once
-      householdLogs.forEach(log => {
-          if (!lastLogMap.has(log.catId)) {
-              lastLogMap.set(log.catId, log);
-          }
-      });
+      // Iterate once over the logs, which are already sorted descending.
+      // The first log we see for a cat is its most recent one.
+      for (const log of householdLogs) {
+        if (!lastLogMap.has(log.catId)) {
+          lastLogMap.set(log.catId, log);
+        }
+      }
 
       const calculatedFeedings: UpcomingFeeding[] = [];
 
