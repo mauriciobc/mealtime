@@ -104,7 +104,6 @@ export default function CatsPage() {
       }
       toast.success("Gato excluído com sucesso!")
     } catch (error: any) {
-      console.error("Erro ao excluir gato:", error)
       toast.error(`Erro ao excluir gato: ${error.message}`)
       catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats })
     } finally {

@@ -17,9 +17,6 @@ import { logger } from "@/lib/monitoring/logger";
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
 import { GlobalLoading } from "@/components/ui/global-loading";
 
-
-console.log("[Login] Página de login sendo carregada");
-
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,7 +43,6 @@ export default function LoginPage() {
     const isFullyLoaded = !authLoading && !profileLoading;
     if (isFullyLoaded && currentUser) {
       const redirectTo = searchParams.get("redirectTo") || "/";
-      console.log("[Login] User fully loaded and authenticated, redirecting to:", redirectTo);
       router.replace(redirectTo);
     }
   }, [authLoading, profileLoading, currentUser, router, searchParams]);
@@ -85,9 +81,7 @@ export default function LoginPage() {
         }
         logger.error('[LoginPage] Sign in error:', { error: signInError.message });
       } else {
-        // Redirect immediately on successful sign-in
         const redirectTo = searchParams.get("redirectTo") || "/";
-        console.log("[Login] Successful sign-in, redirecting to:", redirectTo);
         router.replace(redirectTo);
       }
     } catch (err) {

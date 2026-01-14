@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, type ReactElement, memo } from "react";
 import { ArrowLeft, Bell, Calendar, Check, CheckCheck, Clock, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,7 +21,7 @@ import { GlobalLoading } from "@/components/ui/global-loading";
 
 // Re-usable Icon component
 const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
-  const icons: Record<string, React.ReactElement> = {
+  const icons: Record<string, ReactElement> = {
     feeding: <Clock className="h-5 w-5 text-primary" />,
     reminder: <Calendar className="h-5 w-5 text-amber-500" />,
     system: <Bell className="h-5 w-5 text-blue-500" />,
@@ -31,7 +31,7 @@ const NotificationIcon = ({ type }: { type: Notification['type'] }) => {
 };
 
 // Memoized Notification Item
-const NotificationItem = React.memo(({
+const NotificationItem = memo(({
   notification,
   onMarkRead,
   onRemove,
@@ -54,7 +54,6 @@ const NotificationItem = React.memo(({
       toast.success("Notificação marcada como lida.");
     } catch (err) {
       toast.error("Falha ao marcar como lida.");
-      console.error("Error marking notification as read:", err);
     } finally {
       // No need to set isMarkingRead to false if the component might unmount/re-render on context update
     }
@@ -67,7 +66,6 @@ const NotificationItem = React.memo(({
       toast.success("Notificação removida.");
     } catch (err) {
       toast.error("Falha ao remover notificação.");
-      console.error("Error removing notification:", err);
     } finally {
       // No need to set isRemoving to false if the component might unmount/re-render on context update
     }
@@ -172,7 +170,6 @@ export default function NotificationsPage() {
       toast.success("Todas as notificações marcadas como lidas.");
     } catch (err) {
       toast.error("Falha ao marcar todas como lidas.");
-      console.error("Error marking all notifications as read:", err);
     } finally {
       setIsMarkingAllRead(false);
     }
