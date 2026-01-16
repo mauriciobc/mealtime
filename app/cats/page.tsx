@@ -75,16 +75,16 @@ export default function CatsPage() {
 
   const latestLogMap = useMemo(() => {
     if (!feedingLogs) return new Map<string, FeedingLog>();
-    
+
     const map = new Map<string, FeedingLog>();
-    [...feedingLogs]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .forEach(log => {
-        const catIdStr = String(log.catId);
-        if (!map.has(catIdStr)) {
-          map.set(catIdStr, log);
-        }
-      });
+    // The `feedingLogs` array is guaranteed to be sorted by timestamp descending
+    // by the FeedingContext. We can iterate once to get the latest log for each cat.
+    for (const log of feedingLogs) {
+      const catIdStr = String(log.catId);
+      if (!map.has(catIdStr)) {
+        map.set(catIdStr, log);
+      }
+    }
     return map;
   }, [feedingLogs]);
 
