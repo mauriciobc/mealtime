@@ -77,14 +77,15 @@ export default function CatsPage() {
     if (!feedingLogs) return new Map<string, FeedingLog>();
     
     const map = new Map<string, FeedingLog>();
-    [...feedingLogs]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .forEach(log => {
-        const catIdStr = String(log.catId);
-        if (!map.has(catIdStr)) {
-          map.set(catIdStr, log);
-        }
-      });
+    // The `feedingLogs` array is already sorted by timestamp in descending order
+    // from the FeedingContext. We can iterate directly without re-sorting.
+    feedingLogs.forEach(log => {
+      const catIdStr = String(log.catId);
+      // Since the list is sorted, the first log we encounter for a cat is the latest one.
+      if (!map.has(catIdStr)) {
+        map.set(catIdStr, log);
+      }
+    });
     return map;
   }, [feedingLogs]);
 
