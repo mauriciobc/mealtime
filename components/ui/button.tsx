@@ -47,12 +47,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? SlotPrimitive.Slot : "button"
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, className }), "relative")}
         ref={ref}
         disabled={loading || props.disabled}
         {...props}
       >
-        {loading ? <LoadingSpinner size="sm" /> : children}
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <LoadingSpinner size="sm" />
+          </div>
+        )}
+        <span className={cn(loading && "invisible")}>{children}</span>
       </Comp>
     )
   }
