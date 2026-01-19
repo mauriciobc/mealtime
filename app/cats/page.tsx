@@ -75,16 +75,17 @@ export default function CatsPage() {
 
   const latestLogMap = useMemo(() => {
     if (!feedingLogs) return new Map<string, FeedingLog>();
-    
+
+    // The feedingLogs are already sorted by timestamp descending from the context.
+    // This optimization avoids a redundant O(L log L) sort on every render,
+    // replacing it with a single O(L) pass.
     const map = new Map<string, FeedingLog>();
-    [...feedingLogs]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .forEach(log => {
-        const catIdStr = String(log.catId);
-        if (!map.has(catIdStr)) {
-          map.set(catIdStr, log);
-        }
-      });
+    for (const log of feedingLogs) {
+      const catIdStr = String(log.catId);
+      if (!map.has(catIdStr)) {
+        map.set(catIdStr, log);
+      }
+    }
     return map;
   }, [feedingLogs]);
 
