@@ -74,17 +74,18 @@ export default function CatsPage() {
   }, [cats, currentUser?.householdId]);
 
   const latestLogMap = useMemo(() => {
+    // This optimization changes the logic from sorting the entire array of feeding logs
+    // (O(n log n)) to a single pass (O(n)), which is much more efficient for large datasets.
     if (!feedingLogs) return new Map<string, FeedingLog>();
     
     const map = new Map<string, FeedingLog>();
-    [...feedingLogs]
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .forEach(log => {
-        const catIdStr = String(log.catId);
-        if (!map.has(catIdStr)) {
-          map.set(catIdStr, log);
-        }
-      });
+    for (const log of feedingLogs) {
+      const catIdStr = String(log.catId);
+      const existingLog = map.get(catIdStr);
+      if (!existingLog || new Date(log.timestamp) > new Date(existingLog.timestamp)) {
+        map.set(catIdStr, log);
+      }
+    }
     return map;
   }, [feedingLogs]);
 
