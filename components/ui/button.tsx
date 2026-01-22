@@ -53,11 +53,11 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute">
             <LoadingSpinner size="sm" />
           </div>
         )}
-        <span className={cn({ "invisible": loading })}>{children}</span>
+        {loading ? <span className="invisible">{children}</span> : children}
       </Comp>
     )
   }
