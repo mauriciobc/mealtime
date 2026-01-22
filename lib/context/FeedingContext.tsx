@@ -538,12 +538,13 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
       const householdSchedules = schedules.filter(sch => householdCats.some(cat => cat.id === sch.catId));
       
       // Pre-compute last log for each cat
+      // The `feedingLogs` (and by extension `householdLogs`) are already sorted descending.
+      // We can find the most recent log for each cat by iterating once.
       const lastLogMap = new Map<string, FeedingLog>();
-      householdLogs.sort((a, b) => compareAsc(new Date(a.timestamp), new Date(b.timestamp))); // Sort once
       householdLogs.forEach(log => {
-          if (!lastLogMap.has(log.catId)) {
-              lastLogMap.set(log.catId, log);
-          }
+        if (!lastLogMap.has(log.catId)) {
+          lastLogMap.set(log.catId, log);
+        }
       });
 
       const calculatedFeedings: UpcomingFeeding[] = [];
