@@ -138,7 +138,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       router.push("/households");
 
     } catch (error: any) {
-      console.error("Erro ao sair da residência:", error);
       toast.error(`Erro ao sair: ${error.message}`);
     } finally {
       setShowLeaveDialog(false);
@@ -169,7 +168,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       toast.success("Residência excluída com sucesso.");
       router.push("/households");
     } catch (error: any) {
-      console.error("Erro ao excluir residência:", error);
       toast.error(`Erro ao excluir: ${error.message}`);
     } finally {
       setShowDeleteHouseholdDialog(false);
@@ -202,7 +200,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
       toast.success(`Membro ${newRole === 'Admin' ? 'promovido' : 'rebaixado'} com sucesso.`);
     } catch (error: any) {
-      console.error("Erro ao atualizar função do membro:", error);
       toast.error(`Erro ao atualizar: ${error.message}`);
     } finally {
       setMemberToPromote(null);
@@ -238,7 +235,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
       toast.success("Membro removido com sucesso.");
     } catch (error: any) {
-      console.error("Erro ao remover membro:", error);
       toast.error(`Erro ao remover: ${error.message}`);
     } finally {
       setMemberToRemove(null);
@@ -269,7 +265,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
       setCats(prevCats => prevCats.filter(cat => cat.id !== catId));
       toast.success("Gato removido com sucesso.");
     } catch (error: any) {
-      console.error("Erro ao excluir gato:", error);
       toast.error(`Erro ao excluir: ${error.message}`);
     } finally {
       setCatToDelete(null);
@@ -330,7 +325,6 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
         setCats(householdCats);
         
       } catch (_error) {
-        console.error('Error loading household:', _error);
         const errorMessage = (_error as Error).message || 'Failed to load household';
         setLoadError(errorMessage);
         setHousehold(null);
@@ -367,8 +361,7 @@ export default function HouseholdDetailsPage({ params }: PageProps) {
     try {
       await navigator.clipboard.writeText(household.inviteCode);
       toast.success("Código de convite copiado!");
-    } catch (_error) {
-      console.error("Erro ao copiar código:", _error);
+    } catch {
       toast.error("Não foi possível copiar o código.");
     }
   };

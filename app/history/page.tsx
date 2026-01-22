@@ -81,9 +81,7 @@ export default function HistoryPage() {
         
         // Carregar gatos
         const catsData = await getCats()
-        setCats(catsData)
       } catch (_error) {
-        console.error("Erro ao carregar dados:", _error)
       } finally {
         setIsLoading(false)
       }

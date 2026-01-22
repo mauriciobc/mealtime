@@ -17,7 +17,19 @@
     "db:clean": "npx ts-node --transpile-only prisma/clean-db.ts",
     "prisma:generate": "npx prisma generate",
     "prisma:clean": "if exist node_modules\\.prisma rmdir /s /q node_modules\\.prisma",
-    "cron": "ts-node scripts/cron-runner.ts"
+    "cron": "ts-node scripts/cron-runner.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:auth": "playwright test auth.spec.ts --project=chromium",
+    "test:e2e:dashboard": "playwright test dashboard.spec.ts --project=chromium",
+    "test:e2e:cats": "playwright test cats.spec.ts --project=chromium",
+    "test:e2e:feedings": "playwright test feedings.spec.ts --project=chromium",
+    "test:e2e:mobile": "playwright test --project=mobile-chrome --project=mobile-safari",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "test:e2e:cleanup": "npx ts-node scripts/cleanup-test-data.ts",
+    "test:e2e:cleanup:api": "npx ts-node --transpile-only scripts/cleanup-test-data.ts"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
@@ -52,6 +64,7 @@
     "mailersend": "^2.6.0",
     "next": "^16.1.0",
     "next-themes": "^0.4.6",
+    "onborda": "^1.2.5",
     "pg": "^8.16.3",
     "prisma": "^7.2.0",
     "radix-ui": "^1.4.3",
@@ -76,6 +89,7 @@
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "^16.1.0",
+    "@playwright/test": "^1.57.0",
     "@types/node": "^24.9.1",
     "@types/pg": "^8.16.0",
     "@types/react": "19.2.2",

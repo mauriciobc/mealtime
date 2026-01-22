@@ -1,46 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
-import { headers } from 'next/headers';
+import { getAuthenticatedUser, AuthenticatedUser } from '@/lib/auth';
+import { ApiResponse } from '@/lib/responses/api-responses';
 
-// Zod schema for query validation
 const CatIdQuerySchema = z.object({
   catId: z.string().uuid(),
 });
 
-// Função auxiliar para criar respostas JSON padronizadas
-function createJSONResponse(data: any, status: number) {
-  return new NextResponse(
-    JSON.stringify(data),
-    {
-      status,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-User-ID'
-      }
-    }
-  );
+export async function OPTIONS(request: NextRequest) {
+  return ApiResponse.json(null, 204, request);
 }
 
 export async function GET(request: NextRequest) {
-  try {
-    // Authentication
-    const headersList = await headers();
-    const authUserId = headersList.get('X-User-ID');
-    if (!authUserId) {
-      return createJSONResponse({ error: 'Not authenticated' }, 401);
-    }
+  const authResult = await getAuthenticatedUser(request);
+  
+  if (!authResult.success) {
+    return ApiResponse.error(
+      authResult.error || 'Not authenticated',
+      authResult.statusCode || 401,
+      'AUTH_ERROR',
+      undefined,
+      request
+    );
+  }
 
+  const user: AuthenticatedUser = authResult.user!;
+
+  try {
     const { searchParams } = new URL(request.url);
     const parseResult = CatIdQuerySchema.safeParse(Object.fromEntries(searchParams));
+    
     if (!parseResult.success) {
-      return createJSONResponse({ error: 'Valid catId query parameter is required' }, 400);
+      return ApiResponse.validationError(parseResult.error.flatten(), request);
     }
+    
     const { catId } = parseResult.data;
 
-    // Fetch the cat and its household
     const cat = await prisma.cats.findUnique({
       where: { id: catId },
       select: {
@@ -57,17 +53,18 @@ export async function GET(request: NextRequest) {
         }
       }
     });
+    
     if (!cat) {
-      return createJSONResponse({ error: 'Cat not found' }, 404);
+      return ApiResponse.notFound('Cat not found', request);
     }
 
-    // Check if user is owner or household member
-    const isOwner = cat.owner_id === authUserId;
+    const isOwner = cat.owner_id === user.id;
     const isHouseholdMember = cat.household.household_members.some(
-      (member) => member.user_id === authUserId
+      (member) => member.user_id === user.id
     );
+    
     if (!isOwner && !isHouseholdMember) {
-      return createJSONResponse({ error: 'Forbidden: You do not have access to this cat' }, 403);
+      return ApiResponse.error('Forbidden: You do not have access to this cat', 403, 'FORBIDDEN', undefined, request);
     }
 
     const feedingLogs = await prisma.feeding_logs.findMany({
@@ -75,7 +72,6 @@ export async function GET(request: NextRequest) {
       orderBy: { fed_at: 'desc' },
     });
 
-    // Format logs for the chart (adjust fields as needed)
     const formattedLogs = feedingLogs.map(log => ({
       id: log.id,
       catId: log.cat_id,
@@ -88,9 +84,8 @@ export async function GET(request: NextRequest) {
       createdAt: log.created_at,
     }));
 
-    return createJSONResponse(formattedLogs, 200);
+    return ApiResponse.success(formattedLogs, 200, request);
   } catch (error) {
-    console.error('[API GET /api/feeding-logs] Error:', error);
-    return createJSONResponse({ error: 'Internal Server Error' }, 500);
+    return ApiResponse.error('Internal Server Error', 500, 'INTERNAL_ERROR', error, request);
   }
-} 
+}

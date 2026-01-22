@@ -47,35 +47,19 @@ export function SafeImage({ fallback, className, fill, onError, ...props }: Safe
     if (loadAttempts.current >= 2) {
       errorRef.current = true;
 
-      // Log detailed error information
-      console.error('[SafeImage] Image loading error after retries:', {
-        src: props.src,
-        attempts: loadAttempts.current,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        type: typeof props.src,
-        isString: typeof props.src === 'string',
-        startsWith: typeof props.src === 'string' ? props.src.startsWith('/') : undefined
-      });
-      
       // Only update state if mounted and not already in error state
       if (mountedRef.current && !hasError) {
         setHasError(true);
       }
-      
+
       if (onError && mountedRef.current) {
         try {
           const standardError = error instanceof Error ? error : new Error('Image loading failed');
           onError(standardError);
         } catch (handlerError) {
-          console.error('[SafeImage] Error in onError handler:', handlerError);
+          // Silent catch for onError handler errors
         }
       }
-    } else {
-      console.warn('[SafeImage] Image load attempt failed, retrying...', {
-        src: props.src,
-        attempt: loadAttempts.current
-      });
     }
   }, [hasError, onError, props.src]);
 
@@ -86,42 +70,15 @@ export function SafeImage({ fallback, className, fill, onError, ...props }: Safe
 
     try {
       const img = event.target as HTMLImageElement;
-      
-      // Log detailed loading information
-      console.log('[SafeImage] Image load event triggered:', {
-        src: props.src,
-        complete: img.complete,
-        naturalWidth: img.naturalWidth,
-        naturalHeight: img.naturalHeight,
-        currentSrc: img.currentSrc,
-        loading: img.loading,
-        decoded: img.decode !== undefined
-      });
-      
+
       // Only check dimensions if the image is not being optimized by Next.js
       if (!img.complete || (
-        typeof props.src === 'string' && 
-        !props.src.startsWith('/_next/image') && 
+        typeof props.src === 'string' &&
+        !props.src.startsWith('/_next/image') &&
         (img.naturalWidth === 0 || img.naturalHeight === 0)
       )) {
-        console.warn('[SafeImage] Image loaded but dimensions invalid:', {
-          src: props.src,
-          complete: img.complete,
-          naturalWidth: img.naturalWidth,
-          naturalHeight: img.naturalHeight,
-          currentSrc: img.currentSrc
-        });
         handleImageError(new Error('Image dimensions invalid'));
         return;
-      }
-
-      // Log successful load
-      if (!errorRef.current && mountedRef.current) {
-        console.log('[SafeImage] Image loaded successfully:', {
-          src: props.src,
-          dimensions: `${img.naturalWidth}x${img.naturalHeight}`,
-          currentSrc: img.currentSrc
-        });
       }
 
       if (props.onLoad && mountedRef.current) {
@@ -173,7 +130,7 @@ export function SafeImage({ fallback, className, fill, onError, ...props }: Safe
             }
           }}
           loading={props.priority ? "eager" : "lazy"}
-          quality={90}
+          quality={75}
           sizes={props.sizes || "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"}
         />
       </div>

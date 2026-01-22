@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from '@/utils/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -11,14 +12,11 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 import { useUserContext } from "@/lib/context/UserContext";
-import { Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { Icons } from "@/components/icons";
 import { logger } from "@/lib/monitoring/logger";
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
 import { GlobalLoading } from "@/components/ui/global-loading";
-
-
-console.log("[Login] Página de login sendo carregada");
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,7 +44,6 @@ export default function LoginPage() {
     const isFullyLoaded = !authLoading && !profileLoading;
     if (isFullyLoaded && currentUser) {
       const redirectTo = searchParams.get("redirectTo") || "/";
-      console.log("[Login] User fully loaded and authenticated, redirecting to:", redirectTo);
       router.replace(redirectTo);
     }
   }, [authLoading, profileLoading, currentUser, router, searchParams]);
@@ -85,9 +82,7 @@ export default function LoginPage() {
         }
         logger.error('[LoginPage] Sign in error:', { error: signInError.message });
       } else {
-        // Redirect immediately on successful sign-in
         const redirectTo = searchParams.get("redirectTo") || "/";
-        console.log("[Login] Successful sign-in, redirecting to:", redirectTo);
         router.replace(redirectTo);
       }
     } catch (err) {
@@ -178,9 +173,13 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="text-sm text-red-500">
-                  {error}
-                </div>
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Login Error</AlertTitle>
+                  <AlertDescription>
+                    {error}
+                  </AlertDescription>
+                </Alert>
               )}
 
               <Button

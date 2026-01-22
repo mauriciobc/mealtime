@@ -138,23 +138,14 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       loadingIdRef.current = loadingId;
       dispatch({ type: 'FETCH_START' });
       addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
-      // Only log in development mode
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[CatsProvider] Loading cats for household:", householdId);
-      }
       const catsData: CatType[] = await fetchCatsForHousehold(householdId, currentUser?.id, undefined, abortController.signal);
       if (!isMountedRef.current) return;
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[CatsProvider] Cats loaded:", catsData.length);
-      }
       dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('[CatsProvider] Request aborted');
         return;
       }
       if (!isMountedRef.current) return;
-      console.error("[CatsProvider] Error loading cats data:", error);
       const errorMessage = error.message || 'Falha ao carregar dados dos gatos';
       dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
       toast.error(errorMessage);
