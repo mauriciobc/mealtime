@@ -74,20 +74,20 @@ export default function CatsPage() {
   }, [cats, currentUser?.householdId]);
 
   const latestLogMap = useMemo(() => {
-    if (!feedingLogs) return new Map<string, FeedingLog>();
-    
-    const map = new Map<string, FeedingLog>();
-    // The feedingLogs array is already sorted by timestamp descending in the context.
-    // We can iterate through it once and add the first log we find for each cat,
-    // which will be the most recent one. This avoids a redundant O(n log n) sort.
-    feedingLogs.forEach(log => {
-        const catIdStr = String(log.catId);
-        if (!map.has(catIdStr)) {
-          map.set(catIdStr, log);
-        }
-      });
-    return map;
-  }, [feedingLogs]);
+    if (!feedingLogs) return new Map<string, FeedingLog>()
+
+    // The feedingLogs array from FeedingContext is already sorted by timestamp descending.
+    // We can iterate once to create a map of the latest log for each cat,
+    // improving performance from O(n log n) due to sorting to O(n).
+    const map = new Map<string, FeedingLog>()
+    for (const log of feedingLogs) {
+      const catIdStr = String(log.catId)
+      if (!map.has(catIdStr)) {
+        map.set(catIdStr, log)
+      }
+    }
+    return map
+  }, [feedingLogs])
 
   const handleDeleteCat = async (catId: string) => {
     const previousCats = cats
