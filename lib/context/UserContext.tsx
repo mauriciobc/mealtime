@@ -27,18 +27,12 @@ interface UserAction {
 }
 
 function userReducer(state: UserState, action: UserAction): UserState {
-  // Only log in development mode
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`[userReducer] Dispatching: ${action.type}`, action.payload);
-  }
-  
   switch (action.type) {
     case "FETCH_START":
       return { ...state, isLoading: true, error: null };
     case "SET_CURRENT_USER":
       return { ...state, isLoading: false, currentUser: action.payload as CurrentUserType | null, error: null };
     case "FETCH_ERROR":
-      console.error("[userReducer] FETCH_ERROR -> isLoading: false, error:", action.payload);
       return { ...state, isLoading: false, error: action.payload as string };
     case "CLEAR_USER":
       return { ...initialState, isLoading: false };

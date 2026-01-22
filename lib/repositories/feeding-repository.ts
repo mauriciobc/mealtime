@@ -27,8 +27,6 @@ export const FeedingRepository = {
 
   // Buscar registros de alimentação de um domicílio
   getByHousehold: async (householdId: string, limit?: number, offset?: number) => {
-    console.log("Buscando logs de alimentação para household:", householdId);
-    
     const query = {
       where: {
         cat: {
@@ -55,13 +53,11 @@ export const FeedingRepository = {
         skip: offset,
         take: limit,
       });
-      console.log(`Encontrados ${result.length} logs com paginação`);
       return result;
     }
 
     // Caso contrário, retorna todos os registros
     const result = await prisma.feeding_logs.findMany(query);
-    console.log(`Encontrados ${result.length} logs sem paginação`);
     return result;
   },
 
