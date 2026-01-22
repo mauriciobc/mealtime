@@ -52,3 +52,4 @@ app/globals copy.csbkp
 !CONTRIBUTING.md
 # And keep docs folder structure visible
 !docs/**/*.md
+\n# Test results\n/playwright-report/\n/test-results/\n

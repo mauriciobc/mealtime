@@ -16,18 +16,15 @@ test.describe('Onboarding Tours', () => {
   test.describe('First Visit Tour', () => {
     test('should trigger on first visit to home page', async ({ page }) => {
       await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
-
       const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
-      await expect(tourCard).toBeVisible();
+      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
       await expect(tourCard).toContainText('Bem-vindo ao MealTime');
     });
 
     test('should show all 6 steps', async ({ page }) => {
       await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
+      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
 
       const steps = [
         'Bem-vindo ao MealTime',
@@ -38,44 +35,40 @@ test.describe('Onboarding Tours', () => {
         'Estatísticas',
       ];
 
-      for (const step of steps) {
-        const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
         await expect(tourCard).toContainText(step, { timeout: 5000 });
-        if (step !== 'Estatísticas') {
+
+        if (i < steps.length - 1) {
           await page.getByRole('button', { name: 'Próximo' }).click();
-          await page.waitForTimeout(500);
+          // Wait for the next step to appear, which indicates the transition is complete
+          await expect(tourCard).toContainText(steps[i + 1], { timeout: 5000 });
         }
       }
     });
 
     test('should not trigger after completion', async ({ page }) => {
       await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
+      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
 
       // Complete the tour
       const nextButton = page.getByRole('button', { name: 'Próximo' });
       for (let i = 0; i < 5; i++) {
         await nextButton.click();
-        await page.waitForTimeout(400);
       }
       await page.getByRole('button', { name: 'Concluir' }).click();
-      await page.waitForTimeout(800);
+      await tourCard.waitFor({ state: 'hidden', timeout: 5000 });
 
       // Reload and verify tour doesn't show
       await page.reload();
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
-
-      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      await page.waitForTimeout(1000); // Allow time for the page to re-render
       await expect(tourCard).not.toBeVisible();
     });
 
     test('should not trigger on auth pages', async ({ page }) => {
       await page.goto('/login');
       await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
-
       const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
       await expect(tourCard).not.toBeVisible();
     });
@@ -85,19 +78,16 @@ test.describe('Onboarding Tours', () => {
     test.skip('should trigger on weight page', async ({ page }) => {
       // Skipped: Weight page requires cats data to be loaded which needs full auth setup
       await page.goto('/weight');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(2000);
-
       const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
-      await expect(tourCard).toBeVisible();
+      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
       await expect(tourCard).toContainText('Rastreamento de Peso');
     });
 
     test.skip('should show all 6 weight steps', async ({ page }) => {
       // Skipped: Weight page requires cats data to be loaded which needs full auth setup
       await page.goto('/weight');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(2000);
+      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
 
       const steps = [
         'Bem-vindo ao Rastreamento de Peso',
@@ -108,12 +98,12 @@ test.describe('Onboarding Tours', () => {
         'Pronto para Começar',
       ];
 
-      for (const step of steps) {
-        const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
         await expect(tourCard).toContainText(step, { timeout: 5000 });
-        if (step !== 'Pronto para Começar') {
+        if (i < steps.length - 1) {
           await page.getByRole('button', { name: 'Próximo' }).click();
-          await page.waitForTimeout(500);
+          await expect(tourCard).toContainText(steps[i + 1], { timeout: 5000 });
         }
       }
     });
@@ -122,20 +112,20 @@ test.describe('Onboarding Tours', () => {
   test.describe('localStorage Management', () => {
     test('should create correct storage key after first tour completion', async ({ page }) => {
       await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
+      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
 
       // Complete the tour
       const nextButton = page.getByRole('button', { name: 'Próximo' });
       for (let i = 0; i < 5; i++) {
         await nextButton.click();
-        await page.waitForTimeout(400);
       }
       await page.getByRole('button', { name: 'Concluir' }).click();
-      await page.waitForTimeout(800);
+      await tourCard.waitFor({ state: 'hidden', timeout: 5000 });
 
-      const storageValue = await page.evaluate(() =>
-        localStorage.getItem('mealtime-tour-seen-first-visit')
+      const storageValue = await page.evaluate(
+        (key) => localStorage.getItem(key),
+        LOCAL_STORAGE_KEYS.firstVisit
       );
       expect(storageValue).toBe('true');
     });
@@ -143,26 +133,22 @@ test.describe('Onboarding Tours', () => {
     test.skip('should have separate storage keys for different tours', async ({ page }) => {
       // Skipped: Weight page requires cats data to be loaded which needs full auth setup
       await page.goto('/');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
+      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
 
       // Complete first tour
       const nextButton = page.getByRole('button', { name: 'Próximo' });
       for (let i = 0; i < 5; i++) {
         await nextButton.click();
-        await page.waitForTimeout(400);
       }
       await page.getByRole('button', { name: 'Concluir' }).click();
-      await page.waitForTimeout(800);
+      await tourCard.waitFor({ state: 'hidden', timeout: 5000 });
 
       // Weight tour should still be available
       await page.goto('/weight');
-      await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(1500);
-
-      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
-      await expect(tourCard).toBeVisible();
-      await expect(tourCard).toContainText('Rastreamento de Peso');
+      const weightTourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+      await weightTourCard.waitFor({ state: 'visible', timeout: 5000 });
+      await expect(weightTourCard).toContainText('Rastreamento de Peso');
     });
   });
 });
