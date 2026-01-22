@@ -7,6 +7,10 @@
 /.next/
 /out/
 
+# test results
+/test-results/
+/playwright-report/
+
 # production
 /build
 
@@ -52,4 +56,3 @@ app/globals copy.csbkp
 !CONTRIBUTING.md
 # And keep docs folder structure visible
 !docs/**/*.md
-\n# Test results\n/playwright-report/\n/test-results/\n
