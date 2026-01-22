@@ -20,7 +20,7 @@ export class LoginPage {
     this.passwordInput = page.locator('input[name="password"], input#password');
     this.submitButton = page.locator('button[type="submit"]:visible');
     this.showPasswordButton = page.locator('button:visible[aria-label*="senha" i], button:visible[aria-label*="password" i]');
-    this.errorMessage = page.locator('.text-sm.text-red-500:visible');
+    this.errorMessage = this.cardContainer.locator('[role="alert"]');
     this.googleLoginButton = page.locator('button:visible:has-text("Google")');
     this.signupLink = page.locator('a:visible:has-text("Registre-se"), a:visible:has-text("Sign up")');
     this.termsLink = page.locator('a[href="/terms"]');
@@ -37,7 +37,7 @@ export class LoginPage {
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
     await this.submitButton.click();
-    await this.page.waitForSelector('.text-sm.text-red-500', { timeout: 5000 }).catch(() => {});
+    await this.page.waitForSelector('[role="alert"]', { timeout: 5000 }).catch(() => {});
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -52,7 +52,7 @@ export class LoginPage {
 
   async getErrorMessage(): Promise<string | null> {
     if (await this.errorMessage.isVisible()) {
-      return this.errorMessage.textContent();
+      return this.errorMessage.locator('div').last().textContent();
     }
     return null;
   }

@@ -34,6 +34,10 @@ public/uploads/8104f8a4-3de8-4ce4-86b8-97787de6f410.jpg
 # coverage reports
 coverage/
 
+# Test artifacts
+/test-results/
+/playwright-report/
+
 # Environment files
 .env
 .env.local
