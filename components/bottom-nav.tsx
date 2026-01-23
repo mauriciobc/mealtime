@@ -33,12 +33,29 @@ export default function BottomNav({ currentPath }: BottomNavProps) {
     { path: "/statistics", icon: <BarChart2 className="h-6 w-6" />, label: "Estatísticas" },
   ]
 
+  const getTourId = (path: string) => {
+    switch (path) {
+      case "/": return "tour-root-home"
+      case "/cats": return "tour-root-cats"
+      case "/households": return "tour-root-households"
+      case "/schedules": return "tour-root-schedules"
+      case "/weight": return "tour-root-weight"
+      case "/statistics": return "tour-root-statistics"
+      default: return undefined
+    }
+  }
+
   if (!shouldAnimate) {
     return (
       <div className="fixed bottom-0 left-0 right-0 bg-background border-t py-2 px-6 z-10">
         <div className="max-w-md mx-auto flex items-center justify-between">
           {navItems.map((item) => (
-            <Link key={item.path} href={item.path} className="flex flex-col items-center">
+            <Link 
+              key={item.path} 
+              href={item.path} 
+              className="flex flex-col items-center"
+              id={getTourId(item.path)}
+            >
               <div className={`${isActive(item.path) ? "bg-primary text-primary-foreground" : "text-muted-foreground"} p-2 rounded-full`}>
                 {item.icon}
               </div>
@@ -64,7 +81,12 @@ export default function BottomNav({ currentPath }: BottomNavProps) {
     >
       <div className="max-w-md mx-auto flex items-center justify-between">
         {navItems.map((item, index) => (
-          <Link key={item.path} href={item.path} className="flex flex-col items-center">
+          <Link 
+            key={item.path} 
+            href={item.path} 
+            className="flex flex-col items-center"
+            id={getTourId(item.path)}
+          >
             <motion.div
               className={`${isActive(item.path) ? "bg-primary text-primary-foreground" : "text-muted-foreground"} p-2 rounded-full`}
               whileHover={{ y: -5 }}

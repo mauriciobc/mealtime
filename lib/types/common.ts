@@ -110,4 +110,5 @@ export interface BaseFeedingLogs {
   notes?: string | null;
   fed_by?: ID | null;
   fed_at: Date;
+  food_type?: string | null;
 }

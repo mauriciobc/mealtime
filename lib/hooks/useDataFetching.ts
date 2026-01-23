@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { logger } from '@/lib/monitoring/logger';
 
 interface FetchOptions<T> {
   url: string;
@@ -19,15 +20,19 @@ interface CacheEntry<T> {
 
 const cache = new Map<string, CacheEntry<any>>();
 
+const DEFAULT_RETRY_COUNT = 3;
+const DEFAULT_RETRY_DELAY = 1000;
+const DEFAULT_CACHE_TIME = 5 * 60 * 1000;
+
 export function useDataFetching<T>({ 
   url, 
   userId, 
   onSuccess, 
   errorMessage = "Erro ao carregar dados", 
   transformData = (data) => data,
-  retryCount = 3,
-  retryDelay = 1000,
-  cacheTime = 5 * 60 * 1000 // 5 minutos
+  retryCount = DEFAULT_RETRY_COUNT,
+  retryDelay = DEFAULT_RETRY_DELAY,
+  cacheTime = DEFAULT_CACHE_TIME
 }: FetchOptions<T>) {
   const [data, setData] = useState<T[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,31 +67,27 @@ export function useDataFetching<T>({
 
   const processResponse = useCallback(async (response: Response): Promise<any> => {
     const contentType = response.headers.get('content-type');
-    console.log('[useDataFetching] Response headers:', Object.fromEntries(response.headers.entries()));
-    console.log('[useDataFetching] Content-Type:', contentType);
+    logger.debug('[useDataFetching] Content-Type:', { contentType });
     
     if (!contentType || !contentType.includes('application/json')) {
-      console.error('[useDataFetching] Invalid Content-Type:', contentType);
       throw new Error(`Resposta inválida do servidor: Content-Type deve ser application/json`);
     }
 
     if (!response.ok) {
-      let errorMessage = `Falha ao buscar dados (${response.status}): ${response.statusText}`;
+      let errorMsg = `Falha ao buscar dados (${response.status}): ${response.statusText}`;
       try {
         const errorText = await response.text();
-        console.log('[useDataFetching] Error response text:', errorText);
         if (errorText) {
           const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorMessage;
+          errorMsg = errorJson.error || errorMsg;
         }
       } catch (parseError) {
-        console.warn('[useDataFetching] Erro ao parsear mensagem de erro:', parseError);
+        logger.warn('[useDataFetching] Erro ao parsear mensagem de erro', { parseError });
       }
-      throw new Error(errorMessage);
+      throw new Error(errorMsg);
     }
 
     const text = await response.text();
-    console.log('[useDataFetching] Response text:', text);
     
     if (!text.trim()) {
       return [];
@@ -95,7 +96,7 @@ export function useDataFetching<T>({
     try {
       return JSON.parse(text);
     } catch (parseError) {
-      console.error('[useDataFetching] Erro ao parsear JSON:', parseError);
+      logger.error('[useDataFetching] Erro ao parsear JSON', { parseError });
       throw new Error(`Erro ao processar resposta do servidor: ${parseError instanceof Error ? parseError.message : 'Erro desconhecido'}`);
     }
   }, []);
@@ -113,9 +114,8 @@ export function useDataFetching<T>({
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // Verifica cache
         if (cachedData && Date.now() - cachedData.timestamp < cacheTime) {
-          console.log(`[useDataFetching] Usando dados do cache para ${url}`);
+          logger.debug('[useDataFetching] Usando dados do cache', { url });
           if (isMounted) {
             setData(cachedData.data);
             onSuccess?.(cachedData.data);
@@ -123,7 +123,7 @@ export function useDataFetching<T>({
           return;
         }
 
-        console.log(`[useDataFetching] Iniciando fetch para ${url}`);
+        logger.debug('[useDataFetching] Iniciando fetch', { url });
         const response = await fetchWithRetry(retryCount);
         
         if (!isMounted) return;
@@ -132,24 +132,22 @@ export function useDataFetching<T>({
         
         if (!isMounted) return;
 
-        // Valida e transforma os dados
         const processedData = Array.isArray(rawData) ? rawData : [rawData];
         const transformedData = transformData(processedData);
         
-        // Atualiza cache
         cache.set(cacheKey, {
           data: transformedData,
           timestamp: Date.now()
         });
 
-        console.log(`[useDataFetching] Dados transformados:`, transformedData);
+        logger.debug('[useDataFetching] Dados transformados', { url, count: transformedData.length });
         
         setData(transformedData);
         onSuccess?.(transformedData);
-      } catch (error) {
-        console.error(`[useDataFetching] Erro ao buscar dados de ${url}:`, error);
+      } catch (err) {
+        logger.error('[useDataFetching] Erro ao buscar dados', { url, error: err });
         if (isMounted) {
-          const fallbackMessage = errorMessage || (error instanceof Error ? error.message : String(error));
+          const fallbackMessage = errorMessage || (err instanceof Error ? err.message : String(err));
           setError(new Error(fallbackMessage));
           toast.error(fallbackMessage);
         }
@@ -168,4 +166,4 @@ export function useDataFetching<T>({
   }, [url, userId, errorMessage, onSuccess, transformData, retryCount, retryDelay, cacheTime, fetchWithRetry, processResponse]);
 
   return { data, isLoading, error };
-} 
+}

@@ -1,14 +1,12 @@
 import prisma from "./prisma";
+import { logger } from '@/lib/monitoring/logger';
 
-// Re-export from apiService
 export { getNextFeedingTime } from './services/api-feeding-service';
 
-// Buscar gatos
 export async function getCats(householdId?: number) {
   try {
     const response = await fetch('/api/cats');
     if (!response.ok) {
-      // Attempt to get a meaningful error message
       let errorMsg = `Falha ao buscar gatos (${response.status} ${response.statusText})`;
       try {
         const contentType = response.headers.get("content-type");
@@ -17,38 +15,34 @@ export async function getCats(householdId?: number) {
           errorMsg = errorData.error || errorMsg;
         } else {
           const textError = await response.text();
-          console.error("Server returned non-JSON error:", textError);
+          logger.error("Server returned non-JSON error", { textError, context: 'getCats' });
         }
       } catch (parseOrReadError) {
-        console.error("Failed to parse or read error response body:", parseOrReadError);
+        logger.error("Failed to parse error response body", { parseOrReadError, context: 'getCats' });
       }
       throw new Error(errorMsg);
     }
 
-    // Handle potential non-JSON success response
     const contentType = response.headers.get("content-type");
     if (!(contentType && contentType.includes("application/json"))) {
-        const textResponse = await response.text();
-        console.error("Server returned non-JSON success response:", textResponse);
-        throw new Error("Resposta inesperada do servidor ao buscar gatos.");
+      const textResponse = await response.text();
+      logger.error("Server returned non-JSON success response", { textResponse, context: 'getCats' });
+      throw new Error("Resposta inesperada do servidor ao buscar gatos.");
     }
 
     try {
-        return await response.json();
+      return await response.json();
     } catch (parseError) {
-        console.error("Failed to parse successful JSON response:", parseError);
-        throw new Error("Falha ao processar a resposta do servidor ao buscar gatos.");
+      logger.error("Failed to parse JSON response", { parseError, context: 'getCats' });
+      throw new Error("Falha ao processar a resposta do servidor ao buscar gatos.");
     }
 
   } catch (_error) {
-    console.error("Erro ao buscar gatos:", _error);
-    // Re-throw the _error so the caller knows something failed
+    logger.error("Erro ao buscar gatos", { error: _error, context: 'getCats' });
     throw _error;
-    // return []; // Avoid masking the _error by returning empty array
   }
 }
 
-// Buscar um gato pelo ID
 export async function getCatById(id: string) {
   try {
     if (!id) return null;
@@ -86,25 +80,21 @@ export async function getCatById(id: string) {
     
     return cat;
   } catch (_error) {
-    console.error("Erro ao buscar gato por ID:", _error);
+    logger.error("Erro ao buscar gato por ID", { error: _error, catId: id, context: 'getCatById' });
     return null;
   }
 }
 
-// Buscar registros de alimentação
 export async function getFeedingLogs(catId?: number, limit = 20) {
   try {
-    // Build the query parameters
     const queryParams = new URLSearchParams();
     if (catId) queryParams.append('catId', catId.toString());
     if (limit) queryParams.append('limit', limit.toString());
     
-    // Use the API instead of direct Prisma access
     const url = `/api/feedings${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     const response = await fetch(url);
     
     if (!response.ok) {
-      // Attempt to get a meaningful error message
       let errorMsg = `Falha ao buscar registros de alimentação (${response.status} ${response.statusText})`;
       try {
         const contentType = response.headers.get("content-type");
@@ -113,41 +103,37 @@ export async function getFeedingLogs(catId?: number, limit = 20) {
           errorMsg = errorData.error || errorMsg;
         } else {
           const textError = await response.text();
-          console.error("Server returned non-JSON error:", textError);
+          logger.error("Server returned non-JSON error", { textError, context: 'getFeedingLogs' });
         }
       } catch (parseOrReadError) {
-        console.error("Failed to parse or read error response body:", parseOrReadError);
+        logger.error("Failed to parse error response body", { parseOrReadError, context: 'getFeedingLogs' });
       }
       throw new Error(errorMsg);
     }
     
-    // Handle potential non-JSON success response
     const contentType = response.headers.get("content-type");
     if (!(contentType && contentType.includes("application/json"))) {
       const textResponse = await response.text();
-      console.error("Server returned non-JSON success response:", textResponse);
+      logger.error("Server returned non-JSON success response", { textResponse, context: 'getFeedingLogs' });
       throw new Error("Resposta inesperada do servidor ao buscar registros de alimentação.");
     }
     
     try {
       return await response.json();
     } catch (parseError) {
-      console.error("Failed to parse successful JSON response:", parseError);
+      logger.error("Failed to parse JSON response", { parseError, context: 'getFeedingLogs' });
       throw new Error("Falha ao processar a resposta do servidor ao buscar registros de alimentação.");
     }
   } catch (_error) {
-    console.error("Erro ao buscar registros de alimentação:", _error);
-    // Re-throw the _error so the caller knows something failed
+    logger.error("Erro ao buscar registros de alimentação", { error: _error, context: 'getFeedingLogs' });
     throw _error;
   }
 }
 
-// Buscar agendamentos
 export async function getSchedules(catId?: number) {
   try {
     const response = await fetch(`/api/schedules${catId ? `?catId=${catId}` : ''}`);
     if (!response.ok) {
-       // Attempt to get a meaningful error message
       let errorMsg = `Falha ao buscar agendamentos (${response.status} ${response.statusText})`;
       try {
         const contentType = response.headers.get("content-type");
@@ -156,33 +142,30 @@ export async function getSchedules(catId?: number) {
           errorMsg = errorData.error || errorMsg;
         } else {
           const textError = await response.text();
-          console.error("Server returned non-JSON error:", textError);
+          logger.error("Server returned non-JSON error", { textError, context: 'getSchedules' });
         }
       } catch (parseOrReadError) {
-        console.error("Failed to parse or read error response body:", parseOrReadError);
+        logger.error("Failed to parse error response body", { parseOrReadError, context: 'getSchedules' });
       }
       throw new Error(errorMsg);
     }
 
-    // Handle potential non-JSON success response
     const contentType = response.headers.get("content-type");
     if (!(contentType && contentType.includes("application/json"))) {
-        const textResponse = await response.text();
-        console.error("Server returned non-JSON success response:", textResponse);
-        throw new Error("Resposta inesperada do servidor ao buscar agendamentos.");
+      const textResponse = await response.text();
+      logger.error("Server returned non-JSON success response", { textResponse, context: 'getSchedules' });
+      throw new Error("Resposta inesperada do servidor ao buscar agendamentos.");
     }
 
-     try {
-        return await response.json();
+    try {
+      return await response.json();
     } catch (parseError) {
-        console.error("Failed to parse successful JSON response:", parseError);
-        throw new Error("Falha ao processar a resposta do servidor ao buscar agendamentos.");
+      logger.error("Failed to parse JSON response", { parseError, context: 'getSchedules' });
+      throw new Error("Falha ao processar a resposta do servidor ao buscar agendamentos.");
     }
 
   } catch (_error) {
-    console.error("Erro ao buscar agendamentos:", _error);
-    // Re-throw the _error so the caller knows something failed
+    logger.error("Erro ao buscar agendamentos", { error: _error, context: 'getSchedules' });
     throw _error;
-    // return []; // Avoid masking the _error by returning empty array
   }
 }

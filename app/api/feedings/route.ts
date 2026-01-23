@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from "zod";
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 // Add top-level logging
 console.log(`[API /feedings] Module loaded. typeof prisma: ${typeof prisma}. Keys:`, prisma ? Object.keys(prisma) : 'prisma is null/undefined');
 console.log(`[API /feedings] DATABASE_URL set: ${!!process.env.DATABASE_URL}`); // Check if DB URL env var exists
@@ -33,6 +33,7 @@ const createFeedingSchema = z.object({
   catId: z.string().uuid({ message: "Invalid cat ID format" }),
   amount: z.number().positive().nullable().optional(), // Allow optional amount
   notes: z.string().max(255).optional(), // Allow optional notes
+  food_type: z.string().max(255).optional(), // Allow optional food type
 });
 
 // POST /api/feedings - Criar um novo registro de alimentação
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { catId, amount, notes } = validationResult.data;
+    const { catId, amount, notes, food_type } = validationResult.data;
     const mealType = body.meal_type || "manual"; // Default to 'manual' if not provided (e.g., Feed Now)
 
     // --- Authorization & Validation --- 
@@ -155,6 +156,7 @@ export async function POST(request: NextRequest) {
         amount: amount !== undefined && amount !== null ? new Prisma.Decimal(amount) : new Prisma.Decimal(0), // Use Prisma.Decimal for amount, default to 0
         unit: body.unit || 'g', // Add required unit field, default to grams
         notes: notes ?? null, // Use validated notes, convert undefined to null
+        food_type: food_type ?? null, // Use validated food_type, convert undefined to null
         fed_by: authUserId, // Use ID from header
         household_id: String(userHouseholdId), // Ensure household_id is a string
         fed_at: new Date(), // Use current timestamp for feeding time

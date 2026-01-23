@@ -21,6 +21,7 @@ const createFeedingSchema = z.object({
   notes: z.string().max(255).optional(),
   meal_type: z.enum(['manual', 'scheduled', 'automatic']).default('manual'),
   unit: z.enum(['g', 'ml', 'cups', 'oz']).default('g'),
+  food_type: z.string().max(255).optional(),
 });
 
 // POST /api/v2/feedings - Criar um novo registro de alimentação
@@ -40,7 +41,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }, { status: 400 });
     }
 
-    const { catId, amount, notes, meal_type: mealType, unit } = validationResult.data;
+    const { catId, amount, notes, meal_type: mealType, unit, food_type } = validationResult.data;
 
     // Authorization & Validation
     logger.debug(`[POST /api/v2/feedings] Verifying access for user ${user.id} and cat ${catId}`);
@@ -124,6 +125,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
         amount: amount != null ? new Prisma.Decimal(amount) : new Prisma.Decimal(0),
         unit: unit,
         notes: notes ?? null,
+        food_type: food_type ?? null,
         fed_by: user.id,
         household_id: String(userHouseholdId),
         fed_at: new Date(),

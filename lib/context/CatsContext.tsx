@@ -91,7 +91,13 @@ const CatsContext = createContext<{
   state: CatsState;
   dispatch: React.Dispatch<CatsAction>;
   forceRefresh: () => void;
-}>({ state: initialState, dispatch: () => null, forceRefresh: () => null });
+  catsMap: Map<string, CatType>; // Bolt: Added for O(1) lookups
+}>({
+  state: initialState,
+  dispatch: () => null,
+  forceRefresh: () => null,
+  catsMap: new Map(), // Bolt: Default empty map
+});
 export { CatsContext };
 
 export const CatsProvider = ({ children }: { children: ReactNode }) => {
@@ -132,23 +138,14 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
       loadingIdRef.current = loadingId;
       dispatch({ type: 'FETCH_START' });
       addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
-      // Only log in development mode
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[CatsProvider] Loading cats for household:", householdId);
-      }
       const catsData: CatType[] = await fetchCatsForHousehold(householdId, currentUser?.id, undefined, abortController.signal);
       if (!isMountedRef.current) return;
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[CatsProvider] Cats loaded:", catsData.length);
-      }
       dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('[CatsProvider] Request aborted');
         return;
       }
       if (!isMountedRef.current) return;
-      console.error("[CatsProvider] Error loading cats data:", error);
       const errorMessage = error.message || 'Falha ao carregar dados dos gatos';
       dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
       toast.error(errorMessage);
@@ -183,8 +180,20 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, loadCatsData]);
 
+  // Bolt: Memoize the cats array into a Map for efficient O(1) lookups.
+  // This prevents consumers of the context from needing to repeatedly use
+  // Array.prototype.find() (O(n)) inside their own components.
+  const catsMap = useMemo(() => {
+    const map = new Map<string, CatType>();
+    for (const cat of state.cats) {
+      // Assuming cat.id is a string or can be converted to one.
+      map.set(String(cat.id), cat);
+    }
+    return map;
+  }, [state.cats]);
+
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, dispatch, forceRefresh]);
+  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh, catsMap }), [state, dispatch, forceRefresh, catsMap]);
 
   return (
     <CatsContext.Provider value={contextValue}>
