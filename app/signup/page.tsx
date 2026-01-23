@@ -17,7 +17,6 @@ import { getSiteOrigin } from '@/utils/getSiteOrigin';
 import { GlobalLoading } from "@/components/ui/global-loading";
 
 export default function SignupPage() {
-  console.log("[Signup] Componente SignupPage renderizando");
   const supabase = createClient();
   const searchParams = useSearchParams();
 
@@ -46,7 +45,6 @@ export default function SignupPage() {
     }
 
     setIsLoadingCredentials(true);
-    console.log("[Signup] Tentando criar conta com credenciais via Supabase:", email);
 
     const { error: signUpError } = await supabase.auth.signUp({
       email,
@@ -62,17 +60,14 @@ export default function SignupPage() {
     setIsLoadingCredentials(false);
 
     if (signUpError) {
-      console.error("[Signup] Supabase credentials signup error:", signUpError);
       toast.error(signUpError.message || "Erro ao criar conta.");
     } else {
-      console.log("[Signup] Supabase credentials signup successful");
       toast.success("Conta criada com sucesso! Por favor, verifique seu email para confirmar sua conta.");
     }
   };
 
   const handleGoogleSignup = async () => {
     setIsLoadingGoogle(true);
-    console.log("[Signup] Iniciando signup com Google via Supabase");
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -84,7 +79,6 @@ export default function SignupPage() {
     setIsLoadingGoogle(false);
 
     if (oauthError) {
-      console.error("[Signup] Supabase Google OAuth error:", oauthError);
       toast.error(oauthError.message || "Erro ao iniciar signup com Google.");
     }
   };

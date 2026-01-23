@@ -7,6 +7,10 @@
 /.next/
 /out/
 
+# test results
+/test-results/
+/playwright-report/
+
 # production
 /build
 
@@ -15,6 +19,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+*.log
 
 # env files
 
@@ -28,6 +33,10 @@ public/uploads/8104f8a4-3de8-4ce4-86b8-97787de6f410.jpg
 
 # coverage reports
 coverage/
+
+# Test artifacts
+/test-results/
+/playwright-report/
 
 # Environment files
 .env
@@ -51,3 +60,7 @@ app/globals copy.csbkp
 !CONTRIBUTING.md
 # And keep docs folder structure visible
 !docs/**/*.md
+
+# Test artifacts
+/playwright-report/
+/test-results/

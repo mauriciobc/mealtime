@@ -3,9 +3,7 @@
  * schedule: '* * * * *'
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // TODO: Restrict access to Netlify scheduled function or internal secret
 export async function POST(req: NextRequest) {

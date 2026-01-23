@@ -41,10 +41,12 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    minimumCacheTTL: 60,
+    minimumCacheTTL: 86400,
+    qualities: [75, 90],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    // Removido 16 (não mais padrão no Next.js 16)
+    imageSizes: [32, 48, 64, 96, 128, 256],
   },
   experimental: {
     serverActions: {
@@ -55,6 +57,20 @@ const nextConfig = {
   // Turbopack é o bundler padrão no Next.js 15
   // Config vazio indica que queremos usar Turbopack sem configuração customizada
   turbopack: {},
+  webpack: (config, { isServer }) => {
+    // Exclude Node.js modules from client bundle
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        dns: false,
+        child_process: false,
+      };
+    }
+    return config;
+  },
 }
 
 // Função utilitária para extrair hostname de uma URL de forma segura

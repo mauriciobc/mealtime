@@ -18,6 +18,7 @@ interface EnhancedCalendarProps {
   fromYear?: number
   toYear?: number
   className?: string
+  showClearButton?: boolean
 }
 
 function EnhancedCalendar({
@@ -25,6 +26,7 @@ function EnhancedCalendar({
   selected,
   onSelect,
   disabled,
+  showClearButton = false,
   initialFocus,
   fromYear = 1900,
   toYear = 2100,
@@ -188,6 +190,25 @@ function EnhancedCalendar({
         
         {...props}
       />
+      {/* Footer with Today and Clear buttons */}
+      <div className="flex items-center justify-end gap-2 p-2 pt-2 border-t">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSelect?.(new Date())}
+            aria-label="Selecionar data de hoje"
+          >
+            Hoje
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSelect?.(null)}
+            aria-label="Limpar data selecionada"
+          >
+            Limpar
+          </Button>
+        </div>
     </div>
   )
 }
@@ -290,6 +311,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     if (onChange) {
       onChange(selectedDate);
     }
+    setIsPopoverOpen(false); // Close popover on selection
   };
 
   return (

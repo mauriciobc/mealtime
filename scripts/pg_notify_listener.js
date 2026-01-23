@@ -11,7 +11,7 @@
 import dotenv from 'dotenv';
 import pkg from 'pg';
 import { v4 as uuidv4 } from 'uuid';
-import fetch from 'node-fetch'; // npm install node-fetch
+// Using native fetch (Node.js 20+)
 
 const { Client } = pkg;
 dotenv.config();

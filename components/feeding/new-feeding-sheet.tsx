@@ -21,7 +21,8 @@ interface ApiFeedingResponse {
   fed_at: string;
   amount: number;
   notes: string | null;
-  meal_type: "dry" | "wet" | "treat" | "medicine" | "water";
+  meal_type: "breakfast" | "lunch" | "dinner" | "snack";
+  food_type?: string | null;
   household_id: string;
   tempId?: string; // Identificador temporário para lookup do status
 }
@@ -86,7 +87,7 @@ export function NewFeedingSheet({
   const [portions, setPortions] = useState<{ [key: string]: string }>({});
   const [notes, setNotes] = useState<{ [key: string]: string }>({});
   const [feedingStatus, setFeedingStatus] = useState<{ [key: string]: "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }>({});
-  const [mealTypes, setMealTypes] = useState<{ [key: string]: "dry" | "wet" | "treat" | "medicine" | "water" }>({});
+  const [foodTypes, setFoodTypes] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -105,12 +106,20 @@ export function NewFeedingSheet({
     { value: "Outro", label: "Outro (ver notas)" },
   ], []);
 
-  const mealTypeOptions = useMemo(() => [
-    { value: "dry", label: "Ração Seca" },
-    { value: "wet", label: "Ração Úmida" },
-    { value: "treat", label: "Petisco" },
-    { value: "medicine", label: "Medicamento" },
-    { value: "water", label: "Água" },
+
+  const foodTypeOptions = useMemo(() => [
+    { value: "__none__", label: "Não especificado" },
+    { value: "ração seca premium", label: "Ração Seca Premium" },
+    { value: "ração seca standard", label: "Ração Seca Standard" },
+    { value: "ração úmida sachê", label: "Ração Úmida Sachê" },
+    { value: "ração úmida lata", label: "Ração Úmida Lata" },
+    { value: "petisco", label: "Petisco" },
+    { value: "ração terapêutica", label: "Ração Terapêutica" },
+    { value: "ração para filhotes", label: "Ração para Filhotes" },
+    { value: "ração para idosos", label: "Ração para Idosos" },
+    { value: "comida caseira", label: "Comida Caseira" },
+    { value: "medicamento", label: "Medicamento" },
+    { value: "outro", label: "Outro" },
   ], []);
 
   const householdCats = useMemo(() => {
@@ -155,7 +164,7 @@ export function NewFeedingSheet({
         setPortions({ [initialFeedingLog.catId]: initialFeedingLog.portionSize?.toString() || "" });
         setNotes({ [initialFeedingLog.catId]: initialFeedingLog.notes || "" });
         setFeedingStatus({ [initialFeedingLog.catId]: initialFeedingLog.status || "Normal" });
-        setMealTypes({ [initialFeedingLog.catId]: initialFeedingLog.mealType || "dry" });
+        setFoodTypes({ [initialFeedingLog.catId]: initialFeedingLog.food_type || "" });
       } else {
         // Criação padrão
         const initialPortions: { [key: string]: string } = {};
@@ -168,11 +177,11 @@ export function NewFeedingSheet({
         if (initialCatIdStr && householdCats.some(cat => cat.id === initialCatIdStr)) {
             setSelectedCats([initialCatIdStr]);
             setFeedingStatus({ [initialCatIdStr]: "Normal" });
-            setMealTypes({ [initialCatIdStr]: "dry" });
+            setFoodTypes({ [initialCatIdStr]: "" });
         } else {
             setSelectedCats([]);
             setFeedingStatus({});
-            setMealTypes({});
+            setFoodTypes({});
         }
       }
     } else {
@@ -180,7 +189,7 @@ export function NewFeedingSheet({
       setPortions({});
       setNotes({});
       setFeedingStatus({});
-      setMealTypes({});
+      setFoodTypes({});
       setIsSubmitting(false);
       setError(null);
     }
@@ -247,9 +256,60 @@ export function NewFeedingSheet({
     setFeedingStatus(prev => ({ ...prev, [catId]: value as "Normal" | "Comeu Pouco" | "Recusou" | "Vomitou" | "Outro" }));
   }, []);
 
-  const handleMealTypeChange = useCallback((catId: string, value: "dry" | "wet" | "treat" | "medicine" | "water") => {
-    setMealTypes(prev => ({ ...prev, [catId]: value }));
+
+  const handleFoodTypeChange = useCallback((catId: string, value: string) => {
+    // Convert __none__ sentinel value to empty string for internal state storage
+    const storedValue = value === "__none__" ? "" : value;
+    setFoodTypes(prev => ({ ...prev, [catId]: storedValue }));
   }, []);
+
+  // Função para determinar meal_type automaticamente baseado no horário
+  const getMealTypeFromTime = useCallback((timestamp: Date | string): "breakfast" | "lunch" | "dinner" | "snack" => {
+    // #region agent log
+    const userTimezone = getUserTimezone(currentUser?.preferences?.timezone);
+    const timestampRaw = typeof timestamp === 'string' ? timestamp : timestamp.toISOString();
+    fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:264',message:'getMealTypeFromTime entry',data:{timestampRaw,timestampType:typeof timestamp,userTimezone,userTimezonePreference:currentUser?.preferences?.timezone},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+    // Usar timezone do usuário para obter a hora correta
+    const hourStr = formatInTimeZone(date, userTimezone, 'H');
+    const hour = parseInt(hourStr, 10);
+    
+    // #region agent log
+    const hourFromGetHours = date.getHours();
+    const dateIso = date.toISOString();
+    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:272',message:'Hour calculation using user timezone',data:{hourFromGetHours,hourFromUserTimezone:hour,dateIso,browserTimezone,userTimezone,areHoursDifferent:hourFromGetHours !== hour,usingCorrectMethod:true},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
+    
+    // Breakfast: 5h - 10h
+    if (hour >= 5 && hour < 11) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:278',message:'Meal type inferred as breakfast',data:{hour,mealType:'breakfast'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+      // #endregion
+      return "breakfast";
+    }
+    // Lunch: 11h - 14h
+    if (hour >= 11 && hour < 15) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:283',message:'Meal type inferred as lunch',data:{hour,mealType:'lunch'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+      // #endregion
+      return "lunch";
+    }
+    // Dinner: 17h - 20h
+    if (hour >= 17 && hour < 21) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:288',message:'Meal type inferred as dinner',data:{hour,mealType:'dinner'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+      // #endregion
+      return "dinner";
+    }
+    // Snack: resto do tempo (default)
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:293',message:'Meal type inferred as snack',data:{hour,mealType:'snack'},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'A,B,C,D'})}).catch(()=>{});
+    // #endregion
+    return "snack";
+  }, [currentUser?.preferences?.timezone]);
 
   const handleSubmit = async () => {
     if (selectedCats.length === 0) {
@@ -270,7 +330,9 @@ export function NewFeedingSheet({
       const portion = portions[catId];
       const note = notes[catId] || "";
       const status = feedingStatus[catId] || "Normal";
-      const mealType = mealTypes[catId] || "dry";
+      const foodType = foodTypes[catId] || "";
+      // Determinar meal_type automaticamente baseado no horário
+      const mealType = getMealTypeFromTime(timestamp);
       let portionNum = null;
       if (portion) {
         portionNum = parseFloat(portion);
@@ -290,6 +352,7 @@ export function NewFeedingSheet({
         notes: note,
         status,
         mealType,
+        food_type: foodType?.trim() || undefined,
         unit: 'g',
         tempId // Adicionar tempId para lookup do status
       });
@@ -314,39 +377,68 @@ export function NewFeedingSheet({
         statusLookup.set(log.tempId!, log.status);
       });
       
-      if (initialFeedingLog) {
-        // Edição: PUT em /api/feedings/[id]
-        response = await fetch(`/api/feedings/${initialFeedingLog.id}`, {
+      if (initialFeedingLog && logsToCreate.length > 0) {
+        // Edição: PUT em /api/v2/feedings/[id]
+        const firstLog = logsToCreate[0]!; // Non-null assertion pois verificamos length > 0
+        const updatePayload: any = {
+          amount: firstLog.portionSize,
+          notes: firstLog.notes,
+          meal_type: getMealTypeFromTime(initialFeedingLog.timestamp),
+          unit: firstLog.unit,
+        };
+        
+        // Só incluir food_type se não for undefined
+        if (firstLog.food_type !== undefined) {
+          updatePayload.food_type = firstLog.food_type || null;
+        }
+        
+        response = await fetch(`/api/v2/feedings/${initialFeedingLog.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(logsToCreate[0]),
+          body: JSON.stringify(updatePayload),
         });
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           throw new Error(errorData.error || `Falha ao editar (${response.status})`);
         }
         result = await response.json();
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:401',message:'PUT response received',data:{result,hasData:!!result.data,resultKeys:Object.keys(result)},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+        
         toast.success("Alimentação editada com sucesso!");
         
-        // Converter o resultado da API para FeedingLog
-        const isCurrentUser = result.fed_by === currentUser?.id;
+        // A API v2 retorna { success: true, data: {...} }
+        const resultData = result.data || result;
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:407',message:'Processing resultData',data:{resultData,resultDataKeys:Object.keys(resultData),hasId:!!resultData.id,hasCatId:!!resultData.catId,hasUserId:!!resultData.userId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
+        
+        const isCurrentUser = resultData.userId === currentUser?.id;
 
         const updatedFeedingLog: FeedingLog = {
-          id: result.id,
-          catId: result.cat_id,
-          userId: result.fed_by,
-          timestamp: new Date(result.fed_at),
-          portionSize: result.amount,
-          notes: result.notes,
-          mealType: result.meal_type,
-          householdId: result.household_id,
-          user: {
-            id: result.fed_by,
+          id: resultData.id,
+          catId: resultData.catId,
+          userId: resultData.userId,
+          timestamp: typeof resultData.timestamp === 'string' ? new Date(resultData.timestamp) : resultData.timestamp,
+          portionSize: resultData.portionSize,
+          notes: resultData.notes,
+          mealType: resultData.mealType,
+          food_type: resultData.food_type ?? null,
+          householdId: resultData.householdId,
+          user: resultData.user || {
+            id: resultData.userId,
             name: isCurrentUser ? (currentUser?.name ?? null) : null,
             avatar: isCurrentUser ? (currentUser?.avatar ?? null) : null,
           },
           status: logsToCreate[0]?.status || "Normal",
         };
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3ddfe557-fe44-4525-9565-c9b887696afb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'new-feeding-sheet.tsx:427',message:'FeedingLog created successfully',data:{updatedFeedingLogId:updatedFeedingLog.id,hasId:!!updatedFeedingLog.id,hasCatId:!!updatedFeedingLog.catId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'F'})}).catch(()=>{});
+        // #endregion
         
         feedingDispatch({ type: "UPDATE_FEEDING", payload: updatedFeedingLog });
       } else {
@@ -387,6 +479,7 @@ export function NewFeedingSheet({
               portionSize: feeding.amount ? Number(feeding.amount) : null,
               notes: feeding.notes ?? '',
               mealType: feeding.meal_type,
+              food_type: feeding.food_type ?? null,
               householdId: feeding.household_id,
               user: {
                 id: feeding.fed_by || '',
@@ -444,8 +537,12 @@ export function NewFeedingSheet({
       const lastFeeding = getLastFeedingLog(cat.id);
       const portion = portions[cat.id] || "";
       const status = feedingStatus[cat.id] || "Normal";
-      const mealType = mealTypes[cat.id] || "dry";
+      const foodType = foodTypes[cat.id] || "";
       const note = notes[cat.id] || "";
+      
+      // Convert empty string to __none__ sentinel value for Select component
+      // (Radix UI Select doesn't allow empty string values in SelectItem)
+      const selectValue = foodType === "" ? "__none__" : foodType;
 
       return (
         <motion.div
@@ -469,7 +566,10 @@ export function NewFeedingSheet({
                 />
                 <div className="flex-grow space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <Label
+                      htmlFor={`cat-${cat.id}`}
+                      className="flex flex-grow items-center gap-3 cursor-pointer"
+                    >
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={cat.photo_url || ""} alt={cat.name} />
                         <AvatarFallback>
@@ -482,7 +582,7 @@ export function NewFeedingSheet({
                           Última refeição: {formatRelativeTime(lastFeeding?.timestamp)}
                         </p>
                       </div>
-                    </div>
+                    </Label>
                   </div>
                   {isSelected && (
                     <motion.div
@@ -492,8 +592,8 @@ export function NewFeedingSheet({
                       transition={{ duration: 0.2 }}
                       className="space-y-4"
                     >
-                      <div className="flex gap-4">
-                        <div className="flex-1">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
                           <Label htmlFor={`portion-${cat.id}`}>Porção (g)</Label>
                           <Input
                             id={`portion-${cat.id}`}
@@ -505,7 +605,7 @@ export function NewFeedingSheet({
                             placeholder={cat.portion_size?.toString() || "0"}
                           />
                         </div>
-                        <div className="flex-1">
+                        <div>
                           <Label htmlFor={`status-${cat.id}`}>Status</Label>
                           <Select value={status} onValueChange={(value) => handleStatusChange(cat.id, value as any)}>
                             <SelectTrigger id={`status-${cat.id}`}>
@@ -520,14 +620,17 @@ export function NewFeedingSheet({
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex-1">
-                          <Label htmlFor={`meal-type-${cat.id}`}>Tipo</Label>
-                          <Select value={mealType} onValueChange={(value) => handleMealTypeChange(cat.id, value as any)}>
-                            <SelectTrigger id={`meal-type-${cat.id}`}>
-                              <SelectValue />
+                        <div className="col-span-2">
+                          <Label htmlFor={`food-type-${cat.id}`}>Tipo de Comida</Label>
+                          <Select 
+                            value={selectValue} 
+                            onValueChange={(value) => handleFoodTypeChange(cat.id, value)}
+                          >
+                            <SelectTrigger id={`food-type-${cat.id}`}>
+                              <SelectValue placeholder="Não especificado" />
                             </SelectTrigger>
                             <SelectContent>
-                              {mealTypeOptions.map(option => (
+                              {foodTypeOptions.map(option => (
                                 <SelectItem key={option.value} value={option.value}>
                                   {option.label}
                                 </SelectItem>
@@ -554,7 +657,7 @@ export function NewFeedingSheet({
         </motion.div>
       );
     });
-  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, mealTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleMealTypeChange, handleNotesChange, formatRelativeTime, mealTypeOptions, statusOptions]);
+  }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, foodTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleFoodTypeChange, handleNotesChange, formatRelativeTime, foodTypeOptions, statusOptions]);
 
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
@@ -570,10 +673,10 @@ export function NewFeedingSheet({
              {selectedCats.length} de {householdCats.length} gatos selecionados
            </p>
            <div className="space-x-2">
-              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0 || isSubmitting}>
                  Todos
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0 || isSubmitting}>
                  Limpar
               </Button>
            </div>
@@ -588,10 +691,14 @@ export function NewFeedingSheet({
          {error && (
             <p className="px-6 py-2 text-sm text-destructive text-center">Erro: {error}</p>
          )}
-        <DrawerFooter className="pt-4 border-t">
+        <DrawerFooter className="pt-4 border-t flex-row gap-2">
+          <DrawerClose asChild>
+            <Button variant="outline" className="w-full">Cancelar</Button>
+          </DrawerClose>
           <Button 
             onClick={handleSubmit}
             disabled={selectedCats.length === 0 || isSubmitting}
+            className="w-full"
           >
             {isSubmitting ? <Loading size="sm" className="mr-2"/> : <Check className="mr-2 h-4 w-4" />} 
             Confirmar Alimentação ({selectedCats.length})

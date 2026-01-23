@@ -128,8 +128,7 @@ export default function HouseholdsPage() {
         try {
           const errorData = await response.json();
           errorMsg = errorData.error || errorMsg;
-        } catch (parseError) {
-          console.warn("Could not parse error response body from DELETE household");
+        } catch {
         }
         throw new Error(errorMsg);
       }
@@ -141,7 +140,6 @@ export default function HouseholdsPage() {
       }
       setHouseholdToDelete(null);
     } catch (error: any) {
-      console.error('Error deleting household:', error);
       toast.error(`Erro ao excluir residência: ${error.message}`);
       householdDispatch({ type: 'SET_HOUSEHOLDS', payload: previousHouseholds });
     } finally {
@@ -152,21 +150,14 @@ export default function HouseholdsPage() {
 
   const isAdmin = useCallback((household: HouseholdType): boolean => {
     if (!currentUser?.id || !household) {
-      console.log(`[isAdmin Check - ${household?.id}] Failed: Missing currentUser (${!currentUser}) or household (${!household})`);
       return false;
     }
 
-    console.log(`[isAdmin Check - ${household.id}] Checking user ${currentUser.id} against owner ${household.owner?.id}`);
-
     if (household.owner?.id && String(household.owner.id) === String(currentUser.id)) {
-      console.log(`[isAdmin Check - ${household.id}] SUCCESS: User ${currentUser.id} IS the owner.`);
       return true;
     }
 
-    console.log(`[isAdmin Check - ${household.id}] Owner check failed. Checking members array...`);
-
     if (!household.members) {
-      console.log(`[isAdmin Check - ${household.id}] Failed: household.members array is missing.`);
       return false;
     }
 
@@ -175,14 +166,10 @@ export default function HouseholdsPage() {
     );
 
     if (!currentUserMember) {
-      console.log(`[isAdmin Check - ${household.id}] Failed: User ${currentUser.id} not found in members array:`, household.members);
       return false;
     }
 
-    console.log(`[isAdmin Check - ${household.id}] Found member: `, currentUserMember);
     const isAdminRole = currentUserMember?.role?.toLowerCase() === "admin";
-
-    console.log(`[isAdmin Check - ${household.id}] Member role check result: ${isAdminRole}`);
 
     return isAdminRole;
   }, [currentUser]);
@@ -219,7 +206,6 @@ export default function HouseholdsPage() {
   }
 
   if (errorUser) {
-    console.error("[HouseholdsPage] User loading error:", errorUser);
     return (
       <PageTransition>
         <div className="flex flex-col min-h-screen bg-background">
@@ -273,8 +259,6 @@ export default function HouseholdsPage() {
                 const userIsAdmin = isAdmin(household);
                 const memberCount = household.members?.length || 0;
                 const catCount = household.cats?.length || 0;
-
-                console.log(`[Render Check - ${household.id}] userIsAdmin value:`, userIsAdmin);
 
                 return (
                   <motion.div key={household.id} variants={itemVariants}>

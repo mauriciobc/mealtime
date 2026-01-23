@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
+import { useState, useEffect, useMemo, useCallback, useContext } from 'react';
 import Link from "next/link";
 import CurrentStatusCard from '@/components/weight/current-status-card';
 import WeightTrendChart from '@/components/weight/weight-trend-chart';
@@ -8,7 +8,6 @@ import QuickLogPanel, { WeightLogFormValues } from '@/components/weight/quick-lo
 import RecentHistoryList from '@/components/weight/recent-history-list';
 import { MilestoneProgress } from '@/components/weight/milestone-progress';
 import CatAvatarStack from '@/components/weight/cat-avatar-stack';
-import { OnboardingTour } from '@/components/weight/onboarding-tour';
 import GoalFormSheet, { GoalFormData } from '@/components/weight/goal-form-sheet';
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
@@ -154,7 +153,6 @@ const WeightPage = () => {
   // --- HOOKS AND STATE (ALWAYS AT THE TOP) ---
   // State
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
-  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [showArchivedGoals, setShowArchivedGoals] = useState(false);
   const [isQuickLogPanelOpen, setIsQuickLogPanelOpen] = useState(false);
   const [logToEditData, setLogToEditData] = useState<LogForEditing | null>(null);
@@ -209,15 +207,6 @@ const WeightPage = () => {
       setSelectedCatId(cats[0]!.id);
     }
   }, [cats, selectedCatId]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const hasSeenOnboarding = localStorage.getItem('hasSeenWeightOnboarding');
-      if (!hasSeenOnboarding && cats.length > 0) {
-        setIsOnboardingOpen(true);
-      }
-    }
-  }, [cats]);
 
   // --- MEMOIZED VALUES (useMemo hooks) - ALL BEFORE EARLY RETURNS ---
   const goals = useMemo(() => weightGoals.map(goal => {
@@ -326,16 +315,6 @@ const WeightPage = () => {
   }, [isLoadingUser, isLoadingCats, isLoadingWeight, isLoadingFeedings, errorUser, catsState, weightState, feedingState, currentUser, cats, selectedCatId]);
 
   // --- HANDLERS (useCallback hooks - depend on variables defined above) ---
-  const handleOnboardingComplete = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('hasSeenWeightOnboarding', 'true');
-    }
-    setIsOnboardingOpen(false);
-    toast("Tour de integração concluído!", {
-      description: "Você sempre pode encontrar ajuda clicando no botão 'Ajuda / Tour'.",
-    });
-  }, []); // No dependencies needed here
-
   const handleSelectCat = useCallback((catId: string) => {
     setSelectedCatId(catId);
     setLogToEditData(null);
@@ -412,8 +391,7 @@ const WeightPage = () => {
       {
         context: 'Registro de Peso',
         successMessage: logIdToUpdate ? "Registro atualizado com sucesso!" : "Peso registrado com sucesso!",
-        onError: (error) => {
-          console.error("Error in handleLogSubmit:", error);
+        onError: () => {
         }
       }
     );
@@ -475,7 +453,6 @@ const WeightPage = () => {
       toast.success("Registro de peso excluído com sucesso.");
       return true;
     } catch (error: any) {
-      console.error("Falha ao excluir o registro de peso:", error);
       toast.error(`Falha ao excluir o registro: ${error.message}`);
       return false;
     }
@@ -584,8 +561,7 @@ const WeightPage = () => {
       {
         context: 'Criação de Meta',
         successMessage: "Nova meta de peso criada com sucesso!",
-        onError: (error) => {
-          console.error("Error in handleGoalSubmit:", error);
+        onError: () => {
         }
       }
     );
@@ -594,11 +570,7 @@ const WeightPage = () => {
 
   // handler para passar para MilestoneProgress
   const handleGoalArchived = useCallback(() => {
-    setAutoRefreshCount((c) => {
-      const next = c + 1;
-      console.log(`[WeightPage] Refresh automático disparado após arquivamento de meta. Contador: ${next}`);
-      return next;
-    });
+    setAutoRefreshCount((c) => c + 1);
     refreshWeightData();
   }, [refreshWeightData]);
 
@@ -653,10 +625,6 @@ const WeightPage = () => {
           <p className="text-center text-muted-foreground">
             Nenhum gato encontrado. Adicione um gato para começar a acompanhar o peso dele.
           </p>
-          <OnboardingTour isOpen={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} onComplete={handleOnboardingComplete} />
-          <div className="text-center mt-4">
-            <Button variant="outline" onClick={() => setIsOnboardingOpen(true)}>Mostrar Tour Novamente</Button>
-          </div>
         </div>
       );
     case 'NO_SELECTED_CAT':
@@ -666,10 +634,6 @@ const WeightPage = () => {
           <h1 className="text-2xl font-bold">Painel de Acompanhamento de Peso</h1>
           <CatAvatarStack cats={cats} selectedCatId={null} onSelectCat={handleSelectCat} className="mb-6"/>
           <p className="text-center text-muted-foreground">Por favor, selecione um gato válido para ver os detalhes.</p>
-          <OnboardingTour isOpen={isOnboardingOpen} onOpenChange={setIsOnboardingOpen} onComplete={handleOnboardingComplete} />
-          <div className="text-center mt-4">
-            <Button variant="outline" onClick={() => setIsOnboardingOpen(true)}>Mostrar Tour Novamente</Button>
-          </div>
         </div>
       );
     case 'READY':
@@ -685,25 +649,25 @@ const WeightPage = () => {
     <ProtectedRoute children={
       <div className="min-h-screen bg-background p-4 pb-24">
         <motion.div
-          className="mx-auto max-w-md lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl space-y-6 lg:space-y-0 lg:grid lg:grid-cols-3 lg:gap-6"
+          className="mx-auto max-w-md lg:max-w-6xl xl:max-w-7xl space-y-6"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: 'easeOut' }}
-        >
-          {/* Header (agora span em todas as colunas) */}
-          <motion.div
-            className="text-center lg:col-span-3"
-            initial={{ opacity: 0, y: -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="flex items-center justify-between gap-2 mb-1 relative">
-              <div className="flex flex-col items-center gap-1">
-                <div className="flex items-center gap-2">
-                  <Gauge className="h-8 w-8 text-primary" aria-hidden="true" />
+            {/* Header */}
+            <motion.div
+              id="weight-header"
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+            >
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-3">
+                <Gauge className="h-8 w-8 text-primary" aria-hidden="true" />
+                <div>
                   <h1 className="text-2xl font-bold text-foreground">Painel de Peso</h1>
+                  <p className="text-sm text-muted-foreground">Acompanhe a saúde do seu gato</p>
                 </div>
-                <p className="text-sm text-muted-foreground">Acompanhe a saúde do seu gato</p>
               </div>
               {/* Botão de adicionar meta */}
               <Button
@@ -716,26 +680,27 @@ const WeightPage = () => {
                 Nova Meta
               </Button>
             </div>
-            <div className="w-full flex justify-center mt-4">
-              <div className="border-b border-gray-200 w-full max-w-4xl" />
-            </div>
           </motion.div>
 
-          {/* Coluna 1: Seletor de Gatos */}
-          <div className="lg:col-span-1 flex flex-col gap-6">
+          {/* Desktop Layout: Two rows */}
+          <div className="lg:grid lg:grid-cols-12 lg:gap-6 space-y-6 lg:space-y-0">
+            {/* Row 1: Cat Selector + Weight/Goal Cards + Trend Chart */}
+            {/* Cat Selector - spans 2 cols */}
             <motion.div
+              id="weight-cat-selector"
+              className="lg:col-span-3"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
             >
-              <Card>
-                <CardContent className="pt-6 bg-card text-card-foreground">
-                  <div className="flex gap-3 px-2 overflow-x-auto lg:overflow-visible p-[2px]">
+              <Card className="h-full">
+                <CardContent className="pt-6 bg-card text-card-foreground h-full">
+                  <div className="flex lg:flex-col gap-3 px-2 overflow-x-auto lg:overflow-visible p-[2px]">
                     {cats.map((cat) => (
                       <button
                         key={cat.id}
                         onClick={() => setSelectedCatId(cat.id)}
-                        className={`flex flex-col items-center justify-center gap-2 rounded-lg p-3 transition-colors ${
+                        className={`flex flex-col items-center justify-center gap-2 rounded-lg p-3 transition-colors min-w-[80px] ${
                           selectedCatId === cat.id ? "bg-accent dark:bg-accent/40 ring-2 ring-blue-500" : "bg-background hover:bg-accent/60"
                         }`}
                       >
@@ -750,131 +715,132 @@ const WeightPage = () => {
                 </CardContent>
               </Card>
             </motion.div>
-          </div>
 
-          {/* Coluna 2: Peso Atual, Meta, Progresso da Meta */}
-          <div className="lg:col-span-1 flex flex-col gap-6">
-            <motion.div
-              className="grid grid-cols-2 gap-4"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                    <Scale className="h-4 w-4 text-primary" />
-                    Peso Atual
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-foreground">{currentWeight}</div>
-                  <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
-                    <Target className="h-4 w-4 text-primary" />
-                    Meta
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {selectedCatActiveGoal ? (
-                    <>
-                      <div className="text-2xl font-bold text-foreground">{goalWeight}</div>
-                      <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
-                    </>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-4">
-                      <span className="text-xs text-muted-foreground text-center">Nenhuma meta definida.</span>
-                      <Button
-                        className="mt-3"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsGoalFormSheetOpen(true)}
-                      >
-                        Definir Meta
+            {/* Weight + Goal + Progress Cards - spans 4 cols */}
+            <div className="lg:col-span-4 flex flex-col gap-4">
+              <motion.div
+                className="grid grid-cols-2 gap-4"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+              >
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                      <Scale className="h-4 w-4 text-primary" />
+                      Peso Atual
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-foreground">{currentWeight}</div>
+                    <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                      <Target className="h-4 w-4 text-primary" />
+                      Meta
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {selectedCatActiveGoal ? (
+                      <>
+                        <div className="text-2xl font-bold text-foreground">{goalWeight}</div>
+                        <div className="text-sm text-muted-foreground">{selectedCatActiveGoal?.unit || "kg"}</div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-2">
+                        <span className="text-xs text-muted-foreground text-center">Nenhuma meta definida.</span>
+                        <Button
+                          className="mt-2"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setIsGoalFormSheetOpen(true)}
+                        >
+                          Definir Meta
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.25 }}
+                className="flex-1"
+              >
+                <Card className="h-full">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <CardTitle className="text-base font-semibold text-foreground">Progresso da Meta</CardTitle>
+                      <Button variant="outline" size="sm" onClick={() => setIsTipsSheetOpen(true)}>
+                        <Heart className="mr-2 h-4 w-4 text-primary" />
+                        Ver Dicas
                       </Button>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.25 }}
-            >
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold text-foreground">Progresso da Meta</CardTitle>
-                    <Button variant="outline" size="sm" onClick={() => setIsTipsSheetOpen(true)}>
-                      <Heart className="mr-2 h-4 w-4 text-primary" />
-                      Ver Dicas
-                    </Button>
-                  </div>
-                  <CardDescription className="text-sm text-muted-foreground">
+                    <CardDescription className="text-sm text-muted-foreground">
+                      {selectedCatActiveGoal ? (
+                        progress >= 100
+                          ? "Parabéns! Meta alcançada! 🎉"
+                          : progress >= 90
+                          ? "Quase lá! 🎯"
+                          : progress >= 75
+                          ? "Ótimo progresso! 💪"
+                          : progress >= 50
+                          ? "Meio caminho! 🌟"
+                          : progress >= 25
+                          ? "Bom começo! 👍"
+                          : "Começando agora! 🚀"
+                      ) : selectedCatLastArchivedGoal ? (
+                        "Parabéns por atingir sua meta geral!"
+                      ) : (
+                        "Nenhuma meta definida."
+                      )}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     {selectedCatActiveGoal ? (
-                      progress >= 100
-                        ? "Parabéns! Meta alcançada! 🎉"
-                        : progress >= 90
-                        ? "Quase lá! 🎯"
-                        : progress >= 75
-                        ? "Ótimo progresso! 💪"
-                        : progress >= 50
-                        ? "Meio caminho! 🌟"
-                        : progress >= 25
-                        ? "Bom começo! 👍"
-                        : "Começando agora! 🚀"
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progresso</span>
+                          <span className="font-semibold text-foreground">{Math.round(progress)}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
                     ) : selectedCatLastArchivedGoal ? (
-                      "Parabéns por atingir sua meta geral!"
-                    ) : (
-                      "Nenhuma meta definida."
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {selectedCatActiveGoal ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Progresso</span>
-                        <span className="font-semibold text-foreground">{Math.round(progress)}%</span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Progresso</span>
+                          <span className="font-semibold text-foreground">100%</span>
+                        </div>
+                        <Progress value={100} className="h-2" />
                       </div>
-                      <Progress value={progress} className="h-2" />
-                    </div>
-                  ) : selectedCatLastArchivedGoal ? (
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Progresso</span>
-                        <span className="font-semibold text-foreground">100%</span>
-                      </div>
-                      <Progress value={100} className="h-2" />
-                    </div>
-                  ) : null}
-                  <Badge variant="secondary" className="w-fit">
-                    {selectedCatActiveGoal
-                      ? (typeof progress === 'number' && progress >= 75
-                        ? "No caminho certo"
-                        : "Atenção")
-                      : selectedCatLastArchivedGoal
-                      ? "Meta concluída"
-                      : "Sem meta"}
-                  </Badge>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
+                    ) : null}
+                    <Badge variant="secondary" className="w-fit">
+                      {selectedCatActiveGoal
+                        ? (typeof progress === 'number' && progress >= 75
+                          ? "No caminho certo"
+                          : "Atenção")
+                        : selectedCatLastArchivedGoal
+                        ? "Meta concluída"
+                        : "Sem meta"}
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
 
-          {/* Coluna 3: Gráfico de Tendência + Histórico Recente */}
-          <div className="lg:col-span-1 flex flex-col gap-6">
+            {/* Trend Chart - spans 5 cols */}
             <motion.div
+              id="weight-trend-chart"
+              className="lg:col-span-5"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
-              <Card>
+              <Card className="h-full">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                     <TrendingUp className="h-5 w-5 text-primary" />
@@ -900,12 +866,17 @@ const WeightPage = () => {
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* Row 2: Recent History + Milestone Progress */}
+            {/* Recent History - spans 6 cols on desktop */}
             <motion.div
+              id="weight-history"
+              className="lg:col-span-6"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.35 }}
             >
-              <Card>
+              <Card className="h-full">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
                     <CalendarDays className="h-5 w-5 text-primary" />
@@ -970,7 +941,7 @@ const WeightPage = () => {
                       return (
                         <div
                           key={entry.id}
-                          className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
+                          className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-3 last:border-b-0"
                         >
                           <div className="flex items-center gap-3">
                             <div className="h-2 w-2 rounded-full bg-blue-500"></div>
@@ -1002,14 +973,36 @@ const WeightPage = () => {
                         </div>
                       );
                     })}
+                    {recentHistory.length === 0 && (
+                      <div className="text-center text-muted-foreground py-8">
+                        Nenhum registro de peso encontrado.
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
+            </motion.div>
+
+            {/* Milestone Progress - spans 6 cols on desktop */}
+            <motion.div
+              className="lg:col-span-6"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <MilestoneProgress
+                activeGoal={selectedCatActiveGoal || selectedCatLastArchivedGoal}
+                currentWeight={currentWeight}
+                currentWeightDate={logsForSelectedCat[0]?.date || null}
+                householdId={currentUser?.householdId || null}
+                onGoalArchived={handleGoalArchived}
+              />
             </motion.div>
           </div>
 
           {/* Botão Flutuante */}
           <Button
+            id="weight-add-button"
             size="icon"
             className="fixed bottom-24 right-4 z-50 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full shadow-lg flex items-center justify-center h-14 w-14 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 print:hidden"
             onClick={() => setIsQuickLogPanelOpen(true)}
@@ -1087,15 +1080,6 @@ const WeightPage = () => {
             currentWeight={currentWeight}
             defaultUnit={selectedCatActiveGoal?.unit || 'kg'}
             birthDate={selectedCatForForm?.birthdate ? (typeof selectedCatForForm.birthdate === 'string' ? selectedCatForForm.birthdate : selectedCatForForm.birthdate.toISOString().split('T')[0]) : undefined}
-          />
-
-          {/* Milestone Progress */}
-          <MilestoneProgress
-            activeGoal={selectedCatActiveGoal || selectedCatLastArchivedGoal}
-            currentWeight={currentWeight}
-            currentWeightDate={logsForSelectedCat[0]?.date || null}
-            householdId={currentUser?.householdId || null}
-            onGoalArchived={handleGoalArchived}
           />
         </motion.div>
       </div>

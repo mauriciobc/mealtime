@@ -140,17 +140,38 @@ export async function updateSession(request: NextRequest) {
         (userError.message && typeof userError.message === 'string' && 
          userError.message.toLowerCase().includes('network'));
       
-      // Only log as error for protected routes; otherwise, log as info to avoid noisy logs for expected cases
+      // Log based on error type and route protection status
       if (isProtectedRoute(currentPath)) {
-        logger.error('[updateSession] Supabase user error on protected route:', { 
-          message: userError.message, 
-          code: (userError?.status ?? 500), 
-          name: userError.name, 
-          path: currentPath,
-          isSessionMissing,
-          isTransientError
-        });
+        // For protected routes: AuthSessionMissingError is expected (unauthorized access attempt)
+        // Log as WARN for session missing, ERROR only for unexpected errors
+        if (isSessionMissing) {
+          logger.warn('[updateSession] Unauthenticated access attempt to protected route:', { 
+            message: userError.message, 
+            code: (userError?.status ?? 400), 
+            name: userError.name, 
+            path: currentPath,
+            isSessionMissing: true
+          });
+        } else if (isTransientError) {
+          // Transient errors (network, server issues) - log as WARN
+          logger.warn('[updateSession] Transient auth error on protected route:', { 
+            message: userError.message, 
+            code: (userError?.status ?? 500), 
+            name: userError.name, 
+            path: currentPath,
+            isTransientError: true
+          });
+        } else {
+          // Unexpected non-transient errors - log as ERROR
+          logger.error('[updateSession] Unexpected auth error on protected route:', { 
+            message: userError.message, 
+            code: (userError?.status ?? 500), 
+            name: userError.name, 
+            path: currentPath
+          });
+        }
       } else {
+        // Non-protected routes: log as info to avoid noisy logs for expected cases
         logger.info('[updateSession] Supabase user error (non-protected route, likely expected):', { 
           message: userError.message, 
           code: (userError?.status ?? 500), 

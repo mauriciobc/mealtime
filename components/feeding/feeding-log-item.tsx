@@ -179,12 +179,11 @@ export const FeedingLogItem = memo(function FeedingLogItem({ log, onView, onEdit
                   <div className="flex flex-col gap-1">
                     {log.mealType && (
                       <div className="flex items-center gap-1">
-                        <span className="font-medium">Tipo:</span>
-                        <span>{log.mealType === 'dry' ? 'Ração' :
-                               log.mealType === 'wet' ? 'Sachê' :
-                               log.mealType === 'treat' ? 'Petisco' :
-                               log.mealType === 'medicine' ? 'Remédio' :
-                               log.mealType === 'water' ? 'Água' : log.mealType}</span>
+                        <span className="font-medium">Refeição:</span>
+                        <span>{log.mealType === 'breakfast' ? 'Café da Manhã' :
+                               log.mealType === 'lunch' ? 'Almoço' :
+                               log.mealType === 'dinner' ? 'Jantar' :
+                               log.mealType === 'snack' ? 'Lanche' : log.mealType}</span>
                       </div>
                     )}
                     {log.portionSize !== undefined && (

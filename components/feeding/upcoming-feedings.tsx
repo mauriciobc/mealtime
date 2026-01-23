@@ -47,12 +47,12 @@ export default function UpcomingFeedings() {
 
     type PostApiResponse = {
       id: string;
-      timestamp: string;
-      foodType: "dry" | "wet" | "treat" | "medicine" | "water";
+      fed_at: string;
+      meal_type: "breakfast" | "lunch" | "dinner" | "snack";
       amount?: number | null;
       notes?: string | null;
-      catId: string;
-      userId: string;
+      cat_id: string;
+      fed_by: string;
     }
 
     try {
@@ -77,12 +77,12 @@ export default function UpcomingFeedings() {
 
       const newLogForState: FeedingLog = {
         id: apiResponse.id,
-        catId: apiResponse.catId,
-        userId: apiResponse.userId,
-        timestamp: new Date(apiResponse.timestamp),
+        catId: apiResponse.cat_id,
+        userId: apiResponse.fed_by,
+        timestamp: new Date(apiResponse.fed_at),
         portionSize: apiResponse.amount,
         notes: apiResponse.notes,
-        mealType: apiResponse.foodType,
+        mealType: apiResponse.meal_type,
         householdId: currentUser.householdId,
         user: {
           id: currentUser.id,
@@ -91,7 +91,7 @@ export default function UpcomingFeedings() {
         },
         cat: undefined,
         status: undefined,
-        createdAt: new Date(apiResponse.timestamp),
+        createdAt: new Date(apiResponse.fed_at),
       };
 
       feedingDispatch({ 
