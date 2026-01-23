@@ -12,12 +12,14 @@ interface GroupedLogs {
  * @returns Object with dates as keys and arrays of logs as values
  */
 export function groupLogsByDate(logs: FeedingLog[]): GroupedLogs {
-  // ⚡ Bolt: Efficiently group logs by date first, then sort each small group.
-  // This is a significant improvement over the original O(n^2) approach of sorting on every reduce iteration.
-  // This approach is safer than assuming pre-sorted input.
+  // ⚡ Bolt: Optimization
+  // The original implementation sorted the logs array on every single item insertion,
+  // which is inefficient (O(n^2) in the worst case).
+  // This optimized version first groups all logs by date in a single pass (O(n))
+  // and then sorts each group once, which is much more performant.
 
-  // Step 1: Group logs by date in a single O(n) pass.
-  const groupedLogs = logs.reduce((groups: GroupedLogs, log) => {
+  // First, group logs by date without sorting
+  const grouped = logs.reduce((groups: GroupedLogs, log) => {
     const date = format(new Date(log.timestamp), 'yyyy-MM-dd');
     if (!groups[date]) {
       groups[date] = [];
@@ -26,15 +28,14 @@ export function groupLogsByDate(logs: FeedingLog[]): GroupedLogs {
     return groups;
   }, {});
 
-  // Step 2: Sort the logs within each date group.
-  // This is much more efficient as we're sorting smaller, separate arrays.
-  for (const date in groupedLogs) {
-    groupedLogs[date].sort((a, b) =>
+  // Now, sort the logs for each date
+  for (const logs of Object.values(grouped)) {
+    logs.sort((a, b) =>
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   }
 
-  return groupedLogs;
+  return grouped;
 }
 
 /**
@@ -45,4 +46,4 @@ export function groupLogsByDate(logs: FeedingLog[]): GroupedLogs {
 export function formatGroupDate(dateKey: string): string {
   const date = new Date(dateKey);
   return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
-} 
+}

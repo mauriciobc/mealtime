@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo, useTransition, useDeferredValue } from "react"
+import { useState, useMemo, useTransition, useDeferredValue, Fragment } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -136,12 +136,14 @@ export default function FeedingsPage() {
       )
     }
 
-    // Apply sorting
-    logs.sort((a, b) => {
-      const dateA = new Date(a.timestamp).getTime()
-      const dateB = new Date(b.timestamp).getTime()
-      return sortOrder === "desc" ? dateB - dateA : dateA - dateB
-    })
+    // ⚡ Bolt: Skip redundant sort if order is 'desc' since data is pre-sorted.
+    // The `feedingLogs` from context are already sorted descending by timestamp.
+    // We only need to reverse the array if the user requests ascending order.
+    // This avoids an O(n log n) sort operation on every render for the default case.
+    if (sortOrder === "asc") {
+      // Return a reversed copy without mutating the original `logs` array
+      return logs.slice().reverse();
+    }
 
     return logs
   }, [feedingLogs, catsMap, deferredSearchTerm, sortOrder])
@@ -199,10 +201,9 @@ export default function FeedingsPage() {
          feedingDispatch({ type: "FETCH_SUCCESS", payload: previousLogs })
          throw new Error(errorData.error || `Falha ao excluir registro: ${response.statusText}`)
        }
-       toast.success("Registro excluído com sucesso!")
-     } catch (error: any) {
-       console.error("Erro ao deletar registro de alimentação:", error)
-       toast.error(`Erro ao excluir: ${error.message || "Ocorreu um erro desconhecido"}`)
+        toast.success("Registro excluído com sucesso!")
+      } catch (error: any) {
+        toast.error(`Erro ao excluir: ${error.message || "Ocorreu um erro desconhecido"}`)
        // Ensure state is reverted if fetch fails
        if(feedingState.feedingLogs.find(log => log.id === logId) === undefined) {
           feedingDispatch({ type: "FETCH_SUCCESS", payload: previousLogs })
@@ -348,7 +349,7 @@ export default function FeedingsPage() {
           ) : (
             <Timeline>
               {Object.entries(groupedLogs).map(([date, logsOnDate]) => (
-                <React.Fragment key={date}>
+                <Fragment key={date}>
                   {/* Date Header */}
                   <h2 className="text-lg font-semibold my-4 sticky top-[68px] bg-background py-2 z-10"> {/* Adjusted sticky top */}
                     {format(new Date(date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
@@ -489,7 +490,7 @@ export default function FeedingsPage() {
                       </div>
                     )
                   })}
-                </React.Fragment>
+                </Fragment>
               ))}
             </Timeline>
           )}

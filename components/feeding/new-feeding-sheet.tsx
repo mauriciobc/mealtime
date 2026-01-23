@@ -566,7 +566,10 @@ export function NewFeedingSheet({
                 />
                 <div className="flex-grow space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                    <Label
+                      htmlFor={`cat-${cat.id}`}
+                      className="flex flex-grow items-center gap-3 cursor-pointer"
+                    >
                       <Avatar className="h-10 w-10">
                         <AvatarImage src={cat.photo_url || ""} alt={cat.name} />
                         <AvatarFallback>
@@ -579,7 +582,7 @@ export function NewFeedingSheet({
                           Última refeição: {formatRelativeTime(lastFeeding?.timestamp)}
                         </p>
                       </div>
-                    </div>
+                    </Label>
                   </div>
                   {isSelected && (
                     <motion.div
@@ -670,10 +673,10 @@ export function NewFeedingSheet({
              {selectedCats.length} de {householdCats.length} gatos selecionados
            </p>
            <div className="space-x-2">
-              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleSelectAll} disabled={selectedCats.length === householdCats.length || householdCats.length === 0 || isSubmitting}>
                  Todos
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0}>
+              <Button variant="outline" size="sm" onClick={handleDeselectAll} disabled={selectedCats.length === 0 || isSubmitting}>
                  Limpar
               </Button>
            </div>
@@ -688,10 +691,14 @@ export function NewFeedingSheet({
          {error && (
             <p className="px-6 py-2 text-sm text-destructive text-center">Erro: {error}</p>
          )}
-        <DrawerFooter className="pt-4 border-t">
+        <DrawerFooter className="pt-4 border-t flex-row gap-2">
+          <DrawerClose asChild>
+            <Button variant="outline" className="w-full">Cancelar</Button>
+          </DrawerClose>
           <Button 
             onClick={handleSubmit}
             disabled={selectedCats.length === 0 || isSubmitting}
+            className="w-full"
           >
             {isSubmitting ? <Loading size="sm" className="mr-2"/> : <Check className="mr-2 h-4 w-4" />} 
             Confirmar Alimentação ({selectedCats.length})
