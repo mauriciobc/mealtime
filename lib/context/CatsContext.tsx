@@ -91,7 +91,13 @@ const CatsContext = createContext<{
   state: CatsState;
   dispatch: React.Dispatch<CatsAction>;
   forceRefresh: () => void;
-}>({ state: initialState, dispatch: () => null, forceRefresh: () => null });
+  catsMap: Map<string, CatType>; // Bolt: Added for O(1) lookups
+}>({
+  state: initialState,
+  dispatch: () => null,
+  forceRefresh: () => null,
+  catsMap: new Map(), // Bolt: Default empty map
+});
 export { CatsContext };
 
 export const CatsProvider = ({ children }: { children: ReactNode }) => {
@@ -174,8 +180,20 @@ export const CatsProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, loadCatsData]);
 
+  // Bolt: Memoize the cats array into a Map for efficient O(1) lookups.
+  // This prevents consumers of the context from needing to repeatedly use
+  // Array.prototype.find() (O(n)) inside their own components.
+  const catsMap = useMemo(() => {
+    const map = new Map<string, CatType>();
+    for (const cat of state.cats) {
+      // Assuming cat.id is a string or can be converted to one.
+      map.set(String(cat.id), cat);
+    }
+    return map;
+  }, [state.cats]);
+
   // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, dispatch, forceRefresh]);
+  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh, catsMap }), [state, dispatch, forceRefresh, catsMap]);
 
   return (
     <CatsContext.Provider value={contextValue}>

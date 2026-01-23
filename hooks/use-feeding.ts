@@ -36,7 +36,7 @@ type ErrorCode = typeof ERROR_CODES[keyof typeof ERROR_CODES];
 export function useFeeding(catId: string | null) {
   // const { state: appState, dispatch } = useAppContext(); // REMOVED
   const { state: userState, pauseAuthChecks, resumeAuthChecks } = useUserContext();
-  const { state: catsState } = useCats();
+  const { state: catsState, catsMap } = useCats(); // Bolt: Destructure catsMap
   const { state: feedingState, dispatch: feedingDispatch } = useFeedingContextState();
   const { cats, isLoading: isLoadingCats, error: errorCats } = catsState;
   // const { data: session, status } = useSession(); // REMOVED (use userState)
@@ -64,21 +64,16 @@ export function useFeeding(catId: string | null) {
   console.log(`[useFeeding] isLoadingCats: ${isLoadingCats}, errorCats: ${errorCats}`);
   console.log(`[useFeeding] Cats from context:`, cats);
   
-  // Derive cat and logs from context state using useMemo
+  // ⚡ Bolt: Replaced O(n) `find` with O(1) `get` from the new catsMap.
+  // This is much more efficient, especially as the number of cats grows.
   const cat = useMemo(() => {
-    console.log(`[useFeeding] useMemo executing for catId: ${catId}`);
-    if (!catId || !cats) {
-        console.log(`[useFeeding] useMemo returning null (missing catId or cats)`);
-        return null;
-    }
-    // --- Fix: Compare IDs as strings --- 
-    const foundCat = cats.find(c => String(c.id) === String(catId)) || null;
-    console.log(`[useFeeding] Found cat in context:`, foundCat);
+    if (!catId) return null;
+    const foundCat = catsMap.get(String(catId)) || null;
     if (!foundCat) {
       console.error(`[useFeeding] Cat not found in context for ID: ${catId}`);
     }
     return foundCat;
-  }, [catId, cats]);
+  }, [catId, catsMap]);
 
   // Handle error state based on found cat
   useEffect(() => {

@@ -44,24 +44,42 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, loading = false, children, ...props }, ref) => {
-    const Comp = asChild ? SlotPrimitive.Slot : "button"
+    const [showLoader, setShowLoader] = React.useState(false);
+
+    React.useEffect(() => {
+      let timeout: NodeJS.Timeout;
+      if (loading) {
+        timeout = setTimeout(() => {
+          setShowLoader(true);
+        }, 200);
+      } else {
+        setShowLoader(false);
+      }
+      return () => clearTimeout(timeout);
+    }, [loading]);
+
+    const Comp = asChild ? SlotPrimitive.Slot : "button";
+    const isLoading = loading && showLoader;
+
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, className }), "relative")}
         ref={ref}
         disabled={loading || props.disabled}
         {...props}
       >
-        {loading && (
-          <div className="absolute">
+        {isLoading && (
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <LoadingSpinner size="sm" />
           </div>
         )}
-        {loading ? <span className="invisible">{children}</span> : children}
+        <span className={cn({ "invisible": isLoading })}>
+          {children}
+        </span>
       </Comp>
-    )
+    );
   }
-)
+);
 Button.displayName = "Button"
 
 export { Button, buttonVariants }
