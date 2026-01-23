@@ -5,8 +5,7 @@ import { useLoading } from "@/lib/context/LoadingContext";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
-import Lottie from "lottie-react";
-import catAnimation from "@/lottie/Animation - 1749307481722.json";
+import React, { lazy, Suspense, useState, useEffect } from "react";
 
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg';
@@ -24,14 +23,35 @@ function Spinner({ size = 'md', text, className }: SpinnerProps) {
           duration: 1,
           ease: "linear",
         }}
+        role={!text ? "status" : undefined}
       >
         <Loader2 className={cn("text-primary", sizeClasses[size])} />
+        {!text && <span className="sr-only">Carregando...</span>}
       </motion.div>
       {text && (
         <p className={cn("text-sm text-muted-foreground", className)}>{text}</p>
       )}
     </>
   );
+}
+
+const LottieLazy = lazy(() => import("lottie-react"));
+
+function LottieFallback() {
+  return (
+    <div className="w-48 h-48 flex items-center justify-center">
+      <Spinner size="lg" />
+    </div>
+  );
+}
+
+let animationDataCache: any = null;
+
+async function loadAnimationData() {
+  if (animationDataCache) return animationDataCache;
+  const response = await fetch("/lottie/cat-animation.json");
+  animationDataCache = await response.json();
+  return animationDataCache;
 }
 
 interface GlobalLoadingProps {
@@ -51,6 +71,13 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
   const hasOperations = state.operations && state.operations.length > 0;
   const currentOperation = hasOperations ? state.operations[0] : null;
   const displayText = text || currentOperation?.description || "Carregando...";
+  const [animationData, setAnimationData] = useState<any>(null);
+
+  useEffect(() => {
+    if ((mode === 'lottie' || mode === 'overlay') && !animationData) {
+      loadAnimationData().then(setAnimationData);
+    }
+  }, [mode, animationData]);
 
   if (isLoading && !hasOperations) {
     return null;
@@ -71,11 +98,10 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
           )}
         >
           {mode === 'overlay' && (
-            <div 
+            <div
               className="flex flex-col items-center gap-4"
               role="status"
               aria-live="polite"
-              aria-label="Carregando"
             >
               <Spinner size={size} text={displayText} />
             </div>
@@ -86,25 +112,29 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
               className="flex items-center gap-2"
               role="status"
               aria-live="polite"
-              aria-label="Carregando"
             >
               <Spinner size={size} text={displayText} />
             </div>
           )}
 
           {mode === 'lottie' && (
-            <div 
+            <div
               className="flex flex-col items-center gap-4"
               role="status"
               aria-live="polite"
-              aria-label="Carregando"
             >
               <div className="w-48 h-48">
-                <Lottie
-                  animationData={catAnimation}
-                  loop={true}
-                  autoplay={true}
-                />
+                {animationData ? (
+                  <Suspense fallback={<LottieFallback />}>
+                    <LottieLazy
+                      animationData={animationData}
+                      loop={true}
+                      autoplay={true}
+                    />
+                  </Suspense>
+                ) : (
+                  <LottieFallback />
+                )}
               </div>
               {displayText && (
                 <p className="text-sm text-muted-foreground">{displayText}</p>
@@ -118,8 +148,8 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <Progress 
-                className="h-1" 
+              <Progress
+                className="h-1"
                 aria-label="Progresso de carregamento"
                 aria-valuetext="Carregando..."
                 role="progressbar"

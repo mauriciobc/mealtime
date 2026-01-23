@@ -2,6 +2,14 @@
 
 import * as React from "react"
 import type { ReactNode, ReactElement } from "react"
+import {
+  AlertCircle,
+  AlertTriangle,
+  Ban,
+  CheckCircle,
+  HelpCircle,
+} from "lucide-react"
+
 import { cn } from "@/lib/utils"
 import { motion, HTMLMotionProps } from "framer-motion"
 
@@ -45,28 +53,41 @@ const TimelineItem = React.forwardRef<
       title,
       description,
       icon,
-      iconColor = "primary",
-      status = "completed",
+      status = "Normal",
       loading = false,
       error,
       ...props
     },
     ref
   ) => {
+    const getStatusIcon = () => {
+      switch (status) {
+        case "Normal":
+          return <CheckCircle className="h-5 w-5 text-success" />
+        case "Comeu Pouco":
+          return <AlertCircle className="h-5 w-5 text-warning" />
+        case "Recusou":
+          return <Ban className="h-5 w-5 text-destructive" />
+        case "Vomitou":
+          return <AlertTriangle className="h-5 w-5 text-destructive" />
+        case "Outro":
+          return <HelpCircle className="h-5 w-5 text-primary" />
+        default:
+          return icon
+      }
+    }
+
     return (
       <motion.div
         ref={ref}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
-        className={cn(
-          "relative pl-12",
-          className
-        )}
+        className={cn("relative pl-12", className)}
         {...props}
       >
         <div className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-md">
-          {icon}
+          {getStatusIcon()}
         </div>
         <div className="space-y-1 pl-14">
           {date && (
@@ -103,6 +124,11 @@ const TimelineItem = React.forwardRef<
 )
 TimelineItem.displayName = "TimelineItem"
 
+// ⚡ Bolt: Memoizing TimelineItem to prevent unnecessary re-renders in long lists.
+// The component is now self-contained and only re-renders if its props change.
+const MemoizedTimelineItem = React.memo(TimelineItem)
+MemoizedTimelineItem.displayName = "MemoizedTimelineItem"
+
 const TimelineTime = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement> & {
@@ -127,4 +153,4 @@ const TimelineTime = React.forwardRef<
 })
 TimelineTime.displayName = "TimelineTime"
 
-export { Timeline, TimelineItem, TimelineTime } 
+export { Timeline, TimelineItem, TimelineTime, MemoizedTimelineItem }

@@ -213,10 +213,10 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
         });
         if (!feedingResp.ok) throw new Error(`Failed to fetch feeding logs: ${feedingResp.statusText}`);
         const logs: FeedingLog[] = await feedingResp.json();
-        setFeedingLogs(logs);
+        setFeedingLogs(Array.isArray(logs) ? logs : []);
         // Build the map: date (YYYY-MM-DD) -> count
         const map = new Map<string, number>();
-        logs.forEach(log => {
+        (Array.isArray(logs) ? logs : []).forEach(log => {
           if (log.date) {
             const dateKey = new Date(log.date).toISOString().split('T')[0];
             if (dateKey) {

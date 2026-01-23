@@ -64,7 +64,7 @@ const FeedingBatchSchema = z.object({
   timestamp: z.string().datetime(),
   notes: z.string().optional(),
   status: z.enum(["Normal", "Comeu Pouco", "Recusou", "Vomitou", "Outro"]).optional(),
-  mealType: z.enum(["dry", "wet", "treat", "medicine", "water", "manual", "scheduled", "automatic"]).default("manual"),
+  mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]).default("snack"),
   unit: z.enum(['g', 'ml', 'cups', 'oz']).default('g'),
   tempId: z.string().optional(), // Identificador temporário para lookup do status
 });

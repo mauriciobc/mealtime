@@ -138,6 +138,7 @@ export const GET = withHybridAuth(async (
       portionSize: feedingLog.amount,
       notes: feedingLog.notes,
       mealType: feedingLog.meal_type,
+      food_type: feedingLog.food_type,
       householdId: feedingLog.household_id,
       cat: feedingLog.cat ? {
         id: feedingLog.cat.id,
@@ -175,8 +176,9 @@ const updateFeedingSchema = z.object({
     message: 'O campo amount deve ser um número positivo'
   }).optional(),
   notes: z.string().max(255).optional(),
-  meal_type: z.enum(['manual', 'scheduled', 'automatic']).optional(),
+  meal_type: z.enum(['breakfast', 'lunch', 'dinner', 'snack']).optional(),
   unit: z.enum(['g', 'ml', 'cups', 'oz']).optional(),
+  food_type: z.string().max(255).optional(),
 }).refine((data) => Object.keys(data).length > 0, {
   message: 'Pelo menos um campo deve ser fornecido para atualização',
 });
@@ -188,6 +190,7 @@ type UpdateFeedingData = {
   notes?: string | null;
   meal_type?: string;
   unit?: string;
+  food_type?: string | null;
 };
 
 // PUT /api/v2/feedings/[id] - Atualizar um registro de alimentação
@@ -225,9 +228,20 @@ export const PUT = withHybridAuth(async (
   try {
     const body = await request.json();
     
+    // #region agent log
+    const fs = await import('fs/promises');
+    const logPath = '/home/mauriciobc/Documentos/Code/mealtime/.cursor/debug.log';
+    const logEntry = JSON.stringify({location:'route.ts:229',message:'PUT request body received',data:{body,logId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'}) + '\n';
+    await fs.appendFile(logPath, logEntry).catch(() => {});
+    // #endregion
+    
     // Validate the request body against schema
     const validationResult = updateFeedingSchema.safeParse(body);
     if (!validationResult.success) {
+      // #region agent log
+      const errorLog = JSON.stringify({location:'route.ts:239',message:'Validation failed',data:{errors:validationResult.error.format(),body,logId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'}) + '\n';
+      await fs.appendFile(logPath, errorLog).catch(() => {});
+      // #endregion
       logger.error('[PUT /api/v2/feedings/[id]] Invalid body', { 
         errors: validationResult.error.format() 
       });
@@ -237,6 +251,11 @@ export const PUT = withHybridAuth(async (
         details: validationResult.error.format()
       }, { status: 400 });
     }
+    
+    // #region agent log
+    const successLog = JSON.stringify({location:'route.ts:253',message:'Validation passed',data:{validatedData:validationResult.data,logId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'}) + '\n';
+    await fs.appendFile(logPath, successLog).catch(() => {});
+    // #endregion
 
     // Fetch log including household ID for verification
     const feedingLog = await prisma.feeding_logs.findUnique({
@@ -307,6 +326,11 @@ export const PUT = withHybridAuth(async (
       updateData.unit = validatedData.unit;
     }
 
+    if (validatedData.food_type !== undefined) {
+      // Preservar string vazia ou null explicitamente
+      updateData.food_type = validatedData.food_type;
+    }
+
     // Update the feeding log
     // amount não pode ser null pois é obrigatório no schema do banco
     const updatedLog = await prisma.feeding_logs.update({
@@ -333,6 +357,11 @@ export const PUT = withHybridAuth(async (
 
     logger.info(`[PUT /api/v2/feedings/${logId}] Feeding log updated successfully`);
 
+    // #region agent log
+    const updateSuccessLog = JSON.stringify({location:'route.ts:343',message:'Update successful',data:{logId,updatedLogId:updatedLog.id},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'}) + '\n';
+    await fs.appendFile(logPath, updateSuccessLog).catch(() => {});
+    // #endregion
+
     // Transform the data to match the expected format
     const transformedLog = {
       id: updatedLog.id,
@@ -342,6 +371,7 @@ export const PUT = withHybridAuth(async (
       portionSize: updatedLog.amount,
       notes: updatedLog.notes,
       mealType: updatedLog.meal_type,
+      food_type: updatedLog.food_type,
       unit: updatedLog.unit,
       householdId: updatedLog.household_id,
       cat: updatedLog.cat ? {
@@ -361,6 +391,13 @@ export const PUT = withHybridAuth(async (
       data: transformedLog
     });
   } catch (error: any) {
+    // #region agent log
+    const fs = await import('fs/promises');
+    const logPath = '/home/mauriciobc/Documentos/Code/mealtime/.cursor/debug.log';
+    const errorCatchLog = JSON.stringify({location:'route.ts:393',message:'Error caught in catch block',data:{errorMessage:error?.message,errorCode:error?.code,errorName:error?.name,logId},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'E'}) + '\n';
+    await fs.appendFile(logPath, errorCatchLog).catch(() => {});
+    // #endregion
+    
     // Handle Prisma errors
     if (error.code === 'P2025') {
       logger.warn('[PUT /api/v2/feedings/[id]] Feeding log not found during update');

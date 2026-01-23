@@ -1,32 +1,63 @@
 import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
+import type { PrismaPg } from '@prisma/adapter-pg';
+import type { Pool } from 'pg';
 import { logger } from '@/lib/monitoring/logger';
 
-// PrismaClient is attached to the `global` object in development to prevent
-// exhausting your database connection limit.
-//
-// Learn more: 
-// https://pris.ly/d/help/next-js-best-practices
+let PrismaPgClass: typeof PrismaPg | null = null;
+let PoolClass: typeof Pool | null = null;
+
+function getAdapter(): PrismaPg | undefined {
+  if (typeof window === 'undefined' && typeof process !== 'undefined') {
+    if (!PrismaPgClass) {
+      const pgAdapter = require('@prisma/adapter-pg');
+      PrismaPgClass = pgAdapter.PrismaPg as unknown as typeof PrismaPg;
+    }
+    if (!PoolClass) {
+      PoolClass = require('pg').Pool as unknown as typeof Pool;
+    }
+    
+    const pool = new PoolClass({
+      connectionString: process.env.DATABASE_URL,
+    });
+    
+    return new PrismaPgClass(pool);
+  }
+  return undefined;
+}
 
 declare global {
-  // Allow global `var` declarations
-   
   var prisma: PrismaClient | undefined;
+}
+
+interface PrismaClientConfig {
+  log: Array<'query' | 'info' | 'warn' | 'error'>;
+  adapter?: PrismaPg;
 }
 
 const prismaClientSingleton = () => {
   logger.info('[Prisma] Creating new PrismaClient instance.');
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['warn', 'error'],
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL
-      }
-    }
-  });
+  
+  const adapter = getAdapter();
+  
+  const logConfig: Array<'query' | 'info' | 'warn' | 'error'> = 
+    process.env.NODE_ENV === 'development' 
+      ? ['query', 'info', 'warn', 'error'] 
+      : ['warn', 'error'];
+  
+  const clientConfig: PrismaClientConfig = {
+    log: logConfig,
+  };
+  
+  if (adapter) {
+    clientConfig.adapter = adapter;
+  }
+  
+  const client = new PrismaClient(clientConfig);
+  
+  return client;
 };
 
-// Use the singleton pattern
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') {
@@ -35,14 +66,28 @@ if (process.env.NODE_ENV !== 'production') {
   logger.info('[Prisma] Using existing PrismaClient instance in production.');
 }
 
-// Removed custom connect/disconnect logic, Prisma handles this.
-
 export default prisma;
 
-// Optional: Add a simple check to see if the client seems okay after export
+export function createPrismaClient(): PrismaClient {
+  const adapter = getAdapter();
+  const logConfig: Array<'query' | 'info' | 'warn' | 'error'> = 
+    process.env.NODE_ENV === 'development' 
+      ? ['query', 'info', 'warn', 'error'] 
+      : ['warn', 'error'];
+  
+  const clientConfig: PrismaClientConfig = {
+    log: logConfig,
+  };
+  
+  if (adapter) {
+    clientConfig.adapter = adapter;
+  }
+  
+  return new PrismaClient(clientConfig);
+}
+
 try {
     if (prisma && typeof prisma.$connect === 'function') {
-        // logger.info('[Prisma] Prisma client instance appears valid after initialization.');
     } else {
        logger.error('[Prisma] Prisma client instance seems invalid after initialization.', { prismaType: typeof prisma });
     }

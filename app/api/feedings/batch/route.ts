@@ -12,7 +12,8 @@ const FeedingBatchSchema = z.object({
   timestamp: z.string().datetime(),
   notes: z.string().optional(),
   status: z.enum(["Normal", "Comeu Pouco", "Recusou", "Vomitou", "Outro"]).optional(),
-  mealType: z.enum(["dry", "wet", "treat", "medicine", "water"]), // Required field with specific types
+  mealType: z.enum(["breakfast", "lunch", "dinner", "snack"]), // Tipo de refeição
+  food_type: z.string().max(255).optional(), // Optional food type field
   unit: z.string().default('g'), // Default to grams if not specified
   tempId: z.string().optional(), // Identificador temporário para lookup do status
 });
@@ -136,6 +137,7 @@ export const POST = withError(async (request: Request) => {
           amount: log.portionSize,
           unit: log.unit,
           notes: log.notes ?? null,
+          food_type: log.food_type ?? null,
           fed_by: user.id,
           fed_at: new Date(log.timestamp)
         }

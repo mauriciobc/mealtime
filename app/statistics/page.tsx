@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PageTransition } from "@/components/ui/page-transition"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -189,9 +189,7 @@ const BarChartComponent = ({ data }: { data: TimeDistributionDataPoint[] }) => {
 
 const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
   const { isMobile } = useResponsive();
-  
-  console.log('Debug - PieChart data:', JSON.stringify(data, null, 2));
-  
+
   if (!data || data.length === 0) {
     return (
       <div className="relative mx-auto aspect-square max-h-[250px] flex items-center justify-center">
@@ -250,12 +248,6 @@ const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
             strokeWidth={5}
           >
             {data.map((entry, index) => {
-              console.log('Debug - Rendering pie slice:', {
-                name: entry.name,
-                value: entry.value,
-                percent: entry.percent,
-                color: COLORS[index % COLORS.length]
-              });
               return (
                 <Cell
                   key={`cell-${index}`}
@@ -393,11 +385,11 @@ export default function StatisticsPage() {
               title="Sem Residência Associada"
               description="Associe-se a uma residência para ver estatísticas."
               actionButton={
-                <Link href="/settings" passHref legacyBehavior>
-                  <Button asChild variant="default" className="mt-4">
+                <Button asChild variant="default" className="mt-4">
+                  <Link href="/settings">
                     Ir para Configurações
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               }
               className="mt-8"
             />
@@ -433,11 +425,11 @@ export default function StatisticsPage() {
               title="Sem Dados"
               description="Não há dados de alimentação para exibir no período selecionado."
               actionButton={
-                <Link href="/feeding" passHref legacyBehavior>
-                  <Button asChild variant="default" className="mt-4">
+                <Button asChild variant="default" className="mt-4">
+                  <Link href="/feeding">
                     Registrar Alimentação
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               }
               className="mt-8"
             />

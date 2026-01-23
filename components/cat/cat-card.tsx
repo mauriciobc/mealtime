@@ -11,6 +11,12 @@ import {
   Weight,
 } from "lucide-react";
 import { CatType, FeedingLog } from "@/lib/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -172,12 +178,28 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
            </CardContent>
 
            <CardFooter className="pt-3 pb-3 flex justify-end gap-2 border-t mt-auto">
-              <Button variant="ghost" size="icon" onClick={handleEditClick} aria-label={`Editar ${cat.name}`}>
-                 <Edit className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDeleteClick} aria-label={`Excluir ${cat.name}`}>
-                 <Trash2 className="h-4 w-4" />
-              </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleEditClick} aria-label={`Editar ${cat.name}`}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Editar Gato</p>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDeleteClick} aria-label={`Excluir ${cat.name}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Excluir Gato</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
            </CardFooter>
         </Card>
       </motion.div>

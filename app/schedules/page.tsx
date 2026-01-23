@@ -48,7 +48,6 @@ export default function SchedulesPage() {
       }
       toast.success("Agendamento excluído com sucesso!");
     } catch (error: any) { 
-      console.error("Erro ao deletar agendamento:", error);
       toast.error(`Erro ao excluir: ${error.message}`);
       scheduleDispatch({ type: "SET_SCHEDULES", payload: previousSchedules });
     } finally {

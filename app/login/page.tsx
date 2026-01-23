@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from '@/utils/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageTransition } from "@/components/ui/page-transition";
@@ -11,14 +12,12 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 
 import { useUserContext } from "@/lib/context/UserContext";
-import { Eye, EyeOff } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { AlertTriangle, Eye, EyeOff } from "lucide-react";
 import { Icons } from "@/components/icons";
 import { logger } from "@/lib/monitoring/logger";
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
 import { GlobalLoading } from "@/components/ui/global-loading";
-
-
-console.log("[Login] Página de login sendo carregada");
 
 export default function LoginPage() {
   const router = useRouter();
@@ -46,7 +45,6 @@ export default function LoginPage() {
     const isFullyLoaded = !authLoading && !profileLoading;
     if (isFullyLoaded && currentUser) {
       const redirectTo = searchParams.get("redirectTo") || "/";
-      console.log("[Login] User fully loaded and authenticated, redirecting to:", redirectTo);
       router.replace(redirectTo);
     }
   }, [authLoading, profileLoading, currentUser, router, searchParams]);
@@ -85,9 +83,7 @@ export default function LoginPage() {
         }
         logger.error('[LoginPage] Sign in error:', { error: signInError.message });
       } else {
-        // Redirect immediately on successful sign-in
         const redirectTo = searchParams.get("redirectTo") || "/";
-        console.log("[Login] Successful sign-in, redirecting to:", redirectTo);
         router.replace(redirectTo);
       }
     } catch (err) {
@@ -164,28 +160,44 @@ export default function LoginPage() {
                     disabled={isLoading}
                     onChange={handleInputChange}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500"
-                  >
-                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                  </button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-auto"
+                          aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                        >
+                          {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{showPassword ? 'Ocultar senha' : 'Mostrar senha'}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
 
               {error && (
-                <div className="text-sm text-red-500">
-                  {error}
-                </div>
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Login Error</AlertTitle>
+                  <AlertDescription>
+                    {error}
+                  </AlertDescription>
+                </Alert>
               )}
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <GlobalLoading mode="spinner" size="sm" />
-                ) : (
-                  "Entrar com Email"
-                )}
+              <Button
+                type="submit"
+                className="w-full"
+                loading={isLoading}
+              >
+                Entrar com Email
               </Button>
             </form>
 
@@ -202,18 +214,12 @@ export default function LoginPage() {
 
             <Button
               onClick={handleGoogleLogin}
-              disabled={isLoading}
+              loading={isLoading}
               className="w-full"
               variant="outline"
             >
-              {isLoading ? (
-                <GlobalLoading mode="spinner" size="sm" />
-              ) : (
-                <>
-                  <Icons.google className="mr-2 h-4 w-4" />
-                  Entrar com Google
-                </>
-              )}
+              <Icons.google className="mr-2 h-4 w-4" />
+              Entrar com Google
             </Button>
           </CardContent>
           <CardFooter className="flex flex-col items-center space-y-2 text-center text-sm text-muted-foreground">
