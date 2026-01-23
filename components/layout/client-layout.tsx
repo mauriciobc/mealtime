@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useEffect } from "react"
-import dynamic from 'next/dynamic'
 import { usePathname, useRouter } from "next/navigation"
 import { AppHeader } from "@/components/app-header"
 import BottomNav from "@/components/bottom-nav"
@@ -13,11 +12,6 @@ interface AppHeaderProps {
   title?: string;
   showBackButton?: boolean;
 }
-
-const OnboardingTour = dynamic(() => import("@/components/ui/onboarding-tour").then(mod => ({ default: mod.OnboardingTour })), {
-  ssr: false,
-  loading: () => null
-})
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -32,20 +26,11 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     if (!authLoading && !profileLoading && currentUser && isAuthPage) {
       const searchParams = new URLSearchParams(window.location.search);
       const redirectTo = searchParams.get("redirectTo") || "/";
-      console.log("[ClientLayout] Authenticated user on auth page, redirecting to:", redirectTo);
       router.replace(redirectTo);
     }
   }, [authLoading, profileLoading, currentUser, isAuthPage, router, pathname]);
 
-  // TEMP LOGGING
-  if (typeof window !== "undefined") {
-    console.log("[ClientLayout] pathname:", pathname, "authLoading:", authLoading, "profileLoading:", profileLoading, "currentUser:", currentUser);
-  }
-
   if (authLoading || profileLoading) {
-    if (typeof window !== "undefined") {
-      console.log("[ClientLayout] Showing GlobalLoading spinner (authLoading or profileLoading is true)");
-    }
     return <GlobalLoading mode="overlay" />;
   }
 
@@ -60,13 +45,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }
 
   const AuthenticatedLayout = ({ children }: { children: React.ReactNode }) => {
-    const { state } = useUserContext();
-    const currentUser = state.currentUser;
-
-    if (typeof window !== "undefined") {
-      console.log("[ClientLayout] Rendering AuthenticatedLayout. currentUser:", currentUser);
-    }
-
     return (
       <AnimationProvider>
         <div className="relative flex min-h-screen flex-col">
@@ -75,7 +53,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
             {children}
           </main>
           <BottomNav />
-          <OnboardingTour />
         </div>
       </AnimationProvider>
     );
@@ -83,9 +60,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   // Página de documentação da API - layout limpo sem navegação
   if (isApiDocsPage) {
-    if (typeof window !== "undefined") {
-      console.log("[ClientLayout] Rendering API Docs layout (no navigation)");
-    }
     return (
       <div className="relative flex min-h-screen flex-col">
         <main className="flex-1">
@@ -96,9 +70,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthPage) {
-    if (typeof window !== "undefined") {
-      console.log("[ClientLayout] Rendering AuthPage layout (login/signup)");
-    }
     return (
        <div className="relative flex min-h-screen flex-col">
          <main className="flex-1">
@@ -107,9 +78,6 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
        </div>
      );
   } else {
-    if (typeof window !== "undefined") {
-      console.log("[ClientLayout] Rendering AuthenticatedLayout wrapper");
-    }
     return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
   }
 } 

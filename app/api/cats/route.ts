@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { logger } from '@/lib/monitoring/logger'; // Import the logger
-import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
+import { logger } from '@/lib/monitoring/logger';
+import { getAuthenticatedUser, AuthenticatedUser } from '@/lib/auth';
+import { ApiResponse } from '@/lib/responses/api-responses';
 
-/**
- * Valida e normaliza o peso do gato
- */
-function validateWeight(weight: any): { isValid: boolean; value: number | null; error?: string } {
+const MAX_CAT_AGE_YEARS = 30;
+const MAX_CAT_WEIGHT_KG = 50;
+const MIN_FEEDING_INTERVAL_HOURS = 1;
+const MAX_FEEDING_INTERVAL_HOURS = 24;
+
+function validateWeight(weight: unknown): { isValid: boolean; value: number | null; error?: string } {
   if (weight === null || weight === undefined || weight === '') {
     return { isValid: true, value: null };
   }
 
-  const weightNum = Number(parseFloat(weight));
+  const weightNum = Number(parseFloat(String(weight)));
   
   if (Number.isNaN(weightNum)) {
     return { 
@@ -29,27 +32,23 @@ function validateWeight(weight: any): { isValid: boolean; value: number | null; 
     };
   }
 
-  // Validação adicional: peso máximo razoável para um gato (50kg)
-  if (weightNum > 50) {
+  if (weightNum > MAX_CAT_WEIGHT_KG) {
     return { 
       isValid: false, 
       value: null, 
-      error: 'Peso deve ser menor que 50kg' 
+      error: `Peso deve ser menor que ${MAX_CAT_WEIGHT_KG}kg` 
     };
   }
 
   return { isValid: true, value: weightNum };
 }
 
-/**
- * Valida e normaliza a data de nascimento do gato
- */
-function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | null; error?: string } {
+function validateBirthDate(birth_date: unknown): { isValid: boolean; value: Date | null; error?: string } {
   if (birth_date === null || birth_date === undefined || birth_date === '') {
     return { isValid: true, value: null };
   }
 
-  const date = new Date(birth_date);
+  const date = new Date(String(birth_date));
   
   if (isNaN(date.getTime())) {
     return { 
@@ -59,7 +58,6 @@ function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | n
     };
   }
 
-  // Validação adicional: data não pode ser no futuro
   const now = new Date();
   if (date > now) {
     return { 
@@ -69,61 +67,51 @@ function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | n
     };
   }
 
-  // Validação adicional: data não pode ser muito antiga (mais de 30 anos)
   const thirtyYearsAgo = new Date();
-  thirtyYearsAgo.setFullYear(thirtyYearsAgo.getFullYear() - 30);
+  thirtyYearsAgo.setFullYear(thirtyYearsAgo.getFullYear() - MAX_CAT_AGE_YEARS);
   if (date < thirtyYearsAgo) {
     return { 
       isValid: false, 
       value: null, 
-      error: 'Data de nascimento não pode ser há mais de 30 anos' 
+      error: `Data de nascimento não pode ser há mais de ${MAX_CAT_AGE_YEARS} anos` 
     };
   }
 
   return { isValid: true, value: date };
 }
 
-// Log Runtime
-logger.debug('[/api/cats] Runtime:', { runtime: process.env.NEXT_RUNTIME });
-
-// GET /api/cats - Listar todos os gatos (filtragem opcional por householdId)
 export async function GET(request: NextRequest) {
-  // Remove header dump log
-  /*
-  // --- Add Log for Received Headers ---
-  console.log(`[GET /api/cats] Received Headers: ${JSON.stringify(Object.fromEntries(request.headers.entries()))}`);
-  // --- End Log for Received Headers ---
-  */
-
-  // Read user ID from request header
-  const authUserId = request.headers.get('X-User-ID');
-  if (!authUserId) {
-    // Use logger.warn for auth failures
-    logger.warn('[GET /api/cats] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
-    return NextResponse.json({ error: 'Não autorizado - Cabeçalho de usuário ausente' }, { status: 401 });
+  const authResult = await getAuthenticatedUser(request);
+  
+  if (!authResult.success) {
+    return ApiResponse.error(
+      authResult.error || 'Not authenticated',
+      authResult.statusCode || 401,
+      'AUTH_ERROR',
+      undefined,
+      request
+    );
   }
-  logger.debug(`[GET /api/cats] Authenticated User ID from header: ${authUserId}`);
+
+  const user: AuthenticatedUser = authResult.user!;
 
   try {
-    // Get user's households for authorization using profiles model (which works with shared client)
     const userProfile = await prisma.profiles.findUnique({
-        where: { id: authUserId },
-        select: { household_members: { select: { household_id: true } } }
+      where: { id: user.id },
+      select: { 
+        household_members: { select: { household_id: true } } 
+      }
     });
 
     if (!userProfile) {
-        // Use logger.error for unexpected data inconsistencies
-        logger.error(`[GET /api/cats] Prisma profile not found for auth user ID: ${authUserId}`);
-        // Return 404 or 403 depending on desired behavior
-        return NextResponse.json({ error: 'Perfil de usuário não encontrado' }, { status: 404 });
+      return ApiResponse.notFound('Perfil de usuário não encontrado', request);
     }
 
     const userHouseholdIds = userProfile.household_members.map(m => m.household_id);
+    
     if (userHouseholdIds.length === 0) {
-        logger.info(`[GET /api/cats] User ${authUserId} belongs to no households. Returning empty.`);
-        return NextResponse.json([]); // Return empty array if user has no households
+      return ApiResponse.success([], 200, request);
     }
-    logger.debug(`[GET /api/cats] User ${authUserId} authorized for households:`, { householdIds: userHouseholdIds });
 
     const searchParams = request.nextUrl.searchParams;
     const requestedHouseholdId = searchParams.get('householdId');
@@ -131,31 +119,20 @@ export async function GET(request: NextRequest) {
     let targetHouseholdIds: string[];
 
     if (requestedHouseholdId) {
-      // If a specific household is requested, check authorization
       if (!userHouseholdIds.includes(requestedHouseholdId)) {
-        logger.warn(`[GET /api/cats] User ${authUserId} not authorized for requested household ${requestedHouseholdId}`);
-        return NextResponse.json({ error: 'Não autorizado para este domicílio' }, { status: 403 });
+        return ApiResponse.forbidden('Não autorizado para este domicílio', request);
       }
       targetHouseholdIds = [requestedHouseholdId];
-      logger.debug(`[GET /api/cats] Filtering by requested household: ${requestedHouseholdId}`);
     } else {
-      // If no specific household is requested, fetch for all user's households
       targetHouseholdIds = userHouseholdIds;
-      logger.debug(`[GET /api/cats] Fetching for all authorized households.`);
     }
 
-    // Define where clause based on authorized households
-    const where = { 
-      household_id: { 
-        in: targetHouseholdIds 
-      } 
-    };
-
-    logger.debug(`[GET /api/cats] Querying cats with where clause:`, { where: JSON.stringify(where) });
-    
-    // Use direct access to the cats model as it exists in the schema
     const cats = await prisma.cats.findMany({
-      where,
+      where: { 
+        household_id: { 
+          in: targetHouseholdIds 
+        } 
+      },
       select: {
         id: true,
         name: true,
@@ -165,175 +142,120 @@ export async function GET(request: NextRequest) {
         household_id: true,
         owner_id: true
       },
-      orderBy: {
-        name: 'asc'
-      }
+      orderBy: { name: 'asc' }
     });
 
-    const response = NextResponse.json(cats);
-    return addDeprecatedWarning(response);
-  } catch (error: any) {
-    // Log the actual error object using logger.logError
-    logger.logError(error, { message: 'Erro ao buscar gatos', requestUrl: request.nextUrl.toString() });
-    const errorResponse = NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar os gatos' },
-      { status: 500 }
-    );
-    return addDeprecatedWarning(errorResponse);
+    return ApiResponse.success(cats, 200, request);
+  } catch (error) {
+    return ApiResponse.error('Erro ao buscar gatos', 500, 'INTERNAL_ERROR', error, request);
   }
 }
 
-// POST /api/cats - Criar um novo perfil de gato
 export async function POST(request: NextRequest) {
-  const authUserId = request.headers.get('X-User-ID');
-  if (!authUserId) {
-    logger.warn('[POST /api/cats] Authorization Error: Missing X-User-ID header.', { url: request.nextUrl.toString() });
-    return NextResponse.json({ error: 'Não autorizado - Cabeçalho de usuário ausente' }, { status: 401 });
+  const authResult = await getAuthenticatedUser(request);
+  
+  if (!authResult.success) {
+    return ApiResponse.error(
+      authResult.error || 'Not authenticated',
+      authResult.statusCode || 401,
+      'AUTH_ERROR',
+      undefined,
+      request
+    );
   }
-  logger.debug(`[POST /api/cats] Authenticated User ID from header: ${authUserId}`);
+
+  const user: AuthenticatedUser = authResult.user!;
 
   try {
     const body = await request.json();
-    logger.debug('[POST /api/cats] Received request body:', body);
 
-    // Validate required fields
     if (!body.name || !body.householdId) {
-      logger.warn('[POST /api/cats] Missing required fields:', { body });
-      return NextResponse.json(
-        { error: 'Nome e ID do domicílio são obrigatórios' },
-        { status: 400 }
-      );
+      return ApiResponse.error('Nome e ID do domicílio são obrigatórios', 400, 'VALIDATION_ERROR', undefined, request);
     }
 
-    // Validate feeding interval (if provided)
-    let feedingInterval = null;
+    let feedingInterval: number | null = null;
     if (body.feeding_interval) {
-      const hours = parseInt(String(body.feeding_interval));
-      if (isNaN(hours) || hours < 1 || hours > 24) {
-        logger.warn('[POST /api/cats] Invalid feeding interval:', body.feeding_interval);
-        return NextResponse.json(
-          { error: 'Intervalo de alimentação deve ser entre 1 e 24 horas' },
-          { status: 400 }
+      const hours = parseInt(String(body.feeding_interval), 10);
+      if (isNaN(hours) || hours < MIN_FEEDING_INTERVAL_HOURS || hours > MAX_FEEDING_INTERVAL_HOURS) {
+        return ApiResponse.error(
+          `Intervalo de alimentação deve ser entre ${MIN_FEEDING_INTERVAL_HOURS} e ${MAX_FEEDING_INTERVAL_HOURS} horas`,
+          400,
+          'VALIDATION_ERROR',
+          undefined,
+          request
         );
       }
       feedingInterval = hours;
     }
 
-    // Validar peso se fornecido
-    if (body.weight !== undefined) {
-      const weightValidation = validateWeight(body.weight);
-      if (!weightValidation.isValid) {
-        logger.warn('[POST /api/cats] Invalid weight:', body.weight);
-        return NextResponse.json(
-          { error: weightValidation.error },
-          { status: 400 }
-        );
-      }
+    const weightValidation = validateWeight(body.weight);
+    if (body.weight !== undefined && !weightValidation.isValid) {
+      return ApiResponse.error(weightValidation.error || 'Peso inválido', 400, 'VALIDATION_ERROR', undefined, request);
     }
 
-    // Validar data de nascimento se fornecida
-    if (body.birthdate !== undefined) {
-      const birthDateValidation = validateBirthDate(body.birthdate);
-      if (!birthDateValidation.isValid) {
-        logger.warn('[POST /api/cats] Invalid birthdate:', body.birthdate);
-        return NextResponse.json(
-          { error: birthDateValidation.error },
-          { status: 400 }
-        );
-      }
+    const birthDateValidation = validateBirthDate(body.birthdate);
+    if (body.birthdate !== undefined && !birthDateValidation.isValid) {
+      return ApiResponse.error(birthDateValidation.error || 'Data inválida', 400, 'VALIDATION_ERROR', undefined, request);
     }
 
-    // Check if the user is a member of the target household
     const householdMember = await prisma.household_members.findFirst({
       where: {
-        user_id: authUserId,
+        user_id: user.id,
         household_id: body.householdId
       },
       select: { user_id: true }
     });
 
     if (!householdMember) {
-      logger.warn(`[POST /api/cats] User ${authUserId} not authorized for household ${body.householdId}`);
-      return NextResponse.json(
-        { error: 'Usuário não autorizado para este domicílio' },
-        { status: 403 }
-      );
+      return ApiResponse.forbidden('Usuário não autorizado para este domicílio', request);
     }
 
-    // Preparar dados para criação com validações aplicadas
-    const createData: any = {
+    const createData = {
       name: body.name.trim(),
-      photo_url: body.photoUrl || null,
+      photo_url: body.photoUrl?.trim() || null,
       household_id: body.householdId,
-      owner_id: authUserId,
+      owner_id: user.id,
       restrictions: body.restrictions?.trim() || null,
       notes: body.notes?.trim() || null,
       feeding_interval: feedingInterval,
-      portion_size: body.portion_size || null
+      portion_size: body.portion_size || null,
+      weight: weightValidation.value,
+      birth_date: birthDateValidation.value
     };
 
-    // Aplicar validações de peso e data de nascimento
-    if (body.weight !== undefined) {
-      const weightValidation = validateWeight(body.weight);
-      createData.weight = weightValidation.value;
-    }
-
-    if (body.birthdate !== undefined) {
-      const birthDateValidation = validateBirthDate(body.birthdate);
-      createData.birth_date = birthDateValidation.value;
-    }
-
-    // Create the cat using Prisma's create method
     const newCat = await prisma.cats.create({
       data: createData
     });
 
-    // If weight was provided, create an initial weight log
-    if (newCat && body.weight && !isNaN(parseFloat(body.weight))) {
+    if (body.weight !== undefined && weightValidation.value !== null) {
       try {
         await prisma.cat_weight_logs.create({
           data: {
             cat_id: newCat.id,
-            weight: parseFloat(body.weight),
-            date: new Date(), // Use current date for the initial log
-            measured_by: authUserId, // Associate with the user creating the cat
+            weight: weightValidation.value,
+            date: new Date(),
+            measured_by: user.id
           }
         });
-        logger.debug(`[POST /api/cats] Initial weight log created for cat ${newCat.id}`);
-      } catch (logError: any) {
-        // Log the error but don't fail the cat creation, as logging weight is secondary
-        logger.error(`[POST /api/cats] Failed to create initial weight log for cat ${newCat.id}:`, {
-          error: logError,
-          message: logError.message,
-          stack: logError.stack,
-        });
+      } catch (logError) {
+        logger.error('Failed to create initial weight log', { catId: newCat.id, error: logError });
       }
     }
 
-    logger.debug(`[POST /api/cats] Cat created successfully:`, newCat);
-    const response = NextResponse.json(newCat, { status: 201 });
-    return addDeprecatedWarning(response);
-  } catch (error: any) {
-    logger.error('[POST /api/cats] Error creating cat:', {
-      error: error,
-      message: error.message,
-      code: error.code,
-      meta: error.meta,
-      stack: error.stack
-    });
+    return ApiResponse.success(newCat, 201, request);
+  } catch (error) {
+    logger.error('Error creating cat', { error });
     
-    if (error.code === '22P02') {
-      const response = NextResponse.json(
-        { error: 'Formato inválido para um ou mais campos' },
-        { status: 400 }
-      );
-      return addDeprecatedWarning(response);
+    if (error instanceof Error && 'code' in error && (error as { code?: string }).code === '22P02') {
+      return ApiResponse.error('Formato inválido para um ou mais campos', 400, 'VALIDATION_ERROR', undefined, request);
     }
     
-    const errorResponse = NextResponse.json(
-      { error: `Erro ao criar o perfil do gato: ${error.message}` },
-      { status: 500 }
+    return ApiResponse.error(
+      `Erro ao criar o perfil do gato: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      500,
+      'INTERNAL_ERROR',
+      undefined,
+      request
     );
-    return addDeprecatedWarning(errorResponse);
   }
-} 
+}
