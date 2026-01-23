@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { 
   Edit, 
@@ -89,7 +89,15 @@ export default function CatsPage() {
     return map
   }, [feedingLogs])
 
-  const handleDeleteCat = async (catId: string) => {
+  const handleViewCat = useCallback((catId: string) => {
+    router.push(`/cats/${catId}`)
+  }, [router])
+
+  const handleEditCat = useCallback((catId:string) => {
+    router.push(`/cats/${catId}/edit`)
+  }, [router])
+
+  const handleDeleteCat = useCallback(async (catId: string) => {
     const previousCats = cats
     const opId = `delete-cat-${catId}`
     addLoadingOperation({ id: opId, priority: 1, description: `Deleting cat ${catId}...` })
@@ -111,7 +119,7 @@ export default function CatsPage() {
       setIsDeleting(null)
       removeLoadingOperation(opId)
     }
-  }
+  }, [cats, catsDispatch, addLoadingOperation, removeLoadingOperation])
 
   // Show loading state while user or cats are loading
   if (isLoadingUser || isLoadingCats) {
@@ -214,9 +222,9 @@ export default function CatsPage() {
                     key={cat.id}
                     cat={cat}
                     latestFeedingLog={latestLog}
-                    onView={() => router.push(`/cats/${cat.id}`)}
-                    onEdit={() => router.push(`/cats/${cat.id}/edit`)}
-                    onDelete={() => handleDeleteCat(cat.id)}
+                    onView={handleViewCat}
+                    onEdit={handleEditCat}
+                    onDelete={handleDeleteCat}
                   />
                 );
               })}

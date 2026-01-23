@@ -46,9 +46,12 @@ import { useUserContext } from "@/lib/context/UserContext";
 interface CatCardProps {
   cat: CatType;
   latestFeedingLog?: FeedingLog | null;
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  // This is a performance optimization. By passing the catId to the handler,
+  // the parent component can use a single `useCallback`-wrapped function
+  // for all cards, preventing re-renders.
+  onView: (catId: string) => void;
+  onEdit: (catId: string) => void;
+  onDelete: (catId: string) => void;
 }
 
 export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: CatCardProps) {
@@ -79,15 +82,19 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
     setShowDeleteDialog(true);
   }, []);
 
+  const handleViewClick = useCallback(() => {
+    onView(cat.id);
+  }, [onView, cat.id]);
+
   const handleEditClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    onEdit();
-  }, [onEdit]);
+    onEdit(cat.id);
+  }, [onEdit, cat.id]);
 
   const confirmDelete = useCallback(() => {
-    onDelete();
+    onDelete(cat.id);
     setShowDeleteDialog(false);
-  }, [onDelete]);
+  }, [onDelete, cat.id]);
 
   const imageUrl = useMemo(() => {
     if (!cat.photo_url || cat.photo_url.trim() === '') {
@@ -118,7 +125,7 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
         transition={{ duration: 0.3 }}
         whileHover={{ y: -5, transition: { duration: 0.2 } }}
         className="h-full cursor-pointer"
-        onClick={onView}
+        onClick={handleViewClick}
       >
         <Card className="h-full overflow-hidden flex flex-col max-w-[300px] mx-auto">
            <div className="relative w-full aspect-square bg-muted overflow-hidden"> 
