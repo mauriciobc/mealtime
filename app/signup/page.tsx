@@ -145,15 +145,8 @@ export default function SignupPage() {
                   disabled={isProcessing}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isProcessing}>
-                {isLoadingCredentials ? (
-                  <>
-                    <GlobalLoading mode="spinner" size="sm" /> 
-                    Carregando...
-                  </>
-                ) : (
-                  "Criar conta com Email"
-                )}
+              <Button type="submit" className="w-full" loading={isLoadingCredentials} disabled={isProcessing}>
+                Criar conta com Email
               </Button>
             </form>
 
@@ -173,18 +166,10 @@ export default function SignupPage() {
               disabled={isProcessing}
               className="w-full"
               variant="outline"
+              loading={isLoadingGoogle}
             >
-              {isLoadingGoogle ? (
-                <>
-                  <GlobalLoading mode="spinner" size="sm" /> 
-                  Carregando...
-                </>
-              ) : (
-                <>
-                  <Icons.google className="mr-2 h-4 w-4" />
-                  Criar conta com Google
-                </>
-              )}
+              <Icons.google className="mr-2 h-4 w-4" />
+              Criar conta com Google
             </Button>
           </CardContent>
           <CardFooter className="flex flex-col items-center space-y-2 text-center text-sm text-muted-foreground">

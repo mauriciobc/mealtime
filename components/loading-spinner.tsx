@@ -12,6 +12,6 @@ export default function LoadingSpinner({
   size = "md",
   text,
   className,
-}: Loading-spinnerProps) {
+}: LoadingSpinnerProps) {
   return <Spinner size={size} text={text} className={className} />;
 }
