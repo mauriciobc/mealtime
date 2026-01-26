@@ -167,20 +167,7 @@ export default function LoginPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onMouseDown={() => setShowPassword(true)}
-                          onMouseUp={() => setShowPassword(false)}
-                          onMouseLeave={() => setShowPassword(false)}
-                          onTouchStart={() => setShowPassword(true)}
-                          onTouchEnd={() => setShowPassword(false)}
-                          onClick={(e) => {
-                            // For keyboard users (Enter/Space), e.detail is 0.
-                            // This preserves the toggle functionality for accessibility.
-                            if (e.detail === 0) {
-                              setShowPassword((prev) => !prev);
-                            }
-                            // For mouse users, onMouseDown/onMouseUp handle the state.
-                            // We do nothing here to prevent the conflicting state update.
-                          }}
+                          onClick={() => setShowPassword((prev) => !prev)}
                           className="absolute right-2 top-1/2 -translate-y-1/2 h-auto"
                           aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                         >
