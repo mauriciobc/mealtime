@@ -532,10 +532,14 @@ export const useSelectUpcomingFeedings = (limit: number = 5): UpcomingFeeding[] 
     try {
       const now = toDate(new Date(), { timeZone: timezone });
       const householdCats = cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));
+
+      // Optimization: Use a Set for O(1) lookups instead of O(M) `some` calls inside the filter.
+      // This changes the filtering complexity from O(N*M) to a much more efficient O(N+M).
+      const householdCatIds = new Set(householdCats.map(cat => cat.id));
       
       // Pre-filter logs and schedules for efficiency if datasets are large
-      const householdLogs = feedingLogs.filter(log => householdCats.some(cat => cat.id === log.catId));
-      const householdSchedules = schedules.filter(sch => householdCats.some(cat => cat.id === sch.catId));
+      const householdLogs = feedingLogs.filter(log => householdCatIds.has(log.catId));
+      const householdSchedules = schedules.filter(sch => householdCatIds.has(sch.catId));
       
       // Pre-compute last log for each cat
       // The `feedingLogs` (and by extension `householdLogs`) are already sorted descending.
