@@ -6,7 +6,6 @@ import { createClient } from '@/utils/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageTransition } from "@/components/ui/page-transition";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
@@ -117,9 +116,9 @@ export default function LoginPageContent() {
     return <GlobalLoading mode="overlay" />;
   }
 
+  // No PageTransition here: login must be visible on first paint for screen capture / PWA / OG (avoid all-white screenshot)
   return (
-    <PageTransition>
-      <div className="flex items-center justify-center min-h-screen bg-background p-4" data-testid="login-page">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4" data-testid="login-page">
         <Card className="w-full max-w-md" role="main">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">MealTime</CardTitle>
@@ -231,6 +230,5 @@ export default function LoginPageContent() {
           </CardFooter>
         </Card>
       </div>
-    </PageTransition>
   );
 }

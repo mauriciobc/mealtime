@@ -201,8 +201,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const supabase = createClient();
 
-  console.log("[NotificationProvider] Initializing with user:", currentUser?.id);
-
   // Initialize IndexedDB cache
   useEffect(() => {
     cacheManager.init().catch(error => {
@@ -210,13 +208,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Load from cache on mount
+  // Load from cache on mount (only when user is authenticated)
   useEffect(() => {
     const loadFromCache = async () => {
-      // Validate currentUserId before proceeding
       if (!currentUserId || typeof currentUserId !== 'string' || currentUserId.trim() === '') {
-        console.warn('[NotificationProvider] loadFromCache called with invalid currentUserId:', currentUserId);
-        return;
+        return; // Normal when unauthenticated (e.g. login page)
       }
       
       try {

@@ -102,8 +102,10 @@ self.addEventListener('fetch', event => {
       caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
         const fetchPromise = fetch(event.request).then(networkResponse => {
           if (networkResponse && networkResponse.status === 200) {
+            // Clone immediately while body is unused; use clone for cache, return original to client
+            const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, networkResponse.clone());
+              cache.put(event.request, responseToCache);
             });
           }
           return networkResponse;
