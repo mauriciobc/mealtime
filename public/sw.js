@@ -104,9 +104,11 @@ self.addEventListener('fetch', event => {
           if (networkResponse && networkResponse.status === 200) {
             // Clone immediately while body is unused; use clone for cache, return original to client
             const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, responseToCache);
-            });
+            caches.open(CACHE_NAME)
+              .then(cache => cache.put(event.request, responseToCache))
+              .catch(err => {
+                console.error('[Service Worker] Cache write failed:', event.request.url, err);
+              });
           }
           return networkResponse;
         }).catch(() => {
