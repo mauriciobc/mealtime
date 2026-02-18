@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -57,7 +57,7 @@ export function PageTransition({
   // Removed conditional return based on shouldRender
 
   return (
-    <motion.div
+    <m.div
       className={className}
       variants={getVariants()} // Use defined variants
       initial="hidden"         // Start hidden
@@ -71,7 +71,7 @@ export function PageTransition({
       // Removed onAnimationComplete
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -112,7 +112,7 @@ export function SlideIn({
   };
 
   return (
-    <motion.div
+    <m.div
       className={className}
       variants={getVariants()}
       initial="hidden"
@@ -124,7 +124,7 @@ export function SlideIn({
       }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -149,7 +149,7 @@ export function FadeIn({
   }, [delay]);
 
   return (
-    <motion.div
+    <m.div
       className={className}
       initial={{ opacity: 0 }}
       animate={{ opacity: isVisible ? 1 : 0 }}
@@ -159,7 +159,7 @@ export function FadeIn({
       }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -175,7 +175,7 @@ export function StaggerContainer({
   staggerChildren?: number;
 }) {
   return (
-    <motion.div
+    <m.div
       className={className}
       initial="hidden"
       animate="visible"
@@ -194,7 +194,7 @@ export function StaggerContainer({
       }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -206,7 +206,7 @@ export function StaggerItem({
   className?: string;
 }) {
   return (
-    <motion.div
+    <m.div
       className={className}
       variants={{
         hidden: { opacity: 0, y: 10 },
@@ -219,6 +219,6 @@ export function StaggerItem({
       }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 } 

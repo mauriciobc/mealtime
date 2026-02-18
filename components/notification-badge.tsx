@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
 import { cn } from "@/lib/utils"
 
@@ -28,8 +28,8 @@ export default function NotificationBadge({ count, className }: NotificationBadg
   }
 
   return (
-    <motion.span
-      initial={{ scale: 0 }}
+    <m.span
+      initial={{ scale: 0.95, opacity: 0 }}
       animate={{ scale: 1 }}
       transition={{
         type: "spring",
@@ -42,7 +42,7 @@ export default function NotificationBadge({ count, className }: NotificationBadg
       )}
     >
       {count}
-    </motion.span>
+    </m.span>
   )
 }
 

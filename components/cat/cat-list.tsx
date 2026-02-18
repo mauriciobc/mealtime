@@ -89,7 +89,7 @@ export function CatList() {
     return (
       <div className="space-y-4">
         {[1, 2].map(i => (
-          <Card key={i} className="overflow-hidden animate-pulse">
+          <Card key={`skeleton-${i}`} className="overflow-hidden animate-pulse">
             <CardContent className="p-0">
               <div className="flex items-center p-4 bg-muted/40">
                 <Skeleton className="h-16 w-16 rounded-full border-2 border-muted" />

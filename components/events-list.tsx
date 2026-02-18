@@ -2,7 +2,7 @@
 
 import { useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useFeeding } from "@/lib/context/FeedingContext"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCats } from "@/lib/context/CatsContext"
@@ -28,7 +28,7 @@ export default function EventsList() {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map(i => (
-          <Card key={i} className="animate-pulse">
+          <Card key={`skeleton-${i}`} className="animate-pulse">
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-10 w-10 rounded-full" />
@@ -69,7 +69,7 @@ export default function EventsList() {
   }
 
   return (
-    <motion.div
+    <m.div
       className="space-y-3"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -83,6 +83,6 @@ export default function EventsList() {
         const cat = log.cat || catsMap.get(String(log.catId))
         return <EventListItem key={log.id} log={log} cat={cat} index={index} />
       })}
-    </motion.div>
+    </m.div>
   )
 }

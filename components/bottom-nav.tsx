@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Home, Calendar, List, Settings, Users, BarChart2, Scale } from "lucide-react"
 import { usePathname } from "next/navigation"
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
 import { Cat, Menu } from "lucide-react"
 
@@ -68,7 +68,7 @@ export default function BottomNav({ currentPath }: BottomNavProps) {
   }
 
   return (
-    <motion.div
+    <m.div
       className="fixed bottom-0 left-0 right-0 bg-background border-t py-2 px-6 z-10"
       initial={{ y: 100 }}
       animate={{ y: 0 }}
@@ -87,7 +87,7 @@ export default function BottomNav({ currentPath }: BottomNavProps) {
             className="flex flex-col items-center"
             id={getTourId(item.path)}
           >
-            <motion.div
+            <m.div
               className={`${isActive(item.path) ? "bg-primary text-primary-foreground" : "text-muted-foreground"} p-2 rounded-full`}
               whileHover={{ y: -5 }}
               whileTap={{ scale: 0.9 }}
@@ -99,11 +99,11 @@ export default function BottomNav({ currentPath }: BottomNavProps) {
               }}
             >
               {item.icon}
-            </motion.div>
+            </m.div>
             <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
           </Link>
         ))}
       </div>
-    </motion.div>
+    </m.div>
   )
 }

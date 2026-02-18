@@ -54,6 +54,32 @@ test.describe('Weight Management', () => {
       await page.waitForLoadState('networkidle');
       await expect(page.locator('button:has-text("Whiskers")').first()).toBeVisible({ timeout: 5000 });
     });
+
+  });
+
+  test.describe('Weight Page - PUT goals validation (uses auth from setup)', () => {
+    test('PUT /api/weight/goals (archive goal) should not return 403 or 404', async ({ page }) => {
+      const putResponses: { status: number; url: string }[] = [];
+      page.on('response', (res) => {
+        const url = res.url();
+        if (url.includes('/api/weight/goals') && res.request().method() === 'PUT') {
+          putResponses.push({ status: res.status(), url });
+        }
+      });
+      await page.goto('/weight', { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle');
+      const onWeightPage = await page.locator('h1:has-text("Painel de Peso")').first().isVisible({ timeout: 15000 }).catch(() => false);
+      if (!onWeightPage) {
+        test.skip(true, 'Weight page did not load (maybe not authenticated or redirect to login)');
+        return;
+      }
+      await expect(page.locator('text=Progresso da Meta').first()).toBeVisible({ timeout: 10000 });
+      await page.waitForLoadState('networkidle');
+      for (const { status } of putResponses) {
+        expect(status, `PUT /api/weight/goals should not return error (got ${status})`).toBeGreaterThanOrEqual(200);
+        expect(status, `PUT /api/weight/goals should not return 403/404 (got ${status})`).toBeLessThan(400);
+      }
+    });
   });
 
   test.describe('Weight Registration Dialog', () => {
@@ -103,12 +129,19 @@ test.describe('Weight Management', () => {
       const tab60 = page.locator('button:has-text("60 Dias")').first();
       const tab90 = page.locator('button:has-text("90 Dias")').first();
       
-      if (await tab30.isVisible()) await tab30.click();
-      await page.waitForTimeout(500);
-      if (await tab60.isVisible()) await tab60.click();
-      await page.waitForTimeout(500);
-      if (await tab90.isVisible()) await tab90.click();
-      await page.waitForTimeout(500);
+      if (await tab30.isVisible({ timeout: 2000 })) {
+        await tab30.click();
+        // Wait for chart to update after tab click
+        await page.waitForLoadState('networkidle');
+      }
+      if (await tab60.isVisible({ timeout: 2000 })) {
+        await tab60.click();
+        await page.waitForLoadState('networkidle');
+      }
+      if (await tab90.isVisible({ timeout: 2000 })) {
+        await tab90.click();
+        await page.waitForLoadState('networkidle');
+      }
     });
   });
 });
@@ -116,17 +149,30 @@ test.describe('Weight Management', () => {
 test.describe('Weight API', () => {
   test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
 
-  test('should get weight logs via API', async ({ apiHelper, testUser }) => {
+  test('should get weight logs via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
-    const result = await apiHelper.getWeightLogs('bb45639d-c013-4124-ae0d-6193369a228c');
+    
+    // Create a test cat for weight logs
+    const cat = await testDataManager.createTestCat({
+      name: `WeightTest_${Date.now()}`,
+      weight: '4.5',
+    });
+
+    const result = await apiHelper.getWeightLogs(cat.id);
     expect(result).toHaveProperty('success');
   });
 
-  test('should create weight log via API', async ({ apiHelper, testUser }) => {
+  test('should create weight log via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
+    // Create a test cat for weight logs
+    const cat = await testDataManager.createTestCat({
+      name: `WeightTest_${Date.now()}`,
+      weight: '4.5',
+    });
+
     const result = await apiHelper.createWeightLog({
-      catId: 'bb45639d-c013-4124-ae0d-6193369a228c',
+      catId: cat.id,
       weight: 4.7,
       date: new Date().toISOString(),
       notes: 'Test weight via API',

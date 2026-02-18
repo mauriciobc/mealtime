@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Accordion,
@@ -37,68 +38,47 @@ interface RecentHistoryListProps {
   // initialLogs?: WeightLogEntry[]; // Could pass initial logs to avoid loading flicker
 }
 
+async function fetchWeightLogs(catId: string, userId: string): Promise<WeightLogEntry[]> {
+  const response = await fetch(`/api/weight-logs?catId=${catId}`, {
+    headers: { 'X-User-ID': userId },
+  });
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    throw new Error(errData.error || 'Failed to fetch weight logs');
+  }
+  const data: any[] = await response.json();
+  return data.map(log => ({
+    ...log,
+    weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0),
+    date: log.date,
+  }));
+}
+
 const RecentHistoryList: React.FC<RecentHistoryListProps> = ({ catId, userId, onEditRequest, onDeleteRequest, logChangeTimestamp }) => {
-  const [logs, setLogs] = useState<WeightLogEntry[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
+  const { data: logs = [], isLoading, error: queryError } = useQuery({
+    queryKey: ['weight-logs', catId, logChangeTimestamp],
+    queryFn: () => fetchWeightLogs(catId, userId),
+    enabled: !!catId && !!userId,
+  });
+
+  const error = queryError ? (queryError instanceof Error ? queryError.message : 'Failed to fetch weight logs') : null;
+
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768); // md breakpoint
+    if (queryError) {
+      toast.error("Erro ao Buscar Histórico", {
+        description: queryError instanceof Error ? queryError.message : String(queryError),
+      });
+    }
+  }, [queryError]);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
-  useEffect(() => {
-    if (!catId || !userId) {
-      setIsLoading(false);
-      // setError(!catId ? 'No Cat ID provided to fetch history.' : 'User ID not provided.');
-      // Avoid setting error here if props are not ready, parent should handle this.
-      // Let it attempt to fetch if catId/userId become available.
-      setLogs([]);
-      return;
-    }
-
-    const fetchLogs = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`/api/weight-logs?catId=${catId}`, {
-          headers: {
-            'X-User-ID': userId
-          }
-        });
-        if (!response.ok) {
-          const errData = await response.json();
-          const errorMessage = errData.error || 'Failed to fetch weight logs';
-          throw new Error(errorMessage);
-        }
-        const data: any[] = await response.json(); // Temporarily use any[] for parsing
-        
-        // Parse weight from string to number
-        const parsedData: WeightLogEntry[] = data.map(log => ({
-          ...log,
-          weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0), // Ensure it's a number, default to 0 if unparsable
-          date: log.date // Assuming date is already correctly formatted string
-        }));
-        
-        setLogs(parsedData);
-        setError(null); // Clear any previous error on success
-      } catch (err) {
-        const errorMessage = (err as Error).message;
-        setError(errorMessage); // Optionally keep for inline display
-        setLogs([]); // Clear logs on error
-        toast.error("Erro ao Buscar Histórico", { // Sonner error toast
-          description: errorMessage,
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLogs();
-  }, [catId, userId, logChangeTimestamp]);
 
   const handleEdit = (log: WeightLogEntry) => {
     onEditRequest(log);

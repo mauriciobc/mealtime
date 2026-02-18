@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
 
 interface PageTransitionProps {
@@ -17,14 +17,14 @@ export default function PageTransition({ children }: PageTransitionProps) {
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
       className="min-h-screen"
     >
-      <motion.div
+      <m.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{
@@ -34,8 +34,8 @@ export default function PageTransition({ children }: PageTransitionProps) {
         }}
       >
         {children}
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   )
 }
 

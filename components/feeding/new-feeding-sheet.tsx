@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { format, addHours, isToday, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { formatInTimeZone } from 'date-fns-tz';
 import { getUserTimezone, calculateNextFeeding, formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { CatType, FeedingLog } from "@/lib/types";
@@ -545,7 +545,7 @@ export function NewFeedingSheet({
       const selectValue = foodType === "" ? "__none__" : foodType;
 
       return (
-        <motion.div
+        <m.div
           key={cat.id}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -585,7 +585,7 @@ export function NewFeedingSheet({
                     </Label>
                   </div>
                   {isSelected && (
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
@@ -648,13 +648,13 @@ export function NewFeedingSheet({
                           placeholder="Opcional"
                         />
                       </div>
-                    </motion.div>
+                    </m.div>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </m.div>
       );
     });
   }, [householdCats, isLoadingCats, getLastFeedingLog, selectedCats, portions, feedingStatus, foodTypes, notes, toggleCatSelection, handlePortionChange, handleStatusChange, handleFoodTypeChange, handleNotesChange, formatRelativeTime, foodTypeOptions, statusOptions]);

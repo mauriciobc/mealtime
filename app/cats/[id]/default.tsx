@@ -125,77 +125,76 @@ async function getCatData(id: string, userId: string): Promise<CatData | null> {
 }
 
 export default async function DefaultCatPage({ params }: PageProps) {
-  try {
-    // Await params first (required in Next.js 16)
-    const resolvedParams = await params
-    
-    // Validate params
-    if (typeof resolvedParams.id !== 'string' || !resolvedParams.id) {
-      console.error("[CatPage] Invalid params", { 
-        params: resolvedParams,
-        timestamp: new Date().toISOString()
-      })
-      redirectionLogger.logNotFoundRedirection(`/cats/${resolvedParams.id}`, undefined)
-      notFound()
-    }
+  // Await params first (required in Next.js 16) — outside try so notFound/redirect are not caught
+  const resolvedParams = await params
 
-    const supabase = await createClient()
-    
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError) {
-      console.error("[CatPage] Auth error", { 
-        error: authError,
-        timestamp: new Date().toISOString()
-      })
-      redirect('/login')
-    }
-
-    if (!user) {
-      console.error("[CatPage] No user found", { 
-        timestamp: new Date().toISOString()
-      })
-      redirect('/login')
-    }
-
-    // Fetch data with authorization
-    const cat = await getCatData(resolvedParams.id, user.id)
-    
-    if (!cat) {
-      console.error("[CatPage] Cat not found or not authorized", { 
-        id: resolvedParams.id,
-        userId: user.id,
-        timestamp: new Date().toISOString()
-      })
-      redirectionLogger.logNotFoundRedirection(`/cats/${resolvedParams.id}`, user.id)
-      notFound()
-    }
-
-    console.log("[CatPage] Successfully fetched cat data", {
-      catId: cat.id,
-      timestamp: new Date().toISOString()
+  // Validate params
+  if (typeof resolvedParams.id !== "string" || !resolvedParams.id) {
+    console.error("[CatPage] Invalid params", {
+      params: resolvedParams,
+      timestamp: new Date().toISOString(),
     })
-
-    // Render with suspense
-    return (
-      <PageTransition>
-        <div className="flex-1 p-4">
-          <Suspense fallback={
-            <div className="flex items-center justify-center h-full">
-              <GlobalLoading mode="spinner" text="Carregando..." />
-            </div>
-          }>
-            <CatDetails params={{ id: cat.id }} />
-          </Suspense>
-        </div>
-      </PageTransition>
-    )
-  } catch (error) {
-    console.error("[CatPage] Unexpected error", { 
-      error,
-      timestamp: new Date().toISOString()
-    })
-    throw error // Let the error boundary handle it
+    redirectionLogger.logNotFoundRedirection(`/cats/${resolvedParams.id}`, undefined)
+    notFound()
   }
+
+  const supabase = await createClient()
+
+  // Get authenticated user
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError) {
+    console.error("[CatPage] Auth error", {
+      error: authError,
+      timestamp: new Date().toISOString(),
+    })
+    redirect("/login")
+  }
+
+  if (!user) {
+    console.error("[CatPage] No user found", {
+      timestamp: new Date().toISOString(),
+    })
+    redirect("/login")
+  }
+
+  let cat: CatData | null = null
+  try {
+    cat = await getCatData(resolvedParams.id, user.id)
+  } catch (error) {
+    console.error("[CatPage] Unexpected error", {
+      error,
+      timestamp: new Date().toISOString(),
+    })
+    throw error
+  }
+
+  if (!cat) {
+    console.error("[CatPage] Cat not found or not authorized", {
+      id: resolvedParams.id,
+      userId: user.id,
+      timestamp: new Date().toISOString(),
+    })
+    redirectionLogger.logNotFoundRedirection(`/cats/${resolvedParams.id}`, user.id)
+    notFound()
+  }
+
+  console.log("[CatPage] Successfully fetched cat data", {
+    catId: cat.id,
+    timestamp: new Date().toISOString(),
+  })
+
+  return (
+    <PageTransition>
+      <div className="flex-1 p-4">
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-full">
+            <GlobalLoading mode="spinner" text="Carregando..." />
+          </div>
+        }>
+          <CatDetails params={{ id: cat.id }} />
+        </Suspense>
+      </div>
+    </PageTransition>
+  )
 } 

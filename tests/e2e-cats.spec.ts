@@ -51,7 +51,9 @@ test.describe('Cat Management', () => {
   });
 
   test.describe('Cat Edition', () => {
-    test.beforeEach(async ({ loginPage, testUser, page }) => {
+    let testCatId: string;
+
+    test.beforeEach(async ({ loginPage, testUser, page, apiHelper, testDataManager }) => {
       await loginPage.goto();
       await page.waitForLoadState('networkidle');
       
@@ -59,11 +61,20 @@ test.describe('Cat Management', () => {
       if (await emailInput.isVisible()) {
         await loginPage.login(testUser.email, testUser.password);
       }
+
+      // Create a test cat for editing tests
+      await apiHelper.authenticate(testUser.email, testUser.password);
+      const cat = await testDataManager.createTestCat({
+        name: `EditTest_${Date.now()}`,
+        weight: '4.5',
+        portionSize: '50',
+        portionUnit: 'g',
+      });
+      testCatId = cat.id;
     });
 
     test('should navigate to cat edit page', async ({ page }) => {
-      const catId = 'bb45639d-c013-4124-ae0d-6193369a228c';
-      await page.goto(`/cats/${catId}/edit`);
+      await page.goto(`/cats/${testCatId}/edit`);
       await page.waitForLoadState('networkidle');
       await expect(page.locator('h1:has-text("Editar")').first()).toBeVisible({ timeout: 10000 });
     });
@@ -72,7 +83,7 @@ test.describe('Cat Management', () => {
       await apiHelper.authenticate(testUser.email, testUser.password);
 
       const newName = `Updated_${Date.now()}`;
-      const result = await apiHelper.updateCat('bb45639d-c013-4124-ae0d-6193369a228c', {
+      const result = await apiHelper.updateCat(testCatId, {
         name: newName,
       });
 
@@ -82,7 +93,7 @@ test.describe('Cat Management', () => {
     test('should update cat weight via API', async ({ apiHelper, testUser }) => {
       await apiHelper.authenticate(testUser.email, testUser.password);
 
-      const result = await apiHelper.updateCat('bb45639d-c013-4124-ae0d-6193369a228c', {
+      const result = await apiHelper.updateCat(testCatId, {
         weight: '5.0',
       });
 
@@ -92,7 +103,7 @@ test.describe('Cat Management', () => {
     test('should update feeding interval via API', async ({ apiHelper, testUser }) => {
       await apiHelper.authenticate(testUser.email, testUser.password);
 
-      const result = await apiHelper.updateCat('bb45639d-c013-4124-ae0d-6193369a228c', {
+      const result = await apiHelper.updateCat(testCatId, {
         feedingInterval: 6,
       });
 

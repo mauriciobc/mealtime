@@ -17,14 +17,11 @@ interface ImageUploadProps {
 
 export function ImageUpload({ value, onChange, className, type = 'user' }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [preview, setPreview] = useState<string>(value);
+  const [preview, setPreview] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<string | null>(null);
 
-  // Update preview when value prop changes
-  useEffect(() => {
-    setPreview(value);
-  }, [value]);
+  const displayPreview = value || preview;
 
   // Cleanup object URL on unmount or when preview changes
   useEffect(() => {
@@ -105,8 +102,7 @@ export function ImageUpload({ value, onChange, className, type = 'user' }: Image
     } catch (error) {
       console.error('Upload error:', error);
       toast.error(formatErrorMessage(error instanceof Error ? error : new Error(String(error))));
-      // Reset preview on error
-      setPreview(value);
+      setPreview("");
     } finally {
       setIsUploading(false);
       // Clear input to allow selecting the same file again
@@ -127,19 +123,19 @@ export function ImageUpload({ value, onChange, className, type = 'user' }: Image
         onChange={handleFileChange}
       />
       
-      {preview ? (
+      {displayPreview ? (
         <div className="relative aspect-square w-32 h-32 rounded-md overflow-hidden border">
           <Image
-            src={preview}
+            src={displayPreview}
             alt="Preview"
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className={cn(
               "object-cover",
-              isFallbackImage(preview) && "opacity-50"
+              isFallbackImage(displayPreview) && "opacity-50"
             )}
           />
-          {!isFallbackImage(preview) && (
+          {!isFallbackImage(displayPreview) && (
             <Button
               type="button"
               variant="destructive"

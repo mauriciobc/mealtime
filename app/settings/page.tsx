@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { useUserContext } from "@/lib/context/UserContext"
 import { useHousehold } from "@/lib/context/HouseholdContext"
+import { useHouseholdDetail } from "@/lib/hooks/useHouseholdDetail"
 
 // Componentes
 import PageTransition from "@/components/page-transition"
@@ -124,7 +125,7 @@ const ProfileSection = memo(({ user, onEditProfile }: { user: UserType | null, o
     name: user?.name || user?.email || "Usuário", 
     email: user?.email || "email@exemplo.com",
     // Use avatar if available, otherwise generate initials from name or email
-    avatar: user?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${user?.name || user?.email || 'U'}`, 
+    avatar: user?.avatar || `https://api.dicebear.com/7.x/initials/png?seed=${encodeURIComponent(user?.name || user?.email || 'U')}`, 
     // role: user?.app_metadata?.role || "user" // REMOVED - Assuming role is not on UserType
   };
 
@@ -295,8 +296,8 @@ export default function SettingsPage() {
   const [isLeaveHouseholdConfirmOpen, setIsLeaveHouseholdConfirmOpen] = useState(false);
   
   // State for household details (fetched separately)
-  const [householdDetails, setHouseholdDetails] = useState<Household | null>(null);
-  const [isHouseholdLoading, setIsHouseholdLoading] = useState(false);
+  const { data: householdDetailData, isLoading: isHouseholdDetailLoading, error: householdDetailError } = useHouseholdDetail(currentUser?.householdId ?? undefined, currentUser?.id ?? undefined);
+  const householdDetails = householdDetailData ?? null;
 
   // Local state for editing values within modals
   const [editName, setEditName] = useState("");
@@ -310,35 +311,13 @@ export default function SettingsPage() {
   // Error state for modals
   const [modalError, setModalError] = useState<string | null>(null);
 
-  // Fetch household details when user data is available and they have a householdId
-  useEffect(() => {
-    const fetchHouseholdDetails = async () => {
-      if (!currentUser?.householdId) return;
-      setIsHouseholdLoading(true);
-      setModalError(null); 
-      const opId = `fetch-household-${currentUser.householdId}`;
-      addLoadingOperation({ id: opId, priority: 2, description: "Carregando detalhes da residência..." }); // Reverted
-      try {
-        const response = await fetch(`/api/households/${currentUser.householdId}`);
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Falha ao carregar detalhes da residência. Status: ${response.status}`);
-        }
-        const data = await response.json();
-        setHouseholdDetails(data.household); // Assuming API returns { household: Household }
-      } catch (error: any) {
-        console.error("Erro ao carregar detalhes da residência:", error);
-        toast.error(`Erro ao carregar residência: ${error.message}`);
-        // Don't set modalError here, it's not a modal operation error
-        setHouseholdDetails(null); // Clear potentially stale data
-      } finally {
-        setIsHouseholdLoading(false);
-        removeLoadingOperation(opId); // Reverted
-      }
-    };
+  const isHouseholdLoading = isHouseholdDetailLoading;
 
-    fetchHouseholdDetails();
-  }, [currentUser?.householdId, addLoadingOperation, removeLoadingOperation]); // Reverted
+  useEffect(() => {
+    if (householdDetailError) {
+      toast.error(`Erro ao carregar residência: ${householdDetailError instanceof Error ? householdDetailError.message : "Erro desconhecido"}`);
+    }
+  }, [householdDetailError]);
 
   // Initialize edit states when modals open or user data loads
   useEffect(() => {

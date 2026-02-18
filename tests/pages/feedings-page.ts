@@ -14,7 +14,7 @@ export class FeedingsPage {
   constructor(page: Page) {
     this.page = page;
     this.pageTitle = page.locator('h1:visible, [class*="page-title"]:visible');
-    this.addFeedingButton = page.locator('a[href="/feedings/new"]:visible, button:visible:has-text("Registrar")');
+    this.addFeedingButton = page.locator('a[href="/feedings/new"]:visible, button:visible:has-text("Registrar"), a:visible:has-text("Registrar Alimentação")').first();
     this.feedingTimeline = page.locator('[class*="timeline"], [class*="Timeline"]');
     this.feedingItems = page.locator('[class*="feeding"]:visible, [class*="Feeding"]:visible, [class*="log"]:visible');
     this.noFeedingsEmptyState = page.locator('text=Nenhum registro encontrado:visible, text=Nenhuma alimentação:visible');
@@ -50,7 +50,8 @@ export class FeedingsPage {
 
   async searchForFeeding(searchTerm: string) {
     await this.searchInput.fill(searchTerm);
-    await this.page.waitForTimeout(500);
+    // Wait for search results to update
+    await this.page.waitForLoadState('networkidle');
   }
 
   async clickOnFeedingItem(feedingLogId: string) {

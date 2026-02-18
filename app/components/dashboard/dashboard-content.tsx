@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import Link from "next/link";
 import { Cat, Clock, Utensils, BarChart3, Calendar, PlusCircle, Gauge, ArrowRight, Plus } from "lucide-react";
 import { format } from "date-fns";
@@ -92,14 +92,14 @@ export default function DashboardContent({
     )), [chartCats]);
 
   return (
-    <motion.div
+    <m.div
       className="container px-4 py-6 md:py-8 pb-28"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
       layoutId="dashboard-container"
     >
-      <motion.div variants={itemVariants} className="mb-6" layoutId="dashboard-stats">
+      <m.div variants={itemVariants} className="mb-6" layoutId="dashboard-stats">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="shadow-sm text-center p-3 hover:shadow-md transition-shadow">
             <CardHeader className="p-0 mb-1">
@@ -157,11 +157,11 @@ export default function DashboardContent({
             </CardContent>
           </Card>
         </div>
-      </motion.div>
+      </m.div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <motion.div variants={itemVariants} layoutId="dashboard-last-feeding">
+          <m.div variants={itemVariants} layoutId="dashboard-last-feeding">
             <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="last-feeding">
               <CardHeader>
                 <CardTitle className="flex items-center font-heading">
@@ -195,9 +195,9 @@ export default function DashboardContent({
                 </Link>
               </CardFooter>
             </Card>
-          </motion.div>
+          </m.div>
 
-          <motion.div variants={itemVariants} layoutId="dashboard-feeding-chart">
+          <m.div variants={itemVariants} layoutId="dashboard-feeding-chart">
             <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="feeding-chart">
               <CardHeader>
                 <CardTitle className="flex items-center font-heading">
@@ -226,9 +226,9 @@ export default function DashboardContent({
                 )}
               </CardContent>
             </Card>
-          </motion.div>
+          </m.div>
 
-          <motion.div variants={itemVariants} data-tour="recent-logs" layoutId="dashboard-recent-logs">
+          <m.div variants={itemVariants} data-tour="recent-logs" layoutId="dashboard-recent-logs">
             <Card className="shadow-sm hover:shadow-md transition-shadow">
               <CardHeader>
                 <CardTitle className="flex items-center font-heading">
@@ -240,10 +240,10 @@ export default function DashboardContent({
                 <EventsList />
               </CardContent>
             </Card>
-          </motion.div>
+          </m.div>
         </div>
 
-        <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6" layoutId="dashboard-cats">
+        <m.div variants={itemVariants} className="lg:col-span-1 space-y-6" layoutId="dashboard-cats">
           <Card className="shadow-sm hover:shadow-md transition-shadow" data-tour="my-cats">
             <CardHeader>
               <CardTitle className="flex items-center font-heading">
@@ -290,7 +290,7 @@ export default function DashboardContent({
               </Link>
             </CardFooter>
           </Card>
-        </motion.div>
+        </m.div>
       </div>
 
       <TooltipProvider>
@@ -316,6 +316,6 @@ export default function DashboardContent({
         isOpen={isNewFeedingSheetOpen}
         onOpenChange={setIsNewFeedingSheetOpen}
       />
-    </motion.div>
+    </m.div>
   );
 } 

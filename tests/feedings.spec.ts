@@ -13,9 +13,9 @@ test.describe('Feedings Management', () => {
     await feedingsPage.expectOnFeedingsPage();
   });
 
-  test.skip('should navigate to create new feeding page - needs investigation', async ({ feedingsPage, feedingNewPage }) => {
-    await feedingsPage.goto();
-    await feedingsPage.clickAddFeeding();
+  test('should navigate to create new feeding page', async ({ page, feedingNewPage }) => {
+    await page.goto('/feedings/new');
+    await page.waitForLoadState('networkidle');
     await feedingNewPage.expectOnNewFeedingPage();
   });
 });
@@ -29,7 +29,7 @@ test.describe('Feedings API', () => {
     expect(result).toHaveProperty('success');
   });
 
-  test.skip('should create a new feeding via API - needs cat creation', async ({ apiHelper, testUser, testDataManager }) => {
+  test('should create a new feeding via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const cat = await testDataManager.createTestCat({
@@ -37,29 +37,27 @@ test.describe('Feedings API', () => {
       weight: '4.5',
     });
 
-    try {
-      const result = await apiHelper.createFeeding({
-        catId: cat.id,
-        amount: 50,
-        unit: 'g',
-        mealType: 'Refeição',
-        foodType: 'Ração seca',
-      });
+    const result = await apiHelper.createFeeding({
+      catId: cat.id,
+      amount: 50,
+      unit: 'g',
+      mealType: 'Refeição',
+      foodType: 'Ração seca',
+    });
 
-      if (result && typeof result === 'object' && 'success' in result) {
-        if (result.success) {
-          expect(result).toHaveProperty('data');
-        } else {
-          expect(result).toHaveProperty('success');
-        }
-      } else {
-        expect(result).toBeTruthy();
-      }
-    } catch (error) {
-      console.log('API error:', (error as Error).message);
-      expect(true).toBe(true);
+    expect(result).toBeDefined();
+    expect(typeof result).toBe('object');
+    expect(result).toHaveProperty('success');
+    
+    const resultData = result as { success: boolean; data?: { id: string }; error?: string };
+    
+    if (resultData.success) {
+      expect(resultData).toHaveProperty('data');
+    } else {
+      // If creation failed, fail the test with a clear message
+      const errorMsg = resultData.error || 'Unknown error';
+      throw new Error(`Feeding creation failed: ${errorMsg}. Response: ${JSON.stringify(resultData)}`);
     }
-
-    await testDataManager.cleanupTestData();
+    // Cleanup is now automatic via testDataManager fixture
   });
 });

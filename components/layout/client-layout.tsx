@@ -1,23 +1,16 @@
-"use client"
+"use client";
 
-import React, { useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
-import { AppHeader } from "@/components/app-header"
-import BottomNav from "@/components/bottom-nav"
-import { AnimationProvider } from "@/components/animation-provider"
-import { useUserContext } from "@/lib/context/UserContext"
-import { GlobalLoading } from "@/components/ui/global-loading"
-
-interface AppHeaderProps {
-  title?: string;
-  showBackButton?: boolean;
-}
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useUserContext } from "@/lib/context/UserContext";
+import { GlobalLoading } from "@/components/ui/global-loading";
+import { AuthenticatedLayout } from "@/components/layout/authenticated-layout";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const isAuthPage = pathname === "/login" || pathname === "/signup"
-  const isApiDocsPage = pathname === "/api-docs"
+  const pathname = usePathname();
+  const router = useRouter();
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isApiDocsPage = pathname === "/api-docs";
 
   const { state: { isLoading: profileLoading, currentUser }, authLoading } = useUserContext();
 
@@ -34,29 +27,10 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     return <GlobalLoading mode="overlay" />;
   }
 
-  const getHeaderProps = (): AppHeaderProps => {
-    if (pathname === "/notifications") {
-      return {
-        title: "Notificações",
-        showBackButton: true
-      }
-    }
-    return {}
-  }
-
-  const AuthenticatedLayout = ({ children }: { children: React.ReactNode }) => {
-    return (
-      <AnimationProvider>
-        <div className="relative flex min-h-screen flex-col">
-          <AppHeader {...getHeaderProps()} />
-          <main className="flex-1 pb-16">
-            {children}
-          </main>
-          <BottomNav />
-        </div>
-      </AnimationProvider>
-    );
-  };
+  const headerProps =
+    pathname === "/notifications"
+      ? { headerTitle: "Notificações" as const, showBackButton: true as const }
+      : {};
 
   // Página de documentação da API - layout limpo sem navegação
   if (isApiDocsPage) {
@@ -71,13 +45,17 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   if (isAuthPage) {
     return (
-       <div className="relative flex min-h-screen flex-col">
-         <main className="flex-1">
-           {children}
-         </main>
-       </div>
-     );
-  } else {
-    return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
+      <div className="relative flex min-h-screen flex-col">
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
+    );
   }
+
+  return (
+    <AuthenticatedLayout {...headerProps}>
+      {children}
+    </AuthenticatedLayout>
+  );
 } 

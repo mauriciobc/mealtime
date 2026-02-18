@@ -20,7 +20,7 @@ interface CatAvatarStackProps {
   className?: string;
 }
 
-export function CatAvatarStack({
+export default function CatAvatarStack({
   cats,
   selectedCatId,
   onSelectCat,
@@ -81,6 +81,4 @@ export function CatAvatarStack({
       </div>
     </TooltipProvider>
   );
-}
-
-export default CatAvatarStack; 
+} 

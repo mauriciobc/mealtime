@@ -28,7 +28,14 @@ export class DashboardPage {
   async goto() {
     await this.page.goto('/');
     await this.page.waitForLoadState('networkidle');
-    await this.page.waitForTimeout(2000);
+    // Wait for page content to be visible instead of fixed timeout
+    await expect(this.page.locator('body')).toBeVisible();
+    // Wait for either welcome message or empty state
+    await Promise.race([
+      this.pageHeading.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      this.noCatsEmptyState.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      this.noHouseholdEmptyState.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+    ]);
   }
 
   async expectOnDashboard() {

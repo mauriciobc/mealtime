@@ -118,6 +118,8 @@ export function WeightTrendChart({ weights, feedings }: WeightTrendChartProps) {
         ))}
       </div>
       <div
+        role="group"
+        aria-label="Área de gesto do gráfico de peso"
         data-testid="trend-swipe-area"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

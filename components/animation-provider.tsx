@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
-import { AnimatePresence } from "framer-motion"
+import { AnimatePresence, LazyMotion, domAnimation } from "framer-motion"
 import { usePathname } from "next/navigation"
 
 type AnimationContextType = {
@@ -39,9 +39,11 @@ export function AnimationProvider({ children }: { children: React.ReactNode }) {
         shouldAnimate: !prefersReducedMotion,
       }}
     >
-      <AnimatePresence mode="wait">
-        <div key={pathname}>{children}</div>
-      </AnimatePresence>
+      <LazyMotion features={domAnimation}>
+        <AnimatePresence mode="wait">
+          <div key={pathname}>{children}</div>
+        </AnimatePresence>
+      </LazyMotion>
     </AnimationContext.Provider>
   )
 }

@@ -4,7 +4,7 @@ import { Drawer } from "vaul";
 import { FeedingLogItem } from "./feeding-log-item";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { FeedingForm } from "./feeding-form";
 import { BaseFeedingLog, BaseCat, BaseUser } from "@/lib/types/common";
 import { FeedingLog } from "@/lib/types";
@@ -104,7 +104,7 @@ export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawe
               </p>
               <div className="overflow-y-auto overscroll-contain pb-6">
                 {transformedLog && transformedLog.cat && (
-                  <motion.div
+                  <m.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2 }}
@@ -128,7 +128,7 @@ export function FeedingDrawer({ isOpen, onOpenChange, feedingLog }: FeedingDrawe
                         // Função para excluir o registro
                       }}
                     />
-                  </motion.div>
+                  </m.div>
                 )}
               </div>
             </div>

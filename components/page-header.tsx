@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Button, ButtonProps } from "@/components/ui/button";
 import { PlusCircle, ArrowLeft } from "lucide-react";
 
@@ -27,7 +27,7 @@ export function PageHeader({
   icon,
 }: PageHeaderProps) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -60,6 +60,6 @@ export function PageHeader({
           )}
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 } 

@@ -1,12 +1,12 @@
 "use client"
 
 import { CatTimeline } from "@/components/cat/cat-timeline"
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 
 export default function Home() {
   return (
     <main className="container max-w-md mx-auto p-4">
-      <motion.h1
+      <m.h1
         className="text-2xl font-bold mb-6"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -17,7 +17,7 @@ export default function Home() {
         }}
       >
         Cat Care Timeline
-      </motion.h1>
+      </m.h1>
       <CatTimeline />
     </main>
   )

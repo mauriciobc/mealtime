@@ -124,7 +124,7 @@ function EnhancedCalendar({
             </SelectTrigger>
             <SelectContent>
               {months.map((month, index) => (
-                <SelectItem key={index} value={index.toString()}>
+                <SelectItem key={`month-${month}`} value={index.toString()}>
                   {month.charAt(0).toUpperCase() + month.slice(1)}
                 </SelectItem>
               ))}

@@ -234,7 +234,7 @@ export const POST = withHybridAuth(async (
         }, { status: 500 });
       }
 
-      const inviteRedirectUrl = `${request.nextUrl.origin}/api/auth/callback?redirect=/join?householdId=${householdId}`;
+      const inviteRedirectUrl = `${request.nextUrl.origin}/api/auth/callback?redirectTo=/join?householdId=${householdId}`;
 
       logger.debug('[POST /api/v2/households/invite] Sending invite to new user', { email: targetEmail });
       

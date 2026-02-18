@@ -18,8 +18,10 @@ export class SignupPage {
     this.emailInput = page.locator('input[name="email"]:visible, input[id*="email"]:visible');
     this.passwordInput = page.locator('input[name="password"]:visible, input[id*="password"]:visible');
     this.confirmPasswordInput = page.locator('input[id*="confirm"]:visible, input[name*="confirm"]:visible');
-    this.fullNameInput = page.locator('input[name="full_name"]:visible, input[id*="name"]:visible');
-    this.submitButton = page.locator('button[type="submit"]:visible:has-text("Registrar"), button:visible:has-text("Cadastrar")');
+    this.fullNameInput = page.getByLabel('Nome Completo').or(page.locator('input#name')).first();
+    this.submitButton = page.getByRole('button', { name: /criar conta com email|registrar|cadastrar/i }).or(
+      page.locator('button[type="submit"]:visible')
+    ).first();
     this.errorMessage = page.locator('.text-sm.text-red-500:visible');
     this.loginLink = page.locator('a:visible:has-text("Já tem uma conta"), a:visible:has-text("Login"), a:visible:has-text("Entre")');
     this.termsCheckbox = page.locator('input[type="checkbox"]:visible');

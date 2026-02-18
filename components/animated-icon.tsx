@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
 import type { LucideIcon } from "lucide-react"
 
@@ -65,9 +65,9 @@ export default function AnimatedIcon({
   }
 
   return (
-    <motion.div animate={animations[animate] as any} className="inline-flex">
+    <m.div animate={animations[animate] as any} className="inline-flex">
       <Icon size={size} className={className} color={color} />
-    </motion.div>
+    </m.div>
   )
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { Check, X, Trash, Save, AlertTriangle } from "lucide-react";
 
 type FeedbackType = "success" | "error" | "delete" | "save" | "warning";
@@ -118,7 +118,7 @@ export function FeedbackAnimation({
   return (
     <AnimatePresence>
       {visible && (
-        <motion.div
+        <m.div
           className="fixed bottom-4 right-4 z-50 flex items-center justify-center"
           variants={containerVariants}
           initial="hidden"
@@ -126,17 +126,17 @@ export function FeedbackAnimation({
           exit="exit"
         >
           <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${getColor()} text-white max-w-sm`}>
-            <motion.div
+            <m.div
               variants={iconVariants}
               className="flex items-center justify-center rounded-full bg-white/20 p-1.5"
             >
               {getIcon()}
-            </motion.div>
-            <motion.span variants={textVariants} className="font-medium">
+            </m.div>
+            <m.span variants={textVariants} className="font-medium">
               {message}
-            </motion.span>
+            </m.span>
           </div>
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

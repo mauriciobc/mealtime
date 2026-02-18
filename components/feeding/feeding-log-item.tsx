@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, memo, useCallback } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { format } from "date-fns";
 import { MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -106,7 +106,7 @@ export const FeedingLogItem = memo(function FeedingLogItem({ log, onView, onEdit
 
   return (
     <>
-      <motion.div 
+      <m.div 
         whileHover={{ y: -2, transition: { duration: 0.2 } }}
         className={`cursor-pointer ${!onView ? 'pointer-events-none' : ''}`}
         onClick={handleCardClick}
@@ -203,7 +203,7 @@ export const FeedingLogItem = memo(function FeedingLogItem({ log, onView, onEdit
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </m.div>
 
       {onDelete && (
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { motion, HTMLMotionProps } from "framer-motion"
+import { m, HTMLMotionProps } from "framer-motion"
 
 const Timeline = React.forwardRef<
   HTMLDivElement,
@@ -78,7 +78,7 @@ const TimelineItem = React.forwardRef<
     }
 
     return (
-      <motion.div
+      <m.div
         ref={ref}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -118,7 +118,7 @@ const TimelineItem = React.forwardRef<
             </div>
           )}
         </div>
-      </motion.div>
+      </m.div>
     )
   }
 )

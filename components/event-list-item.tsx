@@ -3,7 +3,7 @@
 import React from "react"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 
 import type { CatType, FeedingLog } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -26,7 +26,7 @@ const EventListItem = ({ log, cat, index }: EventListItemProps) => {
   const catInitials = catName.substring(0, 2).toUpperCase()
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
@@ -71,7 +71,7 @@ const EventListItem = ({ log, cat, index }: EventListItemProps) => {
           </div>
         </CardContent>
       </Card>
-    </motion.div>
+    </m.div>
   )
 }
 

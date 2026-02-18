@@ -15,6 +15,7 @@ const PROTECTED_ROUTES = [
   '/schedules',
   '/statistics',
   '/feedings',
+  '/weight',
   '/join',
   // Add other protected routes here
 ];
@@ -73,7 +74,7 @@ const shouldSkipAuth = (path: string) =>
   SKIP_AUTH_ROUTES.some(route => path.startsWith(route)) || hasStaticAssetExtension(path);
 
 const isProtectedRoute = (path: string) =>
-  PROTECTED_ROUTES.some(route => path.startsWith(route));
+  path === '/' || PROTECTED_ROUTES.some(route => path.startsWith(route));
 
 // Default cookie options for auth-related cookies
 const AUTH_COOKIE_OPTIONS = {

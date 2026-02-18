@@ -1,3 +1,7 @@
+import { pageMetadata } from "@/lib/metadata";
+
+export const metadata = pageMetadata("Entrar", "Faça login na sua conta MealTime.");
+
 export default function LoginLayout({
   children,
 }: {

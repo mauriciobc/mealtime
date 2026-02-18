@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 const H1 = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <h1
     ref={ref}
     className={cn(
@@ -12,14 +12,16 @@ const H1 = React.forwardRef<
       className
     )}
     {...props}
-  />
+  >
+    {children ?? "\u00A0"}
+  </h1>
 ))
 H1.displayName = "H1"
 
 const H2 = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <h2
     ref={ref}
     className={cn(
@@ -27,14 +29,16 @@ const H2 = React.forwardRef<
       className
     )}
     {...props}
-  />
+  >
+    {children ?? "\u00A0"}
+  </h2>
 ))
 H2.displayName = "H2"
 
 const H3 = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <h3
     ref={ref}
     className={cn(
@@ -42,14 +46,16 @@ const H3 = React.forwardRef<
       className
     )}
     {...props}
-  />
+  >
+    {children ?? "\u00A0"}
+  </h3>
 ))
 H3.displayName = "H3"
 
 const H4 = React.forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <h4
     ref={ref}
     className={cn(
@@ -57,7 +63,9 @@ const H4 = React.forwardRef<
       className
     )}
     {...props}
-  />
+  >
+    {children ?? "\u00A0"}
+  </h4>
 ))
 H4.displayName = "H4"
 

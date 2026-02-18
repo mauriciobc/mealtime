@@ -6,7 +6,7 @@ import { ptBR } from "date-fns/locale";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { 
   Bell, 
   Utensils, 
@@ -104,7 +104,7 @@ export function NotificationItem({
   };
   
   const content = (
-    <motion.div 
+    <m.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -151,7 +151,7 @@ export function NotificationItem({
           <span className="sr-only">Excluir notificação</span>
         </Button>
       )}
-    </motion.div>
+    </m.div>
   );
   
   if (notification.metadata?.actionUrl && !onClick) {

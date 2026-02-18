@@ -10,11 +10,20 @@ export class HouseholdNewPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1:has-text("Novo Domicílio"), heading:has-text("Novo Domicílio")').first();
-    this.nameInput = page.locator('input[name="name"], input[id*="name"], textbox[name="name"]').first();
-    this.createButton = page.locator('button:has-text("Criar Domicílio"), button[type="submit"]:visible').first();
-    this.cancelButton = page.locator('button:has-text("Cancelar")').first();
-    this.backButton = page.locator('button:has-text("Voltar")').first();
+    // Use getByRole for headings
+    this.pageTitle = page.getByRole('heading', { name: /novo domicílio|new household/i }).or(
+      page.locator('h1:visible').first()
+    );
+    // Use getByLabel for form inputs
+    this.nameInput = page.getByLabel(/nome do domicílio|nome|name/i).or(
+      page.locator('input[name="name"], input[id*="name"]').first()
+    );
+    // Use getByRole for buttons
+    this.createButton = page.getByRole('button', { name: /criar domicílio|create household/i }).or(
+      page.getByRole('button', { name: /criar|create/i }).filter({ has: page.locator('[type="submit"]') })
+    ).or(page.locator('button[type="submit"]:visible')).first();
+    this.cancelButton = page.getByRole('button', { name: /cancelar|cancel/i }).first();
+    this.backButton = page.getByRole('button', { name: /voltar|back/i }).first();
   }
 
   async goto() {
@@ -32,7 +41,13 @@ export class HouseholdNewPage {
 
   async clickCreate() {
     await this.createButton.click();
+    // Wait for form submission and potential redirect
     await this.page.waitForLoadState('networkidle');
+    // Wait for redirect to household detail page or error message
+    await Promise.race([
+      this.page.waitForURL(/\/households\/[^/]+/, { timeout: 10000 }),
+      this.page.waitForSelector('[role="alert"]', { timeout: 5000 }).catch(() => {}),
+    ]);
   }
 
   async clickCancel() {
@@ -104,5 +119,37 @@ export class HouseholdEditPage {
 
   async getHouseholdName(): Promise<string | null> {
     return this.nameInput.inputValue();
+  }
+}
+
+export class HouseholdInvitePage {
+  readonly page: Page;
+  readonly pageTitle: Locator;
+  readonly emailInput: Locator;
+  readonly sendButton: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.pageTitle = page.getByRole('heading', { name: /convidar membros/i });
+    this.emailInput = page.getByLabel(/e-mail|email/i).or(page.locator('input[id="email"], input[name="email"]'));
+    this.sendButton = page.getByRole('button', { name: /enviar convite/i });
+  }
+
+  async goto(householdId: string) {
+    await this.page.goto(`/households/${householdId}/members/invite`);
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectOnInvitePage() {
+    await expect(this.pageTitle).toBeVisible({ timeout: 10000 });
+  }
+
+  async fillEmail(email: string) {
+    await this.emailInput.fill(email);
+  }
+
+  async clickSendInvite() {
+    await this.sendButton.click();
+    await this.page.waitForLoadState('networkidle');
   }
 }

@@ -15,7 +15,9 @@ export class FeedingNewPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1:has-text("Registrar Alimentação"), h1:has-text("Nova Alimentação")');
+    this.pageTitle = page.getByRole('heading', { name: /registrar.*alimentação|nova alimentação/i }).or(
+      page.locator('[role="dialog"]').filter({ hasText: /registrar.*alimentação/i })
+    ).first();
     this.catSelect = page.locator('select[id*="cat"], [class*="cat-select"]');
     this.amountInput = page.locator('input[id*="amount"], input[id*="portion"]');
     this.unitSelect = page.locator('select[id*="unit"]');
@@ -33,7 +35,11 @@ export class FeedingNewPage {
   }
 
   async expectOnNewFeedingPage() {
-    await expect(this.pageTitle).toBeVisible();
+    // /feedings/new renders a drawer with "Registrar Nova Alimentação" - accept heading or dialog
+    const drawerOrForm = this.page.locator('[role="dialog"]').filter({ hasText: /registrar|alimentação/i }).or(
+      this.page.getByRole('heading', { name: /registrar.*alimentação|nova alimentação/i })
+    ).or(this.catSelect).or(this.amountInput);
+    await expect(drawerOrForm.first()).toBeVisible({ timeout: 10000 });
   }
 
   async fillFeedingDetails(data: {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient as createServerSupabaseClient } from '@/utils/supabase/server';
+import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
 export async function GET(request: Request) {
@@ -25,14 +26,12 @@ export async function GET(request: Request) {
     }
     const userId = user.id;
 
-    // Checar se o usuário é membro da household
-    const { data: householdAccess, error: accessError } = await supabaseCheck
-      .from('household_members')
-      .select('id')
-      .eq('household_id', householdId)
-      .eq('user_id', userId)
-      .single();
-    if (accessError || !householdAccess) {
+    // Checar se o usuário é membro da household (Prisma: evita 403 por permissão Supabase na tabela)
+    const householdAccess = await prisma.household_members.findFirst({
+      where: { household_id: householdId, user_id: userId },
+      select: { id: true },
+    });
+    if (!householdAccess) {
       return NextResponse.json(
         { error: 'Acesso não autorizado' },
         { status: 403 }
@@ -122,14 +121,12 @@ export async function POST(request: Request) {
     }
     const userId = user.id;
 
-    // Checar se o usuário é membro da household
-    const { data: householdAccess, error: accessError } = await supabaseCheck
-      .from('household_members')
-      .select('id')
-      .eq('household_id', householdId)
-      .eq('user_id', userId)
-      .single();
-    if (accessError || !householdAccess) {
+    // Checar se o usuário é membro da household (Prisma: evita 403 por permissão Supabase na tabela)
+    const householdAccess = await prisma.household_members.findFirst({
+      where: { household_id: householdId, user_id: userId },
+      select: { id: true },
+    });
+    if (!householdAccess) {
       return NextResponse.json(
         { error: 'Acesso não autorizado' },
         { status: 403 }
@@ -233,14 +230,12 @@ export async function PUT(request: Request) {
     }
     const userId = user.id;
 
-    // Checar se o usuário é membro da household
-    const { data: householdAccess, error: accessError } = await supabaseCheck
-      .from('household_members')
-      .select('id')
-      .eq('household_id', householdId)
-      .eq('user_id', userId)
-      .single();
-    if (accessError || !householdAccess) {
+    // Checar se o usuário é membro da household (Prisma: evita 403 por permissão Supabase na tabela)
+    const householdAccess = await prisma.household_members.findFirst({
+      where: { household_id: householdId, user_id: userId },
+      select: { id: true },
+    });
+    if (!householdAccess) {
       return NextResponse.json(
         { error: 'Acesso não autorizado' },
         { status: 403 }
@@ -250,60 +245,43 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { targetWeight, targetDate, startWeight, status, notes, goalName, unit } = body;
 
-    // Usar o client padrão do projeto, que já pega os cookies do request
-    const supabase = await createServerSupabaseClient();
-
-    // Verificar se a meta pertence a um gato da casa
-    const { data: goal, error: goalError } = await supabase
-      .from('weight_goals')
-      .select('cat_id')
-      .eq('id', goalId)
-      .single();
-
-    if (goalError || !goal || !('cat_id' in goal)) {
+    // Buscar meta e verificar se o gato pertence à household (Prisma: evita 404/403 por permissão Supabase)
+    const goal = await prisma.weight_goals.findUnique({
+      where: { id: goalId },
+      select: { cat_id: true },
+    });
+    if (!goal) {
       return NextResponse.json(
         { error: 'Meta não encontrada' },
         { status: 404 }
       );
     }
 
-    const { data: cat, error: catError } = await supabase
-      .from('cats')
-      .select('id')
-      .eq('id', goal.cat_id)
-      .eq('household_id', householdId)
-      .single();
-
-    if (catError || !cat) {
+    const cat = await prisma.cats.findFirst({
+      where: { id: goal.cat_id, household_id: householdId },
+      select: { id: true },
+    });
+    if (!cat) {
       return NextResponse.json(
         { error: 'Acesso não autorizado' },
         { status: 403 }
       );
     }
 
-    // Atualizar a meta
-    const { data: updatedGoal, error: updateError } = await supabase
-      .from('weight_goals')
-      .update({
-        target_weight: targetWeight,
-        target_date: targetDate,
-        start_weight: startWeight,
-        status,
-        notes,
-        goal_name: goalName,
-        unit: unit
-      })
-      .eq('id', goalId)
-      .select()
-      .single();
+    // Montar data apenas com campos definidos no body (cliente pode enviar só { status: "completed" })
+    const updateData: Record<string, unknown> = {};
+    if (targetWeight !== undefined) updateData.target_weight = targetWeight;
+    if (targetDate !== undefined) updateData.target_date = targetDate ? new Date(targetDate) : null;
+    if (startWeight !== undefined) updateData.start_weight = startWeight;
+    if (status !== undefined) updateData.status = status;
+    if (notes !== undefined) updateData.notes = notes;
+    if (goalName !== undefined) updateData.goal_name = goalName;
+    if (unit !== undefined) updateData.unit = unit;
 
-    if (updateError) {
-      console.error('Erro ao atualizar meta de peso:', updateError);
-      return NextResponse.json(
-        { error: 'Erro ao atualizar meta de peso' },
-        { status: 500 }
-      );
-    }
+    const updatedGoal = await prisma.weight_goals.update({
+      where: { id: goalId },
+      data: updateData as Parameters<typeof prisma.weight_goals.update>[0]['data'],
+    });
 
     return NextResponse.json(updatedGoal);
   } catch (error) {
@@ -339,14 +317,12 @@ export async function DELETE(request: Request) {
     }
     const userId = user.id;
 
-    // Checar se o usuário é membro da household
-    const { data: householdAccess, error: accessError } = await supabaseCheck
-      .from('household_members')
-      .select('id')
-      .eq('household_id', householdId)
-      .eq('user_id', userId)
-      .single();
-    if (accessError || !householdAccess) {
+    // Checar se o usuário é membro da household (Prisma: evita 403 por permissão Supabase na tabela)
+    const householdAccess = await prisma.household_members.findFirst({
+      where: { household_id: householdId, user_id: userId },
+      select: { id: true },
+    });
+    if (!householdAccess) {
       return NextResponse.json(
         { error: 'Acesso não autorizado' },
         { status: 403 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { PlusCircle } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
+import { m, AnimatePresence } from "framer-motion"
 import { TimelineEvent } from "@/components/timeline-event"
 import { AddEventDialog } from "@/components/add-event-dialog"
 import { cn } from "@/lib/utils"
@@ -78,7 +78,7 @@ export function CatTimeline() {
   return (
     <div className="relative">
       {/* Timeline line with animated gradient */}
-      <motion.div
+      <m.div
         className="absolute left-4 top-6 bottom-0 w-0.5 bg-gradient-to-b from-slate-200 to-slate-100 dark:from-slate-700 dark:to-slate-800"
         initial={{ height: 0 }}
         animate={{ height: "100%" }}
@@ -101,7 +101,7 @@ export function CatTimeline() {
       </div>
 
       {/* Add event button with animation */}
-      <motion.button
+      <m.button
         onClick={() => setIsDialogOpen(true)}
         className="fixed bottom-6 right-6 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-3 shadow-md group z-10"
         aria-label="Add new event"
@@ -111,7 +111,7 @@ export function CatTimeline() {
           boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
         }}
         whileTap={{ scale: 0.95 }}
-        initial={{ scale: 0, opacity: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{
           type: "spring",
@@ -120,7 +120,7 @@ export function CatTimeline() {
           delay: 0.5,
         }}
       >
-        <motion.div
+        <m.div
           animate={{ rotate: 360 }}
           transition={{
             duration: 20,
@@ -131,7 +131,7 @@ export function CatTimeline() {
         />
         <PlusCircle className="h-6 w-6 group-hover:scale-110 transition-transform" />
         <span className="sr-only">Add new event</span>
-      </motion.button>
+      </m.button>
 
       {/* Add event dialog */}
       <AddEventDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} onAddEvent={addEvent} />

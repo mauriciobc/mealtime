@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -11,23 +11,24 @@ interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg';
   text?: string;
   className?: string;
+  disableRole?: boolean;
 }
 
-export function Spinner({ size = 'md', text, className }: SpinnerProps) {
+export function Spinner({ size = 'md', text, className, disableRole = false }: SpinnerProps) {
   return (
     <>
-      <motion.div
+      <m.div
         animate={{ rotate: 360 }}
         transition={{
           repeat: Infinity,
           duration: 1,
           ease: "linear",
         }}
-        role={!text ? "status" : undefined}
+        role={!text && !disableRole ? "status" : undefined}
       >
         <Loader2 className={cn("text-primary", sizeClasses[size])} />
         {!text && <span className="sr-only">Carregando...</span>}
-      </motion.div>
+      </m.div>
       {text && (
         <p className={cn("text-sm text-muted-foreground", className)}>{text}</p>
       )}
@@ -39,19 +40,29 @@ const LottieLazy = lazy(() => import("lottie-react"));
 
 function LottieFallback() {
   return (
-    <div className="w-48 h-48 flex items-center justify-center">
-      <Spinner size="lg" />
+    <div className="w-48 h-48 flex items-center justify-center" role="status">
+      <Spinner size="lg" disableRole={true} />
     </div>
   );
 }
 
 let animationDataCache: any = null;
+let animationDataCacheFailed = false;
 
 async function loadAnimationData() {
   if (animationDataCache) return animationDataCache;
-  const response = await fetch("/lottie/cat-animation.json");
-  animationDataCache = await response.json();
-  return animationDataCache;
+  if (animationDataCacheFailed) return null;
+  try {
+    const response = await fetch("/lottie/cat-animation.json");
+    if (!response.ok) {
+      throw new Error(`Failed to load animation (${response.status})`);
+    }
+    animationDataCache = await response.json();
+    return animationDataCache;
+  } catch {
+    animationDataCacheFailed = true;
+    return null;
+  }
 }
 
 interface GlobalLoadingProps {
@@ -72,24 +83,32 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
   const currentOperation = hasOperations ? state.operations[0] : null;
   const displayText = text || currentOperation?.description || "Carregando...";
   const [animationData, setAnimationData] = useState<any>(null);
+  const [animationLoadError, setAnimationLoadError] = useState(false);
 
   useEffect(() => {
-    if ((mode === 'lottie' || mode === 'overlay') && !animationData) {
-      loadAnimationData().then(setAnimationData);
+    if ((mode === 'lottie' || mode === 'overlay') && !animationData && !animationLoadError) {
+      loadAnimationData().then((data) => {
+        if (data) {
+          setAnimationData(data);
+        } else {
+          setAnimationLoadError(true);
+        }
+      });
     }
-  }, [mode, animationData]);
+  }, [mode, animationData, animationLoadError]);
 
-  if (isLoading && !hasOperations) {
+  if (!isLoading) {
     return null;
   }
 
   return (
     <AnimatePresence>
       {isLoading && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          data-loading="true"
           className={cn(
             "z-50",
             (mode === 'overlay' || mode === 'lottie') && "fixed inset-0 flex min-h-screen w-full items-center justify-center bg-background/80 backdrop-blur-sm",
@@ -143,7 +162,7 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
           )}
 
           {mode === 'progress' && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -155,9 +174,9 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
                 role="progressbar"
                 value={currentOperation?.progressPercentage ?? 0}
               />
-            </motion.div>
+            </m.div>
           )}
-        </motion.div>
+        </m.div>
       )}
     </AnimatePresence>
   );

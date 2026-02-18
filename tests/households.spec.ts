@@ -3,29 +3,56 @@ import { test, expect } from './fixtures/test-fixtures';
 test.describe('Households Management', () => {
   test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
 
-  test.beforeEach(async ({ loginPage, testUser }) => {
-    await loginPage.goto();
-    await loginPage.login(testUser.email, testUser.password);
-  });
-
   test('should navigate to households page', async ({ householdsPage }) => {
     await householdsPage.goto();
     await householdsPage.expectOnHouseholdsPage();
   });
 
-  test.skip('should create a new household via UI - needs investigation', async ({ householdsPage, testDataManager }) => {
-    await householdsPage.goto();
-    await householdsPage.clickCreateHousehold();
-
+  test('should create a new household via UI', async ({ householdsPage, householdNewPage, testDataManager }) => {
     const householdName = testDataManager.generateUniqueName('Casa');
-    await householdsPage.fillHouseholdDetails({
-      name: householdName,
-      description: 'Criado por testes E2E',
-    });
 
-    await householdsPage.submitHousehold();
+    await householdsPage.goto();
+    await householdsPage.clickNewHousehold();
 
-    await householdsPage.expectHouseholdCards();
+    await householdNewPage.expectOnNewHouseholdPage();
+    await householdNewPage.fillHouseholdName(householdName);
+    await householdNewPage.clickCreate();
+
+    // Wait for redirect after successful creation (redirects to household detail page)
+    await householdsPage.page.waitForURL(/\/households\/[^/]+/, { timeout: 10000 });
+    
+    // Wait for toast notification (optional - don't fail if it doesn't appear)
+    try {
+      await householdsPage.page.waitForSelector('[data-sonner-toast]', { timeout: 3000 });
+    } catch {
+      // Toast might not appear or might have already disappeared
+    }
+    
+    // Navigate back to households list to verify creation
+    await householdsPage.goto();
+    await householdsPage.expectOnHouseholdsPage();
+    
+    // Verify household was created by checking if it appears in the list
+    const householdElement = await householdsPage.findHouseholdByName(householdName);
+    await expect(householdElement).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should navigate to invite page and display form', async ({ householdInvitePage, testDataManager }) => {
+    const household = await testDataManager.createTestHousehold({ name: `Casa_${Date.now()}` });
+    await householdInvitePage.goto(household.id);
+    await householdInvitePage.expectOnInvitePage();
+    await expect(householdInvitePage.emailInput).toBeVisible();
+    await expect(householdInvitePage.sendButton).toBeVisible();
+  });
+
+  test('should send invite and show feedback', async ({ householdInvitePage, testDataManager }) => {
+    const household = await testDataManager.createTestHousehold({ name: `Casa_${Date.now()}` });
+    await householdInvitePage.goto(household.id);
+    await householdInvitePage.fillEmail(`invite_${Date.now()}@example.com`);
+    await householdInvitePage.clickSendInvite();
+    await expect(
+      householdInvitePage.page.getByText(/convite enviado|já é um membro|erro ao|invite sent|already a member/i)
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -42,29 +69,25 @@ test.describe('Households API', () => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const householdName = `Casa_${Date.now()}`;
-    try {
-      const result = await apiHelper.createHousehold({
-        name: householdName,
-        description: 'Criado por testes E2E',
-      });
+    const result = await apiHelper.createHousehold({
+      name: householdName,
+      description: 'Criado por testes E2E',
+    });
 
-      if (result && typeof result === 'object' && 'success' in result) {
-        if (result.success) {
-          expect(result).toHaveProperty('data');
-          expect(result.data).toHaveProperty('id');
-        } else {
-          console.log('API returned success: false - user may already have a household');
-          expect(result).toHaveProperty('success');
-        }
-      } else {
-        console.log('API response:', JSON.stringify(result));
-        expect(result).toBeTruthy();
-      }
-    } catch (error) {
-      console.log('API error:', (error as Error).message);
-      expect(true).toBe(true);
+    expect(result).toBeDefined();
+    expect(typeof result).toBe('object');
+    expect(result).toHaveProperty('success');
+    
+    const resultData = result as { success: boolean; data?: { id: string }; error?: string };
+    
+    if (resultData.success) {
+      expect(resultData).toHaveProperty('data');
+      expect(resultData.data).toHaveProperty('id');
+    } else {
+      // If creation failed, fail the test with a clear message
+      const errorMsg = resultData.error || 'Unknown error';
+      throw new Error(`Household creation failed: ${errorMsg}. Response: ${JSON.stringify(resultData)}`);
     }
-
-    await testDataManager.cleanupTestData();
+    // Cleanup is now automatic via testDataManager fixture
   });
 });

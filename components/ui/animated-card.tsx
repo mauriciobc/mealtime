@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { Card } from "@/components/ui/card"
 import { useAnimation } from "@/components/animation-provider" // Assuming this path is correct
 import { cn } from "@/lib/utils"
@@ -24,7 +24,7 @@ const AnimatedCard = React.forwardRef<React.ElementRef<typeof Card>, AnimatedCar
     }
 
     return (
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{
@@ -37,7 +37,7 @@ const AnimatedCard = React.forwardRef<React.ElementRef<typeof Card>, AnimatedCar
         <Card className={cn("transition-shadow duration-300", className)} ref={ref} {...props}>
           {children}
         </Card>
-      </motion.div>
+      </m.div>
     )
   },
 )

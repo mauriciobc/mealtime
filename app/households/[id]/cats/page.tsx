@@ -1,10 +1,13 @@
 import { Suspense } from 'react';
+import { pageMetadata } from '@/lib/metadata';
 import { CatsList } from '@/components/cats/CatsList';
 import { AddCatButton } from '@/components/cats/add-cat-button';
 import { ErrorBoundary } from '@/lib/context/ErrorContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { GlobalLoading } from '@/components/ui/global-loading';
+
+export const metadata = pageMetadata("Gatos do lar", "Gerencie os gatos desta residência.");
 
 interface CatsPageProps {
   params: Promise<{

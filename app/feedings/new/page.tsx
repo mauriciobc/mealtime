@@ -1,24 +1,14 @@
-"use client";
+import { Suspense } from "react";
+import { pageMetadata } from "@/lib/metadata";
+import NewFeedingPageContent from "./NewFeedingPageContent";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { NewFeedingSheet } from "@/components/feeding/new-feeding-sheet";
+export const metadata = pageMetadata("Nova alimentação", "Registre uma nova alimentação.");
 
 export default function NewFeedingPage() {
-  const router = useRouter();
-  const [isOpen, setIsOpen] = useState(true);
-
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (!open) {
-      router.push("/feedings");
-    }
-  };
-
   return (
-    <NewFeedingSheet 
-      isOpen={isOpen} 
-      onOpenChange={handleOpenChange}
-    />
+    <Suspense fallback={<GlobalLoading mode="overlay" />}>
+      <NewFeedingPageContent />
+    </Suspense>
   );
 }

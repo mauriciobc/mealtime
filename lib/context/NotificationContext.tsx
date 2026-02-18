@@ -220,10 +220,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
       
       try {
-        const cachedNotifications = await cacheManager.getNotifications(currentUserId, 1, 10);
-        const unreadCount = await cacheManager.getUnreadCount(currentUserId);
-        const totalCount = await cacheManager.getTotalCount(currentUserId);
-        
+        const [cachedNotifications, unreadCount, totalCount] = await Promise.all([
+          cacheManager.getNotifications(currentUserId, 1, 10),
+          cacheManager.getUnreadCount(currentUserId),
+          cacheManager.getTotalCount(currentUserId),
+        ]);
+
         if (cachedNotifications.length > 0) {
           dispatch({
             type: "SET_NOTIFICATIONS",
@@ -288,10 +290,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       
       if (syncResult.success) {
         // Load from cache
-        const cachedNotifications = await cacheManager.getNotifications(userId, 1, 10);
-        const unreadCount = await cacheManager.getUnreadCount(userId);
-        const totalCount = await cacheManager.getTotalCount(userId);
-        
+        const [cachedNotifications, unreadCount, totalCount] = await Promise.all([
+          cacheManager.getNotifications(userId, 1, 10),
+          cacheManager.getUnreadCount(userId),
+          cacheManager.getTotalCount(userId),
+        ]);
+
         dispatch({
           type: "SET_NOTIFICATIONS",
           payload: {

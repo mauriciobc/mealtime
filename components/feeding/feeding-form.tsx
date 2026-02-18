@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -93,7 +93,7 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
   }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
@@ -161,6 +161,6 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
           </Button>
         </form>
       </Form>
-    </motion.div>
+    </m.div>
   );
 } 

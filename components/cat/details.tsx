@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CalendarOff } from 'lucide-react'
-import EmptyState from '@/components/ui/empty-state'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'

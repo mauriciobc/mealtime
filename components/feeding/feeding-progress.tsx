@@ -8,7 +8,7 @@ import { calculateNextFeeding, formatDateTimeForDisplay, getUserTimezone } from 
 import { useUserContext } from "@/lib/context/UserContext";
 import { formatInTimeZone, toDate } from 'date-fns-tz';
 import { addHours, differenceInHours } from 'date-fns';
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
 import { Skeleton } from "@/components/ui/skeleton";
 

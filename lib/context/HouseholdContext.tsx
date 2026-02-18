@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useUserContext } from './UserContext'; // Assuming UserContext provides currentUser
 import { useLoading } from './LoadingContext';
 import { toast } from 'sonner';
@@ -67,14 +68,45 @@ const HouseholdContext = createContext<{
   dispatch: React.Dispatch<HouseholdAction>;
 }>({ state: initialState, dispatch: () => null });
 
+async function fetchHouseholds(): Promise<Household[]> {
+  const response = await fetch('/api/households', { headers: { Accept: 'application/json' } });
+  if (!response.ok) {
+    let errorMsg = `Erro ao carregar residências (${response.status})`;
+    try {
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        const errorData = await response.json();
+        errorMsg = errorData.error || errorMsg;
+      } else {
+        const errorText = await response.text();
+        errorMsg = errorText.length > 200 ? errorText.substring(0, 200) + "..." : errorText || errorMsg;
+      }
+    } catch (_e) {}
+    throw new Error(errorMsg);
+  }
+  return response.json();
+}
+
+const LOADING_ID_HOUSEHOLDS = 'household-data-load';
+
 export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(householdReducer, initialState);
   const { state: userState } = useUserContext();
   const { currentUser } = userState;
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const abortControllerRef = useRef<AbortController | null>(null);
   const loadingIdRef = useRef<string | null>(null);
-  const isFetchingRef = useRef(false);
+
+  const {
+    data: householdsData,
+    isLoading: isHouseholdsLoading,
+    isSuccess: isHouseholdsSuccess,
+    isError: isHouseholdsError,
+    error: householdsError,
+  } = useQuery({
+    queryKey: ['households', currentUser?.id],
+    queryFn: fetchHouseholds,
+    enabled: !!currentUser?.id,
+  });
 
   const cleanupLoading = useCallback(() => {
     if (loadingIdRef.current) {
@@ -89,97 +121,29 @@ export const HouseholdProvider = ({ children }: { children: ReactNode }) => {
   }, [removeLoadingOperation]);
 
   useEffect(() => {
-    const loadingId = 'household-data-load';
-    let isMounted = true;
+    if (!currentUser?.id) return;
+    if (isHouseholdsLoading) {
+      loadingIdRef.current = LOADING_ID_HOUSEHOLDS;
+      dispatch({ type: 'FETCH_START' });
+      addLoadingOperation({ id: LOADING_ID_HOUSEHOLDS, priority: 2, description: 'Carregando residências...' });
+    }
+  }, [currentUser?.id, isHouseholdsLoading, addLoadingOperation]);
 
-    const loadHouseholdData = async () => {
-      if (!currentUser?.id || !isMounted || isFetchingRef.current) return;
+  useEffect(() => {
+    if (isHouseholdsSuccess && householdsData !== undefined) {
+      dispatch({ type: 'SET_HOUSEHOLDS', payload: householdsData });
+      cleanupLoading();
+    }
+  }, [isHouseholdsSuccess, householdsData, cleanupLoading]);
 
-      isFetchingRef.current = true;
-      abortControllerRef.current?.abort();
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      try {
-        loadingIdRef.current = loadingId;
-        dispatch({ type: 'FETCH_START' });
-        addLoadingOperation({ id: loadingId, priority: 2, description: 'Carregando residências...' });
-
-        const response = await fetch(`/api/households`, {
-          signal: abortController.signal,
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-
-        if (!isMounted) {
-          abortController.abort();
-          isFetchingRef.current = false;
-          return;
-        }
-
-        if (!response.ok) {
-          let errorMsg = `Erro ao carregar residências (${response.status})`;
-          try {
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-              const errorData = await response.json();
-              errorMsg = errorData.error || errorMsg;
-            } else {
-              // Attempt to read as text if not JSON
-              const errorText = await response.text();
-              // Prevent logging the entire HTML page if it's long
-              errorMsg = errorText.length > 200 ? errorText.substring(0, 200) + "..." : errorText || errorMsg;
-              console.error("[HouseholdProvider] Non-JSON error response:", errorText);
-            }
-          } catch (e) {
-            console.error("[HouseholdProvider] Failed to parse error response:", e);
-            // Keep the original status code message if parsing fails
-          }
-          throw new Error(errorMsg);
-        }
-
-        const householdsData: Household[] = await response.json();
-
-        if (!isMounted) {
-          isFetchingRef.current = false;
-          return;
-        }
-
-        dispatch({ type: 'SET_HOUSEHOLDS', payload: householdsData });
-
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.log('[HouseholdProvider] Request aborted');
-          return;
-        }
-
-        if (!isMounted) {
-          isFetchingRef.current = false;
-          return;
-        }
-
-        console.error("[HouseholdProvider] Error loading data:", error);
-        const errorMessage = error.message || 'Falha ao carregar dados das residências';
-        dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-        toast.error(errorMessage);
-      } finally {
-        if (isMounted) {
-          cleanupLoading();
-        }
-        isFetchingRef.current = false;
-      }
-    };
-
-    loadHouseholdData();
-
-    return () => {
-      isMounted = false;
-      abortControllerRef.current?.abort();
-      abortControllerRef.current = null;
-      isFetchingRef.current = false;
-    };
-  }, [currentUser?.id, addLoadingOperation, cleanupLoading]);
+  useEffect(() => {
+    if (isHouseholdsError && householdsError) {
+      const errorMessage = householdsError instanceof Error ? householdsError.message : 'Falha ao carregar dados das residências';
+      dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
+      toast.error(errorMessage);
+      cleanupLoading();
+    }
+  }, [isHouseholdsError, householdsError, cleanupLoading]);
 
   const contextValue = useMemo(() => ({ state, dispatch }), [state]);
 

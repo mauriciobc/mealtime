@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Clock } from "lucide-react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "@/lib/context/UserContext";
 import { useCats } from "@/lib/context/CatsContext";
@@ -40,7 +40,7 @@ export default function FeedingSchedule() {
     return (
       <div className="space-y-3" data-testid="loading-skeleton">
         {[1, 2, 3].map(i => (
-          <Card key={i} className="animate-pulse">
+          <Card key={`skeleton-${i}`} className="animate-pulse">
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-10 w-10 rounded-full" />
@@ -70,14 +70,14 @@ export default function FeedingSchedule() {
   }
   
   return (
-    <motion.div 
+    <m.div 
       className="space-y-3"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ staggerChildren: 0.1 }}
     >
       {upcomingFeedings.map((feeding, index) => (
-        <motion.div
+        <m.div
           key={feeding.id}
           layout
           initial={{ opacity: 0, y: 10 }}
@@ -114,8 +114,8 @@ export default function FeedingSchedule() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
+        </m.div>
       ))}
-    </motion.div>
+    </m.div>
   );
 } 

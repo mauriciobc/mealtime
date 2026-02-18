@@ -8,14 +8,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
-    const next = searchParams.get('next') ?? '/';
+    const redirectTo = searchParams.get('redirectTo') ?? '/';
     const error = searchParams.get('error');
     const errorDescription = searchParams.get('error_description');
 
     logger.debug('[Auth Callback] Processing auth callback', {
       hasCode: !!code,
       hasError: !!error,
-      next
+      redirectTo
     });
 
     // Handle OAuth errors
@@ -82,11 +82,11 @@ export async function GET(request: Request) {
 
     logger.info('[Auth Callback] Successfully authenticated user', {
       userId: user.id,
-      next
+      redirectTo
     });
 
     // Create the response with the redirect
-    const response = NextResponse.redirect(new URL(next, request.url));
+    const response = NextResponse.redirect(new URL(redirectTo, request.url));
 
     // Verify all required cookies were set
     const requiredCookies = ['sb-access-token', 'sb-refresh-token'];

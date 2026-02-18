@@ -5,7 +5,7 @@ import { Notification } from "@/lib/types/notification";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { Home, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNotifications } from "@/lib/context/NotificationContext";
@@ -63,13 +63,10 @@ export function HouseholdInviteNotification({
       }
       
       toast.success('Convite aceito com sucesso!');
-      
-      // Refresh user context to load the new household membership
-      await refreshUser();
-      
-      // Refresh notifications to update the notification status
-      await refreshNotifications();
-      
+
+      // Refresh user and notifications in parallel
+      await Promise.all([refreshUser(), refreshNotifications()]);
+
       // Small delay to ensure state updates propagate
       await new Promise(resolve => setTimeout(resolve, 300));
       
@@ -120,7 +117,7 @@ export function HouseholdInviteNotification({
   const isProcessing = isAccepting || isRejecting;
   
   return (
-    <motion.div 
+    <m.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -217,7 +214,7 @@ export function HouseholdInviteNotification({
           </Button>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 

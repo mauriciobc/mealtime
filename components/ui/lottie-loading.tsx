@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { m, AnimatePresence } from "framer-motion";
 import { useLoading } from "@/lib/context/LoadingContext";
 import { cn } from "@/lib/utils";
 import React, { lazy, Suspense, useState, useEffect } from "react";
@@ -65,7 +65,7 @@ export function LottieLoading({ text, className }: LottieLoadingProps) {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -97,7 +97,7 @@ export function LottieLoading({ text, className }: LottieLoadingProps) {
             <p className="text-sm text-muted-foreground">{displayText}</p>
           )}
         </div>
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 } 

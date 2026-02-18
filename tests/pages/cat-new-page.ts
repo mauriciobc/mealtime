@@ -15,16 +15,33 @@ export class CatNewPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('text=Novo Gato, text=Novo Pet').first();
-    this.nameInput = page.locator('input[name="name"]:visible');
-    this.birthDateInput = page.locator('input[name="birthdate"]:visible');
-    this.weightInput = page.locator('input[name="weight"]:visible');
-    this.portionSizeInput = page.locator('input[name="portion_size"]:visible');
-    this.portionUnitSelect = page.locator('select:visible');
-    this.feedingIntervalInput = page.locator('input[name="feedingInterval"]:visible');
-    this.notesInput = page.locator('textarea[name="notes"]:visible, textarea[id*="notes"]:visible');
-    this.submitButton = page.locator('button[type="submit"]:visible:has-text("Salvar"), button:visible:has-text("Cadastrar")');
-    this.photoUpload = page.locator('input[type="file"], [class*="upload"]');
+    // Use getByRole for headings
+    this.pageTitle = page.getByRole('heading', { name: /novo gato|novo pet|new cat|add cat/i }).or(
+      page.locator('h1:visible').first()
+    );
+    // Use getByLabel for form inputs (most accessible)
+    this.nameInput = page.getByLabel(/nome|name/i).or(page.locator('input[name="name"]:visible')).first();
+    this.birthDateInput = page.getByLabel(/data de nascimento|birthdate|birth date/i).or(
+      page.locator('input[name="birthdate"]:visible')
+    ).first();
+    this.weightInput = page.getByLabel(/peso|weight/i).or(page.locator('input[name="weight"]:visible')).first();
+    this.portionSizeInput = page.getByLabel(/porção|portion/i).or(
+      page.locator('input[name="portion_size"]:visible')
+    ).first();
+    // Use getByRole for select elements
+    this.portionUnitSelect = page.getByRole('combobox').or(page.locator('select:visible')).first();
+    this.feedingIntervalInput = page.getByLabel(/intervalo|interval/i).or(
+      page.locator('input[name="feedingInterval"]:visible')
+    ).first();
+    this.notesInput = page.getByLabel(/notas|notes/i).or(
+      page.locator('textarea[name="notes"]:visible, textarea[id*="notes"]:visible')
+    ).first();
+    // Use getByRole for submit buttons
+    this.submitButton = page.getByRole('button', { name: /salvar|cadastrar|save|create|add/i }).filter({ 
+      has: page.locator('[type="submit"]') 
+    }).or(page.locator('button[type="submit"]:visible')).first();
+    // File inputs are typically accessible by type
+    this.photoUpload = page.locator('input[type="file"]').or(page.locator('[class*="upload"]')).first();
   }
 
   async goto() {
@@ -75,7 +92,13 @@ export class CatNewPage {
 
   async submit() {
     await this.submitButton.click();
+    // Wait for form submission and potential redirect
     await this.page.waitForLoadState('networkidle');
+    // Wait for redirect to cats page or error message
+    await Promise.race([
+      this.page.waitForURL(/\/cats/, { timeout: 10000 }),
+      this.page.waitForSelector('[role="alert"]', { timeout: 5000 }).catch(() => {}),
+    ]);
   }
 
   async expectValidationError(field: string) {

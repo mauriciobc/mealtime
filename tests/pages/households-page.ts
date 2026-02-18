@@ -12,13 +12,29 @@ export class HouseholdsPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1:has-text("Minhas Residências"), heading:has-text("Minhas Residências")').first();
-    this.newHouseholdButton = page.locator('a[href="/households/new"]:visible, button:has-text("Nova Residência")').first();
-    this.householdCards = page.locator('[class*="household-card"], [class*="HouseholdCard"], [class*="residence"]').first();
-    this.householdNames = page.locator('h3:visible, [class*="household"]:has-text("Casa"), [class*="residence"]:has-text("Casa")');
-    this.manageLinks = page.locator('a:has-text("Gerenciar"), [href*="/households/"]:visible').first();
-    this.optionsButton = page.locator('button:has-text("Opções da Residência"), button:has-text("Abrir menu")').first();
-    this.backButton = page.locator('button:has-text("Voltar"), a:has-text("Voltar")').first();
+    // Use getByRole for headings
+    this.pageTitle = page.getByRole('heading', { name: /minhas residências|my households/i }).or(
+      page.locator('h1:visible').first()
+    );
+    // Use getByRole for links and buttons
+    this.newHouseholdButton = page.getByRole('link', { name: /nova residência|new household|criar nova/i }).or(
+      page.getByRole('button', { name: /nova residência|new household/i })
+    ).or(page.locator('a[href="/households/new"]:visible')).first();
+    // Use more generic selectors for cards (structural elements)
+    this.householdCards = page.locator('[class*="household-card"], [class*="HouseholdCard"], [class*="residence"], article').first();
+    // Use getByRole for headings within cards
+    this.householdNames = page.getByRole('heading', { level: 3 }).or(
+      page.locator('h3:visible')
+    );
+    // Use getByRole for links
+    this.manageLinks = page.getByRole('link', { name: /gerenciar|manage/i }).or(
+      page.locator('a[href*="/households/"]:visible')
+    ).first();
+    // Use getByRole for buttons with accessible names
+    this.optionsButton = page.getByRole('button', { name: /opções|options|abrir menu|open menu/i }).first();
+    this.backButton = page.getByRole('button', { name: /voltar|back/i }).or(
+      page.getByRole('link', { name: /voltar|back/i })
+    ).first();
   }
 
   async goto() {
@@ -39,11 +55,15 @@ export class HouseholdsPage {
   }
 
   async findHouseholdByName(name: string) {
-    return this.page.locator(`h3:has-text("${name}"), [class*="household"]:has-text("${name}")`);
+    return this.page.getByRole('heading', { name: new RegExp(name, 'i') }).or(
+      this.page.locator(`h3:has-text("${name}"), [class*="household"]:has-text("${name}")`)
+    );
   }
 
   async clickManageOnHousehold(householdName: string) {
-    const manageLink = this.page.locator(`h3:has-text("${householdName}")`).locator('xpath=..').locator('a:has-text("Gerenciar")').first();
+    // Find the household card first, then find the manage link within it
+    const householdCard = this.page.getByRole('heading', { name: new RegExp(householdName, 'i') }).locator('..').locator('..');
+    const manageLink = householdCard.getByRole('link', { name: /gerenciar|manage/i }).first();
     await manageLink.click();
   }
 

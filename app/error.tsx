@@ -4,7 +4,6 @@ import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { FallbackProps } from 'react-error-boundary'
 
 interface ErrorWithDigest extends Error {
   digest?: string;
@@ -39,16 +38,23 @@ const sanitizeErrorMessage = (error: Error): string => {
   return 'Ocorreu um erro inesperado. Por favor, tente novamente mais tarde.'
 }
 
-export default function ErrorPage({ error, resetErrorBoundary }: FallbackProps) {
+export default function ErrorPage({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   useEffect(() => {
     if (!error) return;
 
     if (isDevelopment) {
       // Log detalhado apenas em desenvolvimento
+      const errorObj = error instanceof Error ? error : new Error(String(error));
       console.error('[ErrorPage]', {
-        message: error.message,
-        digest: hasDigest(error) ? error.digest : undefined,
-        stack: error.stack,
+        message: errorObj.message,
+        digest: hasDigest(errorObj) ? errorObj.digest : undefined,
+        stack: errorObj.stack,
         timestamp: new Date().toISOString()
       })
     } else {
@@ -69,7 +75,7 @@ export default function ErrorPage({ error, resetErrorBoundary }: FallbackProps) 
           <AlertDescription>Ocorreu um erro inesperado. Por favor, tente novamente.</AlertDescription>
         </Alert>
         <Button
-          onClick={resetErrorBoundary}
+          onClick={reset}
           className="mt-6"
           variant="default"
         >
@@ -87,7 +93,7 @@ export default function ErrorPage({ error, resetErrorBoundary }: FallbackProps) 
         <AlertDescription>{sanitizeErrorMessage(error)}</AlertDescription>
       </Alert>
       <Button
-        onClick={resetErrorBoundary}
+        onClick={reset}
         className="mt-6"
         variant="default"
       >

@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Check, Clock } from "lucide-react"
 // import FeedingProgress from "@/components/ui/feeding-progress" // TODO: Component not found
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { format, isBefore, formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useRouter } from "next/navigation"
@@ -114,7 +114,7 @@ export default function UpcomingFeedings() {
         <h2 className="text-xl font-semibold">Próximas Alimentações</h2>
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
-            <Card key={i} className="animate-pulse">
+            <Card key={`skeleton-${i}`} className="animate-pulse">
               <CardContent className="p-3">
                 <div className="flex items-center gap-3">
                   <Skeleton className="h-10 w-10 rounded-full" />
@@ -163,7 +163,7 @@ export default function UpcomingFeedings() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Próximas Alimentações</h2>
-      <motion.div 
+      <m.div 
         className="space-y-3"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -171,7 +171,7 @@ export default function UpcomingFeedings() {
       >
         {upcomingFeedings.map((feeding, index) => {
           return (
-            <motion.div
+            <m.div
               key={feeding.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -207,10 +207,10 @@ export default function UpcomingFeedings() {
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
+            </m.div>
           )
         })}
-      </motion.div>
+      </m.div>
     </div>
   )
 }

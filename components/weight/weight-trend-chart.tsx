@@ -1,6 +1,7 @@
 "use client"; // Required for Recharts and hooks like useState
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   Legend, ResponsiveContainer, DotProps
@@ -132,110 +133,86 @@ const CustomActiveDot: React.FC<CustomActiveDotProps> = (props) => {
   );
 };
 
+async function fetchWeightLogsForChart(catId: string, userId: string): Promise<WeightLog[]> {
+  const response = await fetch(`/api/weight-logs?catId=${catId}`, { headers: { 'X-User-ID': userId } });
+  if (!response.ok) throw new Error(`Failed to fetch weight logs: ${response.statusText}`);
+  const allLogsRaw: any[] = await response.json();
+  return allLogsRaw.map(log => ({
+    ...log,
+    weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0),
+    date: log.date,
+  }));
+}
+
+async function fetchFeedingLogsForChart(catId: string, userId: string): Promise<FeedingLog[]> {
+  const response = await fetch(`/api/feeding-logs?catId=${catId}`, { headers: { 'X-User-ID': userId } });
+  if (!response.ok) throw new Error(`Failed to fetch feeding logs: ${response.statusText}`);
+  const logs = await response.json();
+  return Array.isArray(logs) ? logs : [];
+}
+
 const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logChangeTimestamp, period }) => {
   const [timeRange, setTimeRange] = useState<TimeRange>(30);
-  const [isLoading, setIsLoading] = useState(true);
-  const [chartData, setChartData] = useState<WeightLog[]>([]);
-  const [dateRange, setDateRange] = useState<{ start: number; end: number } | null>(null);
-  const [yAxisDomain, setYAxisDomain] = useState<[number, number]>([0, 10]);
-  const [feedingLogs, setFeedingLogs] = useState<FeedingLog[]>([]);
-  const [feedingDataMap, setFeedingDataMap] = useState<Map<string, number>>(new Map());
 
-  // Add ref and width state for chart container
+  const { data: allLogs = [], isLoading: isLoadingWeight } = useQuery({
+    queryKey: ['weight-logs', catId, logChangeTimestamp],
+    queryFn: () => fetchWeightLogsForChart(catId, userId),
+    enabled: !!catId && !!userId,
+  });
+
+  const { data: feedingLogsRaw = [], isLoading: isLoadingFeeding } = useQuery({
+    queryKey: ['feeding-logs', catId, logChangeTimestamp],
+    queryFn: () => fetchFeedingLogsForChart(catId, userId),
+    enabled: !!catId && !!userId,
+  });
+
+  const isLoading = isLoadingWeight || isLoadingFeeding;
+
+  const { chartData, dateRange, yAxisDomain } = useMemo(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - timeRange);
+    const filteredLogs = allLogs
+      .filter(log => {
+        const logDate = new Date(log.date);
+        return logDate >= startDate && logDate <= endDate;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .map(log => ({ ...log, date: new Date(log.date).getTime() }));
+    let minWeight = Infinity, maxWeight = -Infinity;
+    let range: { start: number; end: number } | null = null;
+    let domain: [number, number] = [0, 10];
+    if (filteredLogs.length > 0) {
+      filteredLogs.forEach(log => {
+        if (log.weight < minWeight) minWeight = log.weight;
+        if (log.weight > maxWeight) maxWeight = log.weight;
+      });
+      domain = [Math.floor(minWeight) - 0.5, Math.ceil(maxWeight) + 0.5];
+      const firstLog = filteredLogs[0];
+      const lastLog = filteredLogs[filteredLogs.length - 1];
+      if (firstLog && lastLog) {
+        range = { start: new Date(firstLog.date).getTime(), end: new Date(lastLog.date).getTime() };
+      }
+    }
+    return { chartData: filteredLogs, dateRange: range, yAxisDomain: domain };
+  }, [allLogs, timeRange]);
+
+  const feedingLogs = feedingLogsRaw;
+  const feedingDataMap = useMemo(() => {
+    const map = new Map<string, number>();
+    feedingLogsRaw.forEach(log => {
+      if (log.date) {
+        const dateKey = new Date(log.date).toISOString().split('T')[0];
+        if (dateKey) map.set(dateKey, (map.get(dateKey) || 0) + 1);
+      }
+    });
+    return map;
+  }, [feedingLogsRaw]);
+
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [chartWidth, setChartWidth] = useState<number>(300);
 
   const chartMargins = { top: 5, right: 30, left: 0, bottom: 25 };
-
-  useEffect(() => {
-    if (!catId || !userId) {
-      setIsLoading(false);
-      setChartData([]);
-      setFeedingLogs([]);
-      setFeedingDataMap(new Map());
-      return;
-    }
-
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch weight logs
-        const response = await fetch(`/api/weight-logs?catId=${catId}`, {
-          headers: {
-            'X-User-ID': userId
-          }
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch weight logs: ${response.statusText}`);
-        }
-        const allLogsRaw: any[] = await response.json();
-        const allLogs: WeightLog[] = allLogsRaw.map(log => ({
-          ...log,
-          weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0),
-          date: log.date
-        }));
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(endDate.getDate() - timeRange);
-        const filteredLogs = allLogs
-          .filter(log => {
-            const logDate = new Date(log.date);
-            return logDate >= startDate && logDate <= endDate;
-          })
-          .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-          .map(log => ({
-            ...log,
-            date: new Date(log.date).getTime(), // Agora 'date' é um timestamp numérico
-          }));
-        let minWeight = Infinity, maxWeight = -Infinity;
-        if (filteredLogs.length > 0) {
-          filteredLogs.forEach(log => {
-            if (log.weight < minWeight) minWeight = log.weight;
-            if (log.weight > maxWeight) maxWeight = log.weight;
-          });
-          setYAxisDomain([Math.floor(minWeight) - 0.5, Math.ceil(maxWeight) + 0.5]);
-          const firstLog = filteredLogs[0];
-          const lastLog = filteredLogs[filteredLogs.length - 1];
-          if (firstLog && lastLog) {
-            setDateRange({ start: new Date(firstLog.date).getTime(), end: new Date(lastLog.date).getTime() });
-          }
-        } else {
-          setYAxisDomain([0, 10]);
-          setDateRange(null);
-        }
-        setChartData(filteredLogs);
-        // LOG DE DEBUG DOS DADOS DO GRÁFICO
-        console.log('[WeightTrendChart] Dados do gráfico (chartData):', filteredLogs);
-
-        // Fetch feeding logs for the cat
-        const feedingResp = await fetch(`/api/feeding-logs?catId=${catId}`, {
-          headers: { 'X-User-ID': userId }
-        });
-        if (!feedingResp.ok) throw new Error(`Failed to fetch feeding logs: ${feedingResp.statusText}`);
-        const logs: FeedingLog[] = await feedingResp.json();
-        setFeedingLogs(Array.isArray(logs) ? logs : []);
-        // Build the map: date (YYYY-MM-DD) -> count
-        const map = new Map<string, number>();
-        (Array.isArray(logs) ? logs : []).forEach(log => {
-          if (log.date) {
-            const dateKey = new Date(log.date).toISOString().split('T')[0];
-            if (dateKey) {
-              map.set(dateKey, (map.get(dateKey) || 0) + 1);
-            }
-          }
-        });
-        setFeedingDataMap(map);
-      } catch (error) {
-        console.error("Error fetching weight trend data:", error);
-        setChartData([]);
-        setFeedingLogs([]);
-        setFeedingDataMap(new Map());
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchData();
-  }, [catId, userId, timeRange, logChangeTimestamp]);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
@@ -360,7 +337,7 @@ const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logC
 
             return (
               <Badge
-                key={`feeding-badge-${index}`}
+                key={`feeding-badge-${new Date(log.date).getTime()}-${log.weight}`}
                 variant="secondary"
                 className="absolute text-xs px-1 py-0.5"
                 style={{

@@ -1,3 +1,5 @@
+import { pageMetadata } from "@/lib/metadata";
+
 // "use client"
 
 // import { useState, useEffect } from "react"
@@ -23,7 +25,9 @@ import { notFound, redirect } from 'next/navigation';
 
 
 // TODO: Define the CatHistoryClient component later
-// import CatHistoryClient from './CatHistoryClient'; 
+// import CatHistoryClient from './CatHistoryClient';
+
+export const metadata = pageMetadata("Histórico do gato", "Histórico e eventos do gato.");
 
 export default async function CatHistoryPage({ params }: { params: Promise<{ id: string }> }) {
   // const cookieStore = cookies();

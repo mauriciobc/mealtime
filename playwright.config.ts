@@ -18,13 +18,32 @@ export default defineConfig({
     storageState: 'tests/fixtures/auth.json',
   },
   projects: [
+    // Setup project - runs authentication before all other tests
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
+    // Unauthenticated tests (e.g., login, signup tests)
+    {
+      name: 'chromium-unauthenticated',
+      testMatch: /.*auth\.spec\.ts/,
+      use: { 
+        ...devices['Desktop Chrome'],
+        storageState: { cookies: [], origins: [] }, // No authentication
+      },
+    },
+    // Authenticated tests (all other tests)
     {
       name: 'chromium',
+      testIgnore: /.*auth\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
     {
       name: 'mobile-chrome',
+      testIgnore: /.*auth\.spec\.ts/,
       use: { ...devices['Pixel 5'] },
+      dependencies: ['setup'],
     },
   ],
   webServer: {
@@ -38,5 +57,5 @@ export default defineConfig({
       maxDiffPixels: 100,
     },
   },
-  timeout: 30000,
+  timeout: 60000, // Increased timeout for auth setup and slower environments
 });

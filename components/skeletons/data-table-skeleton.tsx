@@ -3,7 +3,7 @@ export function DataTableSkeleton() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 mb-8">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="bg-card rounded-lg border shadow-sm animate-pulse">
+          <div key={`skeleton-${index}`} className="bg-card rounded-lg border shadow-sm animate-pulse">
             <div className="p-4 pb-2">
               <div className="h-5 w-32 bg-muted rounded"></div>
             </div>

@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { motion } from "framer-motion"
+import { m } from "framer-motion"
 import { useAnimation } from "@/components/animation-provider"
 
 interface AnimatedListProps {
@@ -41,18 +41,18 @@ export default function AnimatedList({ children, delay = 0, staggerDelay = 0.05 
     },
   }
 
-  // Clone children and wrap each in a motion.div
+  // Clone children and wrap each in a m.div
   const childrenArray = React.Children.toArray(children)
   const animatedChildren = childrenArray.map((child, index) => (
-    <motion.div key={index} variants={item as any}>
+    <m.div key={`animated-item-${index}`} variants={item as any}>
       {child}
-    </motion.div>
+    </m.div>
   ))
 
   return (
-    <motion.div variants={container as any} initial="hidden" animate="show">
+    <m.div variants={container as any} initial="hidden" animate="show">
       {animatedChildren}
-    </motion.div>
+    </m.div>
   )
 }
 

@@ -58,12 +58,23 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       return () => clearTimeout(timeout);
     }, [loading]);
 
-    const Comp = asChild ? SlotPrimitive.Slot : "button";
     const isLoading = loading && showLoader;
 
+    if (asChild) {
+      return (
+        <SlotPrimitive.Slot
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </SlotPrimitive.Slot>
+      );
+    }
+
     return (
-      <Comp
-        className={cn(buttonVariants({ variant, size, className }), "relative")}
+      <button
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         disabled={loading || props.disabled}
         {...props}
@@ -73,10 +84,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             <LoadingSpinner size="sm" />
           </div>
         )}
-        <span className={cn({ "invisible": isLoading })}>
+        <span className={cn("flex items-center gap-2", { "invisible": isLoading })}>
           {children}
         </span>
-      </Comp>
+      </button>
     );
   }
 );

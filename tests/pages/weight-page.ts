@@ -16,7 +16,9 @@ export class WeightPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1:has-text("Painel de Peso"), heading:has-text("Painel de Peso")').first();
+    this.pageTitle = page.getByRole('heading', { name: /painel de peso|painel de acompanhamento de peso/i }).or(
+      page.locator('h1:has-text("Painel")').first()
+    );
     this.registerWeightButton = page.locator('button:has-text("Registrar Peso")').first();
     this.newGoalButton = page.locator('button:has-text("Nova Meta de Peso"), button:has-text("Nova Meta")').first();
     this.setGoalButton = page.locator('button:has-text("Definir Meta")').first();

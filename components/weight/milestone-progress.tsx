@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -275,45 +276,32 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
     { name: 'Remaining', value: 100 - goalProgressPercentage },
   ];
 
+  const archiveGoalMutation = useMutation({
+    mutationFn: async ({ goalId, hhId }: { goalId: string; hhId: string }) => {
+      const res = await fetch(`/api/weight/goals?id=${goalId}&householdId=${hhId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "completed" }),
+      });
+      if (!res.ok) throw new Error(`PUT failed: ${res.status}`);
+    },
+    onSuccess: () => {
+      refreshCounter.current += 1;
+      if (onGoalArchived) onGoalArchived();
+    },
+    onError: (err) => {
+      console.error("[MilestoneProgress] Erro ao arquivar meta automaticamente:", err);
+    },
+  });
+
   useEffect(() => {
-    // Adiciona uma guarda para garantir que activeGoal não seja nulo
-    if (!activeGoal) {
-      return;
-    }
-    
-    // Só arquiva se a meta não estiver arquivada/completed/cancelled
+    if (!activeGoal) return;
     const isGoalAlreadyArchived =
       (typeof (activeGoal as any).status === 'string' && ((activeGoal as any).status === 'completed' || (activeGoal as any).status === 'cancelled')) ||
       (typeof (activeGoal as any).isArchived === 'boolean' && (activeGoal as any).isArchived === true);
-    if (
-      activeGoal &&
-      isGoalAchieved &&
-      !hasArchived.current &&
-      householdId &&
-      !isGoalAlreadyArchived
-    ) {
+    if (activeGoal && isGoalAchieved && !hasArchived.current && householdId && !isGoalAlreadyArchived) {
       hasArchived.current = true;
-      fetch(`/api/weight/goals?id=${activeGoal.id}&householdId=${householdId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          status: "completed",
-        }),
-      })
-      .then((res) => {
-        if (!res.ok) {
-          console.error(`[MilestoneProgress] PUT falhou com status ${res.status}. Não tentará novamente até reload manual.`);
-          return;
-        }
-        refreshCounter.current += 1;
-        console.log(`[MilestoneProgress] Arquivamento automático disparado. Contador de refresh: ${refreshCounter.current}`);
-        if (onGoalArchived) onGoalArchived();
-      })
-      .catch((err) => {
-        console.error("Erro ao arquivar meta automaticamente:", err);
-      });
+      archiveGoalMutation.mutate({ goalId: activeGoal.id, hhId: householdId });
     }
     if (!isGoalAchieved) {
       hasArchived.current = false;
@@ -397,7 +385,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
                     strokeWidth={3}
                   >
                     {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${entry.name}-${entry.value}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                     <Label
                       value={`${goalProgressPercentage.toFixed(0)}%`}

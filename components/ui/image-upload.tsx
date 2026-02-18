@@ -80,6 +80,7 @@ export function ImageUpload({
               src={value}
               alt="Uploaded image"
               fill
+              sizes="(max-width: 768px) 100vw, 33vw"
               className={cn(
                 'rounded-lg object-cover',
                 'w-full h-full'

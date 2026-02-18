@@ -19,9 +19,43 @@ export class TestDataManager {
       return this.currentHouseholdId;
     }
 
-    const householdId = existingHouseholdId || process.env.TEST_HOUSEHOLD_ID || '6889edaf-5d6e-424d-a47b-21507b7da3a1';
-    this.currentHouseholdId = householdId;
-    return householdId;
+    // Try to use existing household ID from env or parameter
+    if (existingHouseholdId) {
+      this.currentHouseholdId = existingHouseholdId;
+      return existingHouseholdId;
+    }
+
+    if (process.env.TEST_HOUSEHOLD_ID) {
+      this.currentHouseholdId = process.env.TEST_HOUSEHOLD_ID;
+      return this.currentHouseholdId;
+    }
+
+    // Try to get existing household from API
+    try {
+      const authHeader = await this.getAuthHeader();
+      const response = await this.page.request.get('/api/v2/households', {
+        headers: { 'Authorization': authHeader },
+      });
+      const result = await response.json();
+      
+      if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
+        const id = result.data[0].id as string;
+        this.currentHouseholdId = id;
+        return id;
+      }
+    } catch (error) {
+      // If we can't get households, try to create one
+    }
+
+    // Create a new household if none exists
+    const household = await this.createTestHousehold({
+      name: `TestHousehold_${Date.now()}`,
+      description: 'Auto-created for testing',
+    });
+
+    const id = household.id as string;
+    this.currentHouseholdId = id;
+    return id;
   }
 
   private async getAuthHeader(): Promise<string> {

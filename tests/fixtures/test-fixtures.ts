@@ -8,10 +8,19 @@ import { CatEditPage } from '../pages/cat-edit-page';
 import { FeedingsPage } from '../pages/feedings-page';
 import { FeedingNewPage } from '../pages/feeding-new-page';
 import { HouseholdsPage } from '../pages/households-page';
-import { HouseholdNewPage, HouseholdEditPage } from '../pages/household-pages';
+import { HouseholdNewPage, HouseholdEditPage, HouseholdInvitePage } from '../pages/household-pages';
 import { WeightPage, WeightRegisterDialog, WeightGoalDialog } from '../pages/weight-page';
 import { SettingsPage } from '../pages/settings-page';
 import { SignupPage } from '../pages/signup-page';
+import { SchedulesPage } from '../pages/schedules-page';
+import { ScheduleNewPage } from '../pages/schedule-new-page';
+import { StatisticsPage } from '../pages/statistics-page';
+import { HistoryPage } from '../pages/history-page';
+import { ProfilePage } from '../pages/profile-page';
+import { NotificationsPage } from '../pages/notifications-page';
+import { JoinPage } from '../pages/join-page';
+import { ErrorPage } from '../pages/error-page';
+import { OfflinePage } from '../pages/offline-page';
 import { TestDataManager } from '../helpers/test-data-manager';
 import { APIHelper } from '../helpers/api-helper';
 
@@ -29,11 +38,21 @@ interface TestFixtures {
   householdsPage: HouseholdsPage;
   householdNewPage: HouseholdNewPage;
   householdEditPage: HouseholdEditPage;
+  householdInvitePage: HouseholdInvitePage;
   weightPage: WeightPage;
   weightRegisterDialog: WeightRegisterDialog;
   weightGoalDialog: WeightGoalDialog;
   settingsPage: SettingsPage;
   signupPage: SignupPage;
+  schedulesPage: SchedulesPage;
+  scheduleNewPage: ScheduleNewPage;
+  statisticsPage: StatisticsPage;
+  historyPage: HistoryPage;
+  profilePage: ProfilePage;
+  notificationsPage: NotificationsPage;
+  joinPage: JoinPage;
+  errorPage: ErrorPage;
+  offlinePage: OfflinePage;
   testDataManager: TestDataManager;
   apiHelper: APIHelper;
   testUser: {
@@ -102,6 +121,10 @@ export const test = base.extend<TestFixtures>({
     await use(new HouseholdEditPage(page));
   },
 
+  householdInvitePage: async ({ page }, use) => {
+    await use(new HouseholdInvitePage(page));
+  },
+
   weightPage: async ({ page }, use) => {
     await use(new WeightPage(page));
   },
@@ -122,8 +145,50 @@ export const test = base.extend<TestFixtures>({
     await use(new SignupPage(page));
   },
 
+  schedulesPage: async ({ page }, use) => {
+    await use(new SchedulesPage(page));
+  },
+
+  scheduleNewPage: async ({ page }, use) => {
+    await use(new ScheduleNewPage(page));
+  },
+
+  statisticsPage: async ({ page }, use) => {
+    await use(new StatisticsPage(page));
+  },
+
+  historyPage: async ({ page }, use) => {
+    await use(new HistoryPage(page));
+  },
+
+  profilePage: async ({ page }, use) => {
+    await use(new ProfilePage(page));
+  },
+
+  notificationsPage: async ({ page }, use) => {
+    await use(new NotificationsPage(page));
+  },
+
+  joinPage: async ({ page }, use) => {
+    await use(new JoinPage(page));
+  },
+
+  errorPage: async ({ page }, use) => {
+    await use(new ErrorPage(page));
+  },
+
+  offlinePage: async ({ page }, use) => {
+    await use(new OfflinePage(page));
+  },
+
   testDataManager: async ({ page }, use) => {
-    await use(new TestDataManager(page));
+    const manager = new TestDataManager(page);
+    try {
+      await use(manager);
+    } finally {
+      // Automatic cleanup after test completes (even if it fails)
+      await manager.cleanupTestData();
+    }
   },
 
   apiHelper: async ({ page }, use) => {
@@ -135,6 +200,11 @@ export const test = base.extend<TestFixtures>({
     const testPassword = process.env.TEST_USER_PASSWORD || 'Test@123456';
     const testUserId = process.env.TEST_USER_ID || '';
     const testHouseholdId = process.env.TEST_HOUSEHOLD_ID || '';
+
+    // Warn if critical env vars are missing (but don't fail - allow defaults for local dev)
+    if (!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD) {
+      console.warn('⚠️  TEST_USER_EMAIL or TEST_USER_PASSWORD not set. Using defaults. Tests may fail if defaults are invalid.');
+    }
 
     await use({
       email: testEmail,

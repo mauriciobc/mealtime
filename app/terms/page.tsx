@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Termos de Uso | MealTime",
@@ -43,7 +44,7 @@ export default function TermsPage() {
           <h2 className="text-2xl font-semibold mb-4">4. Privacidade</h2>
           <p>
             Seu uso do MealTime também é regido por nossa Política de Privacidade.
-            Para mais informações, consulte nossa <a href="/privacy" className="text-primary hover:underline">Política de Privacidade</a>.
+            Para mais informações, consulte nossa <Link href="/privacy" className="text-primary hover:underline">Política de Privacidade</Link>.
           </p>
         </section>
       </div>

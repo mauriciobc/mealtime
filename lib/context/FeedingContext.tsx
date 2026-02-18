@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useUserContext } from './UserContext'; // Need householdId
 import { useLoading } from './LoadingContext';
 import { toast } from 'sonner';
@@ -127,6 +128,39 @@ const FeedingContext = createContext<{
   dispatch: React.Dispatch<FeedingAction>;
 }>({ state: initialState, dispatch: () => null });
 
+async function fetchFeedingsForHousehold(householdId: string, userId?: string): Promise<FeedingLog[]> {
+  const headers: HeadersInit = {};
+  if (userId) headers['X-User-ID'] = userId;
+  const response = await fetch(`/api/feedings?householdId=${householdId}`, { headers });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Erro ao carregar alimentações (${response.status}): ${errorText || 'Unknown error'}`);
+  }
+  const rawFeedingsData: any[] = await response.json();
+  const mappedFeedingsData: FeedingLog[] = rawFeedingsData.map(meal => ({
+    id: meal.id,
+    catId: meal.cat_id,
+    userId: meal.fed_by,
+    timestamp: new Date(meal.fed_at),
+    amount: typeof meal.amount === 'string' ? parseFloat(meal.amount) : meal.amount,
+    portionSize: typeof meal.amount === 'string' ? parseFloat(meal.amount) : meal.amount,
+    notes: meal.notes,
+    mealType: meal.meal_type,
+    householdId: meal.household_id,
+    user: {
+      id: meal.fed_by,
+      name: meal.feeder?.full_name ?? null,
+      avatar: meal.feeder?.avatar_url ?? null,
+    },
+    cat: undefined as any,
+    status: undefined as any,
+    createdAt: undefined as any,
+  }));
+  return mappedFeedingsData.sort((a, b) =>
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
+}
+
 // Helper function to calculate average portion size - memoized
 const selectAveragePortionSize = (logs: FeedingLog[] | null): number | null => {
   if (!logs || logs.length === 0) {
@@ -147,17 +181,31 @@ const selectAveragePortionSize = (logs: FeedingLog[] | null): number | null => {
   return validCount > 0 ? totalPortion / validCount : null;
 };
 
+const LOADING_ID_FEEDINGS = 'feedings-data-load';
+
 export const FeedingProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(feedingReducer, initialState);
   const { state: userState } = useUserContext();
   const { currentUser } = userState;
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const abortControllerRef = useRef<AbortController | null>(null);
   const loadingIdRef = useRef<string | null>(null);
-  const hasAttemptedLoadRef = useRef(false);
   const { state: userStateLib } = useUserContextLib();
   const userLanguage = userStateLib.currentUser?.preferences?.language;
   const userLocale = resolveDateFnsLocale(userLanguage);
+
+  const householdId = currentUser?.householdId;
+
+  const {
+    data: feedingsData,
+    isLoading: isFeedingsLoading,
+    isSuccess: isFeedingsSuccess,
+    isError: isFeedingsError,
+    error: feedingsError,
+  } = useQuery({
+    queryKey: ['feedings', householdId],
+    queryFn: () => fetchFeedingsForHousehold(householdId!, currentUser?.id),
+    enabled: !!householdId,
+  });
 
   const cleanupLoading = useCallback(() => {
     if (loadingIdRef.current) {
@@ -172,141 +220,32 @@ export const FeedingProvider = ({ children }: { children: ReactNode }) => {
   }, [removeLoadingOperation]);
 
   useEffect(() => {
-    hasAttemptedLoadRef.current = false;
-  }, [currentUser?.householdId]);
+    if (!householdId) {
+      dispatch({ type: 'FETCH_SUCCESS', payload: [] });
+      return;
+    }
+    if (isFeedingsLoading) {
+      loadingIdRef.current = LOADING_ID_FEEDINGS;
+      dispatch({ type: 'FETCH_START' });
+      addLoadingOperation({ id: LOADING_ID_FEEDINGS, priority: 4, description: 'Carregando histórico de alimentação...' });
+    }
+  }, [householdId, isFeedingsLoading, addLoadingOperation]);
 
   useEffect(() => {
-    const loadingId = 'feedings-data-load';
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    let isMounted = true;
-
-    const loadFeedingsData = async () => {
-      const householdId = currentUser?.householdId;
-      if (!householdId || !isMounted || hasAttemptedLoadRef.current) {
-        if (!householdId) {
-          dispatch({ type: 'FETCH_SUCCESS', payload: [] });
-        }
-        return;
-      }
-
-      hasAttemptedLoadRef.current = true;
-
-      try {
-        loadingIdRef.current = loadingId;
-        dispatch({ type: 'FETCH_START' });
-        addLoadingOperation({ id: loadingId, priority: 4, description: 'Carregando histórico de alimentação...' });
-
-        console.log("[FeedingProvider] Loading feedings for household:", householdId);
-        // Ensure the user ID is included for the API route's auth check
-        const headers: HeadersInit = {};
-        if (currentUser?.id) {
-          headers['X-User-ID'] = currentUser.id;
-        } else {
-           // Handle case where user ID might not be available yet?
-           // For now, proceed without it, API should return 401 if needed.
-           console.warn("[FeedingProvider] User ID not available when fetching feedings.");
-        }
-
-        const response = await fetch(`/api/feedings?householdId=${householdId}`, {
-          signal: abortController.signal,
-          headers: headers // Add the headers here
-        });
-
-        if (!isMounted) return;
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("[FeedingProvider] Feedings response error:", {
-            status: response.status,
-            statusText: response.statusText,
-            body: errorText
-          });
-          throw new Error(`Erro ao carregar alimentações (${response.status}): ${errorText || 'Unknown error'}`);
-        }
-
-        const rawFeedingsData: any[] = await response.json(); // Get raw data
-
-        if (!isMounted) return;
-
-        console.log("[FeedingProvider] Raw feedings loaded:", rawFeedingsData.length);
-
-        // Add debug logging for data conversion
-        console.log("[FeedingProvider] Sample raw feeding data:", rawFeedingsData[0]);
-
-        // --- Mapping Logic ---
-        const mappedFeedingsData: FeedingLog[] = rawFeedingsData.map(meal => {
-          const convertedAmount = typeof meal.amount === 'string' ? parseFloat(meal.amount) : meal.amount;
-          console.log("[FeedingProvider] Amount conversion:", {
-            original: meal.amount,
-            converted: convertedAmount,
-            type: typeof convertedAmount
-          });
-
-          return {
-            id: meal.id, // Already string UUID
-            catId: meal.cat_id, // Map cat_id (string UUID)
-            userId: meal.fed_by, // Map fed_by (string UUID)
-            timestamp: new Date(meal.fed_at), // Map fed_at to Date object
-            amount: convertedAmount, // Use converted amount
-            portionSize: convertedAmount, // Also use converted amount for portionSize
-            notes: meal.notes, // Map notes
-            mealType: meal.meal_type, // Map meal_type
-            householdId: meal.household_id, // Map household_id
-            // Set relations based on API response
-            user: {
-              id: meal.fed_by,
-              name: meal.feeder?.full_name ?? null, // Use optional chaining and nullish coalescing
-              avatar: meal.feeder?.avatar_url ?? null,
-            },
-            cat: undefined as any, // Explicitly set cat as undefined
-            // Set status and createdAt to undefined or handle differently if needed
-            status: undefined as any, // Map meal_type to status if required later
-            createdAt: undefined as any, // Not provided by this endpoint
-          };
-        });
-
-        console.log("[FeedingProvider] First mapped feeding data:", mappedFeedingsData[0]);
-
-        // Sort the *mapped* data
-        const sortedData = mappedFeedingsData.sort((a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-
-        console.log("[FeedingProvider] Successfully fetched, mapped, and sorted feeding logs:", sortedData);
-        // Dispatch the mapped data
-        dispatch({ type: 'FETCH_SUCCESS', payload: sortedData });
-
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.log('[FeedingProvider] Request aborted');
-          return;
-        }
-
-        if (!isMounted) return;
-
-        console.error("[FeedingProvider] Error loading feedings data:", error);
-        const errorMessage = error.message || 'Falha ao carregar histórico de alimentação';
-        dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-        toast.error(errorMessage);
-      } finally {
-        if (isMounted) {
-          cleanupLoading();
-        }
-      }
-    };
-
-    loadFeedingsData();
-
-    return () => {
-      isMounted = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
+    if (isFeedingsSuccess && feedingsData !== undefined) {
+      dispatch({ type: 'FETCH_SUCCESS', payload: feedingsData });
       cleanupLoading();
-    };
-  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading]);
+    }
+  }, [isFeedingsSuccess, feedingsData, cleanupLoading]);
+
+  useEffect(() => {
+    if (isFeedingsError && feedingsError) {
+      const errorMessage = feedingsError instanceof Error ? feedingsError.message : 'Falha ao carregar histórico de alimentação';
+      dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
+      toast.error(errorMessage);
+      cleanupLoading();
+    }
+  }, [isFeedingsError, feedingsError, cleanupLoading]);
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);

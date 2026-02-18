@@ -3,23 +3,18 @@ import { test, expect } from './fixtures/test-fixtures';
 test.describe('Cats Management', () => {
   test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
 
-  test.beforeEach(async ({ loginPage, testUser }) => {
-    await loginPage.goto();
-    await loginPage.login(testUser.email, testUser.password);
-  });
-
   test('should navigate to cats page', async ({ catsPage }) => {
     await catsPage.goto();
     await catsPage.expectOnCatsPage();
   });
 
-  test.skip('should navigate to create new cat page - needs investigation', async ({ catsPage, catNewPage }) => {
+  test('should navigate to create new cat page', async ({ catsPage, catNewPage }) => {
     await catsPage.goto();
     await catsPage.clickAddCat();
     await catNewPage.expectOnNewCatPage();
   });
 
-  test.skip('should create a new cat - needs investigation', async ({ catsPage, catNewPage, testDataManager }) => {
+  test('should create a new cat', async ({ catsPage, catNewPage, testDataManager }) => {
     const catName = testDataManager.generateUniqueName('Miau');
 
     await catsPage.goto();
@@ -30,10 +25,23 @@ test.describe('Cats Management', () => {
       name: catName,
       weight: '4.5',
       portionSize: '50',
+      feedingInterval: '8',
     });
 
     await catNewPage.submit();
 
+    // Wait for redirect to cats page after successful creation
+    await catsPage.page.waitForURL(/\/cats/, { timeout: 10000 });
+    await catsPage.expectOnCatsPage();
+    
+    // Wait for toast notification (optional - don't fail if it doesn't appear)
+    try {
+      await catsPage.page.waitForSelector('[data-sonner-toast]', { timeout: 3000 });
+    } catch {
+      // Toast might not appear or might have already disappeared
+    }
+    
+    // Verify cat was created by checking for cat cards
     await catsPage.expectCatCards();
   });
 });
@@ -51,31 +59,27 @@ test.describe('Cats API', () => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const catName = `Miau_${Date.now()}`;
-    try {
-      const result = await apiHelper.createCat({
-        name: catName,
-        weight: '4.5',
-        portion_size: '50',
-        portion_unit: 'g',
-      });
+    const result = await apiHelper.createCat({
+      name: catName,
+      weight: '4.5',
+      portion_size: '50',
+      portion_unit: 'g',
+    });
 
-      if (result && typeof result === 'object' && 'success' in result) {
-        if (result.success) {
-          expect(result).toHaveProperty('data');
-          expect(result.data).toHaveProperty('id');
-        } else {
-          console.log('API returned success: false - household may not belong to user');
-          expect(result).toHaveProperty('success');
-        }
-      } else {
-        console.log('API response:', JSON.stringify(result));
-        expect(result).toBeTruthy();
-      }
-    } catch (error) {
-      console.log('API error:', (error as Error).message);
-      expect(true).toBe(true);
+    expect(result).toBeDefined();
+    expect(typeof result).toBe('object');
+    expect(result).toHaveProperty('success');
+    
+    const resultData = result as { success: boolean; data?: { id: string }; error?: string };
+    
+    if (resultData.success) {
+      expect(resultData).toHaveProperty('data');
+      expect(resultData.data).toHaveProperty('id');
+    } else {
+      // If creation failed, fail the test with a clear message
+      const errorMsg = resultData.error || 'Unknown error';
+      throw new Error(`Cat creation failed: ${errorMsg}. Response: ${JSON.stringify(resultData)}`);
     }
-
-    await testDataManager.cleanupTestData();
+    // Cleanup is now automatic via testDataManager fixture
   });
 });

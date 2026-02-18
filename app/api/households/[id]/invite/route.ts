@@ -426,7 +426,7 @@ export async function POST(
 
     } else {
         // User does not exist in Supabase Auth, send an invite
-        const inviteRedirectUrl = `${request.nextUrl.origin}/api/auth/callback?redirect=/join?householdId=${householdId}`; // Redirect after signup/login
+        const inviteRedirectUrl = `${request.nextUrl.origin}/api/auth/callback?redirectTo=/join?householdId=${householdId}`; // Redirect after signup/login
 
         console.log('DEBUG: Attempting to invite user with email:', targetEmail, 'and redirect URL:', inviteRedirectUrl);
         const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(

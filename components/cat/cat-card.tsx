@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
-import { motion } from "framer-motion";
+import { useState, useRef, useCallback, useMemo, memo } from "react";
+import { m } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -53,7 +53,7 @@ interface CatCardProps {
 
 export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, onEdit, onDelete }: CatCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isImageLoading, setIsImageLoading] = useState(true);
+  const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
   const { state: userState } = useUserContext();
   const userTimezone = userState.currentUser?.preferences?.timezone;
 
@@ -96,23 +96,19 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
     return cat.photo_url.trim();
   }, [cat.photo_url]);
 
-  // Reset loading state when image URL changes
-  useEffect(() => {
-    setIsImageLoading(true);
+  const isImageLoading = imageUrl !== loadedImageUrl;
+
+  const handleImageLoad = useCallback(() => {
+    setLoadedImageUrl(imageUrl);
   }, [imageUrl]);
 
-  // Memoize image handlers
-  const handleImageLoad = useCallback(() => {
-    setIsImageLoading(false);
-  }, []);
-
   const handleImageError = useCallback(() => {
-    setIsImageLoading(false);
-  }, []);
+    setLoadedImageUrl(imageUrl);
+  }, [imageUrl]);
 
   return (
     <>
-      <motion.div 
+      <m.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
@@ -202,7 +198,7 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
             </TooltipProvider>
            </CardFooter>
         </Card>
-      </motion.div>
+      </m.div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

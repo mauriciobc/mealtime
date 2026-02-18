@@ -3,7 +3,7 @@
  * Check out the live demo at https://shadcn-datetime-picker-pro.vercel.app/
  * Find the latest source code at https://github.com/huybuidac/shadcn-datetime-picker
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Clock, ChevronDownIcon, CheckIcon } from 'lucide-react';
@@ -60,22 +60,17 @@ export function SimpleTimePicker({
   const userLocale = resolveDateFnsLocale(userLanguage);
   // hours24h = HH
   // hours12h = hh
-  const formatStr = useMemo(
-    () => (use12HourFormat ? 'yyyy-MM-dd hh:mm:ss.SSS a xxxx' : 'yyyy-MM-dd HH:mm:ss.SSS xxxx'),
-    [use12HourFormat]
-  );
+  const formatStr = use12HourFormat ? 'yyyy-MM-dd hh:mm:ss.SSS a xxxx' : 'yyyy-MM-dd HH:mm:ss.SSS xxxx';
   const [ampm, setAmpm] = useState(format(value, 'a') === 'AM' ? AM_VALUE : PM_VALUE);
   const [hour, setHour] = useState(use12HourFormat ? +format(value, 'hh') : value.getHours());
-  const [minute, setMinute] = useState(value.getMinutes());
-  const [second, setSecond] = useState(value.getSeconds());
+  const [minute, setMinute] = useState(() => value.getMinutes());
+  const [second, setSecond] = useState(() => value.getSeconds());
 
   useEffect(() => {
     onChange(buildTime({ use12HourFormat, value, formatStr, hour, minute, second, ampm }));
   }, [hour, minute, second, ampm, formatStr, use12HourFormat, onChange, value]);
 
-  const _hourIn24h = useMemo(() => {
-    return use12HourFormat ? (hour % 12) + ampm * 12 : hour;
-  }, [hour, use12HourFormat, ampm]);
+  const _hourIn24h = use12HourFormat ? (hour % 12) + ampm * 12 : hour;
 
   const hours: SimpleTimeOption[] = useMemo(
     () =>
@@ -229,12 +224,16 @@ export function SimpleTimePicker({
     return format(value, use12HourFormat ? 'hh:mm:ss a' : 'HH:mm:ss');
   }, [value, use12HourFormat]);
 
+  const listboxId = useId();
+
   return (
     <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
         <div
           role="combobox"
           aria-expanded={open}
+          aria-controls={listboxId}
+          aria-haspopup="listbox"
           className={cn(
             'flex h-9 px-3 items-center justify-between cursor-pointer font-normal border border-input rounded-md text-sm shadow-sm',
             disabled && 'opacity-50 cursor-not-allowed'
@@ -246,7 +245,7 @@ export function SimpleTimePicker({
           <ChevronDownIcon className="ml-2 size-4 shrink-0 opacity-50" />
         </div>
       </PopoverTrigger>
-      <PopoverContent className="p-0" side="top">
+      <PopoverContent id={listboxId} className="p-0" side="top">
         <div className="flex-col gap-2 p-2">
           <div className="flex h-56 grow">
             <ScrollArea className="h-full flex-grow">

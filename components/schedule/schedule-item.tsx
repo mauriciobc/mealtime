@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
@@ -108,7 +108,7 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
 
   return (
     <>
-      <motion.div 
+      <m.div 
         whileHover={{ y: -2, transition: { duration: 0.2 } }}
         className="cursor-pointer"
         onClick={onView}
@@ -173,7 +173,7 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </m.div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>

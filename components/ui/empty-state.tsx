@@ -47,6 +47,4 @@ export function EmptyState({
       {actionButton && <div className="pt-4">{actionButton}</div>}
     </div>
   );
-}
-
-export default EmptyState; 
+} 

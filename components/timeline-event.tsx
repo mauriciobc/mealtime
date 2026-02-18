@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Fish, Pill, StickyNote, X } from "lucide-react"
-import { motion, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "framer-motion"
+import { m, AnimatePresence, useMotionValue, useTransform, type PanInfo } from "framer-motion"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import type { TimelineEventData, EventType } from "@/components/cat/cat-timeline"
@@ -66,7 +66,7 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
   const typeDetails = getEventTypeDetails(event.type)
 
   return (
-    <motion.div
+    <m.div
       className={cn("pl-8 relative", className)}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -79,9 +79,9 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
       }}
     >
       {/* Paw dot on timeline */}
-      <motion.div
+      <m.div
         className="absolute left-4 top-6 w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 transform -translate-x-1/2 -translate-y-1/2 before:content-[''] before:absolute before:top-[-2px] before:left-[-1px] before:w-1 before:h-1 before:rounded-full before:bg-slate-200 dark:before:bg-slate-500 after:content-[''] after:absolute after:top-[-2px] after:right-[-1px] after:w-1 after:h-1 after:rounded-full after:bg-slate-200 dark:after:bg-slate-500"
-        initial={{ scale: 0 }}
+        initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1 }}
         transition={{
           delay: index * 0.1 + 0.2,
@@ -92,14 +92,14 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
       />
 
       {/* Event card */}
-      <motion.div
+      <m.div
         style={{ x, opacity, scale }}
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.1}
         onDragEnd={handleDragEnd}
       >
-        <motion.div
+        <m.div
           whileHover={{
             y: -2,
             boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
@@ -112,7 +112,7 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
             style={{ borderLeftColor: typeDetails.borderColor }}
           >
             <CardHeader className="p-4 pb-2 flex flex-row items-center space-x-4">
-              <motion.div
+              <m.div
                 className="relative"
                 whileHover={{ rotate: [0, -5, 5, -5, 0] }}
                 transition={{ duration: 0.5 }}
@@ -124,28 +124,28 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
                   height={40}
                   className="rounded-full border-2 border-slate-200 dark:border-slate-700"
                 />
-              </motion.div>
+              </m.div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold">{event.timestamp}</span>
-                    <motion.span
+                    <m.span
                       className="text-slate-400 dark:text-slate-500"
-                      initial={{ opacity: 0, scale: 0 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: index * 0.1 + 0.3, type: "spring" }}
                     >
                       🐾
-                    </motion.span>
+                    </m.span>
                   </div>
                   <Badge variant="outline" className={cn("flex items-center gap-1", typeDetails.textColor)}>
-                    <motion.div
+                    <m.div
                       initial={{ rotate: 0 }}
                       whileHover={{ rotate: [0, -10, 10, -10, 0] }}
                       transition={{ duration: 0.5 }}
                     >
                       {typeDetails.icon}
-                    </motion.div>
+                    </m.div>
                     {typeDetails.label}
                   </Badge>
                 </div>
@@ -158,7 +158,7 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
               {/* Expanded content */}
               <AnimatePresence>
                 {expanded && (
-                  <motion.div
+                  <m.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
@@ -169,37 +169,37 @@ export function TimelineEvent({ event, onDelete, className, index }: TimelineEve
                       <h4 className="font-medium mb-1">Notes:</h4>
                       <p className="text-slate-600 dark:text-slate-400">{event.notes}</p>
                     </div>
-                  </motion.div>
+                  </m.div>
                 )}
               </AnimatePresence>
             </CardContent>
           </Card>
-        </motion.div>
+        </m.div>
 
         {/* Delete indicator (visible when swiping) */}
-        <motion.div
+        <m.div
           className="absolute top-0 right-4 bottom-0 flex items-center justify-center text-red-500"
           style={{ opacity: deleteIconOpacity }}
         >
           <div className="relative">
             <X className="h-6 w-6" />
-            <motion.div
+            <m.div
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-0.5 bg-red-500 rotate-45 transform -translate-x-2"
               style={{ scale: pawScale }}
             />
-            <motion.div
+            <m.div
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-0.5 bg-red-500 rotate-45 transform translate-x-0"
               style={{ scale: pawScale }}
             />
-            <motion.div
+            <m.div
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-0.5 bg-red-500 rotate-45 transform translate-x-2"
               style={{ scale: pawScale }}
             />
           </div>
           <span className="sr-only">Delete</span>
-        </motion.div>
-      </motion.div>
-    </motion.div>
+        </m.div>
+      </m.div>
+    </m.div>
   )
 }
 

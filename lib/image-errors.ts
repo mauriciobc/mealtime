@@ -33,15 +33,15 @@ export class ImageUploadError extends ImageError {
   }
 }
 
-// Função para gerar URL de fallback baseada no tipo de imagem
+// Usa PNG em vez de SVG - Next.js Image falha com SVGs externos (400 "upstream response is invalid")
 export function getFallbackImageUrl(type: 'user' | 'cat' | 'thumbnail'): string {
   switch (type) {
     case 'user':
-      return `https://api.dicebear.com/7.x/initials/svg?seed=U&backgroundColor=random`;
+      return `https://api.dicebear.com/7.x/initials/png?seed=U`;
     case 'cat':
-      return `https://api.dicebear.com/7.x/bottts/svg?seed=cat&backgroundColor=random`;
+      return `https://api.dicebear.com/7.x/bottts/png?seed=cat`;
     case 'thumbnail':
-      return `https://api.dicebear.com/7.x/bottts/svg?seed=thumb&backgroundColor=random`;
+      return `https://api.dicebear.com/7.x/bottts/png?seed=thumb`;
   }
 }
 

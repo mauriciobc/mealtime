@@ -13,14 +13,24 @@ export class CatsPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.locator('h1:visible, [class*="page-title"]:visible');
-    this.addCatButton = page.locator('a[href="/cats/new"]:visible');
-    this.catList = page.locator('[class*="cat-list"], [class*="CatList"]');
-    this.catCards = page.locator('[class*="cat-card"]:visible, [class*="CatCard"]:visible, [class*="pet-card"]:visible');
-    this.noCatsEmptyState = page.locator('text=Nenhum gato cadastrado:visible');
-    this.noHouseholdEmptyState = page.locator('text=Sem Residência:visible');
-    this.searchInput = page.locator('input[placeholder*="Buscar"]:visible, input[placeholder*="Search"]:visible');
-    this.bottomNav = page.locator('[class*="bottom-nav"]:visible');
+    // Use getByRole for headings - more resilient to CSS changes
+    this.pageTitle = page.getByRole('heading', { name: /meus gatos|my cats/i }).or(
+      page.locator('h1:visible').first()
+    );
+    // Use getByRole for links and buttons
+    this.addCatButton = page.getByRole('link', { name: /adicionar gato|add cat|novo gato|new cat/i }).or(
+      page.getByRole('button', { name: /adicionar gato|add cat/i })
+    ).or(page.locator('a[href="/cats/new"]:visible')).first();
+    // Use more generic selectors for lists and cards (these are structural)
+    this.catList = page.locator('[class*="cat-list"], [class*="CatList"], [role="list"]').first();
+    this.catCards = page.locator('[class*="cat-card"], [class*="CatCard"], [class*="pet-card"], article').filter({ hasNot: page.locator('[class*="empty"]') });
+    // Use getByText for text content
+    this.noCatsEmptyState = page.getByText(/nenhum gato cadastrado|no cats registered/i);
+    this.noHouseholdEmptyState = page.getByText(/sem residência|no household/i);
+    // Use getByPlaceholder for search inputs
+    this.searchInput = page.getByPlaceholder(/buscar|search/i).or(page.locator('input[type="search"]:visible')).first();
+    // Navigation is typically in a nav element
+    this.bottomNav = page.getByRole('navigation').or(page.locator('[class*="bottom-nav"], nav:visible')).first();
   }
 
   async goto() {
@@ -58,6 +68,7 @@ export class CatsPage {
 
   async searchForCat(name: string) {
     await this.searchInput.fill(name);
-    await this.page.waitForTimeout(500);
+    // Wait for search results to update
+    await this.page.waitForLoadState('networkidle');
   }
 }
