@@ -1,4 +1,5 @@
 import { type Page, type BrowserContext } from '@playwright/test';
+import { parseGender } from '../../lib/types/common';
 
 export class TestDataManager {
   readonly page: Page;
@@ -106,7 +107,7 @@ export class TestDataManager {
         portion_unit: data.portionUnit,
         feeding_interval: data.feedingInterval,
         notes: data.notes,
-        gender: data.gender ?? undefined,
+        gender: data.gender === undefined ? undefined : parseGender(data.gender),
         householdId,
       }),
     });
@@ -134,13 +135,12 @@ export class TestDataManager {
         'Authorization': await this.getAuthHeader(),
       },
       data: JSON.stringify({
-        cat_id: data.catId,
+        catId: data.catId,
         amount: data.amount,
         unit: data.unit,
         meal_type: data.mealType || 'Refeição',
         food_type: data.foodType || 'Ração seca',
         notes: data.notes,
-        fed_at: data.fedAt || new Date().toISOString(),
       }),
     });
 

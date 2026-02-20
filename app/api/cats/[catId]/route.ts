@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { withError } from "@/lib/utils/api-middleware";
+import { parseGender } from '@/lib/types/common';
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from 'next/headers';
 
@@ -290,7 +291,7 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
   }
 
   if (body.gender !== undefined) {
-    updateData.gender = body.gender;
+    updateData.gender = parseGender(body.gender);
   }
 
   // Update the cat

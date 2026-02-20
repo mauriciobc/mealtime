@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
+import { parseGender } from '@/lib/types/common';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -395,7 +396,7 @@ export const PATCH = withHybridAuth(async (
         name: cat.name,
         birthDate: cat.birth_date,
         weight: cat.weight,
-        gender: cat.gender ?? null
+        gender: parseGender(cat.gender)
       }))
     };
 

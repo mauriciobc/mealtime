@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
+import { parseGender } from '@/lib/types/common';
 
 /**
  * Valida e normaliza o peso do gato
@@ -263,7 +264,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       owner_id: user.id,
       restrictions: body.restrictions?.trim() || null,
       notes: body.notes?.trim() || null,
-      gender: (body.gender === 'male' || body.gender === 'female') ? body.gender : null,
+      gender: parseGender(body.gender),
       feeding_interval: feedingInterval,
       portion_size: body.portion_size || null
     };

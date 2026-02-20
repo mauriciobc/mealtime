@@ -3,6 +3,21 @@
  */
 export type ID = string;
 
+/**
+ * Gênero do gato. Valores vindos do DB ou da API devem ser normalizados com parseGender.
+ */
+export type Gender = 'male' | 'female' | null;
+
+/**
+ * Converte valor desconhecido (ex.: do DB ou do body) para Gender.
+ * Retorna null para undefined, null, ou qualquer string que não seja 'male' ou 'female'.
+ */
+export function parseGender(value: unknown): Gender {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string' && (value === 'male' || value === 'female')) return value;
+  return null;
+}
+
 // Add this at the top if Decimal is not defined elsewhere
 // If you use a library like decimal.js, import it. Otherwise, fallback to number.
 type Decimal = number;
@@ -45,7 +60,7 @@ export interface BaseCat {
   weight?: number;
   restrictions?: string;
   notes?: string;
-  gender?: 'male' | 'female' | null;
+  gender?: Gender;
   householdId: ID;
   feedingInterval: number;
   portionSize?: string;
@@ -95,7 +110,7 @@ export interface BaseCats {
   photo_url?: string | null;
   restrictions?: string | null;
   notes?: string | null;
-  gender?: string | null;
+  gender?: Gender;
   feeding_interval?: number | null; // Integer type for interval in hours
   portion_size?: Decimal | null; // Decimal type (maps to number in JS)
 }

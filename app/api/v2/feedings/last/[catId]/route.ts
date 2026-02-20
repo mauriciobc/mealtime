@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { parseGender } from '@/lib/types/common';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -139,7 +140,7 @@ export const GET = withHybridAuth(async (
         id: lastFeeding.cat.id,
         name: lastFeeding.cat.name,
         photoUrl: lastFeeding.cat.photo_url,
-        gender: lastFeeding.cat.gender ?? null
+        gender: parseGender(lastFeeding.cat.gender)
       } : undefined,
       user: lastFeeding.feeder ? {
         id: lastFeeding.feeder.id,

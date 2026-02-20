@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { parseGender } from '@/lib/types/common';
 
 /**
  * Extrai e valida o ID do parâmetro de rota de forma robusta
@@ -145,7 +146,7 @@ export const GET = withHybridAuth(async (
         id: feedingLog.cat.id,
         name: feedingLog.cat.name,
         photoUrl: feedingLog.cat.photo_url,
-        gender: feedingLog.cat.gender ?? null
+        gender: parseGender(feedingLog.cat.gender)
       } : undefined,
       user: feedingLog.feeder ? {
         id: feedingLog.feeder.id,
@@ -381,7 +382,7 @@ export const PUT = withHybridAuth(async (
         id: updatedLog.cat.id,
         name: updatedLog.cat.name,
         photoUrl: updatedLog.cat.photo_url,
-        gender: updatedLog.cat.gender ?? null
+        gender: parseGender(updatedLog.cat.gender)
       } : undefined,
       user: updatedLog.feeder ? {
         id: updatedLog.feeder.id,

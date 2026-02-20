@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { BaseCats } from "@/lib/types/common";
+import { BaseCats, parseGender } from "@/lib/types/common";
 import { z } from "zod";
 import { logger } from "@/lib/monitoring/logger";
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
@@ -221,7 +221,7 @@ export const POST = withHybridAuth(async (
         owner_id: user.id,
         restrictions: data.restrictions ?? null,
         notes: data.notes ?? null,
-        gender: data.gender ?? null,
+        gender: parseGender(data.gender),
         feeding_interval: data.feedingInterval ?? null,
         portion_size: data.portion_size ?? null
       }
@@ -242,7 +242,7 @@ export const POST = withHybridAuth(async (
       owner_id: cat.owner_id,
       restrictions: cat.restrictions,
       notes: cat.notes,
-      gender: cat.gender ?? null,
+      gender: parseGender(cat.gender),
       feeding_interval: cat.feeding_interval,
       portion_size: cat.portion_size?.toNumber() ?? null
     };

@@ -1,4 +1,5 @@
 import { type Page } from '@playwright/test';
+import { parseGender } from '../../lib/types/common';
 
 export class APIHelper {
   readonly page: Page;
@@ -87,6 +88,7 @@ export class APIHelper {
     householdId?: string;
     birthDate?: string;
     weight?: string;
+    portion_size?: string;
     portionSize?: string;
     portion_unit?: string;
     portionUnit?: string;
@@ -98,10 +100,11 @@ export class APIHelper {
       name: data.name,
       birthdate: data.birthDate,
       weight: data.weight,
-      portion_size: data.portionSize ?? data.portion_unit ?? data.portionUnit,
+      portion_size: data.portion_size ?? data.portionSize,
+      portion_unit: data.portion_unit ?? data.portionUnit,
       feeding_interval: data.feedingInterval,
       notes: data.notes,
-      gender: data.gender,
+      gender: data.gender === undefined ? undefined : parseGender(data.gender),
     };
     if (data.householdId) body.householdId = data.householdId;
     return this.post('/api/v2/cats', body);

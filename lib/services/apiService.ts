@@ -3,7 +3,7 @@ import { formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { addHours, isBefore, differenceInHours } from 'date-fns';
 import { getUserTimezone, calculateNextFeeding } from '../utils/dateUtils';
 import { toDate } from 'date-fns-tz';
-import { BaseUser, BaseCat, BaseFeedingLog, ID } from '../types/common';
+import { BaseUser, BaseCat, BaseFeedingLog, ID, parseGender } from '../types/common';
 import { Notification } from '../types/notification';
 import { generateUUID } from '../utils/uuid';
 import { 
@@ -143,7 +143,7 @@ export async function fetchCatsForHousehold(householdId: string, userId: string 
         notes: cat.notes || null,
         feeding_interval: cat.feeding_interval || null, // Map to feeding_interval (required field)
         portion_size: cat.portion_size || null, // Map snake_case if available
-        gender: cat.gender ?? null,
+        gender: parseGender(cat.gender),
         schedules: [], // Assuming schedules are loaded separately
       };
       

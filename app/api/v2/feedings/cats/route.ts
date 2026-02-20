@@ -3,7 +3,7 @@ import prisma from '@/lib/prisma';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
-import { BaseCats } from "@/lib/types/common";
+import { BaseCats, parseGender } from "@/lib/types/common";
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -64,7 +64,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       weight: cat.weight ? parseFloat(cat.weight.toString()) : null,
       household_id: cat.household_id,
       owner_id: cat.owner_id,
-      gender: cat.gender ?? null
+      gender: parseGender(cat.gender)
     }));
 
     logger.info(`[GET /api/v2/feedings/cats] Found ${formattedCats.length} cats for household ${householdId}`);

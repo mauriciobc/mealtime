@@ -4,6 +4,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { z } from 'zod';
+import { parseGender } from '@/lib/types/common';
 
 /**
  * Valida e normaliza o peso do gato
@@ -320,7 +321,7 @@ export const PUT = withHybridAuth(async (
     }
 
     if (body.gender !== undefined) {
-      updateData.gender = body.gender;
+      updateData.gender = parseGender(body.gender);
     }
 
     // Update the cat

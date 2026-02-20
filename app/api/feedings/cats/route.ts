@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { BaseCats } from "@/lib/types/common";
+import { BaseCats, parseGender } from "@/lib/types/common";
 
 // GET /api/feedings/cats - Listar gatos para o formulário de alimentação
 export async function GET(request: NextRequest) {
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       weight: cat.weight ? parseFloat(cat.weight.toString()) : null,
       household_id: cat.household_id,
       owner_id: cat.owner_id,
-      gender: cat.gender ?? null
+      gender: parseGender(cat.gender)
     }));
 
     console.log(`Encontrados ${formattedCats.length} gatos para a residência ${householdId}`);

@@ -31,7 +31,8 @@ export function isValidCat(cat: unknown): cat is BaseCat {
     (!c.notes || typeof c.notes === "string") &&
     typeof c.householdId === "string" &&
     (c.feedingInterval === null || typeof c.feedingInterval === "number") &&
-    (!c.portionSize || typeof c.portionSize === "number")
+    (!c.portionSize || typeof c.portionSize === "number") &&
+    (c.gender === undefined || c.gender === null || c.gender === "male" || c.gender === "female")
   );
 }
 

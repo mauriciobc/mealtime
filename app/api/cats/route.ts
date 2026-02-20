@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
 import { getAuthenticatedUser, AuthenticatedUser } from '@/lib/auth';
 import { ApiResponse } from '@/lib/responses/api-responses';
+import { parseGender } from '@/lib/types/common';
 
 const MAX_CAT_AGE_YEARS = 30;
 const MAX_CAT_WEIGHT_KG = 50;
@@ -218,7 +219,7 @@ export async function POST(request: NextRequest) {
       owner_id: user.id,
       restrictions: body.restrictions?.trim() || null,
       notes: body.notes?.trim() || null,
-      gender: (body.gender === 'male' || body.gender === 'female') ? body.gender : null,
+      gender: parseGender(body.gender),
       feeding_interval: feedingInterval,
       portion_size: body.portion_size || null,
       weight: weightValidation.value,

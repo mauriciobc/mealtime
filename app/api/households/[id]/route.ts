@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';  // Update import to use named import
 import { createClient } from '@/utils/supabase/server'; // Import Supabase client
 import { cookies, headers } from 'next/headers'; // Import cookies and headers
 import { z } from 'zod'; // Import Zod
+import { parseGender } from '@/lib/types/common';
 
 // Zod schema for route parameters
 const RouteParamsSchema = z.object({
@@ -286,7 +287,7 @@ export async function PATCH(
         name: cat.name,
         birthDate: cat.birth_date,
         weight: cat.weight,
-        gender: cat.gender ?? null
+        gender: parseGender(cat.gender)
       }))
     };
 

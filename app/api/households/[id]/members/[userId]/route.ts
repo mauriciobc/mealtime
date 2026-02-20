@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { createClient } from '@/utils/supabase/server'; // Import Supabase client
 import { cookies } from 'next/headers'; // Import cookies
 import { z } from 'zod'; // Import Zod
+import { parseGender } from '@/lib/types/common';
 
 // Zod schema for route parameters
 const RouteParamsSchema = z.object({
@@ -144,7 +145,7 @@ async function getFormattedHousehold(householdId: string) {
         name: cat.name,
         birthDate: cat.birth_date,
         weight: cat.weight,
-        gender: cat.gender ?? null
+        gender: parseGender(cat.gender)
     })), // Map cats with necessary fields
     catGroups: [], // Add if you want
     createdAt: household.created_at,

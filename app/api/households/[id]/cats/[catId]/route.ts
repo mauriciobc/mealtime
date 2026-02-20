@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 // import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { createClient } from '@/utils/supabase/server'; // Import Supabase client
 import { cookies } from 'next/headers'; // Import cookies (required for Next.js 16)
-import { BaseCat } from '@/lib/types/common';
+import { BaseCat, parseGender } from '@/lib/types/common';
 import { z } from 'zod'; // Import Zod for validation
 
 interface PrismaError extends Error {
@@ -112,7 +112,7 @@ export async function GET(
       ...(cat.birth_date && { birthdate: cat.birth_date }),
       ...(cat.weight && { weight: Number(cat.weight) }),
       ...(cat.restrictions && { restrictions: cat.restrictions }),
-      ...(cat.gender != null && { gender: cat.gender as 'male' | 'female' }),
+      gender: parseGender(cat.gender),
       householdId: cat.household_id,
       feedingInterval: cat.feeding_interval || 8
     };
@@ -186,7 +186,7 @@ export async function PATCH(
     if (bodyValidation.data.notes !== undefined) updateData.notes = bodyValidation.data.notes; // Allow null
     if (bodyValidation.data.feedingInterval !== undefined) updateData.feeding_interval = bodyValidation.data.feedingInterval;
     if (bodyValidation.data.portion_size !== undefined) updateData.portion_size = bodyValidation.data.portion_size;
-    if (bodyValidation.data.gender !== undefined) updateData.gender = bodyValidation.data.gender;
+    if (bodyValidation.data.gender !== undefined) updateData.gender = parseGender(bodyValidation.data.gender);
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ message: "Nenhum dado válido para atualizar" }, { status: 400 });
@@ -211,7 +211,7 @@ export async function PATCH(
       weight: updatedCat.weight ? Number(updatedCat.weight) : null,
       restrictions: updatedCat.restrictions,
       notes: updatedCat.notes,
-      gender: updatedCat.gender ?? null,
+      gender: parseGender(updatedCat.gender),
       feedingInterval: updatedCat.feeding_interval,
       portion_size: updatedCat.portion_size ? Number(updatedCat.portion_size) : null,
       householdId: updatedCat.household_id

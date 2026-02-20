@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
+import { parseGender } from '@/lib/types/common';
 
 // GET /api/feedings/[id] - Buscar detalhes de um registro de alimentação
 export async function GET(
@@ -93,7 +94,7 @@ export async function GET(
         id: feedingLog.cat.id,
         name: feedingLog.cat.name,
         photoUrl: feedingLog.cat.photo_url,
-        gender: feedingLog.cat.gender ?? null
+        gender: parseGender(feedingLog.cat.gender)
       } : undefined,
       user: feedingLog.feeder ? {
         id: feedingLog.feeder.id,
