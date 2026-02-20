@@ -89,6 +89,7 @@ export class TestDataManager {
     portionUnit?: string;
     feedingInterval?: number;
     notes?: string;
+    gender?: 'male' | 'female';
   }) {
     const householdId = await this.ensureHousehold();
 
@@ -105,7 +106,8 @@ export class TestDataManager {
         portion_unit: data.portionUnit,
         feeding_interval: data.feedingInterval,
         notes: data.notes,
-        household_id: householdId,
+        gender: data.gender ?? undefined,
+        householdId,
       }),
     });
 

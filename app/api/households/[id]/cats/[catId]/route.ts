@@ -26,6 +26,7 @@ const PatchBodySchema = z.object({
   weight: z.number().positive().nullable().optional(),
   restrictions: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  gender: z.enum(['male', 'female']).optional().nullable(),
   feedingInterval: z.number().int().min(1).max(24).optional(),
   portion_size: z.number().positive().optional(),
 }).strict(); // Ensure no extra fields
@@ -111,6 +112,7 @@ export async function GET(
       ...(cat.birth_date && { birthdate: cat.birth_date }),
       ...(cat.weight && { weight: Number(cat.weight) }),
       ...(cat.restrictions && { restrictions: cat.restrictions }),
+      ...(cat.gender != null && { gender: cat.gender as 'male' | 'female' }),
       householdId: cat.household_id,
       feedingInterval: cat.feeding_interval || 8
     };
@@ -184,6 +186,7 @@ export async function PATCH(
     if (bodyValidation.data.notes !== undefined) updateData.notes = bodyValidation.data.notes; // Allow null
     if (bodyValidation.data.feedingInterval !== undefined) updateData.feeding_interval = bodyValidation.data.feedingInterval;
     if (bodyValidation.data.portion_size !== undefined) updateData.portion_size = bodyValidation.data.portion_size;
+    if (bodyValidation.data.gender !== undefined) updateData.gender = bodyValidation.data.gender;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ message: "Nenhum dado válido para atualizar" }, { status: 400 });
@@ -208,6 +211,7 @@ export async function PATCH(
       weight: updatedCat.weight ? Number(updatedCat.weight) : null,
       restrictions: updatedCat.restrictions,
       notes: updatedCat.notes,
+      gender: updatedCat.gender ?? null,
       feedingInterval: updatedCat.feeding_interval,
       portion_size: updatedCat.portion_size ? Number(updatedCat.portion_size) : null,
       householdId: updatedCat.household_id

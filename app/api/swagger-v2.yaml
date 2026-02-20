@@ -92,6 +92,11 @@ components:
         updated_at:
           type: string
           format: date-time
+        gender:
+          type: string
+          nullable: true
+          description: Sexo do gato. Valores "male", "female" ou null quando não informado.
+          enum: [male, female]
     
     User:
       type: object
@@ -222,6 +227,11 @@ paths:
                   type: integer
                   minimum: 1
                   maximum: 24
+                gender:
+                  type: string
+                  nullable: true
+                  description: Sexo do gato. Valores "male" ou "female".
+                  enum: [male, female]
       responses:
         '201':
           description: Gato criado
@@ -316,6 +326,11 @@ paths:
                   type: string
                 notes:
                   type: string
+                gender:
+                  type: string
+                  nullable: true
+                  description: Sexo do gato. Valores "male" ou "female".
+                  enum: [male, female]
       responses:
         '200':
           description: Gato atualizado

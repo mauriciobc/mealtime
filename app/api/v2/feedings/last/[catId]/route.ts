@@ -105,7 +105,8 @@ export const GET = withHybridAuth(async (
           select: {
             id: true,
             name: true,
-            photo_url: true
+            photo_url: true,
+            gender: true
           }
         }
       },
@@ -137,7 +138,8 @@ export const GET = withHybridAuth(async (
       cat: lastFeeding.cat ? {
         id: lastFeeding.cat.id,
         name: lastFeeding.cat.name,
-        photoUrl: lastFeeding.cat.photo_url
+        photoUrl: lastFeeding.cat.photo_url,
+        gender: lastFeeding.cat.gender ?? null
       } : undefined,
       user: lastFeeding.feeder ? {
         id: lastFeeding.feeder.id,

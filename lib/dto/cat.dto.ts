@@ -9,6 +9,7 @@ export const createCatDtoSchema = z.object({
   weight: z.number().positive().max(MAX_CAT_WEIGHT_KG).optional().nullable(),
   restrictions: z.string().max(MAX_RESTRICTIONS_LENGTH).optional().nullable(),
   notes: z.string().max(MAX_NOTES_LENGTH).optional().nullable(),
+  gender: z.enum(['male', 'female']).optional().nullable(),
   feeding_interval: z.number().int().min(MIN_FEEDING_INTERVAL_HOURS).max(MAX_FEEDING_INTERVAL_HOURS).optional().nullable(),
   portion_size: z.number().positive().optional().nullable(),
   portion_unit: z.string().optional().nullable(),

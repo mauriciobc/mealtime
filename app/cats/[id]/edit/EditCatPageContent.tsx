@@ -98,6 +98,7 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
     weight: "",
     restrictions: "",
     photoUrl: "",
+    gender: "" as "" | "male" | "female",
     feedingInterval: "8",
     portion_size: "",
     notes: "",
@@ -169,6 +170,7 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
           weight: foundCat.weight?.toString() || "",
           restrictions: foundCat.restrictions || "",
           photoUrl: foundCat.photo_url || "",
+          gender: (foundCat.gender === "male" || foundCat.gender === "female") ? foundCat.gender : "",
           feedingInterval: foundCat.feeding_interval !== undefined && foundCat.feeding_interval !== null ? String(foundCat.feeding_interval) : "8",
           portion_size: foundCat.portion_size?.toString() || "",
           notes: foundCat.notes || "",
@@ -253,6 +255,7 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
         photo_url: formData.photoUrl || null,
         birthdate: formData.birthdate ? new Date(formData.birthdate) : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
+        gender: (formData.gender === "male" || formData.gender === "female") ? formData.gender : null,
         restrictions: formData.restrictions?.trim() || null,
         feeding_interval: formData.feedingInterval ? parseInt(formData.feedingInterval) : null,
         portion_size: formData.portion_size ? String(formData.portion_size) : null,
@@ -420,6 +423,23 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
                     onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value }))}
                     placeholder="0.00"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Sexo</Label>
+                  <Select
+                    value={formData.gender || "none"}
+                    onValueChange={(v) => setFormData(prev => ({ ...prev, gender: v === "none" ? "" : (v as "male" | "female") }))}
+                  >
+                    <SelectTrigger id="gender">
+                      <SelectValue placeholder="Não informado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Não informado</SelectItem>
+                      <SelectItem value="male">Macho</SelectItem>
+                      <SelectItem value="female">Fêmea</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">

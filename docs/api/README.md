@@ -96,31 +96,32 @@
 - URL: `/api/cats`
 - Header: Authorization: Bearer <token>
 **Response**
-- 200: `[{ "id": "...", "name": "...", ... }]`
+- 200: `[{ "id": "...", "name": "...", "gender": "male" | "female" | null, ... }]`
 
 ### 2.2 Criar gato
 **Request**
 - Method: POST
 - URL: `/api/cats`
-- Body: `{ "name": "Mimi", ... }`
+- Body: `{ "name": "Mimi", "householdId": "...", "gender": "female" [opcional], ... }`
+- Campo **gender** [opcional]: `"male"`, `"female"` ou omitido (null).
 **Response**
-- 201: `{ "id": "...", "name": "Mimi", ... }`
+- 201: `{ "id": "...", "name": "Mimi", "gender": "female" | null, ... }`
 
 ### 2.3 Detalhes do gato
 **Request**
 - Method: GET
 - URL: `/api/cats/:id`
 **Response**
-- 200: `{ "id": "...", "name": "Mimi", ... }`
+- 200: `{ "id": "...", "name": "Mimi", "gender": "male" | "female" | null, ... }`
 - 404: `{ "error": "Gato não encontrado." }`
 
 ### 2.4 Atualizar gato
 **Request**
 - Method: PUT
 - URL: `/api/cats/:id`
-- Body: `{ "name": "Novo Nome" }`
+- Body: `{ "name": "Novo Nome", "gender": "male" | "female" | null [opcional], ... }`
 **Response**
-- 200: `{ "id": "...", "name": "Novo Nome", ... }`
+- 200: `{ "id": "...", "name": "Novo Nome", "gender": "male" | "female" | null, ... }`
 
 ### 2.5 Remover gato
 **Request**

@@ -34,9 +34,13 @@ test.describe('Cat Management', () => {
     test('should create a new cat via API and verify', async ({ apiHelper, testUser, page }) => {
       await apiHelper.authenticate(testUser.email, testUser.password);
 
+      const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
+      const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0].id : null) || testUser.householdId;
+
       const catName = `Miau_${Date.now()}`;
       const result = await apiHelper.createCat({
         name: catName,
+        householdId: householdId || undefined,
         weight: '4.5',
         portionSize: '50',
         portionUnit: 'g',

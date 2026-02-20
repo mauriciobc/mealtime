@@ -143,7 +143,8 @@ async function getFormattedHousehold(householdId: string) {
         id: String(cat.id),
         name: cat.name,
         birthDate: cat.birth_date,
-        weight: cat.weight // Assuming weight is needed here
+        weight: cat.weight,
+        gender: cat.gender ?? null
     })), // Map cats with necessary fields
     catGroups: [], // Add if you want
     createdAt: household.created_at,

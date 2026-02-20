@@ -140,7 +140,8 @@ export async function GET(request: NextRequest) {
         birth_date: true,
         weight: true,
         household_id: true,
-        owner_id: true
+        owner_id: true,
+        gender: true
       },
       orderBy: { name: 'asc' }
     });
@@ -217,6 +218,7 @@ export async function POST(request: NextRequest) {
       owner_id: user.id,
       restrictions: body.restrictions?.trim() || null,
       notes: body.notes?.trim() || null,
+      gender: (body.gender === 'male' || body.gender === 'female') ? body.gender : null,
       feeding_interval: feedingInterval,
       portion_size: body.portion_size || null,
       weight: weightValidation.value,

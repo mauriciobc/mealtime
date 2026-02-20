@@ -151,6 +151,7 @@ Authorization: Bearer <access_token>
       "birth_date": "2020-01-15",
       "weight": 4.5,
       "photo_url": "https://exemplo.com/foto.jpg",
+      "gender": "female",
       "household_id": 1,
       "created_at": "2024-01-01T00:00:00Z",
       "updated_at": "2024-01-01T00:00:00Z"
@@ -178,9 +179,11 @@ Content-Type: application/json
   "name": "Luna",
   "birth_date": "2021-03-20",
   "weight": 3.8,
-  "photo_url": "https://exemplo.com/luna.jpg"
+  "photo_url": "https://exemplo.com/luna.jpg",
+  "gender": "female"
 }
 ```
+- **gender** (opcional): `"male"` ou `"female"`. Quando omitido, o valor será `null`.
 
 #### Response (Sucesso - 201)
 ```json
@@ -192,6 +195,7 @@ Content-Type: application/json
     "birth_date": "2021-03-20",
     "weight": 3.8,
     "photo_url": "https://exemplo.com/luna.jpg",
+    "gender": "female",
     "household_id": 1,
     "created_at": "2024-01-01T00:00:00Z",
     "updated_at": "2024-01-01T00:00:00Z"

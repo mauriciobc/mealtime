@@ -48,7 +48,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     const [cat, userProfile, lastFeedingLog] = await Promise.all([
       prisma.cats.findUnique({
         where: { id: catId },
-        select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true }
+        select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true, gender: true }
       }),
       prisma.household_members.findFirst({
         where: { user_id: user.id },
@@ -283,7 +283,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       where: { household_id: householdId },
       include: {
         feeder: { select: { id: true, full_name: true, avatar_url: true } },
-        cat: { select: { id: true, name: true, photo_url: true } }
+        cat: { select: { id: true, name: true, photo_url: true, gender: true } }
       },
       orderBy: { fed_at: 'desc' },
       take: 50

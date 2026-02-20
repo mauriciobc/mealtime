@@ -289,6 +289,10 @@ export const PUT = withError(async (request: Request, { params }: { params: Prom
     updateData.photo_url = body.photoUrl;
   }
 
+  if (body.gender !== undefined) {
+    updateData.gender = body.gender;
+  }
+
   // Update the cat
   const updatedCat = await prisma.cats.update({
     where: {

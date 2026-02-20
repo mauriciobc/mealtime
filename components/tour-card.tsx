@@ -32,29 +32,29 @@ export const TourCard = ({
   }
 
   return (
-    <Card className="w-[85vw] max-w-sm border-2 shadow-xl z-50">
-      <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">{step.icon}</span>
-          <CardTitle className="text-base font-bold">{step.title}</CardTitle>
+    <Card className="min-w-[260px] w-[calc(100vw-2rem)] max-w-sm border-2 shadow-xl z-50 overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 space-y-0 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="text-2xl shrink-0">{step.icon}</span>
+          <CardTitle className="text-base font-bold truncate">{step.title}</CardTitle>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 rounded-full"
+          className="h-6 w-6 shrink-0 rounded-full"
           onClick={handleFinish}
         >
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">{step.content}</p>
+      <CardContent className="min-w-0">
+        <p className="text-sm text-muted-foreground break-words">{step.content}</p>
       </CardContent>
-      <CardFooter className="flex justify-between">
-        <div className="text-xs text-muted-foreground flex items-center">
+      <CardFooter className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs text-muted-foreground flex items-center shrink-0">
           {currentStep + 1} de {totalSteps}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {currentStep > 0 && (
             <Button onClick={prevStep} size="sm" variant="outline">
               Voltar

@@ -19,6 +19,7 @@ export interface Database {
           household_id: string
           created_at: string
           updated_at: string
+          gender: string | null
         }
         Insert: {
           id?: string
@@ -29,6 +30,7 @@ export interface Database {
           household_id: string
           created_at?: string
           updated_at?: string
+          gender?: string | null
         }
         Update: {
           id?: string
@@ -39,6 +41,7 @@ export interface Database {
           household_id?: string
           created_at?: string
           updated_at?: string
+          gender?: string | null
         }
       }
       cat_weight_logs: {

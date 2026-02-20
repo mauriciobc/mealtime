@@ -53,7 +53,8 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
           select: {
             id: true,
             name: true,
-            photo_url: true
+            photo_url: true,
+            gender: true
           }
         }
       }
@@ -149,7 +150,8 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
           select: {
             id: true,
             name: true,
-            photo_url: true
+            photo_url: true,
+            gender: true
           }
         }
       }

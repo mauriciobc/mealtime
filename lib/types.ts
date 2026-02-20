@@ -63,6 +63,7 @@ export interface CatType {
   portion_size?: string | null; // Text type
   restrictions?: string | null;
   notes?: string | null;
+  gender?: 'male' | 'female' | null;
   householdId: string; // UUID
   createdAt?: Date;
   updatedAt?: Date;

@@ -32,6 +32,13 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon, Clock, Users } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { Loading } from "@/components/ui/loading";
@@ -51,6 +58,7 @@ const formSchema = z.object({
   portion_size: z.string().optional().refine((val) => !val || !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
     message: "Porção deve ser um número positivo.",
   }),
+  gender: z.enum(["male", "female"]).optional().nullable(),
   restrictions: z.string().optional(),
   notes: z.string().optional(),
   feedingInterval: z.string().min(1, {
@@ -97,6 +105,7 @@ export default function NewCatPageContent() {
       birthdate: undefined,
       weight: "",
       portion_size: "",
+      gender: undefined as "male" | "female" | undefined,
       restrictions: "",
       notes: "",
       feedingInterval: "8",
@@ -133,6 +142,7 @@ export default function NewCatPageContent() {
         birthdate: values.birthdate ? values.birthdate.toISOString() : null,
         weight: values.weight || null,
         portion_size: values.portion_size || null,
+        gender: (values.gender === "male" || values.gender === "female") ? values.gender : null,
         feeding_interval: values.feedingInterval ? parseInt(values.feedingInterval) : null,
         householdId: currentHouseholdId,
         restrictions: values.restrictions?.trim() || null,
@@ -318,6 +328,32 @@ export default function NewCatPageContent() {
                         disabled={isSubmitting}
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Sexo</FormLabel>
+                    <Select
+                      onValueChange={(v) => field.onChange(v === "none" ? undefined : v)}
+                      value={field.value ?? "none"}
+                      disabled={isSubmitting}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Não informado" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Não informado</SelectItem>
+                        <SelectItem value="male">Macho</SelectItem>
+                        <SelectItem value="female">Fêmea</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

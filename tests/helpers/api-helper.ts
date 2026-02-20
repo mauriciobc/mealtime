@@ -84,14 +84,27 @@ export class APIHelper {
 
   async createCat(data: {
     name: string;
+    householdId?: string;
     birthDate?: string;
     weight?: string;
     portionSize?: string;
+    portion_unit?: string;
     portionUnit?: string;
     feedingInterval?: number;
     notes?: string;
+    gender?: 'male' | 'female';
   }): Promise<unknown> {
-    return this.post('/api/v2/cats', data);
+    const body: Record<string, unknown> = {
+      name: data.name,
+      birthdate: data.birthDate,
+      weight: data.weight,
+      portion_size: data.portionSize ?? data.portion_unit ?? data.portionUnit,
+      feeding_interval: data.feedingInterval,
+      notes: data.notes,
+      gender: data.gender,
+    };
+    if (data.householdId) body.householdId = data.householdId;
+    return this.post('/api/v2/cats', body);
   }
 
   async updateCat(catId: string, data: Partial<{
@@ -102,6 +115,7 @@ export class APIHelper {
     portionUnit: string;
     feedingInterval: number;
     notes: string;
+    gender: 'male' | 'female' | null;
   }>): Promise<unknown> {
     return this.put(`/api/v2/cats/${catId}`, data);
   }

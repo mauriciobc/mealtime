@@ -34,7 +34,8 @@ export async function GET(
             id: true,
             name: true,
             photo_url: true,
-            household_id: true
+            household_id: true,
+            gender: true
           }
         },
         feeder: {
@@ -91,7 +92,8 @@ export async function GET(
       cat: feedingLog.cat ? {
         id: feedingLog.cat.id,
         name: feedingLog.cat.name,
-        photoUrl: feedingLog.cat.photo_url
+        photoUrl: feedingLog.cat.photo_url,
+        gender: feedingLog.cat.gender ?? null
       } : undefined,
       user: feedingLog.feeder ? {
         id: feedingLog.feeder.id,

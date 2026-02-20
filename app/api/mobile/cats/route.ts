@@ -114,7 +114,8 @@ export const GET = withMobileAuth(async (request: NextRequest, user) => {
         photo_url: true,
         household_id: true,
         created_at: true,
-        updated_at: true
+        updated_at: true,
+        gender: true
       },
       orderBy: {
         created_at: 'desc'
@@ -155,7 +156,7 @@ export const GET = withMobileAuth(async (request: NextRequest, user) => {
 export const POST = withMobileAuth(async (request: NextRequest, user) => {
   try {
     const body = await request.json();
-    const { name, birth_date, weight, photo_url } = body;
+    const { name, birth_date, weight, photo_url, gender } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -207,6 +208,7 @@ export const POST = withMobileAuth(async (request: NextRequest, user) => {
         birth_date: birthDateValidation.value,
         weight: weightValidation.value,
         photo_url: photo_url || null,
+        gender: (gender === 'male' || gender === 'female') ? gender : null,
         household_id: user.household_id as string,
         owner_id: user.id,
         created_at: new Date(),

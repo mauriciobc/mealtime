@@ -45,6 +45,7 @@ export interface BaseCat {
   weight?: number;
   restrictions?: string;
   notes?: string;
+  gender?: 'male' | 'female' | null;
   householdId: ID;
   feedingInterval: number;
   portionSize?: string;
@@ -94,6 +95,7 @@ export interface BaseCats {
   photo_url?: string | null;
   restrictions?: string | null;
   notes?: string | null;
+  gender?: string | null;
   feeding_interval?: number | null; // Integer type for interval in hours
   portion_size?: Decimal | null; // Decimal type (maps to number in JS)
 }

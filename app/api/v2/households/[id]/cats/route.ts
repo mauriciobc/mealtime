@@ -20,6 +20,7 @@ const PostBodySchema = z.object({
   weight: z.number().positive().nullable().optional(),
   restrictions: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  gender: z.enum(['male', 'female']).optional().nullable(),
   feedingInterval: z.number().int().min(1).max(24).optional(),
   portion_size: z.number().positive().optional(),
 }).strict();
@@ -101,7 +102,8 @@ export const GET = withHybridAuth(async (
         updated_at: true,
         restrictions: true,
         notes: true,
-        feeding_interval: true
+        feeding_interval: true,
+        gender: true
       },
       orderBy: {
         name: 'asc'
@@ -219,6 +221,7 @@ export const POST = withHybridAuth(async (
         owner_id: user.id,
         restrictions: data.restrictions ?? null,
         notes: data.notes ?? null,
+        gender: data.gender ?? null,
         feeding_interval: data.feedingInterval ?? null,
         portion_size: data.portion_size ?? null
       }
@@ -239,6 +242,7 @@ export const POST = withHybridAuth(async (
       owner_id: cat.owner_id,
       restrictions: cat.restrictions,
       notes: cat.notes,
+      gender: cat.gender ?? null,
       feeding_interval: cat.feeding_interval,
       portion_size: cat.portion_size?.toNumber() ?? null
     };

@@ -11,6 +11,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isApiDocsPage = pathname === "/api-docs";
+  const isUserDocsPage = pathname.startsWith("/docs");
 
   const { state: { isLoading: profileLoading, currentUser }, authLoading } = useUserContext();
 
@@ -34,6 +35,17 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   // Página de documentação da API - layout limpo sem navegação
   if (isApiDocsPage) {
+    return (
+      <div className="relative flex min-h-screen flex-col">
+        <main className="flex-1">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  // Páginas de documentação do usuário - layout limpo sem navegação
+  if (isUserDocsPage) {
     return (
       <div className="relative flex min-h-screen flex-col">
         <main className="flex-1">

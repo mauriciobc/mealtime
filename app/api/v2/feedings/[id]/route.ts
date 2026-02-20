@@ -79,7 +79,8 @@ export const GET = withHybridAuth(async (
             id: true,
             name: true,
             photo_url: true,
-            household_id: true
+            household_id: true,
+            gender: true
           }
         },
         feeder: {
@@ -143,7 +144,8 @@ export const GET = withHybridAuth(async (
       cat: feedingLog.cat ? {
         id: feedingLog.cat.id,
         name: feedingLog.cat.name,
-        photoUrl: feedingLog.cat.photo_url
+        photoUrl: feedingLog.cat.photo_url,
+        gender: feedingLog.cat.gender ?? null
       } : undefined,
       user: feedingLog.feeder ? {
         id: feedingLog.feeder.id,
@@ -342,7 +344,8 @@ export const PUT = withHybridAuth(async (
             id: true,
             name: true,
             photo_url: true,
-            household_id: true
+            household_id: true,
+            gender: true
           }
         },
         feeder: {
@@ -377,7 +380,8 @@ export const PUT = withHybridAuth(async (
       cat: updatedLog.cat ? {
         id: updatedLog.cat.id,
         name: updatedLog.cat.name,
-        photoUrl: updatedLog.cat.photo_url
+        photoUrl: updatedLog.cat.photo_url,
+        gender: updatedLog.cat.gender ?? null
       } : undefined,
       user: updatedLog.feeder ? {
         id: updatedLog.feeder.id,

@@ -486,7 +486,10 @@
   }
 }
 
-/* Onborda tour arrow fix - match card background */
+/* Onborda tour - responsive card stays in viewport; arrow style */
+[data-name="onborda-card"] {
+  max-width: min(calc(100vw - 1rem), 24rem) !important;
+}
 [data-name="onborda-arrow"] svg {
   fill: var(--background) !important;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));

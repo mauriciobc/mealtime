@@ -157,7 +157,8 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
         household_id: true,
         owner_id: true,
         created_at: true,
-        updated_at: true
+        updated_at: true,
+        gender: true
       },
       orderBy: {
         name: 'asc'
@@ -262,6 +263,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       owner_id: user.id,
       restrictions: body.restrictions?.trim() || null,
       notes: body.notes?.trim() || null,
+      gender: (body.gender === 'male' || body.gender === 'female') ? body.gender : null,
       feeding_interval: feedingInterval,
       portion_size: body.portion_size || null
     };

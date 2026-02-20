@@ -55,12 +55,17 @@ test.describe('Cats API', () => {
     expect(result).toHaveProperty('success');
   });
 
-  test('should create a new cat via API', async ({ apiHelper, testUser, testDataManager }) => {
+  test('should create a new cat via API', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
+
+    const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
+    const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0].id : null) || testUser.householdId;
+    expect(householdId, 'Need a household to create a cat').toBeTruthy();
 
     const catName = `Miau_${Date.now()}`;
     const result = await apiHelper.createCat({
       name: catName,
+      householdId: householdId || undefined,
       weight: '4.5',
       portion_size: '50',
       portion_unit: 'g',

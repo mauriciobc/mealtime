@@ -91,6 +91,7 @@ const updateCatSchema = z.object({
   photoUrl: z.string().url().nullable().optional(),
   birthDate: z.string().optional(),
   weight: z.union([z.number(), z.null()]).optional(),
+  gender: z.enum(['male', 'female']).optional().nullable(),
   feeding_interval: z.number().int().min(1).max(24).optional(),
   portion_size: z.number().positive().optional(),
   restrictions: z.string().optional(),
@@ -316,6 +317,10 @@ export const PUT = withHybridAuth(async (
 
     if (body.notes !== undefined) {
       updateData.notes = body.notes.trim() || null;
+    }
+
+    if (body.gender !== undefined) {
+      updateData.gender = body.gender;
     }
 
     // Update the cat

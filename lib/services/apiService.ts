@@ -143,6 +143,7 @@ export async function fetchCatsForHousehold(householdId: string, userId: string 
         notes: cat.notes || null,
         feeding_interval: cat.feeding_interval || null, // Map to feeding_interval (required field)
         portion_size: cat.portion_size || null, // Map snake_case if available
+        gender: cat.gender ?? null,
         schedules: [], // Assuming schedules are loaded separately
       };
       

@@ -31,6 +31,7 @@ const PostBodySchema = z.object({
   weight: z.number().positive().nullable().optional(),
   restrictions: z.string().nullable().optional(),
   notes: z.string().nullable().optional(),
+  gender: z.enum(['male', 'female']).optional().nullable(),
   feedingInterval: z.number().int().min(1).max(24).optional(),
   portion_size: z.number().positive().optional(), // Added portion_size
 }).strict();
@@ -101,7 +102,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
         owner_id: true,
         portion_size: true,
         created_at: true,
-        updated_at: true
+        updated_at: true,
+        gender: true
       },
       orderBy: {
         name: 'asc'
@@ -210,6 +212,7 @@ export async function POST(
         owner_id: authUserId,
         restrictions: data.restrictions ?? null,
         notes: data.notes ?? null,
+        gender: data.gender ?? null,
         feeding_interval: data.feedingInterval ?? null,
         portion_size: data.portion_size ?? null
       }
@@ -229,6 +232,7 @@ export async function POST(
       owner_id: cat.owner_id,
       restrictions: cat.restrictions,
       notes: cat.notes,
+      gender: cat.gender ?? null,
       feeding_interval: cat.feeding_interval,
       portion_size: cat.portion_size?.toNumber() ?? null
     };

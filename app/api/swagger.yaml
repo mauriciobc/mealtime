@@ -176,6 +176,11 @@ paths:
                   type: integer
                   minimum: 1
                   maximum: 24
+                gender:
+                  type: string
+                  nullable: true
+                  description: Sexo do gato. Valores "male" ou "female".
+                  enum: [male, female]
       responses:
         '201':
           description: Gato criado
@@ -251,6 +256,11 @@ paths:
                 portion_size:
                   type: number
                   minimum: 0
+                gender:
+                  type: string
+                  nullable: true
+                  description: Sexo do gato. Valores "male" ou "female".
+                  enum: [male, female]
                 restrictions:
                   type: string
                 notes:
@@ -1997,6 +2007,11 @@ components:
         updatedAt:
           type: string
           format: date-time
+        gender:
+          type: string
+          nullable: true
+          description: Sexo do gato. Valores "male", "female" ou null.
+          enum: [male, female]
 
     CatInput:
       type: object
@@ -2015,6 +2030,11 @@ components:
           type: string
         portionSize:
           type: number
+        gender:
+          type: string
+          nullable: true
+          description: Sexo do gato. Valores "male" ou "female".
+          enum: [male, female]
 
     Feeding:
       type: object

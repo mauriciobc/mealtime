@@ -25,6 +25,7 @@ model cats {
   feeding_interval Int?
   notes            String?
   restrictions     String?
+  gender           String?
   weight_logs      cat_weight_logs[]
   household        households        @relation(fields: [household_id], references: [id])
   owner            profiles          @relation("owner", fields: [owner_id], references: [id])

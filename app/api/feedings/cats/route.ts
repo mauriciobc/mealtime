@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
       birth_date: cat.birth_date,
       weight: cat.weight ? parseFloat(cat.weight.toString()) : null,
       household_id: cat.household_id,
-      owner_id: cat.owner_id
+      owner_id: cat.owner_id,
+      gender: cat.gender ?? null
     }));
 
     console.log(`Encontrados ${formattedCats.length} gatos para a residência ${householdId}`);

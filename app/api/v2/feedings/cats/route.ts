@@ -63,7 +63,8 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       birth_date: cat.birth_date,
       weight: cat.weight ? parseFloat(cat.weight.toString()) : null,
       household_id: cat.household_id,
-      owner_id: cat.owner_id
+      owner_id: cat.owner_id,
+      gender: cat.gender ?? null
     }));
 
     logger.info(`[GET /api/v2/feedings/cats] Found ${formattedCats.length} cats for household ${householdId}`);

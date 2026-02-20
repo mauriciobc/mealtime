@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Fetch cat and user profile in parallel to verify ownership and get householdId
     console.log(`[POST /api/feedings] Verifying access for user ${authUserId} and cat ${catId}`);
     const [cat, userProfile, lastFeedingLog] = await Promise.all([
-        prisma.cats.findUnique({ where: { id: catId }, select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true } }),
+        prisma.cats.findUnique({ where: { id: catId }, select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true, gender: true } }),
         prisma.household_members.findFirst({ 
             where: { user_id: authUserId }, 
             select: { household_id: true } 

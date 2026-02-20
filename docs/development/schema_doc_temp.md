@@ -25,6 +25,7 @@ This schema manages a cat feeding and weight tracking application. It enforces h
 | name        | TEXT          | NN          | Cat's name                    |
 | birth_date  | DATE          |             | Cat's birth date              |
 | weight      | DECIMAL(5,2)  |             | Current weight                |
+| gender      | TEXT          |             | Sexo do gato ("male", "female" ou null) |
 | household_id| UUID          | FK, NN      | Associated household          |
 | owner_id    | UUID          | FK, NN      | Cat's owner profile          |
 

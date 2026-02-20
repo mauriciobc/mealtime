@@ -263,7 +263,8 @@ export async function PATCH(
             id: true,
             name: true,
             birth_date: true,
-            weight: true
+            weight: true,
+            gender: true
           }
         }
       }
@@ -284,7 +285,8 @@ export async function PATCH(
         id: cat.id,
         name: cat.name,
         birthDate: cat.birth_date,
-        weight: cat.weight
+        weight: cat.weight,
+        gender: cat.gender ?? null
       }))
     };
 
