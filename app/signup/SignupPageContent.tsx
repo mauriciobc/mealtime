@@ -4,7 +4,6 @@ import { useState } from "react";
 import { createClient } from '@/utils/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PageTransition } from "@/components/ui/page-transition";
 import { Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -87,9 +86,9 @@ export default function SignupPageContent() {
 
   const isProcessing = isLoadingCredentials || isLoadingGoogle;
 
+  // No PageTransition: signup must be visible on first paint for screen capture / PWA / OG (avoid all-white screenshot)
   return (
-    <PageTransition>
-      <div className="flex items-center justify-center min-h-screen bg-background p-4">
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">MealTime</CardTitle>
@@ -241,6 +240,5 @@ export default function SignupPageContent() {
           </CardFooter>
         </Card>
       </div>
-    </PageTransition>
   );
 }
