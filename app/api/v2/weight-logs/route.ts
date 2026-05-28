@@ -114,9 +114,15 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }, { status: 404 });
     }
 
-    // Deny access if household IDs don't match (no admin bypass currently implemented)
-    // TODO: Add admin role check when MobileAuthUser includes role information
-    if (cat.household_id !== user.household_id) {
+    // Verify user has access to the cat's household
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: cat.household_id,
+      },
+    });
+
+    if (!userMembership) {
       logger.warn(`[POST /api/v2/weight-logs] User ${user.id} not authorized for cat ${validatedBody.data.catId}`);
       return NextResponse.json({
         success: false,
@@ -177,9 +183,15 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 404 });
     }
 
-    // Deny access if household IDs don't match (no admin bypass currently implemented)
-    // TODO: Add admin role check when MobileAuthUser includes role information
-    if (cat.household_id !== user.household_id) {
+    // Verify user has access to the cat's household
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: cat.household_id,
+      },
+    });
+
+    if (!userMembership) {
       logger.warn(`[GET /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
       return NextResponse.json({
         success: false,
@@ -256,9 +268,15 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 404 });
     }
 
-    // Deny access if household IDs don't match (no admin bypass currently implemented)
-    // TODO: Add admin role check when MobileAuthUser includes role information
-    if (catToUpdate.household_id !== user.household_id) {
+    // Verify user has access to the cat's household
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: catToUpdate.household_id,
+      },
+    });
+
+    if (!userMembership) {
       logger.warn(`[PUT /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
       return NextResponse.json({
         success: false,
@@ -361,9 +379,15 @@ export const DELETE = withHybridAuth(async (request: NextRequest, user: MobileAu
       }, { status: 404 });
     }
 
-    // Deny access if household IDs don't match (no admin bypass currently implemented)
-    // TODO: Add admin role check when MobileAuthUser includes role information
-    if (cat.household_id !== user.household_id) {
+    // Verify user has access to the cat's household
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: cat.household_id,
+      },
+    });
+
+    if (!userMembership) {
       logger.warn(`[DELETE /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
       return NextResponse.json({
         success: false,

@@ -23,25 +23,25 @@ export default defineConfig({
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
     },
-    // Unauthenticated tests (e.g., login, signup tests)
+    // Unauthenticated tests (e.g., login, signup, error, offline, onboarding tests)
     {
       name: 'chromium-unauthenticated',
-      testMatch: /.*auth\.spec\.ts/,
+      testMatch: /.*auth\.spec\.ts|.*error-offline\.spec\.ts|.*onboarding\.spec\.ts/,
       use: { 
         ...devices['Desktop Chrome'],
-        storageState: { cookies: [], origins: [] }, // No authentication
+        storageState: { cookies: [], origins: [] },
       },
     },
     // Authenticated tests (all other tests)
     {
       name: 'chromium',
-      testIgnore: /.*auth\.spec\.ts/,
+      testIgnore: /.*auth\.spec\.ts|.*error-offline\.spec\.ts|.*onboarding\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
     {
       name: 'mobile-chrome',
-      testIgnore: /.*auth\.spec\.ts/,
+      testIgnore: /.*auth\.spec\.ts|.*error-offline\.spec\.ts|.*onboarding\.spec\.ts/,
       use: { ...devices['Pixel 5'] },
       dependencies: ['setup'],
     },
@@ -57,5 +57,5 @@ export default defineConfig({
       maxDiffPixels: 100,
     },
   },
-  timeout: 60000, // Increased timeout for auth setup and slower environments
+  timeout: 60000,
 });

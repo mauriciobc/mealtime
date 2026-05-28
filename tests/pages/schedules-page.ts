@@ -9,12 +9,12 @@ export class SchedulesPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.getByRole('heading', { name: /agendamentos/i });
+    this.pageTitle = page.locator('h1:has-text("Agendamentos")').first();
     this.newScheduleButton = page.locator('a[href="/schedules/new"]').or(
       page.getByRole('link', { name: /novo agendamento/i })
     );
     this.emptyState = page.getByText(/sem agendamentos|cadastrar gato|criar primeiro agendamento|sem residência associada/i);
-    this.activeSchedulesHeading = page.getByRole('heading', { name: /agendamentos ativos/i });
+    this.activeSchedulesHeading = page.locator('h2:has-text("Agendamentos Ativos"), h3:has-text("Agendamentos Ativos")').first();
   }
 
   async goto() {

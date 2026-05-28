@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useTransition, useDeferredValue } from "react"
+import { useReducer, useEffect, useTransition, useDeferredValue } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -52,15 +52,60 @@ interface CatType {
   photoUrl: string | null
 }
 
+type HistoryPageState = {
+  feedingLogs: FeedingLogType[]
+  filteredLogs: FeedingLogType[]
+  isLoading: boolean
+  searchQuery: string
+  selectedCat: string
+  sortOrder: "asc" | "desc"
+  cats: CatType[]
+}
+
+type HistoryPageAction =
+  | { type: 'LOAD_START' }
+  | { type: 'LOAD_SUCCESS'; logs: FeedingLogType[] }
+  | { type: 'LOAD_END' }
+  | { type: 'SET_FILTERED_LOGS'; logs: FeedingLogType[] }
+  | { type: 'SET_SEARCH_QUERY'; value: string }
+  | { type: 'SET_SELECTED_CAT'; value: string }
+  | { type: 'SET_SORT_ORDER'; value: "asc" | "desc" }
+
+const initialHistoryState: HistoryPageState = {
+  feedingLogs: [],
+  filteredLogs: [],
+  isLoading: true,
+  searchQuery: "",
+  selectedCat: "all",
+  sortOrder: "desc",
+  cats: [],
+}
+
+function historyPageReducer(state: HistoryPageState, action: HistoryPageAction): HistoryPageState {
+  switch (action.type) {
+    case 'LOAD_START':
+      return { ...state, isLoading: true }
+    case 'LOAD_SUCCESS':
+      return { ...state, feedingLogs: action.logs, filteredLogs: action.logs }
+    case 'LOAD_END':
+      return { ...state, isLoading: false }
+    case 'SET_FILTERED_LOGS':
+      return { ...state, filteredLogs: action.logs }
+    case 'SET_SEARCH_QUERY':
+      return { ...state, searchQuery: action.value }
+    case 'SET_SELECTED_CAT':
+      return { ...state, selectedCat: action.value }
+    case 'SET_SORT_ORDER':
+      return { ...state, sortOrder: action.value }
+    default:
+      return state
+  }
+}
+
 export default function HistoryPageContent() {
   const router = useRouter()
-  const [feedingLogs, setFeedingLogs] = useState<FeedingLogType[]>([])
-  const [filteredLogs, setFilteredLogs] = useState<FeedingLogType[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCat, setSelectedCat] = useState<string>("all")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
-  const [cats, setCats] = useState<CatType[]>([])
+  const [state, dispatch] = useReducer(historyPageReducer, initialHistoryState)
+  const { feedingLogs, filteredLogs, isLoading, searchQuery, selectedCat, sortOrder, cats } = state
   const { state: userState } = useUserContext();
   const userLanguage = userState.currentUser?.preferences?.language;
   const _userLocale = resolveDateFnsLocale(userLanguage);
@@ -72,18 +117,15 @@ export default function HistoryPageContent() {
   useEffect(() => {
     async function loadData() {
       try {
-        setIsLoading(true)
+        dispatch({ type: 'LOAD_START' })
         
-        // Carregar registros de alimentação
         const logs = await getFeedingLogs()
-        setFeedingLogs(logs)
-        setFilteredLogs(logs)
+        dispatch({ type: 'LOAD_SUCCESS', logs })
         
-        // Carregar gatos
-        const catsData = await getCats()
+        await getCats()
       } catch (_error) {
       } finally {
-        setIsLoading(false)
+        dispatch({ type: 'LOAD_END' })
       }
     }
     
@@ -117,23 +159,23 @@ export default function HistoryPageContent() {
         return sortOrder === "asc" ? dateA - dateB : dateB - dateA
       })
       
-      setFilteredLogs(filtered)
+      dispatch({ type: 'SET_FILTERED_LOGS', logs: filtered })
     })
   }, [feedingLogs, deferredSearchQuery, selectedCat, sortOrder])
   
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value)
+    dispatch({ type: 'SET_SEARCH_QUERY', value: e.target.value })
   }
   
   const toggleSortOrder = () => {
     startTransition(() => {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+      dispatch({ type: 'SET_SORT_ORDER', value: sortOrder === "asc" ? "desc" : "asc" })
     })
   }
   
   const handleCatChange = (catId: string) => {
     startTransition(() => {
-      setSelectedCat(catId)
+      dispatch({ type: 'SET_SELECTED_CAT', value: catId })
     })
   }
   
@@ -210,8 +252,8 @@ export default function HistoryPageContent() {
           
           {isLoading || isPending ? (
             <div className="space-y-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Card key={`skeleton-${i}`} className="animate-pulse">
+              {(['sk-a', 'sk-b', 'sk-c', 'sk-d', 'sk-e'] as const).map((skeletonKey) => (
+                <Card key={skeletonKey} className="animate-pulse">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
                       <div className="h-12 w-12 rounded-full bg-muted"></div>

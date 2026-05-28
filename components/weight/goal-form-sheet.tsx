@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useReducer } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -30,8 +30,8 @@ export interface GoalFormData {
   initial_weight: number;
   target_weight: number;
   unit: 'kg' | 'lbs';
-  start_date?: string; // ISO string YYYY-MM-DD
-  target_date?: string; // ISO string YYYY-MM-DD
+  start_date?: string;
+  target_date?: string;
   description?: string;
 }
 
@@ -45,6 +45,65 @@ interface GoalFormSheetProps {
   birthDate?: string | null;
 }
 
+type GoalFormState = {
+  goalName: string;
+  initialWeight: string;
+  targetWeight: string;
+  editedUnit: 'kg' | 'lbs' | null;
+  startDate: Date | null;
+  targetDate: Date | null;
+  description: string;
+  isSubmitting: boolean;
+};
+
+type GoalFormAction =
+  | { type: 'SET_FIELD'; field: 'goalName' | 'initialWeight' | 'targetWeight' | 'description'; value: string }
+  | { type: 'SET_UNIT'; value: 'kg' | 'lbs' }
+  | { type: 'SET_START_DATE'; value: Date | null }
+  | { type: 'SET_TARGET_DATE'; value: Date | null }
+  | { type: 'SET_SUBMITTING'; value: boolean }
+  | { type: 'INIT_FROM_WEIGHT'; currentWeight: number | null | undefined }
+  | { type: 'RESET_AFTER_SUBMIT'; currentWeight: number | null | undefined };
+
+const initialGoalFormState: GoalFormState = {
+  goalName: '',
+  initialWeight: '',
+  targetWeight: '',
+  editedUnit: null,
+  startDate: null,
+  targetDate: null,
+  description: '',
+  isSubmitting: false,
+};
+
+function goalFormReducer(state: GoalFormState, action: GoalFormAction): GoalFormState {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+    case 'SET_UNIT':
+      return { ...state, editedUnit: action.value };
+    case 'SET_START_DATE':
+      return { ...state, startDate: action.value };
+    case 'SET_TARGET_DATE':
+      return { ...state, targetDate: action.value };
+    case 'SET_SUBMITTING':
+      return { ...state, isSubmitting: action.value };
+    case 'INIT_FROM_WEIGHT':
+      return {
+        ...state,
+        initialWeight: action.currentWeight ? String(action.currentWeight) : state.initialWeight,
+        startDate: new Date(),
+      };
+    case 'RESET_AFTER_SUBMIT':
+      return {
+        ...initialGoalFormState,
+        initialWeight: action.currentWeight ? String(action.currentWeight) : '',
+      };
+    default:
+      return state;
+  }
+}
+
 const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
   isOpen,
   onOpenChange,
@@ -54,22 +113,16 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
   defaultUnit = 'kg',
   birthDate,
 }) => {
-  const [goalName, setGoalName] = useState('');
-  const [initialWeight, setInitialWeight] = useState<string>('');
-  const [targetWeight, setTargetWeight] = useState<string>('');
-  const [unit, setUnit] = useState<'kg' | 'lbs'>(defaultUnit);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [targetDate, setTargetDate] = useState<Date | null>(null);
-  const [description, setDescription] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [state, dispatch] = useReducer(goalFormReducer, initialGoalFormState);
+  const { goalName, initialWeight, targetWeight, editedUnit, startDate, targetDate, description, isSubmitting } = state;
+  const unit = editedUnit ?? defaultUnit;
 
-  useEffect(() => {
-    if (currentWeight) {
-      setInitialWeight(String(currentWeight));
+  const handleOpenChange = (open: boolean) => {
+    if (open) {
+      dispatch({ type: 'INIT_FROM_WEIGHT', currentWeight });
     }
-    // Set default start date to today
-    setStartDate(new Date());
-  }, [currentWeight, isOpen]); // Reset/initialize when sheet opens or currentWeight changes
+    onOpenChange(open);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,14 +147,12 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
       return;
     }
 
-    // Validação de segurança: bloqueia metas com perda semanal >2%
     if (parsedInitialWeight > parsedTargetWeight) {
       const weeks = (targetDate!.getTime() - startDate!.getTime()) / (1000 * 60 * 60 * 24 * 7);
       if (weeks <= 0) {
         toast.error("O período entre as datas deve ser de pelo menos 7 dias para validar a meta de peso.");
         return;
       }
-      // Convert to kg if needed
       let initialKg = parsedInitialWeight;
       let targetKg = parsedTargetWeight;
       if (unit === 'lbs') {
@@ -116,7 +167,7 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
       }
     }
 
-    setIsSubmitting(true);
+    dispatch({ type: 'SET_SUBMITTING', value: true });
     try {
       await onSubmit({
         cat_id: catId || '',
@@ -128,27 +179,18 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
         target_date: targetDate ? targetDate.toISOString().split('T')[0] : '',
         description: description.trim() || undefined,
       });
-      // Clear form on successful submit (parent component will close sheet)
-      setGoalName('');
-      setInitialWeight(currentWeight ? String(currentWeight) : '');
-      setTargetWeight('');
-      setUnit(defaultUnit);
-      setStartDate(null);
-      setTargetDate(null);
-      setDescription('');
+      dispatch({ type: 'RESET_AFTER_SUBMIT', currentWeight });
     } catch (error) {
-      // Error is handled by the parent onSubmit usually, but a local log can be useful
       console.error("Erro ao submeter meta:", error);
-      // toast.error("Falha ao criar meta. Tente novamente."); // Parent will show specific error
     } finally {
-      setIsSubmitting(false);
+      dispatch({ type: 'SET_SUBMITTING', value: false });
     }
   };
 
   if (!catId) return null;
 
   return (
-    <Drawer open={isOpen} onOpenChange={onOpenChange}>
+    <Drawer open={isOpen} onOpenChange={handleOpenChange}>
       <DrawerContent>
         <div className="mx-auto w-full max-w-lg">
           <DrawerHeader className="px-4 pt-4">
@@ -157,46 +199,46 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
               Preencha os detalhes da nova meta de peso para seu gato.
             </DrawerDescription>
           </DrawerHeader>
-          <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto px-4 py-2 space-y-4">
-            <div>
+          <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto px-4 py-2 space-y-5">
+            <div className="space-y-2">
               <Label htmlFor="goalName">Nome da Meta</Label>
               <Input 
                 id="goalName" 
                 value={goalName} 
-                onChange={(e) => setGoalName(e.target.value)} 
+                onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'goalName', value: e.target.value })} 
                 placeholder="Ex: Chegar ao peso ideal"
                 required 
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="initialWeight">Peso Inicial</Label>
                 <Input 
                   id="initialWeight" 
                   type="number" 
                   step="0.01" 
                   value={initialWeight} 
-                  onChange={(e) => setInitialWeight(e.target.value)} 
+                  onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'initialWeight', value: e.target.value })} 
                   required 
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="targetWeight">Peso Alvo</Label>
                 <Input 
                   id="targetWeight" 
                   type="number" 
                   step="0.01" 
                   value={targetWeight} 
-                  onChange={(e) => setTargetWeight(e.target.value)} 
+                  onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'targetWeight', value: e.target.value })} 
                   required 
                 />
               </div>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="unit">Unidade</Label>
-              <Select value={unit} onValueChange={(value: 'kg' | 'lbs') => setUnit(value)}>
+              <Select value={unit} onValueChange={(value: 'kg' | 'lbs') => dispatch({ type: 'SET_UNIT', value })}>
                 <SelectTrigger id="unit">
                   <SelectValue placeholder="Selecione a unidade" />
                 </SelectTrigger>
@@ -208,45 +250,46 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="startDate">Data de Início</Label>
                 <DateTimePicker
                   value={startDate ?? undefined}
-                  onChange={(date) => setStartDate(date ?? null)}
+                  onChange={(date) => dispatch({ type: 'SET_START_DATE', value: date ?? null })}
                   placeholder="Selecione a data de início"
                   className="w-full"
                 />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="targetDate">Data Alvo</Label>
                 <DateTimePicker
                   value={targetDate ?? undefined}
-                  onChange={(date) => setTargetDate(date ?? null)}
+                  onChange={(date) => dispatch({ type: 'SET_TARGET_DATE', value: date ?? null })}
                   placeholder="Selecione a data alvo"
                   className="w-full"
                 />
               </div>
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="description">Descrição (Opcional)</Label>
               <Textarea 
                 id="description" 
                 value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
+                onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'description', value: e.target.value })} 
                 placeholder="Alguma observação sobre a meta?"
+                className="resize-none"
               />
             </div>
           </form>
-          <DrawerFooter className="px-4 pb-4 pt-2 border-t">
+          <DrawerFooter className="px-4 pb-4 pt-2">
+            <Button type="submit" onClick={handleSubmit} disabled={isSubmitting} className="w-full">
+              {isSubmitting ? 'Salvando Meta...' : 'Salvar Meta'}
+            </Button>
             <DrawerClose asChild>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="w-full">
                 Cancelar
               </Button>
             </DrawerClose>
-            <Button type="submit" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando Meta...' : 'Salvar Meta'}
-            </Button>
           </DrawerFooter>
         </div>
       </DrawerContent>
@@ -254,4 +297,4 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
   );
 };
 
-export default GoalFormSheet; 
+export default GoalFormSheet;

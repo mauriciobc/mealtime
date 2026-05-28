@@ -8,6 +8,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 
+// Configuração de limite máximo de upload (MB)
+const MAX_UPLOAD_SIZE_MB = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '50', 10);
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+
 // POST /api/upload - Fazer upload de uma imagem
 export async function POST(request: NextRequest) {
   let tempFilePath: string | null = null;
@@ -43,6 +47,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Nenhum arquivo enviado' },
         { status: 400 }
+      );
+    }
+
+    // Validar tamanho do arquivo
+    if (typeof file.size === 'number' && file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json(
+        { error: `O arquivo excede o tamanho máximo permitido de ${MAX_UPLOAD_SIZE_MB}MB` },
+        { status: 413 }
       );
     }
 

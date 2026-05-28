@@ -1,28 +1,18 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import React from "react";
+import { usePathname } from "next/navigation";
 import { useUserContext } from "@/lib/context/UserContext";
 import { GlobalLoading } from "@/components/ui/global-loading";
 import { AuthenticatedLayout } from "@/components/layout/authenticated-layout";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isApiDocsPage = pathname === "/api-docs";
   const isUserDocsPage = pathname.startsWith("/docs");
 
-  const { state: { isLoading: profileLoading, currentUser }, authLoading } = useUserContext();
-
-  // Handle redirection for authenticated users on auth pages
-  useEffect(() => {
-    if (!authLoading && !profileLoading && currentUser && isAuthPage) {
-      const searchParams = new URLSearchParams(window.location.search);
-      const redirectTo = searchParams.get("redirectTo") || "/";
-      router.replace(redirectTo);
-    }
-  }, [authLoading, profileLoading, currentUser, isAuthPage, router, pathname]);
+  const { state: { isLoading: profileLoading, currentUser: _currentUser }, authLoading } = useUserContext();
 
   if (authLoading || profileLoading) {
     return <GlobalLoading mode="overlay" />;

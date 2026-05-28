@@ -116,83 +116,79 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
         className="h-full cursor-pointer"
         onClick={onView}
       >
-        <Card className="h-full overflow-hidden flex flex-col max-w-[300px] mx-auto">
-           <div className="relative w-full aspect-square bg-muted overflow-hidden"> 
+        <Card className="h-full overflow-hidden flex flex-col max-w-[300px] mx-auto rounded-2xl border-border/50 hover:border-border transition-all">
+           <div className="relative w-full aspect-[4/3] bg-gradient-to-br from-primary/5 to-primary/10 overflow-hidden"> 
              <SafeImage 
                src={imageUrl}
                alt={`Photo of ${cat.name}`} 
                fill
                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                className={cn(
-                 "absolute inset-0 object-cover transition-all duration-300",
+                 "absolute inset-0 object-contain transition-all duration-300",
                  isImageLoading ? "opacity-0" : "opacity-100"
                )}
                priority={true}
                onError={handleImageError}
                onLoad={handleImageLoad}
                fallback={
-                 <div className="w-full h-full flex items-center justify-center bg-purple-100">
-                   <span className="text-purple-500 text-4xl">
+                 <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                   <span className="text-primary text-4xl font-semibold">
                      {cat.name.substring(0, 2).toUpperCase()}
                    </span>
                  </div>
                }
              />
              {isImageLoading && (
-               <div className="absolute inset-0 flex items-center justify-center bg-purple-50">
+               <div className="absolute inset-0 flex items-center justify-center bg-primary/5">
                  <GlobalLoading mode="spinner" size="md" />
                </div>
              )}
            </div>
 
-           <CardHeader className="pt-4 pb-2">
-              <CardTitle className="text-lg font-semibold">{cat.name}</CardTitle>
+           <CardHeader className="pt-5 pb-3">
+              <CardTitle className="text-xl font-bold">{cat.name}</CardTitle>
            </CardHeader>
-           <CardContent className="flex-grow space-y-1.5 text-sm text-muted-foreground">
+           <CardContent className="flex-grow space-y-2 text-sm pb-4">
               {cat.birthdate && (
-                 <div className="flex items-center gap-1.5">
-                   <Calendar className="h-4 w-4"/> 
+                 <div className="flex items-center gap-2 text-muted-foreground">
+                   <Calendar className="h-4 w-4" /> 
                    <span>{ageString}</span>
                  </div>
               )}
               {cat.weight && (
-                 <div className="flex items-center gap-1.5">
-                   <Weight className="h-4 w-4"/> 
-                   <span>{cat.weight} kg</span>
+                 <div className="flex items-center gap-2">
+                   <Weight className="h-4 w-4 text-primary" /> 
+                   <span className="font-medium text-primary">{cat.weight} kg</span>
                  </div>
               )}
-              {cat.breed && (
-                 <p><span className="font-medium">Raça:</span> {cat.breed}</p>
-              )}
-              {cat.restrictions && (
-                 <p><span className="font-medium">Restrições:</span> {cat.restrictions}</p>
-              )}
               
-              <div className="pt-1"> 
-                 <Badge variant="outline">{lastFed}</Badge>
+              <div className="pt-2"> 
+                 <div className="inline-flex items-center px-2.5 py-1 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+                   {lastFed}
+                 </div>
               </div>
            </CardContent>
 
-           <CardFooter className="pt-3 pb-3 flex justify-end gap-2 border-t mt-auto">
+           <CardFooter className="pt-3 pb-4 flex justify-end gap-1 border-t mt-auto">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={handleEditClick} aria-label={`Editar ${cat.name}`}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg" onClick={handleEditClick} aria-label={`Editar ${cat.name}`}>
                     <Edit className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Editar Gato</p>
+                  <p>Editar</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDeleteClick} aria-label={`Excluir ${cat.name}`}>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10" onClick={handleDeleteClick} aria-label={`Excluir ${cat.name}`}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Excluir Gato</p>
+                  <p>Excluir</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -201,17 +197,17 @@ export const CatCard = memo(function CatCard({ cat, latestFeedingLog, onView, on
       </m.div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isso excluirá permanentemente o gato {cat.name}
-              e todos os seus registros de alimentação.
+              Isso excluirá permanentemente {cat.name} e todos os seus registros de alimentação.
+              Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogCancel onClick={(e) => e.stopPropagation()} className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>

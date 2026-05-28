@@ -8,6 +8,7 @@ import { updateSession } from '@/utils/supabase/middleware';
 import { handleAuthError } from '@/lib/utils/auth-errors';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createMiddlewareCookieStore } from '@/lib/supabase/cookie-store';
+import { validateMobileAuth } from '@/lib/middleware/mobile-auth';
 
 // Build ALLOWED_ORIGINS from environment variable with fallback to default array
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -67,6 +68,33 @@ metricsMonitor.registerMetric(
   'Total de erros HTTP',
   'counter'
 );
+
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100;
+
+function getRateLimitKey(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const ip = forwarded?.split(',')[0]?.trim() ?? 'unknown';
+  return `${ip}:${request.nextUrl.pathname}`;
+}
+
+function isRateLimited(key: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(key);
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(key, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+
+  record.count++;
+  if (record.count > RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Helper function to check if a path matches a pattern
@@ -296,13 +324,22 @@ export default async function proxy(request: NextRequest) {
   const startTime = Date.now();
   const { pathname } = request.nextUrl;
   const method = request.method;
-  
+
+  // Rate limiting (skip for health checks)
+  if (!pathname.startsWith('/api/health')) {
+    const rateLimitKey = getRateLimitKey(request);
+    if (isRateLimited(rateLimitKey)) {
+      logger.warn('[Middleware] Rate limit exceeded:', { key: rateLimitKey });
+      return new NextResponse('Too Many Requests', { status: 429 });
+    }
+  }
+
   // Incrementar contador de requisições HTTP no início
   metricsMonitor.incrementCounter('http_requests_total', {
     method: method,
     path: pathname
   });
-  
+
   logger.debug(`[Middleware Root] Processing request for: ${pathname}`, { url: request.nextUrl.toString() });
 
   try {
@@ -332,10 +369,25 @@ export default async function proxy(request: NextRequest) {
           return response;
         }
 
+        // Try cookie-based auth first (web clients)
+        let isAuthenticated = false;
         const supabase = createSupabaseRouteClient(request);
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-        if (userError || !user) {
+        if (!userError && user) {
+          isAuthenticated = true;
+        } else {
+          // Fallback to Bearer token auth (mobile/Flutter clients)
+          const authHeader = request.headers.get('authorization');
+          if (authHeader && authHeader.trim().toLowerCase().startsWith('bearer ')) {
+            const mobileAuthResult = await validateMobileAuth(request);
+            if (mobileAuthResult.success) {
+              isAuthenticated = true;
+            }
+          }
+        }
+
+        if (!isAuthenticated) {
           const response = NextResponse.json(
             { error: 'Unauthorized' },
             { 

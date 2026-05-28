@@ -53,19 +53,6 @@ export default function CatsPageContent() {
   const { feedingLogs } = feedingState
   const [isDeleting, setIsDeleting] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!isLoadingUser && !currentUser) {
-      const timeoutId = setTimeout(() => {
-        if (!currentUser && !isLoadingUser) {
-          toast.error("Você precisa estar conectado para ver seus gatos.");
-          router.replace("/login");
-        }
-      }, 100);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [currentUser, isLoadingUser, router]);
-
   const catsToDisplay = useMemo(() => {
     if (!currentUser?.householdId || !cats) return [];
     return cats.filter(cat => String(cat.householdId) === String(currentUser.householdId));

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useReducer, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import BottomNav from "@/components/bottom-nav"
 import PageTransition from "@/components/page-transition"
@@ -20,6 +20,52 @@ interface EditHouseholdPageContentProps {
   params: { id: string };
 }
 
+type EditHouseholdState = {
+  isLoadingData: boolean;
+  isSaving: boolean;
+  household: HouseholdType | null | undefined;
+  householdName: string;
+  isAuthorized: boolean | undefined;
+};
+
+type EditHouseholdAction =
+  | { type: 'LOAD_START' }
+  | { type: 'LOAD_HOUSEHOLD'; household: HouseholdType | null; householdName: string; isAuthorized: boolean }
+  | { type: 'LOAD_END' }
+  | { type: 'SET_HOUSEHOLD_NAME'; value: string }
+  | { type: 'SET_SAVING'; value: boolean };
+
+const initialEditHouseholdState: EditHouseholdState = {
+  isLoadingData: true,
+  isSaving: false,
+  household: undefined,
+  householdName: "",
+  isAuthorized: undefined,
+};
+
+function editHouseholdReducer(state: EditHouseholdState, action: EditHouseholdAction): EditHouseholdState {
+  switch (action.type) {
+    case 'LOAD_START':
+      return { ...state, isLoadingData: true };
+    case 'LOAD_HOUSEHOLD':
+      return {
+        ...state,
+        household: action.household,
+        householdName: action.householdName,
+        isAuthorized: action.isAuthorized,
+        isLoadingData: false,
+      };
+    case 'LOAD_END':
+      return { ...state, isLoadingData: false };
+    case 'SET_HOUSEHOLD_NAME':
+      return { ...state, householdName: action.value };
+    case 'SET_SAVING':
+      return { ...state, isSaving: action.value };
+    default:
+      return state;
+  }
+}
+
 export default function EditHouseholdPageContent({ params }: EditHouseholdPageContentProps) {
   const householdId = params.id;
   const router = useRouter();
@@ -29,23 +75,10 @@ export default function EditHouseholdPageContent({ params }: EditHouseholdPageCo
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;
   const { households, isLoading: isLoadingHouseholds, error: errorHousehold } = householdState;
   
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [household, setHousehold] = useState<HouseholdType | null | undefined>(undefined);
-  const [householdName, setHouseholdName] = useState("");
-  const [isAuthorized, setIsAuthorized] = useState<boolean | undefined>(undefined);
+  const [state, dispatch] = useReducer(editHouseholdReducer, initialEditHouseholdState);
+  const { isLoadingData, isSaving, household, householdName, isAuthorized } = state;
 
-  const shouldRedirect = !isLoadingUser && !errorUser && !currentUser;
   const shouldLoadData = !isLoadingUser && !errorUser && currentUser && !errorHousehold;
-
-  // Handle redirect for unauthenticated users
-  useEffect(() => {
-    if (shouldRedirect) {
-      console.log("[EditHouseholdPage] No currentUser found. Redirecting to login.");
-      toast.error("Autenticação necessária para editar.");
-      router.replace(`/login?callbackUrl=/households/${householdId}/edit`);
-    }
-  }, [shouldRedirect, router, householdId]);
 
   // Handle loading household data
   useEffect(() => {
@@ -53,7 +86,7 @@ export default function EditHouseholdPageContent({ params }: EditHouseholdPageCo
 
     const opId = "load-edit-household";
     addLoadingOperation({ id: opId, priority: 1, description: "Loading household data..."});
-    setIsLoadingData(true);
+    dispatch({ type: 'LOAD_START' });
 
     if (isLoadingHouseholds) {
         console.log("EditHouseholdPage useEffect: HouseholdContext still loading, waiting...");
@@ -63,22 +96,30 @@ export default function EditHouseholdPageContent({ params }: EditHouseholdPageCo
     console.log(`EditHouseholdPage useEffect: Attempting to find household ${householdId}`);
     console.log(`EditHouseholdPage useEffect: Households available in context: ${households.length}`);
     const foundHousehold = households.find(h => String(h.id) === String(householdId));
-    setHousehold(foundHousehold || null);
 
     if (foundHousehold) {
       console.log(`EditHouseholdPage useEffect: Found household ${foundHousehold.id}`);
-      setHouseholdName(foundHousehold.name);
       const isOwner = String(foundHousehold.owner?.id) === String(currentUser.id);
       const isAdmin = isOwner || foundHousehold.members?.some(
         member => String(member.userId) === String(currentUser.id) && member.role?.toLowerCase() === 'admin'
       );
       console.log(`EditHouseholdPage useEffect: Is owner? ${isOwner}, Is admin member? ${isAdmin}`);
-      setIsAuthorized(isAdmin);
+      dispatch({
+        type: 'LOAD_HOUSEHOLD',
+        household: foundHousehold,
+        householdName: foundHousehold.name,
+        isAuthorized: isAdmin,
+      });
     } else {
       console.warn(`EditHouseholdPage useEffect: Household ${householdId} not found in context.`);
-      setIsAuthorized(false);
+      dispatch({
+        type: 'LOAD_HOUSEHOLD',
+        household: null,
+        householdName: "",
+        isAuthorized: false,
+      });
     }
-    setIsLoadingData(false);
+    dispatch({ type: 'LOAD_END' });
     removeLoadingOperation(opId);
   }, [shouldLoadData, currentUser, households, householdId, isLoadingHouseholds, addLoadingOperation, removeLoadingOperation]);
 
@@ -133,7 +174,7 @@ export default function EditHouseholdPageContent({ params }: EditHouseholdPageCo
 
     const opId = "save-household";
     addLoadingOperation({ id: opId, priority: 1, description: "Saving household..." });
-    setIsSaving(true);
+    dispatch({ type: 'SET_SAVING', value: true });
     try {
       const response = await fetch(`/api/households/${householdId}`, {
         method: "PATCH",
@@ -163,7 +204,7 @@ export default function EditHouseholdPageContent({ params }: EditHouseholdPageCo
       console.error("Erro ao atualizar residência:", error);
       toast.error(`Erro ao atualizar: ${error.message}`);
     } finally {
-      setIsSaving(false);
+      dispatch({ type: 'SET_SAVING', value: false });
       removeLoadingOperation(opId);
     }
   };
@@ -230,7 +271,7 @@ export default function EditHouseholdPageContent({ params }: EditHouseholdPageCo
                     id="name"
                     type="text"
                     value={householdName}
-                    onChange={(e) => setHouseholdName(e.target.value)}
+                    onChange={(e) => dispatch({ type: 'SET_HOUSEHOLD_NAME', value: e.target.value })}
                     placeholder="Digite o nome da residência"
                     required
                     disabled={isSaving}

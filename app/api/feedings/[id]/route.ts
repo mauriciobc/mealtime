@@ -3,20 +3,25 @@ import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
 import { parseGender } from '@/lib/types/common';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // GET /api/feedings/[id] - Buscar detalhes de um registro de alimentação
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const headersList = await headers();
-  const authUserId = headersList.get('X-User-ID');
+  const authResult = await getAuthenticatedUser(request);
+  
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error || 'Authentication required' }, { status: authResult.statusCode || 401 });
+  }
+  
+  const authUserId = authResult.user!.id;
   const params = await context.params;
   const logId = params.id;
 
-  if (!authUserId) {
-    console.log(`[GET /api/feedings/${logId}] Failed: Missing X-User-ID header`);
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  if (!logId) {
+    return NextResponse.json({ error: 'ID do registro inválido' }, { status: 400 });
   }
 
   if (!logId) {
@@ -118,15 +123,15 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const headersList = await headers();
-  const authUserId = headersList.get('X-User-ID');
+  const authResult = await getAuthenticatedUser(request);
+  
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error || 'Authentication required' }, { status: authResult.statusCode || 401 });
+  }
+  
+  const authUserId = authResult.user!.id;
   const params = await context.params;
   const logId = params.id;
-
-  if (!authUserId) {
-    console.log(`[DELETE /api/feedings/${logId}] Failed: Missing X-User-ID header`);
-    return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-  }
 
   console.log(`[DELETE /api/feedings/${logId}] Attempting delete by user ${authUserId}`);
 

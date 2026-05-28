@@ -47,7 +47,14 @@ export const GET = withHybridAuth(async (
     }
 
     // Verify user has access to the cat's household
-    if (schedule.cat.household_id !== user.household_id) {
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: schedule.cat.household_id,
+      },
+    });
+
+    if (!userMembership) {
       logger.warn(`[GET /api/v2/schedules/${id}] Access denied for user ${user.id}`);
       return NextResponse.json({
         success: false,
@@ -123,7 +130,14 @@ export const PATCH = withHybridAuth(async (
     }
 
     // Verify user has access to the cat's household
-    if (existingSchedule.cat.household_id !== user.household_id) {
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: existingSchedule.cat.household_id,
+      },
+    });
+
+    if (!userMembership) {
       logger.warn(`[PATCH /api/v2/schedules/${id}] Access denied for user ${user.id}`);
       return NextResponse.json({
         success: false,
@@ -282,7 +296,14 @@ export const DELETE = withHybridAuth(async (
     }
 
     // Verify user has access to the cat's household
-    if (existingSchedule.cat.household_id !== user.household_id) {
+    const userMembership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: existingSchedule.cat.household_id,
+      },
+    });
+
+    if (!userMembership) {
       logger.warn(`[DELETE /api/v2/schedules/${id}] Access denied for user ${user.id}`);
       return NextResponse.json({
         success: false,

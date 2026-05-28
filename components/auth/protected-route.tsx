@@ -2,23 +2,14 @@
 
 import React from "react";
 import { useUserContext } from "@/lib/context/UserContext";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
-export default function ProtectedRoute(props: ProtectedRouteProps) {
+export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { state: userState } = useUserContext();
   const { currentUser, isLoading } = userState;
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isLoading && !currentUser) {
-      router.push("/login");
-    }
-  }, [currentUser, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -32,5 +23,5 @@ export default function ProtectedRoute(props: ProtectedRouteProps) {
     return null;
   }
 
-  return <React.Fragment>{props.children}</React.Fragment>;
-} 
+  return <>{children}</>;
+}

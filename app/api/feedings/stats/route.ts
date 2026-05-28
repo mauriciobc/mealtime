@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // Validation schema for query parameters
 const statsQuerySchema = z.object({
@@ -13,15 +14,16 @@ const statsQuerySchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the X-User-ID header
-    const userId = request.headers.get("X-User-ID");
+    const authResult = await getAuthenticatedUser(request);
     
-    if (!userId) {
+    if (!authResult.success) {
       return NextResponse.json(
-        { error: "Authentication required", details: "User ID is missing" },
-        { status: 401 }
+        { error: authResult.error || "Authentication required" },
+        { status: authResult.statusCode || 401 }
       );
     }
+    
+    const userId = authResult.user!.id;
 
     // Parse and validate query parameters
     const { searchParams } = new URL(request.url);

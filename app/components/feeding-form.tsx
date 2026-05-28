@@ -37,9 +37,9 @@ export function FeedingForm({ catId, onMarkAsFed }: FeedingFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <label htmlFor="amount" className="text-sm font-medium">
+        <label htmlFor="amount" className="text-sm font-medium text-foreground">
           Quantidade (opcional)
         </label>
         <Input
@@ -49,11 +49,12 @@ export function FeedingForm({ catId, onMarkAsFed }: FeedingFormProps) {
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="Ex: 1.5"
+          className="rounded-xl h-11"
         />
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="notes" className="text-sm font-medium">
+        <label htmlFor="notes" className="text-sm font-medium text-foreground">
           Observações (opcional)
         </label>
         <Textarea
@@ -61,10 +62,15 @@ export function FeedingForm({ catId, onMarkAsFed }: FeedingFormProps) {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Adicione observações sobre a alimentação..."
+          className="rounded-xl min-h-[100px] resize-none"
         />
       </div>
 
-      <Button type="submit" disabled={isSubmitting}>
+      <Button 
+        type="submit" 
+        disabled={isSubmitting} 
+        className="w-full rounded-xl h-11 font-medium"
+      >
         {isSubmitting ? "Registrando..." : "Registrar Alimentação"}
       </Button>
     </form>

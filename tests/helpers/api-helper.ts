@@ -4,6 +4,7 @@ import { parseGender } from '../../lib/types/common';
 export class APIHelper {
   readonly page: Page;
   private accessToken: string | null = null;
+  private userId: string | null = null;
 
   constructor(page: Page) {
     this.page = page;
@@ -20,6 +21,7 @@ export class APIHelper {
     const result = await response.json();
     if (result.success && result.access_token) {
       this.accessToken = result.access_token;
+      this.userId = result.user?.id || null;
       return result;
     }
     throw new Error(`Authentication failed: ${JSON.stringify(result)}`);
@@ -40,6 +42,10 @@ export class APIHelper {
 
     if (this.accessToken) {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    if (this.userId) {
+      headers['X-User-ID'] = this.userId;
     }
 
     return headers;
@@ -185,5 +191,109 @@ export class APIHelper {
     enabled?: boolean;
   }): Promise<unknown> {
     return this.post('/api/v2/schedules', data);
+  }
+
+  async deleteSchedule(scheduleId: string): Promise<unknown> {
+    return this.delete(`/api/v2/schedules/${scheduleId}`);
+  }
+
+  async completeFeeding(feedingId: string, data?: { notes?: string; amount?: number; fed_at?: string }): Promise<unknown> {
+    return this.post(`/api/v2/feedings/${feedingId}/complete`, data || {});
+  }
+
+  async skipFeeding(feedingId: string, data?: { reason?: string }): Promise<unknown> {
+    return this.post(`/api/v2/feedings/${feedingId}/skip`, data || {});
+  }
+
+  async createBatchFeeding(data: {
+    logs: Array<{
+      catId: string;
+      portionSize: number;
+      timestamp: string;
+      notes?: string;
+      status?: string;
+      mealType: string;
+      food_type?: string;
+      unit?: string;
+      tempId?: string;
+    }>;
+  }): Promise<unknown> {
+    return this.post('/api/v2/feedings/batch', data);
+  }
+
+  async getStatistics(period?: string, catId?: string): Promise<unknown> {
+    const params = new URLSearchParams();
+    if (period) params.set('period', period);
+    if (catId) params.set('catId', catId);
+    const query = params.toString();
+    return this.get(`/api/v2/statistics${query ? `?${query}` : ''}`);
+  }
+
+  async getNextFeeding(catId: string): Promise<unknown> {
+    return this.get(`/api/v2/cats/${catId}/next-feeding`);
+  }
+
+  async createGoal(data: {
+    cat_id: string;
+    goal_name: string;
+    start_date: string;
+    target_date: string;
+    initial_weight: number;
+    target_weight: number;
+    unit: 'kg' | 'lbs';
+    description?: string;
+  }): Promise<unknown> {
+    return this.post('/api/v2/goals', data);
+  }
+
+  async getGoals(): Promise<unknown> {
+    return this.get('/api/v2/goals');
+  }
+
+  async uploadFile(file: Buffer, filename: string, type: 'user' | 'cat' | 'thumbnail' = 'user'): Promise<unknown> {
+    // Use page.request for multipart upload
+    const response = await this.page.request.post('/api/v2/upload', {
+      multipart: {
+        file: {
+          name: filename,
+          mimeType: 'image/png',
+          buffer: file,
+        },
+        type,
+      },
+    });
+    return response.json();
+  }
+
+  async getUserPreferences(userId: string): Promise<unknown> {
+    return this.get(`/api/v2/users/${userId}/preferences`);
+  }
+
+  async updateUserPreferences(userId: string, data: {
+    language?: string;
+    timezone?: string;
+    notifications?: Record<string, boolean>;
+  }): Promise<unknown> {
+    return this.put(`/api/v2/users/${userId}/preferences`, data);
+  }
+
+  async getHouseholdDetail(householdId: string): Promise<unknown> {
+    return this.get(`/api/v2/households/${householdId}`);
+  }
+
+  async getHouseholdCats(householdId: string): Promise<unknown> {
+    return this.get(`/api/v2/households/${householdId}/cats`);
+  }
+
+  async getHouseholdMembers(householdId: string): Promise<unknown> {
+    return this.get(`/api/v2/households/${householdId}/members`);
+  }
+
+  async acceptInvite(notificationId: string): Promise<unknown> {
+    return this.post(`/api/v2/households/invites/${notificationId}/accept`, {});
+  }
+
+  async rejectInvite(notificationId: string): Promise<unknown> {
+    return this.post(`/api/v2/households/invites/${notificationId}/reject`, {});
   }
 }

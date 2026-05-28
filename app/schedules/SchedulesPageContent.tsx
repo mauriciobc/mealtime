@@ -184,10 +184,10 @@ export default function SchedulesPageContent() {
                 }
               />
             </div>
-          ) : (
+           ) : (
              !isLoading && (
                <>
-                 <h2 className="text-lg font-semibold mt-6 mb-3">Agendamentos Ativos</h2>
+                 <h2 className="text-xl font-semibold mt-8 mb-4">Agendamentos Ativos</h2>
                  <m.div
                    className="space-y-3"
                    variants={containerVariants}
@@ -214,14 +214,14 @@ export default function SchedulesPageContent() {
                  </m.div>
 
                  {timelineEvents.length > 0 && (
-                   <div className="mt-8">
-                     <h2 className="text-lg font-semibold mb-4">Próximas Alimentações Agendadas</h2>
+                   <div className="mt-10">
+                     <h2 className="text-xl font-semibold mb-4">Próximas Alimentações</h2>
                      <FeedingTimeline events={timelineEvents.slice(0, 5)} />
                    </div>
                  )}
                </>
              )
-          )}
+           )}
         </div>
         <BottomNav />
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useReducer } from "react";
 import { Input } from "@/components/ui/input";
 
 interface TimeFieldProps {
@@ -9,20 +9,42 @@ interface TimeFieldProps {
   disabled?: boolean;
 }
 
+type TimeFieldState = { hours: string; minutes: string };
+
+type TimeFieldAction =
+  | { type: 'SYNC_FROM_VALUE'; value: string }
+  | { type: 'SET_HOURS'; hours: string }
+  | { type: 'SET_MINUTES'; minutes: string };
+
+function parseTimeValue(value: string): TimeFieldState {
+  if (!value) return { hours: "", minutes: "" };
+  const [h, m] = value.split(":");
+  return { hours: h || "", minutes: m || "" };
+}
+
+function timeFieldReducer(state: TimeFieldState, action: TimeFieldAction): TimeFieldState {
+  switch (action.type) {
+    case 'SYNC_FROM_VALUE':
+      return parseTimeValue(action.value);
+    case 'SET_HOURS':
+      return { ...state, hours: action.hours };
+    case 'SET_MINUTES':
+      return { ...state, minutes: action.minutes };
+    default:
+      return state;
+  }
+}
+
 export function TimeField({ value, onChange, disabled = false }: TimeFieldProps) {
-  const [hours, setHours] = useState<string>("");
-  const [minutes, setMinutes] = useState<string>("");
+  const [state, dispatch] = useReducer(timeFieldReducer, value, parseTimeValue);
+  const { hours, minutes } = state;
 
-  // Inicializar os valores de horas e minutos a partir do valor recebido
-  useEffect(() => {
-    if (value) {
-      const [h, m] = value.split(":");
-      setHours(h || "");
-      setMinutes(m || "");
-    }
-  }, [value]);
+  const [prevValue, setPrevValue] = React.useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    dispatch({ type: 'SYNC_FROM_VALUE', value });
+  }
 
-  // Atualizar o valor quando as horas ou minutos mudarem
   const updateValue = (newHours: string, newMinutes: string) => {
     if (newHours && newMinutes) {
       onChange(`${newHours.padStart(2, "0")}:${newMinutes.padStart(2, "0")}`);
@@ -31,20 +53,18 @@ export function TimeField({ value, onChange, disabled = false }: TimeFieldProps)
     }
   };
 
-  // Manipular mudança nas horas
   const handleHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newHours = e.target.value;
     if (newHours === "" || (parseInt(newHours) >= 0 && parseInt(newHours) <= 23)) {
-      setHours(newHours);
+      dispatch({ type: 'SET_HOURS', hours: newHours });
       updateValue(newHours, minutes);
     }
   };
 
-  // Manipular mudança nos minutos
   const handleMinutesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newMinutes = e.target.value;
     if (newMinutes === "" || (parseInt(newMinutes) >= 0 && parseInt(newMinutes) <= 59)) {
-      setMinutes(newMinutes);
+      dispatch({ type: 'SET_MINUTES', minutes: newMinutes });
       updateValue(hours, newMinutes);
     }
   };
@@ -74,4 +94,4 @@ export function TimeField({ value, onChange, disabled = false }: TimeFieldProps)
       />
     </div>
   );
-} 
+}

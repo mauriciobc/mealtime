@@ -1,30 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Cat, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
 import { EmptyState } from "@/components/ui/empty-state";
-import { useRouter } from "next/navigation";
 import { useDashboard } from "@/lib/hooks/useDashboard";
+import { GlobalLoading } from "@/components/ui/global-loading";
 
 const DashboardContent = dynamic(
   () => import("./components/dashboard/dashboard-content").then((m) => ({ default: m.default })),
   { ssr: false }
 );
-import { GlobalLoading } from "@/components/ui/global-loading";
 
 export default function HomeClient() {
   const { state: appState, data, currentUser } = useDashboard();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (appState.type === 'NO_USER') {
-      router.replace("/login?callbackUrl=/");
-    }
-  }, [appState.type, router]);
 
   switch (appState.type) {
     case 'LOADING_USER':
@@ -97,6 +87,7 @@ export default function HomeClient() {
           averagePortionSize={data.averagePortionSize}
           lastFeedingLog={data.lastFeedingLog}
           recentFeedingsData={data.recentFeedingsData}
+          currentUser={currentUser}
         />
       );
   }

@@ -5,9 +5,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 
-// TODO: Restrict access to Netlify scheduled function or internal secret
 export async function POST(req: NextRequest) {
   try {
+    // Gate: only allow calls with valid CRON_SECRET
+    const cronSecret = req.headers.get('x-cron-secret') || req.nextUrl.searchParams.get('secret');
+    if (!process.env.CRON_SECRET || cronSecret !== process.env.CRON_SECRET) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const now = new Date();
     // 1. Fetch all due, undelivered notifications (outside transaction)
     const due = await prisma.scheduledNotification.findMany({

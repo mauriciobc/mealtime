@@ -6,6 +6,8 @@ const LOCAL_STORAGE_KEYS = {
 };
 
 test.describe('Onboarding Tours', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test.beforeEach(async ({ page }) => {
     await page.addInitScript((keys) => {
       localStorage.removeItem(keys.firstVisit);

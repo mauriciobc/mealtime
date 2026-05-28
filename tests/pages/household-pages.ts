@@ -131,7 +131,7 @@ export class HouseholdInvitePage {
   constructor(page: Page) {
     this.page = page;
     this.pageTitle = page.getByRole('heading', { name: /convidar membros/i });
-    this.emailInput = page.getByLabel(/e-mail|email/i).or(page.locator('input[id="email"], input[name="email"]'));
+    this.emailInput = page.getByRole('textbox', { name: /e-mail|email/i }).or(page.locator('input#email'));
     this.sendButton = page.getByRole('button', { name: /enviar convite/i });
   }
 

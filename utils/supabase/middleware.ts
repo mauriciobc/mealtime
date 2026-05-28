@@ -93,6 +93,58 @@ const AUTH_COOKIE_NAMES = [
   'supabase-auth-token',
 ];
 
+// Auth failures that are expected, not bugs: stale refresh token, missing
+// session, revoked JWT. Treat them as "user needs to re-authenticate" rather
+// than "something blew up". Without this, every visit to a protected page
+// after a token rotation logs ERROR.
+function isExpectedAuthFailure(userError: { name?: string; code?: string; message?: string } | null | undefined): boolean {
+  if (!userError) return false;
+  if (userError.name === 'AuthSessionMissingError') return true;
+
+  const expectedCodes = new Set([
+    'refresh_token_not_found',
+    'refresh_token_already_used',
+    'session_not_found',
+    'session_expired',
+    'bad_jwt',
+  ]);
+  if (userError.code && expectedCodes.has(userError.code)) return true;
+
+  const message = userError.message ?? '';
+  return (
+    message.includes('Refresh Token Not Found') ||
+    message.includes('Invalid Refresh Token') ||
+    message.includes('Auth session missing')
+  );
+}
+
+// When supabase-ssr's getUser() determines the refresh token is invalid it
+// invokes the cookie store to delete the stale cookies. Those mutations live
+// on `response`. If we later replace `response` with NextResponse.redirect(),
+// those Set-Cookie headers are dropped and the browser keeps sending the bad
+// cookie on every subsequent request. This helper does a defensive sweep:
+// any sb-* cookie that came in on the request gets an explicit clear header
+// on the response we are actually going to return.
+function clearStaleSupabaseCookies(request: NextRequest, response: NextResponse): void {
+  for (const cookie of request.cookies.getAll()) {
+    if (cookie.name.startsWith('sb-')) {
+      response.cookies.delete(cookie.name);
+    }
+  }
+}
+
+// NextResponse.redirect() returns a fresh response, dropping any cookie
+// mutations that supabase-ssr applied to the previous response. This helper
+// builds the redirect and re-applies those cookies so the browser actually
+// receives the "clear stale auth cookies" instructions.
+function redirectPreservingCookies(redirectUrl: URL, fromResponse: NextResponse): NextResponse {
+  const redirect = NextResponse.redirect(redirectUrl);
+  for (const cookie of fromResponse.cookies.getAll()) {
+    redirect.cookies.set(cookie);
+  }
+  return redirect;
+}
+
 export async function updateSession(request: NextRequest) {
   const currentPath = request.nextUrl.pathname;
   
@@ -136,71 +188,62 @@ export async function updateSession(request: NextRequest) {
 
     // Handle auth errors with better error classification
     if (userError) {
-      const isSessionMissing = userError.name === 'AuthSessionMissingError';
-      const isTransientError = (userError?.status ?? 500) >= 500 || 
-        (userError.message && typeof userError.message === 'string' && 
-         userError.message.toLowerCase().includes('network'));
-      
+      const errorInfo = userError as { name?: string; code?: string; message?: string; status?: number };
+      const isExpectedFailure = isExpectedAuthFailure(errorInfo);
+      const isTransientError = !isExpectedFailure && (
+        (errorInfo.status ?? 500) >= 500 ||
+        (typeof errorInfo.message === 'string' && errorInfo.message.toLowerCase().includes('network'))
+      );
+
+      const logPayload = {
+        message: errorInfo.message,
+        code: errorInfo.code,
+        status: errorInfo.status ?? 400,
+        name: errorInfo.name,
+        path: currentPath,
+        isExpectedFailure,
+        isTransientError,
+      };
+
       // Log based on error type and route protection status
       if (isProtectedRoute(currentPath)) {
-        // For protected routes: AuthSessionMissingError is expected (unauthorized access attempt)
-        // Log as WARN for session missing, ERROR only for unexpected errors
-        if (isSessionMissing) {
-          logger.warn('[updateSession] Unauthenticated access attempt to protected route:', { 
-            message: userError.message, 
-            code: (userError?.status ?? 400), 
-            name: userError.name, 
-            path: currentPath,
-            isSessionMissing: true
-          });
+        if (isExpectedFailure) {
+          // Stale/missing/revoked session — expected, log at WARN.
+          logger.warn('[updateSession] Expected auth failure on protected route (re-auth required):', logPayload);
         } else if (isTransientError) {
-          // Transient errors (network, server issues) - log as WARN
-          logger.warn('[updateSession] Transient auth error on protected route:', { 
-            message: userError.message, 
-            code: (userError?.status ?? 500), 
-            name: userError.name, 
-            path: currentPath,
-            isTransientError: true
-          });
+          logger.warn('[updateSession] Transient auth error on protected route:', logPayload);
         } else {
-          // Unexpected non-transient errors - log as ERROR
-          logger.error('[updateSession] Unexpected auth error on protected route:', { 
-            message: userError.message, 
-            code: (userError?.status ?? 500), 
-            name: userError.name, 
-            path: currentPath
-          });
+          logger.error('[updateSession] Unexpected auth error on protected route:', logPayload);
         }
       } else {
-        // Non-protected routes: log as info to avoid noisy logs for expected cases
-        logger.info('[updateSession] Supabase user error (non-protected route, likely expected):', { 
-          message: userError.message, 
-          code: (userError?.status ?? 500), 
-          name: userError.name, 
-          path: currentPath,
-          isSessionMissing,
-          isTransientError
-        });
+        logger.info('[updateSession] Supabase user error (non-protected route, likely expected):', logPayload);
       }
 
-      // For protected routes, only redirect if it's a session missing error or non-transient error
-      if (isProtectedRoute(currentPath) && (isSessionMissing || !isTransientError)) {
-        logger.warn(`[updateSession] Redirecting due to userError on protected path: ${currentPath}`);
-        const redirectUrl = new URL('/login', request.url);
-        if (currentPath !== '/') {
-          redirectUrl.searchParams.set('redirectTo', currentPath);
-        }
-        response = NextResponse.redirect(redirectUrl);
-        response.headers.set('x-redirect-count', (redirectCount + 1).toString());
-        return response;
-      }
-      
       // For transient errors on protected routes, allow the request to proceed
       if (isProtectedRoute(currentPath) && isTransientError) {
         logger.warn(`[updateSession] Allowing request despite transient error on protected path: ${currentPath}`);
         return response;
       }
-      
+
+      // For protected routes with an expected/non-transient auth failure,
+      // redirect to /login AND make sure stale auth cookies get cleared on
+      // the redirect response (supabase-ssr already requested the clear on
+      // `response`; redirectPreservingCookies copies those Set-Cookie headers
+      // onto the redirect we actually return).
+      if (isProtectedRoute(currentPath)) {
+        if (isExpectedFailure) {
+          clearStaleSupabaseCookies(request, response);
+        }
+        logger.warn(`[updateSession] Redirecting due to userError on protected path: ${currentPath}`);
+        const redirectUrl = new URL('/login', request.url);
+        if (currentPath !== '/') {
+          redirectUrl.searchParams.set('redirectTo', currentPath);
+        }
+        response = redirectPreservingCookies(redirectUrl, response);
+        response.headers.set('x-redirect-count', (redirectCount + 1).toString());
+        return response;
+      }
+
       // Allow non-protected routes even if getUser has error (might be transient)
       logger.warn(`[updateSession] Allowing request despite userError on non-protected path: ${currentPath}`);
       return response;
@@ -210,8 +253,10 @@ export async function updateSession(request: NextRequest) {
 
     // Redirect authenticated users away from public routes (login, signup)
     if (isPublicRoute(currentPath) && user) {
-      logger.debug(`[updateSession] Authenticated user accessing public route ${currentPath}. Redirecting to /.`);
-      response = NextResponse.redirect(new URL('/', request.url));
+      const redirectTo = request.nextUrl.searchParams.get('redirectTo') || '/';
+      const safeRedirect = redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/';
+      logger.debug(`[updateSession] Authenticated user accessing public route ${currentPath}. Redirecting to ${safeRedirect}.`);
+      response = redirectPreservingCookies(new URL(safeRedirect, request.url), response);
       response.headers.set('x-redirect-count', (redirectCount + 1).toString());
       return response;
     }
@@ -221,7 +266,7 @@ export async function updateSession(request: NextRequest) {
       logger.debug(`[updateSession] Unauthenticated user accessing protected route ${currentPath}. Redirecting to login.`);
       const redirectUrl = new URL('/login', request.url);
       redirectUrl.searchParams.set('redirectTo', currentPath);
-      response = NextResponse.redirect(redirectUrl);
+      response = redirectPreservingCookies(redirectUrl, response);
       response.headers.set('x-redirect-count', (redirectCount + 1).toString());
       return response;
     }

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { pageMetadata } from '@/lib/metadata';
 
 interface DocSection {
   title: string;
@@ -166,6 +167,24 @@ export function generateStaticParams() {
   });
   
   return params;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }) {
+  const resolvedParams = await params;
+  const slugArray = resolvedParams.slug || [];
+  const isEnglish = slugArray[0] === 'en';
+  const locale = isEnglish ? 'en' : 'pt';
+  const docSlug = isEnglish ? slugArray.slice(1).join('/') : slugArray.join('/');
+  const doc = getDocContent(docSlug, locale);
+
+  if (!doc) {
+    return pageMetadata(
+      locale === 'en' ? 'Documentation' : 'Documentação',
+      locale === 'en' ? 'MealTime user guide.' : 'Guia do usuário MealTime.'
+    );
+  }
+
+  return pageMetadata(doc.title, doc.title);
 }
 
 export default async function DocsPage({ params }: { params: Promise<{ slug?: string[] }> }) {

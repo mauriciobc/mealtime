@@ -54,6 +54,23 @@ const nextConfig = {
     },
     serverSourceMaps: true,
   },
+  // Flutter client compatibility rewrites
+  async rewrites() {
+    return [
+      // Meals → Feedings
+      { source: '/api/meals', destination: '/api/feedings' },
+      { source: '/api/meals/:id', destination: '/api/feedings/:id' },
+      { source: '/api/meals/:id/complete', destination: '/api/feedings/:id/complete' },
+      { source: '/api/meals/:id/skip', destination: '/api/feedings/:id/skip' },
+      
+      // Homes → Households
+      { source: '/api/homes/:path*', destination: '/api/households/:path*' },
+      
+      // User profile alias
+      { source: '/api/user/profile', destination: '/api/users/me' },
+    ];
+  },
+  
   // Turbopack é o bundler padrão no Next.js 15
   // Config vazio indica que queremos usar Turbopack sem configuração customizada
   turbopack: {},

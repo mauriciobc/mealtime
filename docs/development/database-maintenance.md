@@ -47,15 +47,42 @@ ALTER TABLE net._http_response SET (
 
 #### Opção 3: Limpeza de Dados Antigos (Se aplicável)
 
-Se a tabela armazena logs HTTP que podem ser limpos, considerar limpar dados antigos:
+Se a tabela armazena logs HTTP que podem ser limpos, considerar limpar dados antigos. **Nota:** A coluna de data na tabela é `created`, não `created_at`.
 
 ```sql
 -- Exemplo: deletar registros mais antigos que 30 dias
 DELETE FROM net._http_response 
-WHERE created_at < NOW() - INTERVAL '30 days';
+WHERE created < NOW() - INTERVAL '30 days';
 ```
 
 **⚠️ ATENÇÃO**: Verificar se esta tabela é usada para auditoria ou debugging antes de deletar dados.
+
+### Automação de limpeza (já configurada)
+
+Existe um **job pg_cron** que limpa `net._http_response` e `cron.job_run_details` automaticamente:
+
+| Item | Valor |
+|------|--------|
+| **Job** | `cleanup-system-tables-weekly` |
+| **Schedule** | `0 3 * * 1` (toda segunda-feira às 03:00) |
+| **Ativo** | Sim |
+| **Função** | `public.cleanup_system_tables()` |
+
+A função `cleanup_system_tables()`:
+- Deleta de `cron.job_run_details` registros com `start_time` &gt; 7 dias.
+- Deleta de `net._http_response` registros com `created` &gt; 7 dias.
+
+A definição da função e o job foram criados diretamente no Supabase (não estão em migrations do repositório). Para inspecionar ou recriar:
+
+```sql
+-- Listar jobs de limpeza
+SELECT jobid, jobname, schedule, active, command 
+FROM cron.job 
+WHERE command LIKE '%cleanup_system%';
+
+-- Ver definição da função
+SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'cleanup_system_tables';
+```
 
 ### Monitoramento
 

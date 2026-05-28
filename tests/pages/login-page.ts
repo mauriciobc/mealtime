@@ -34,6 +34,15 @@ export class LoginPage {
   async goto(callbackUrl?: string) {
     const url = callbackUrl ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}` : '/login';
     await this.page.goto(url, { waitUntil: 'networkidle' });
+
+    // If already authenticated, middleware redirects /login → /.
+    // Detect this and return early so tests using storageState don't hang.
+    const currentUrl = this.page.url();
+    if (!currentUrl.includes('/login')) {
+      console.log(`[LoginPage] Already authenticated (on ${currentUrl}), skipping login form wait.`);
+      return;
+    }
+
     // Wait for the loading overlay to disappear and form to be visible
     await this.page.waitForSelector('[data-loading="true"]', { state: 'detached', timeout: 10000 }).catch(() => {});
     // Ensure the email input is visible and ready for interaction
@@ -41,14 +50,21 @@ export class LoginPage {
   }
 
   async login(email: string, password: string) {
+    // If already authenticated (e.g., redirected from /login), skip login flow.
+    const currentUrl = this.page.url();
+    if (!currentUrl.includes('/login')) {
+      console.log(`[LoginPage] Already authenticated (on ${currentUrl}), skipping login.`);
+      return;
+    }
+
     // Ensure elements are visible and enabled before interacting
     await this.emailInput.waitFor({ state: 'visible' });
     await this.passwordInput.waitFor({ state: 'visible' });
-    
+
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
     await this.submitButton.click();
-    
+
     // Wait for either success (redirect) or error (alert)
     try {
       await Promise.race([

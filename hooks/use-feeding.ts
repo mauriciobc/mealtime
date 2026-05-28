@@ -69,22 +69,24 @@ export function useFeeding(catId: string | null) {
   const cat = useMemo(() => {
     if (!catId) return null;
     const foundCat = catsMap.get(String(catId)) || null;
-    if (!foundCat) {
+    // Only log error if cats have finished loading and cat is still not found
+    if (!foundCat && !isLoadingCats && cats && cats.length > 0) {
       console.error(`[useFeeding] Cat not found in context for ID: ${catId}`);
     }
     return foundCat;
-  }, [catId, catsMap]);
+  }, [catId, catsMap, isLoadingCats, cats]);
 
   // Handle error state based on found cat
   useEffect(() => {
-    if (cat === null && catId && cats) {
+    // Only set error if cats have finished loading AND we have cats in the array, but still can't find this specific cat
+    if (cat === null && catId && cats && cats.length > 0 && !isLoadingCats) {
       console.error(`[useFeeding] Cat not found in context for ID: ${catId}`);
       setInternalError("Gato não encontrado.");
     } else if (cat !== null) {
       // Clear error when cat is found
       setInternalError(null);
     }
-  }, [catId, cats, cat]);
+  }, [catId, cats, cat, isLoadingCats]);
 
   const logs = useMemo(() => {
     if (!catId || !feedingState.feedingLogs) return [];
