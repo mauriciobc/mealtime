@@ -8,7 +8,6 @@ import { updateSession } from '@/utils/supabase/middleware';
 import { handleAuthError } from '@/lib/utils/auth-errors';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createMiddlewareCookieStore } from '@/lib/supabase/cookie-store';
-import { validateMobileAuth } from '@/lib/middleware/mobile-auth';
 
 // Build ALLOWED_ORIGINS from environment variable with fallback to default array
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -252,6 +251,18 @@ function createSupabaseRouteClient(request: NextRequest) {
   );
 }
 
+/** Edge-safe Bearer check (Supabase JWT only — no Prisma). */
+async function isBearerTokenValid(request: NextRequest): Promise<boolean> {
+  const authHeader = request.headers.get('authorization');
+  const match = authHeader?.trim().match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+  if (!token) return false;
+
+  const supabase = createSupabaseRouteClient(request);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  return !error && !!user;
+}
+
 // Helper function to record response metrics
 function recordResponseMetrics(
   startTime: number, 
@@ -378,12 +389,8 @@ export default async function proxy(request: NextRequest) {
           isAuthenticated = true;
         } else {
           // Fallback to Bearer token auth (mobile/Flutter clients)
-          const authHeader = request.headers.get('authorization');
-          if (authHeader && authHeader.trim().toLowerCase().startsWith('bearer ')) {
-            const mobileAuthResult = await validateMobileAuth(request);
-            if (mobileAuthResult.success) {
-              isAuthenticated = true;
-            }
+          if (await isBearerTokenValid(request)) {
+            isAuthenticated = true;
           }
         }
 
