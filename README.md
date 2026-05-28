@@ -110,14 +110,14 @@ To run the notification cron job locally, open a separate terminal and run:
 npm run cron
 ```
 
-This will start a background process that checks and sends scheduled notifications every 5 minutes.
+This will start a background process that delivers scheduled feeding reminders and missed-feeding warnings every minute.
 
 ### Production/Deployment
 
 Most serverless platforms (like Vercel) do **not** support persistent background jobs. You must use an external scheduler (such as GitHub Actions, cron-job.org, or a server-side cron) to periodically call the following endpoint:
 
 ```
-GET /api/notifications/feeding-check
+POST /api/v2/scheduled-notifications/deliver
 ```
 
-Call this endpoint every 5 minutes to ensure scheduled notifications are processed.
+Call this endpoint every minute. If `CRON_SECRET` is set, send header `X-Cron-Secret: <CRON_SECRET>`.

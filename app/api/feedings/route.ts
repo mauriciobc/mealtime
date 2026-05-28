@@ -15,6 +15,7 @@ import { headers } from 'next/headers';
 import { isDuplicateFeeding } from '@/lib/services/feeding-notification-service';
 import { createNotification } from '@/lib/services/notificationService';
 import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // Log Runtime
 console.log('[/api/feedings] Runtime:', process.env.NEXT_RUNTIME);
@@ -38,18 +39,19 @@ const createFeedingSchema = z.object({
 
 // POST /api/feedings - Criar um novo registro de alimentação
 export async function POST(request: NextRequest) {
-  const headersList = await headers();
-  const authUserId = headersList.get('X-User-ID');
-
-  if (!authUserId) {
-    console.log("[POST /api/feedings] Failed: Missing X-User-ID header");
-    return NextResponse.json({ error: 'Authentication required' }, { 
-      status: 401,
+  const authResult = await getAuthenticatedUser(request);
+  
+  if (!authResult.success) {
+    console.log("[POST /api/feedings] Failed: Authentication required");
+    return NextResponse.json({ error: authResult.error || 'Authentication required' }, { 
+      status: authResult.statusCode || 401,
       headers: {
         'Content-Type': 'application/json'
       }
     });
   }
+  
+  const authUserId = authResult.user!.id;
 
   try {
     const body = await request.json();
@@ -74,13 +76,13 @@ export async function POST(request: NextRequest) {
     const mealType = body.meal_type || "manual"; // Default to 'manual' if not provided (e.g., Feed Now)
 
     // --- Authorization & Validation --- 
-    // Fetch cat and user profile in parallel to verify ownership and get householdId
+    // Fetch cat and user households in parallel to verify ownership
     console.log(`[POST /api/feedings] Verifying access for user ${authUserId} and cat ${catId}`);
-    const [cat, userProfile, lastFeedingLog] = await Promise.all([
+    const [cat, userHouseholds, lastFeedingLog] = await Promise.all([
         prisma.cats.findUnique({ where: { id: catId }, select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true, gender: true } }),
-        prisma.household_members.findFirst({ 
-            where: { user_id: authUserId }, 
-            select: { household_id: true } 
+        prisma.household_members.findMany({
+            where: { user_id: authUserId },
+            select: { household_id: true }
         }),
         prisma.feeding_logs.findFirst({
           where: { cat_id: catId },
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
         })
     ]);
 
-    const userHouseholdId = userProfile?.household_id; // Get householdId from the join table result
+    const userHouseholdIds = userHouseholds.map(h => h.household_id);
 
     if (!cat) {
         console.log(`[POST /api/feedings] Cat not found: ${catId}`);
@@ -99,7 +101,7 @@ export async function POST(request: NextRequest) {
           }
         });
     }
-    if (!userHouseholdId) {
+    if (userHouseholdIds.length === 0) {
         console.log(`[POST /api/feedings] User ${authUserId} not associated with any household.`);
         return NextResponse.json({ error: 'User household not found' }, { 
           status: 403,
@@ -108,8 +110,8 @@ export async function POST(request: NextRequest) {
           }
         }); 
     }
-    if (cat.household_id !== userHouseholdId) {
-        console.log(`[POST /api/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${authUserId} (household ${userHouseholdId})`);
+    if (!userHouseholdIds.includes(cat.household_id)) {
+        console.log(`[POST /api/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${authUserId} (households ${userHouseholdIds.join(', ')})`);
         return NextResponse.json({ error: 'Access denied: Cat does not belong to user\'s household' }, { 
           status: 403,
           headers: {
@@ -117,6 +119,7 @@ export async function POST(request: NextRequest) {
           }
         });
     }
+    const userHouseholdId = cat.household_id;
     console.log(`[POST /api/feedings] Access granted for user ${authUserId} to cat ${catId} in household ${userHouseholdId}`);
     // --- End Authorization & Validation --- 
 
@@ -242,7 +245,7 @@ export async function POST(request: NextRequest) {
 
     // Schedule a feeding reminder for (now + feeding_interval) if feeding_interval is set
     if (cat.feeding_interval && cat.feeding_interval > 0) {
-      const reminderTime = new Date(Date.now() + cat.feeding_interval * 60 * 60 * 1000); // feeding_interval is in hours
+      const reminderTime = new Date(feedingLog.fed_at.getTime() + cat.feeding_interval * 60 * 60 * 1000); // feeding_interval is in hours
       const reminderMembers = householdMembers.map(member => member.user_id);
       console.log('[SCHEDULING] Household members for reminders:', reminderMembers);
       const reminderNotifications = reminderMembers.map(userId => ({
@@ -294,19 +297,20 @@ export async function POST(request: NextRequest) {
 
 // GET /api/feedings - Obter registros de alimentação de um usuário
 export async function GET(request: NextRequest) {
-  const headersList = await headers();
-  const authUserId = headersList.get('X-User-ID');
-  const { searchParams } = new URL(request.url);
-  const householdId = searchParams.get('householdId');
-
-  if (!authUserId) {
-    return NextResponse.json({ error: 'Authentication required' }, { 
-      status: 401,
+  const authResult = await getAuthenticatedUser(request);
+  
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error || 'Authentication required' }, { 
+      status: authResult.statusCode || 401,
       headers: {
         'Content-Type': 'application/json'
       }
     });
   }
+  
+  const authUserId = authResult.user!.id;
+  const { searchParams } = new URL(request.url);
+  const householdId = searchParams.get('householdId');
   if (!householdId) {
     return NextResponse.json({ error: 'Household ID is required' }, { 
       status: 400,

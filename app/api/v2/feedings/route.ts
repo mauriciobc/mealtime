@@ -45,12 +45,12 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 
     // Authorization & Validation
     logger.debug(`[POST /api/v2/feedings] Verifying access for user ${user.id} and cat ${catId}`);
-    const [cat, userProfile, lastFeedingLog] = await Promise.all([
+    const [cat, userHouseholds, lastFeedingLog] = await Promise.all([
       prisma.cats.findUnique({
         where: { id: catId },
         select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true, gender: true }
       }),
-      prisma.household_members.findFirst({
+      prisma.household_members.findMany({
         where: { user_id: user.id },
         select: { household_id: true }
       }),
@@ -60,7 +60,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       })
     ]);
 
-    const userHouseholdId = userProfile?.household_id;
+    const userHouseholdIds = userHouseholds.map(h => h.household_id);
 
     if (!cat) {
       logger.warn(`[POST /api/v2/feedings] Cat not found: ${catId}`);
@@ -69,21 +69,22 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
         error: 'Cat not found'
       }, { status: 404 });
     }
-    if (!userHouseholdId) {
+    if (userHouseholdIds.length === 0) {
       logger.warn(`[POST /api/v2/feedings] User ${user.id} not associated with any household.`);
       return NextResponse.json({
         success: false,
         error: 'User household not found'
       }, { status: 403 });
     }
-    if (cat.household_id !== userHouseholdId) {
-      logger.warn(`[POST /api/v2/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${user.id} (household ${userHouseholdId})`);
+    if (!userHouseholdIds.includes(cat.household_id)) {
+      logger.warn(`[POST /api/v2/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${user.id} (households ${userHouseholdIds.join(', ')})`);
       return NextResponse.json({
         success: false,
         error: 'Access denied: Cat does not belong to user\'s household'
       }, { status: 403 });
     }
-    
+
+    const userHouseholdId = cat.household_id;
     logger.info(`[POST /api/v2/feedings] Access granted for user ${user.id} to cat ${catId} in household ${userHouseholdId}`);
 
     // Duplicate Feeding Detection
@@ -202,7 +203,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 
     // Schedule feeding reminder
     if (cat.feeding_interval && cat.feeding_interval > 0) {
-      const reminderTime = new Date(Date.now() + cat.feeding_interval * 60 * 60 * 1000);
+      const reminderTime = new Date(feedingLog.fed_at.getTime() + cat.feeding_interval * 60 * 60 * 1000);
       const reminderMembers = householdMembers.map(member => member.user_id);
       logger.debug('[POST /api/v2/feedings] Scheduling reminders for:', { reminderMembers });
       
