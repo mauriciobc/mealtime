@@ -1,0 +1,25 @@
+name: Smoke Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Production base URL'
+        required: false
+        default: 'https://mealtime.app.br'
+  schedule:
+    # Daily check that production matches R1–R2 smoke criteria
+    - cron: '0 12 * * *'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+
+      - name: Run production smoke tests
+        run: node scripts/smoke-test-prod.mjs "${{ github.event.inputs.base_url || 'https://mealtime.app.br' }}"
