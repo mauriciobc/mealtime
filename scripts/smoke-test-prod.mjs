@@ -7,7 +7,7 @@ const base = process.argv[2]?.replace(/\/$/, '') || 'https://mealtime.app.br';
 
 const checks = [
   { path: '/api/feedings', method: 'GET', expect: 410, label: 'v1 feedings deprecated' },
-  { path: '/api/test-prisma', method: 'GET', expect: 404, label: 'test-prisma removed' },
+  { path: '/api/test-prisma', method: 'GET', expect: [404, 410], label: 'test-prisma removed' },
   { path: '/api/v2/cats', method: 'GET', expect: 401, label: 'v2 cats requires auth' },
   { path: '/api/feedings/cats?householdId=00000000-0000-0000-0000-000000000001', method: 'GET', expect: [401, 410], label: 'feedings/cats protected or deprecated' },
 ];

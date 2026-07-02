@@ -34,3 +34,22 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
           ALLOWED_ORIGINS: http://localhost:3000,https://mealtime.app.br
+
+      - name: Smoke test v1 deprecation (production build)
+        run: |
+          PORT=3000 npm run start &
+          server_pid=$!
+          for i in $(seq 1 45); do
+            if curl -sf -o /dev/null http://127.0.0.1:3000/login; then
+              break
+            fi
+            sleep 2
+          done
+          node scripts/smoke-test-prod.mjs http://127.0.0.1:3000
+          kill $server_pid
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          ALLOWED_ORIGINS: http://localhost:3000,https://mealtime.app.br

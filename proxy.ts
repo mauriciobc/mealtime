@@ -8,6 +8,7 @@ import { updateSession } from '@/utils/supabase/middleware';
 import { handleAuthError } from '@/lib/utils/auth-errors';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { createMiddlewareCookieStore } from '@/lib/supabase/cookie-store';
+import { isDeprecatedV1ApiPath, v1DeprecatedResponse } from '@/lib/middleware/block-v1';
 
 // Build ALLOWED_ORIGINS from environment variable with fallback to default array
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -352,6 +353,12 @@ export default async function proxy(request: NextRequest) {
   });
 
   logger.debug(`[Middleware Root] Processing request for: ${pathname}`, { url: request.nextUrl.toString() });
+
+  if (isDeprecatedV1ApiPath(pathname)) {
+    const response = v1DeprecatedResponse();
+    recordResponseMetrics(startTime, response, method, pathname);
+    return applySecurityHeadersToResponse(response, request);
+  }
 
   try {
     // Check if this is an API route using isPathMatch helper

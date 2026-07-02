@@ -34,7 +34,8 @@
     "test:e2e:cleanup:api": "npx ts-node --transpile-only scripts/cleanup-test-data.ts",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "smoke:prod": "node scripts/smoke-test-prod.mjs"
+    "smoke:prod": "node scripts/smoke-test-prod.mjs",
+    "smoke:local": "node scripts/smoke-test-prod.mjs http://127.0.0.1:3000"
   },
   "dependencies": {
     "@emotion/is-prop-valid": "^1.4.0",
