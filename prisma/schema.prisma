@@ -159,6 +159,8 @@ model feeding_logs {
   fed_by       String?    @db.Uuid
   fed_at       DateTime   @db.Timestamptz(6)
   food_type    String?
+  status       String     @default("completed")
+  skip_reason  String?
   cat          cats       @relation(fields: [cat_id], references: [id])
   feeder       profiles?  @relation("feeder", fields: [fed_by], references: [id])
   household    households @relation(fields: [household_id], references: [id])

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -57,8 +57,8 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
     resolver: zodResolver(weightLogSchema) as any,
   });
 
-  useEffect(() => {
-    if (isPanelOpen) {
+  const handlePanelOpenChange = (open: boolean) => {
+    if (open) {
       if (isEditing && logToEdit) {
         form.reset({
           catId: logToEdit.catId || catId,
@@ -75,7 +75,8 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
         });
       }
     }
-  }, [isPanelOpen, isEditing, logToEdit, catId, form]);
+    onPanelOpenChange(open);
+  };
 
   async function onSubmit(data: WeightLogFormValues) {
     try {
@@ -87,7 +88,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
 
   return (
     <>
-      <Drawer open={isPanelOpen} onOpenChange={onPanelOpenChange}>
+      <Drawer open={isPanelOpen} onOpenChange={handlePanelOpenChange}>
         <DrawerContent>
           <div className="mx-auto w-full max-w-md">
             <DrawerHeader className="text-left">

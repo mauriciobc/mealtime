@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useReducer } from "react";
 import { createClient } from '@/utils/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,22 +11,72 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { Icons } from "@/components/icons";
-import { useSearchParams } from "next/navigation";
 import { getSiteOrigin } from '@/utils/getSiteOrigin';
 import { GlobalLoading } from "@/components/ui/global-loading";
 
-export default function SignupPageContent() {
-  const supabase = createClient();
-  const searchParams = useSearchParams();
+interface SignupPageContentProps {
+  redirectTo: string;
+}
 
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isLoadingCredentials, setIsLoadingCredentials] = useState(false);
-  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+type SignupState = {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+  isLoadingCredentials: boolean;
+  isLoadingGoogle: boolean;
+  showPassword: boolean;
+  showConfirmPassword: boolean;
+};
+
+type SignupAction =
+  | { type: 'SET_FIELD'; field: 'name' | 'email' | 'password' | 'confirmPassword'; value: string }
+  | { type: 'SET_LOADING_CREDENTIALS'; value: boolean }
+  | { type: 'SET_LOADING_GOOGLE'; value: boolean }
+  | { type: 'TOGGLE_SHOW_PASSWORD' }
+  | { type: 'TOGGLE_SHOW_CONFIRM_PASSWORD' };
+
+const initialSignupState: SignupState = {
+  name: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+  isLoadingCredentials: false,
+  isLoadingGoogle: false,
+  showPassword: false,
+  showConfirmPassword: false,
+};
+
+function signupReducer(state: SignupState, action: SignupAction): SignupState {
+  switch (action.type) {
+    case 'SET_FIELD':
+      return { ...state, [action.field]: action.value };
+    case 'SET_LOADING_CREDENTIALS':
+      return { ...state, isLoadingCredentials: action.value };
+    case 'SET_LOADING_GOOGLE':
+      return { ...state, isLoadingGoogle: action.value };
+    case 'TOGGLE_SHOW_PASSWORD':
+      return { ...state, showPassword: !state.showPassword };
+    case 'TOGGLE_SHOW_CONFIRM_PASSWORD':
+      return { ...state, showConfirmPassword: !state.showConfirmPassword };
+    default:
+      return state;
+  }
+}
+
+export default function SignupPageContent({ redirectTo }: SignupPageContentProps) {
+  const supabase = createClient();
+  const [state, dispatch] = useReducer(signupReducer, initialSignupState);
+  const {
+    name,
+    email,
+    password,
+    confirmPassword,
+    isLoadingCredentials,
+    isLoadingGoogle,
+    showPassword,
+    showConfirmPassword,
+  } = state;
 
   const handleCredentialsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,20 +95,20 @@ export default function SignupPageContent() {
       return;
     }
 
-    setIsLoadingCredentials(true);
+    dispatch({ type: 'SET_LOADING_CREDENTIALS', value: true });
 
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${getSiteOrigin()}/api/auth/callback?redirectTo=${encodeURIComponent(searchParams.get("redirectTo") || "/")}`,
+        emailRedirectTo: `${getSiteOrigin()}/api/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
         data: {
           full_name: name,
         }
       },
     });
 
-    setIsLoadingCredentials(false);
+    dispatch({ type: 'SET_LOADING_CREDENTIALS', value: false });
 
     if (signUpError) {
       toast.error(signUpError.message || "Erro ao criar conta.");
@@ -68,16 +118,16 @@ export default function SignupPageContent() {
   };
 
   const handleGoogleSignup = async () => {
-    setIsLoadingGoogle(true);
+    dispatch({ type: 'SET_LOADING_GOOGLE', value: true });
 
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${getSiteOrigin()}/api/auth/callback?redirectTo=${encodeURIComponent(searchParams.get("redirectTo") || "/")}`,
+        redirectTo: `${getSiteOrigin()}/api/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
       },
     });
 
-    setIsLoadingGoogle(false);
+    dispatch({ type: 'SET_LOADING_GOOGLE', value: false });
 
     if (oauthError) {
       toast.error(oauthError.message || "Erro ao iniciar signup com Google.");
@@ -86,7 +136,6 @@ export default function SignupPageContent() {
 
   const isProcessing = isLoadingCredentials || isLoadingGoogle;
 
-  // No PageTransition: signup must be visible on first paint for screen capture / PWA / OG (avoid all-white screenshot)
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
         <Card className="w-full max-w-md">
@@ -105,7 +154,7 @@ export default function SignupPageContent() {
                   type="text"
                   placeholder="Seu nome completo"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'name', value: e.target.value })}
                   required
                   disabled={isProcessing}
                 />
@@ -117,7 +166,7 @@ export default function SignupPageContent() {
                   type="email"
                   placeholder="seu@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'email', value: e.target.value })}
                   required
                   disabled={isProcessing}
                 />
@@ -130,14 +179,14 @@ export default function SignupPageContent() {
                     type={showPassword ? "text" : "password"}
                     placeholder="Sua senha"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'password', value: e.target.value })}
                     required
                     disabled={isProcessing}
                     className="pr-10 w-full"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
+                    onClick={() => dispatch({ type: 'TOGGLE_SHOW_PASSWORD' })}
                     className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none z-10"
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     disabled={isProcessing}
@@ -158,14 +207,14 @@ export default function SignupPageContent() {
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirme sua senha"
                     value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onChange={(e) => dispatch({ type: 'SET_FIELD', field: 'confirmPassword', value: e.target.value })}
                     required
                     disabled={isProcessing}
                     className="pr-10 w-full"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    onClick={() => dispatch({ type: 'TOGGLE_SHOW_CONFIRM_PASSWORD' })}
                     className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none z-10"
                     aria-label={showConfirmPassword ? 'Ocultar senha' : 'Mostrar senha'}
                     disabled={isProcessing}

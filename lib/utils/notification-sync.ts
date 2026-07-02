@@ -59,16 +59,23 @@ export class NotificationSync {
       console.log(`[NotificationSync] Starting paginated fetch for user ${userId}`);
 
       // Loop through all pages until no more data
+      const MAX_SYNC_NOTIFICATIONS = 10000;
       while (hasMore) {
         const response = await notificationService.getNotifications(currentPage, pageSize);
-        
+
         console.log(`[NotificationSync] Fetched page ${currentPage}: ${response.notifications.length} notifications`);
-        
+
         allNotifications.push(...response.notifications);
         hasMore = response.hasMore;
         currentPage++;
 
-        // Safety check to prevent infinite loops (max 1000 pages = 100k notifications)
+        // Hard cap to prevent memory exhaustion
+        if (allNotifications.length >= MAX_SYNC_NOTIFICATIONS) {
+          console.warn(`[NotificationSync] Reached max notification cap (${MAX_SYNC_NOTIFICATIONS}), stopping fetch`);
+          break;
+        }
+
+        // Safety check to prevent infinite loops (max 1000 pages)
         if (currentPage > 1000) {
           console.warn('[NotificationSync] Reached maximum page limit, stopping fetch');
           break;

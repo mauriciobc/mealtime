@@ -7,7 +7,7 @@ export class HistoryPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.getByRole('heading', { name: /histórico de alimentações/i });
+    this.pageTitle = page.locator('h1:has-text("Histórico"), h2:has-text("Histórico")').first();
     this.registerFeedingLink = page.getByRole('link', { name: /registrar alimentação/i }).or(
       page.getByRole('button', { name: /registrar alimentação/i })
     );

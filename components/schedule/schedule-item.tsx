@@ -5,12 +5,9 @@ import { m } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { 
-  MoreHorizontal, 
   Edit, 
   Trash2, 
-  Eye, 
   Clock, 
-  Bell,
   AlertCircle,
   Check
 } from "lucide-react";
@@ -20,12 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,21 +75,21 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
     switch (schedule.status) {
       case "completed":
         return (
-          <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 rounded-lg">
             <Check className="h-3 w-3 mr-1" />
             Concluído
           </Badge>
         );
       case "missed":
         return (
-          <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 rounded-lg">
             <AlertCircle className="h-3 w-3 mr-1" />
             Perdido
           </Badge>
         );
       default:
         return (
-          <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-200">
+          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 rounded-lg">
             <Clock className="h-3 w-3 mr-1" />
             Pendente
           </Badge>
@@ -113,61 +104,61 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
         className="cursor-pointer"
         onClick={onView}
       >
-        <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-4">
-              <Avatar>
+        <Card className="overflow-hidden transition-all duration-300 hover:shadow-md rounded-2xl border-border/50 hover:border-border">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-4">
+              <Avatar className="h-12 w-12 ring-2 ring-primary/20">
                 <AvatarImage src={schedule.cat?.photo_url || ""} alt={getCatName()} />
-                <AvatarFallback className="bg-amber-100 text-amber-500">
+                <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                   {getCatInitials()}
                 </AvatarFallback>
               </Avatar>
 
-              <div className="flex-1">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">{getCatName()}</h3>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{schedule.times}</span>
-                      <span className="mx-1">•</span>
-                      <span>{formatDays(schedule.days)}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge()}
-                    <Switch 
-                      checked={schedule.enabled} 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Lógica para alternar o status
-                      }} 
-                    />
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView(); }}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          <span>Visualizar</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onEdit(); }}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Editar</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }} 
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Excluir</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start gap-3 mb-2">
+                  <h3 className="font-semibold text-base">{getCatName()}</h3>
+                  {getStatusBadge()}
+                </div>
+                
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                  <Clock className="h-4 w-4 flex-shrink-0" />
+                  <span className="font-medium">{schedule.times}</span>
+                  <span className="text-border">•</span>
+                  <span className="truncate">{formatDays(schedule.days)}</span>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                  <Switch 
+                    checked={schedule.enabled} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Lógica para alternar o status
+                    }} 
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {schedule.enabled ? "Ativo" : "Desativado"}
+                  </span>
+                  
+                  <div className="flex-1" />
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-lg"
+                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                  >
+                    <Edit className="h-4 w-4" />
+                    <span className="sr-only">Editar</span>
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => { e.stopPropagation(); handleDeleteClick(); }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Excluir</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -176,19 +167,19 @@ export function ScheduleItem({ schedule, onView, onEdit, onDelete }: ScheduleIte
       </m.div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogTitle>Tem certeza absoluta?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir este agendamento? 
+              Isso excluirá permanentemente este agendamento para {getCatName()}.
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
             <AlertDialogAction 
               onClick={confirmDelete} 
-              className="bg-destructive text-destructive-foreground"
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
             </AlertDialogAction>

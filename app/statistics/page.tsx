@@ -1,14 +1,18 @@
-import { Suspense } from "react";
 import { pageMetadata } from "@/lib/metadata";
 import StatisticsPageContent from "./StatisticsPageContent";
-import { GlobalLoading } from "@/components/ui/global-loading";
 
 export const metadata = pageMetadata("Estatísticas", "Análise detalhada dos padrões de alimentação.");
 
-export default function StatisticsPage() {
+interface StatisticsPageProps {
+  searchParams: Promise<{ period?: string; catId?: string }>;
+}
+
+export default async function StatisticsPage({ searchParams }: StatisticsPageProps) {
+  const params = await searchParams;
   return (
-    <Suspense fallback={<GlobalLoading mode="overlay" />}>
-      <StatisticsPageContent />
-    </Suspense>
+    <StatisticsPageContent
+      initialPeriod={params.period ?? "7dias"}
+      initialCatId={params.catId ?? "all"}
+    />
   );
 }

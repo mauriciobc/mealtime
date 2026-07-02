@@ -113,6 +113,8 @@
     "netlify-cli": "^23.9.5",
     "node-gyp": "^11.5.0",
     "postcss": "^8.5.6",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@supabase/mcp-server-supabase": "^0.8.1",
     "react-doctor": "^0.0.17",
     "ts-node": "^10.9.2",
     "typescript": "5.9.3",

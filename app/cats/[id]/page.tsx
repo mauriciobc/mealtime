@@ -1,94 +1,54 @@
-import { Suspense } from 'react'
-import CatDetails from '@/components/cat/details'
-import { notFound } from 'next/navigation'
-import { Metadata } from 'next'
-import prisma from '@/lib/prisma'
-import { Button } from '@/components/ui/button'
-import { ChevronLeft } from 'lucide-react'
-import Link from 'next/link'
-import { GlobalLoading } from '@/components/ui/global-loading'
-import { validate as validateUUID } from 'uuid'
+import { Suspense } from "react"
+import { redirect } from "next/navigation"
+import { createClient } from "@/utils/supabase/server"
+import prisma from "@/lib/prisma"
+import { pageMetadata } from "@/lib/metadata"
+import CatDetailsClient from "./client"
+import PageTransition from "@/components/page-transition"
+import { GlobalLoading } from "@/components/ui/global-loading"
 
 interface PageProps {
   params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const resolvedParams = await params
-  const cat = await getCat(resolvedParams.id)
-  if (!cat) return { title: 'Gato não encontrado' }
-  return { title: cat.name }
+export async function generateMetadata({ params }: PageProps) {
+  const { id } = await params
+  try {
+    const cat = await prisma.cats.findUnique({
+      where: { id },
+      select: { name: true },
+    })
+    if (cat?.name) {
+      return pageMetadata(cat.name, `Perfil e histórico de alimentação de ${cat.name}.`)
+    }
+  } catch {
+    // fall through to default
+  }
+  return pageMetadata("Detalhes do gato", "Perfil e histórico de alimentação do gato.")
 }
 
 export default async function CatPage({ params }: PageProps) {
+  // Await params first (required in Next.js 16)
   const resolvedParams = await params
-  const cat = await getCat(resolvedParams.id)
-  if (!cat) notFound()
+  const supabase = await createClient()
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between px-4 py-4 border-b">
-        <div className="flex items-center gap-4">
-          <Link href="/cats">
-            <Button variant="ghost" size="icon">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-semibold">Detalhes do gato</h1>
-        </div>
-      </div>
-      <Suspense fallback={<GlobalLoading mode="spinner" text="Carregando detalhes do gato..." />}>
-        <CatDetails cat={cat} />
-      </Suspense>
-    </div>
-  )
-}
+  // Get authenticated user
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-async function getCat(id: string) {
-  if (!validateUUID(id)) {
-    return null;
+  if (authError || !user) {
+    redirect("/login")
   }
-  const cat = await prisma.cats.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      name: true,
-      birth_date: true,
-      weight: true,
-      household_id: true,
-      owner_id: true,
-      created_at: true,
-      updated_at: true,
-      photo_url: true,
-      household: {
-        select: {
-          id: true,
-          name: true
-        }
-      },
-      schedules: {
-        select: {
-          id: true,
-          type: true,
-          interval: true,
-          times: true,
-          enabled: true
-        }
-      }
-    }
-  })
 
-  if (!cat) return null
-
-  // Transform the data to match the expected format (remove snake_case properties)
-  return {
-    id: cat.id,
-    name: cat.name,
-    birthdate: cat.birth_date,
-    weight: Number(cat.weight),
-    householdId: cat.household_id,
-    photoUrl: cat.photo_url,
-    household: cat.household,
-    schedules: cat.schedules
-  } as any // Type cast to avoid type mismatch with local Cat interface
-}
+  // Let the client component handle data fetching via useFeeding hook
+  return (
+    <PageTransition>
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-full">
+          <GlobalLoading mode="spinner" text="Carregando..." />
+        </div>
+      }>
+        <CatDetailsClient id={resolvedParams.id} />
+      </Suspense>
+    </PageTransition>
+  )
+} 

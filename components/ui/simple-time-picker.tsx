@@ -3,7 +3,7 @@
  * Check out the live demo at https://shadcn-datetime-picker-pro.vercel.app/
  * Find the latest source code at https://github.com/huybuidac/shadcn-datetime-picker
  */
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useReducer, useRef } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Clock, ChevronDownIcon, CheckIcon } from 'lucide-react';
@@ -37,6 +37,53 @@ interface SimpleTimeOption {
 const AM_VALUE = 0;
 const PM_VALUE = 1;
 
+type SimpleTimePickerState = {
+  ampm: number;
+  hour: number;
+  minute: number;
+  second: number;
+  open: boolean;
+};
+
+type SimpleTimePickerAction =
+  | { type: 'SET_HOUR'; value: number; minute?: number; second?: number }
+  | { type: 'SET_MINUTE'; value: number; second?: number }
+  | { type: 'SET_SECOND'; value: number }
+  | { type: 'SET_AMPM'; value: number; hour?: number; minute?: number; second?: number }
+  | { type: 'SET_OPEN'; value: boolean };
+
+function simpleTimePickerReducer(state: SimpleTimePickerState, action: SimpleTimePickerAction): SimpleTimePickerState {
+  switch (action.type) {
+    case 'SET_HOUR':
+      return {
+        ...state,
+        hour: action.value,
+        ...(action.minute !== undefined ? { minute: action.minute } : {}),
+        ...(action.second !== undefined ? { second: action.second } : {}),
+      };
+    case 'SET_MINUTE':
+      return {
+        ...state,
+        minute: action.value,
+        ...(action.second !== undefined ? { second: action.second } : {}),
+      };
+    case 'SET_SECOND':
+      return { ...state, second: action.value };
+    case 'SET_AMPM':
+      return {
+        ...state,
+        ampm: action.value,
+        ...(action.hour !== undefined ? { hour: action.hour } : {}),
+        ...(action.minute !== undefined ? { minute: action.minute } : {}),
+        ...(action.second !== undefined ? { second: action.second } : {}),
+      };
+    case 'SET_OPEN':
+      return { ...state, open: action.value };
+    default:
+      return state;
+  }
+}
+
 export function SimpleTimePicker({
   value,
   onChange,
@@ -61,10 +108,14 @@ export function SimpleTimePicker({
   // hours24h = HH
   // hours12h = hh
   const formatStr = use12HourFormat ? 'yyyy-MM-dd hh:mm:ss.SSS a xxxx' : 'yyyy-MM-dd HH:mm:ss.SSS xxxx';
-  const [ampm, setAmpm] = useState(format(value, 'a') === 'AM' ? AM_VALUE : PM_VALUE);
-  const [hour, setHour] = useState(use12HourFormat ? +format(value, 'hh') : value.getHours());
-  const [minute, setMinute] = useState(() => value.getMinutes());
-  const [second, setSecond] = useState(() => value.getSeconds());
+  const [state, dispatch] = useReducer(simpleTimePickerReducer, value, (initialValue) => ({
+    ampm: format(initialValue, 'a') === 'AM' ? AM_VALUE : PM_VALUE,
+    hour: use12HourFormat ? +format(initialValue, 'hh') : initialValue.getHours(),
+    minute: initialValue.getMinutes(),
+    second: initialValue.getSeconds(),
+    open: false,
+  }));
+  const { ampm, hour, minute, second, open } = state;
 
   useEffect(() => {
     onChange(buildTime({ use12HourFormat, value, formatStr, hour, minute, second, ampm }));
@@ -138,8 +189,6 @@ export function SimpleTimePicker({
     });
   }, [value, min, max]);
 
-  const [open, setOpen] = useState(false);
-
   const hourRef = useRef<HTMLDivElement>(null);
   const minuteRef = useRef<HTMLDivElement>(null);
   const secondRef = useRef<HTMLDivElement>(null);
@@ -157,67 +206,73 @@ export function SimpleTimePicker({
   }, [open]);
   const onHourChange = useCallback(
     (v: SimpleTimeOption) => {
+      let nextMinute = minute;
+      let nextSecond = second;
       if (min) {
-        let newTime = buildTime({ use12HourFormat, value, formatStr, hour: v.value, minute, second, ampm });
+        const newTime = buildTime({ use12HourFormat, value, formatStr, hour: v.value, minute, second, ampm });
         if (newTime < min) {
-          setMinute(min.getMinutes());
-          setSecond(min.getSeconds());
+          nextMinute = min.getMinutes();
+          nextSecond = min.getSeconds();
         }
       }
       if (max) {
-        let newTime = buildTime({ use12HourFormat, value, formatStr, hour: v.value, minute, second, ampm });
+        const newTime = buildTime({ use12HourFormat, value, formatStr, hour: v.value, minute: nextMinute, second: nextSecond, ampm });
         if (newTime > max) {
-          setMinute(max.getMinutes());
-          setSecond(max.getSeconds());
+          nextMinute = max.getMinutes();
+          nextSecond = max.getSeconds();
         }
       }
-      setHour(v.value);
+      dispatch({ type: 'SET_HOUR', value: v.value, minute: nextMinute, second: nextSecond });
     },
-    [setHour, use12HourFormat, value, formatStr, minute, second, ampm, min, max]
+    [use12HourFormat, value, formatStr, minute, second, ampm, min, max]
   );
 
   const onMinuteChange = useCallback(
     (v: SimpleTimeOption) => {
+      let nextSecond = second;
       if (min) {
-        let newTime = buildTime({ use12HourFormat, value, formatStr, hour: v.value, minute, second, ampm });
+        const newTime = buildTime({ use12HourFormat, value, formatStr, hour, minute: v.value, second, ampm });
         if (newTime < min) {
-          setSecond(min.getSeconds());
+          nextSecond = min.getSeconds();
         }
       }
       if (max) {
-        let newTime = buildTime({ use12HourFormat, value, formatStr, hour: v.value, minute, second, ampm });
+        const newTime = buildTime({ use12HourFormat, value, formatStr, hour, minute: v.value, second: nextSecond, ampm });
         if (newTime > max) {
-          setSecond(newTime.getSeconds());
+          nextSecond = newTime.getSeconds();
         }
       }
-      setMinute(v.value);
+      dispatch({ type: 'SET_MINUTE', value: v.value, second: nextSecond });
     },
-    [setMinute, use12HourFormat, value, formatStr, minute, second, ampm, min, max]
+    [use12HourFormat, value, formatStr, hour, second, ampm, min, max]
   );
 
   const onAmpmChange = useCallback(
     (v: SimpleTimeOption) => {
+      let nextHour = hour;
+      let nextMinute = minute;
+      let nextSecond = second;
       if (min) {
-        let newTime = buildTime({ use12HourFormat, value, formatStr, hour, minute, second, ampm: v.value });
+        const newTime = buildTime({ use12HourFormat, value, formatStr, hour, minute, second, ampm: v.value });
         if (newTime < min) {
           const minH = min.getHours() % 12;
-          setHour(minH === 0 ? 12 : minH);
-          setMinute(min.getMinutes());
-          setSecond(min.getSeconds());
+          nextHour = minH === 0 ? 12 : minH;
+          nextMinute = min.getMinutes();
+          nextSecond = min.getSeconds();
         }
       }
       if (max) {
-        let newTime = buildTime({ use12HourFormat, value, formatStr, hour, minute, second, ampm: v.value });
+        const newTime = buildTime({ use12HourFormat, value, formatStr, hour: nextHour, minute: nextMinute, second: nextSecond, ampm: v.value });
         if (newTime > max) {
           const maxH = max.getHours() % 12;
-          setHour(maxH === 0 ? 12 : maxH);
-          setMinute(max.getMinutes());
-          setSecond(max.getSeconds());
+          nextHour = maxH === 0 ? 12 : maxH;
+          nextMinute = max.getMinutes();
+          nextSecond = max.getSeconds();
         }
       }
-      setAmpm(v.value);
+      dispatch({ type: 'SET_AMPM', value: v.value, hour: nextHour, minute: nextMinute, second: nextSecond });
     },
-    [setAmpm, use12HourFormat, value, formatStr, hour, minute, second, min, max]
+    [use12HourFormat, value, formatStr, hour, minute, second, min, max]
   );
 
   const display = useMemo(() => {
@@ -227,7 +282,7 @@ export function SimpleTimePicker({
   const listboxId = useId();
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={modal}>
+    <Popover open={open} onOpenChange={(value) => dispatch({ type: 'SET_OPEN', value })} modal={modal}>
       <PopoverTrigger asChild>
         <div
           role="combobox"
@@ -285,7 +340,7 @@ export function SimpleTimePicker({
                     <TimeItem
                       option={v}
                       selected={v.value === second}
-                      onSelect={(v) => setSecond(v.value)}
+                      onSelect={(v) => dispatch({ type: 'SET_SECOND', value: v.value })}
                       className="h-8"
                       disabled={v.disabled}
                     />

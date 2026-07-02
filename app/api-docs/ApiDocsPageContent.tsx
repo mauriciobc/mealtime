@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Script from 'next/script';
+import 'swagger-ui-dist/swagger-ui.css';
 
 /**
  * Página de Documentação da API
@@ -60,12 +61,6 @@ export default function ApiDocsPageContent() {
 
   return (
     <>
-      <link
-        rel="stylesheet"
-        type="text/css"
-        href={`/swagger-ui/swagger-ui.css?v=${Date.now()}`}
-      />
-
       <Script
         src={`/swagger-ui/swagger-ui-bundle.js?v=${Date.now()}`}
         strategy="afterInteractive"
@@ -75,7 +70,7 @@ export default function ApiDocsPageContent() {
         strategy="afterInteractive"
       />
 
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white api-docs-page">
         <div className="w-full">
           {!isSwaggerReady && (
             <div className="flex items-center justify-center min-h-screen">
@@ -87,32 +82,6 @@ export default function ApiDocsPageContent() {
           )}
           <div id="swagger-ui" />
         </div>
-
-        <style jsx global>{`
-          body {
-            margin: 0;
-            padding: 0;
-          }
-
-          #swagger-ui {
-            width: 100%;
-          }
-
-          .swagger-ui .topbar {
-            display: flex !important;
-          }
-
-          .swagger-ui .info {
-            margin: 2rem 0;
-          }
-
-          .swagger-ui .scheme-container {
-            background: #f7f7f7;
-            border-radius: 4px;
-            padding: 1rem;
-            margin: 1rem 0;
-          }
-        `}</style>
       </div>
     </>
   );

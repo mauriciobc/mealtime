@@ -20,32 +20,33 @@ export class TestDataManager {
       return this.currentHouseholdId;
     }
 
-    // Try to use existing household ID from env or parameter
+    // Try to use existing household ID from parameter
     if (existingHouseholdId) {
       this.currentHouseholdId = existingHouseholdId;
       return existingHouseholdId;
     }
 
-    if (process.env.TEST_HOUSEHOLD_ID) {
-      this.currentHouseholdId = process.env.TEST_HOUSEHOLD_ID;
-      return this.currentHouseholdId;
-    }
-
-    // Try to get existing household from API
+    // Try to get existing household from API first (most reliable)
     try {
       const authHeader = await this.getAuthHeader();
       const response = await this.page.request.get('/api/v2/households', {
         headers: { 'Authorization': authHeader },
       });
       const result = await response.json();
-      
+
       if (result.success && result.data && Array.isArray(result.data) && result.data.length > 0) {
         const id = result.data[0].id as string;
         this.currentHouseholdId = id;
         return id;
       }
     } catch (error) {
-      // If we can't get households, try to create one
+      // If we can't get households, continue to fallback
+    }
+
+    // Fallback to env var only if API returned empty
+    if (process.env.TEST_HOUSEHOLD_ID) {
+      this.currentHouseholdId = process.env.TEST_HOUSEHOLD_ID;
+      return this.currentHouseholdId;
     }
 
     // Create a new household if none exists
@@ -138,7 +139,7 @@ export class TestDataManager {
         catId: data.catId,
         amount: data.amount,
         unit: data.unit,
-        meal_type: data.mealType || 'Refeição',
+        meal_type: data.mealType || 'manual',
         food_type: data.foodType || 'Ração seca',
         notes: data.notes,
       }),
@@ -167,6 +168,7 @@ export class TestDataManager {
     const result = await response.json();
     if (result.success && result.data?.id) {
       this.createdHouseholds.push(result.data.id);
+      this.currentHouseholdId = result.data.id;
       return result.data;
     }
     throw new Error(`Failed to create test household: ${JSON.stringify(result)}`);

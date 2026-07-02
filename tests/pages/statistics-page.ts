@@ -7,7 +7,7 @@ export class StatisticsPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.pageTitle = page.getByRole('heading', { name: /estatísticas/i });
+    this.pageTitle = page.locator('h1:has-text("Estatísticas"), h1:has-text("Consumo")').first();
     this.registerFeedingLink = page.getByRole('link', { name: /registrar alimentação/i });
   }
 

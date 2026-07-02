@@ -1,14 +1,14 @@
-import { Suspense } from "react";
 import { pageMetadata } from "@/lib/metadata";
 import SignupPageContent from "./SignupPageContent";
-import { GlobalLoading } from "@/components/ui/global-loading";
 
 export const metadata = pageMetadata("Cadastro", "Crie sua conta MealTime.");
 
-export default function SignupPage() {
-  return (
-    <Suspense fallback={<GlobalLoading mode="overlay" />}>
-      <SignupPageContent />
-    </Suspense>
-  );
+interface SignupPageProps {
+  searchParams: Promise<{ redirectTo?: string }>;
+}
+
+export default async function SignupPage({ searchParams }: SignupPageProps) {
+  const params = await searchParams;
+  const redirectTo = params.redirectTo ?? "/";
+  return <SignupPageContent redirectTo={redirectTo} />;
 }

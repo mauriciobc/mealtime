@@ -44,17 +44,6 @@ export default function NewHouseholdPageContent() {
     },
   });
   
-  const shouldRedirect = !isUserLoading && !errorUser && !currentUser;
-
-  // Handle redirect for unauthenticated users
-  useEffect(() => {
-    if (shouldRedirect) {
-      console.log("[NewHouseholdPage] No currentUser found. Redirecting to login.");
-      toast.error('Você precisa estar logado para criar um domicílio.');
-      router.replace('/login?callbackUrl=/households/new');
-    }
-  }, [shouldRedirect, router]);
-  
   // --- Refined Loading and State Checks ---
 
   // 1. Handle User Context Loading FIRST

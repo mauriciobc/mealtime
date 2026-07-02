@@ -1,6 +1,8 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Error Page', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('should display error page', async ({ errorPage }) => {
     await errorPage.goto();
     await errorPage.expectOnErrorPage();
@@ -14,6 +16,8 @@ test.describe('Error Page', () => {
 });
 
 test.describe('Offline Page', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test('should display offline page', async ({ offlinePage }) => {
     await offlinePage.goto();
     await offlinePage.expectOnOfflinePage();

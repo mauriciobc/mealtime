@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import { PageTransition } from "@/components/ui/page-transition"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -9,14 +10,12 @@ import { AlertTriangle, BarChart3, Users, Utensils, Scale, Calendar, Filter } fr
 import { useUserContext } from "@/lib/context/UserContext"
 import { useSelectFeedingStatistics } from "@/lib/selectors/statisticsSelectors"
 import { Button } from "@/components/ui/button"
-import { ResponsiveContainer, BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart as RechartsLineChart, Line, PieChart as RechartsPieChart, Pie, Cell } from "recharts"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Loading } from "@/components/ui/loading"
 import { PageHeader } from "@/components/page-header"
 import { m } from "framer-motion"
 import Link from "next/link"
 import { StatCard } from "@/components/ui/stat-card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { StatisticsData, TimeSeriesDataPoint, CatPortion } from "@/lib/selectors/statisticsSelectors"
 import { useStatistics } from "@/lib/hooks/useStatistics"
 import { 
@@ -24,6 +23,27 @@ import {
   getDateRange,
   type PeriodType
 } from "@/lib/utils/date"
+
+const chartLoading = () => (
+  <div className="relative w-full aspect-[16/9] animate-pulse rounded-md bg-muted/40" />
+)
+
+const LineChartComponent = dynamic(
+  () => import("./statistics-chart-components").then((m) => m.LineChartComponent),
+  { ssr: false, loading: chartLoading }
+)
+const BarChartComponent = dynamic(
+  () => import("./statistics-chart-components").then((m) => m.BarChartComponent),
+  { ssr: false, loading: chartLoading }
+)
+const PieChartComponent = dynamic(
+  () => import("./statistics-chart-components").then((m) => m.PieChartComponent),
+  { ssr: false, loading: chartLoading }
+)
+const HourDistributionChart = dynamic(
+  () => import("./statistics-chart-components").then((m) => m.HourDistributionChart),
+  { ssr: false, loading: chartLoading }
+)
 
 const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff8042', '#0088FE', '#00C49F', '#FFBB28', '#FF8042']
 
@@ -42,228 +62,6 @@ const useResponsive = () => {
   return { isMobile };
 };
 
-interface TimeDistributionDataPoint {
-  name: string;
-  valor: number;
-}
-
-interface _ChartConfig {
-  [key: string]: {
-    label: string;
-    color: string;
-  }
-}
-
-interface _CatPortionConfig {
-  [key: string]: {
-    label: string;
-    theme: {
-      light: string;
-      dark: string;
-    };
-    color: string;
-  }
-}
-
-const LineChartComponent = ({ data }: { data: TimeSeriesDataPoint[] }) => {
-  if (!data || data.length === 0) {
-    return (
-      <div className="relative w-full aspect-[16/9] flex items-center justify-center">
-        <p className="text-muted-foreground text-xs">Sem dados para exibir</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative w-full aspect-[16/9]">
-      <ChartContainer
-        config={{
-          valor: {
-            label: "Consumo (g)",
-            color: "hsl(var(--primary))",
-          }
-        }}
-        className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <RechartsLineChart 
-            data={data}
-            margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="name" 
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
-              interval={data.length > 10 ? 'preserveStartEnd' : 0}
-            />
-            <YAxis 
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-              tickLine={false}
-              axisLine={false}
-              domain={[0, 'auto']}
-              allowDecimals={false}
-              width={35}
-            />
-            <ChartTooltip 
-              cursor={{ stroke: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
-            />
-            <Line 
-              type="monotone" 
-              dataKey="valor" 
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
-              dot={{ fill: 'hsl(var(--primary))', strokeWidth: 1, r: 2 }}
-              activeDot={{ r: 4 }}
-            />
-          </RechartsLineChart>
-        </ResponsiveContainer>
-      </ChartContainer>
-    </div>
-  );
-}
-
-const BarChartComponent = ({ data }: { data: TimeDistributionDataPoint[] }) => {
-  const { isMobile } = useResponsive();
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="relative w-full aspect-[16/9] flex items-center justify-center">
-        <p className="text-muted-foreground text-sm">Sem dados para exibir</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative w-full aspect-[16/9]">
-      <ChartContainer
-        config={{
-          valor: {
-            label: "Quantidade",
-            color: "hsl(var(--primary))",
-          }
-        }}
-        className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <RechartsBarChart 
-            data={data}
-            margin={{
-              top: 16,
-              right: isMobile ? 8 : 16,
-              left: 0,
-              bottom: isMobile ? 8 : 16
-            }}
-          >
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis 
-              dataKey="name" 
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <YAxis 
-              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
-              tickLine={false}
-              axisLine={false}
-              domain={[0, 'auto']}
-              allowDecimals={false}
-            />
-            <ChartTooltip 
-              cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
-              content={<ChartTooltipContent formatter={(value) => `${value}x`} />}
-            />
-            <Bar 
-              dataKey="valor" 
-              radius={[4, 4, 0, 0]}
-              fill="hsl(var(--primary))"
-              maxBarSize={isMobile ? 24 : 32}
-            />
-          </RechartsBarChart>
-        </ResponsiveContainer>
-      </ChartContainer>
-    </div>
-  );
-}
-
-const PieChartComponent = ({ data }: { data: CatPortion[] }) => {
-  const { isMobile } = useResponsive();
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="relative mx-auto aspect-square max-h-[250px] flex items-center justify-center">
-        <p className="text-muted-foreground text-xs">Sem dados por gato</p>
-      </div>
-    );
-  }
-
-  const config = data.reduce((acc, item, index) => ({
-    ...acc,
-    [item.name]: {
-      label: item.name,
-      theme: {
-        light: COLORS[index % COLORS.length],
-        dark: COLORS[index % COLORS.length]
-      },
-      color: COLORS[index % COLORS.length]
-    },
-  }), {});
-
-  const chartDimensions = {
-    outerRadius: isMobile ? '56%' : '70%',
-    innerRadius: data.length === 1 ? '0%' : (isMobile ? '36%' : '48%'),
-    startAngle: 90,
-    endAngle: -270,
-  };
-
-  return (
-    <ChartContainer
-      config={config}
-      className="mx-auto aspect-square max-h-[250px]"
-    >
-      <ResponsiveContainer width="100%" height="100%">
-        <RechartsPieChart>
-          <ChartTooltip
-            content={<ChartTooltipContent hideLabel nameKey="name" formatter={((value: any, name: any) => {
-              const numValue = typeof value === 'number' ? value : parseFloat(String(value));
-              const nameStr = String(name);
-              const item = data.find(d => d.name === nameStr);
-              return [`${numValue.toFixed(1)}g (${item?.percent || 0}%)`];
-            }) as any} />}
-            cursor={false}
-          />
-          <Pie
-            data={data as any[]}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            outerRadius={chartDimensions.outerRadius}
-            innerRadius={chartDimensions.innerRadius}
-            startAngle={chartDimensions.startAngle}
-            endAngle={chartDimensions.endAngle}
-            paddingAngle={data.length === 1 ? 0 : 2}
-            minAngle={data.length === 1 ? 360 : 10}
-            strokeWidth={5}
-          >
-            {data.map((entry, index) => {
-              return (
-                <Cell
-                  key={`cell-${entry.name}-${entry.value}`}
-                  fill={COLORS[index % COLORS.length]}
-                  stroke="hsl(var(--background))"
-                  strokeWidth={1}
-                />
-              );
-            })}
-          </Pie>
-        </RechartsPieChart>
-      </ResponsiveContainer>
-    </ChartContainer>
-  );
-}
-
 // Definição dos tipos de estado
 type StatisticsPageState = 
   | { type: 'LOADING_USER' }
@@ -275,9 +73,28 @@ type StatisticsPageState =
   | { type: 'NO_DATA' }
   | { type: 'STATISTICS'; data: StatisticsData };
 
-export default function StatisticsPageContent() {
+interface StatisticsPageContentProps {
+  initialPeriod: string;
+  initialCatId: string;
+}
+
+export default function StatisticsPageContent({
+  initialPeriod,
+  initialCatId,
+}: StatisticsPageContentProps) {
+  return (
+    <StatisticsPageInner
+      initialPeriod={initialPeriod}
+      initialCatId={initialCatId}
+    />
+  );
+}
+
+function StatisticsPageInner({
+  initialPeriod,
+  initialCatId,
+}: StatisticsPageContentProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { isMobile: _isMobile2 } = useResponsive()
 
   // Hooks existentes
@@ -293,25 +110,22 @@ export default function StatisticsPageContent() {
   const userLanguage = userState.currentUser?.preferences?.language;
   const userLocale = resolveDateFnsLocale(userLanguage);
 
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(searchParams.get('period') || '7dias')
-  const [selectedCatId, setSelectedCatId] = useState<string>(searchParams.get('catId') || 'all')
+  const selectedPeriod = initialPeriod
+  const selectedCatId = initialCatId
 
-  // Handlers para atualizar estado e URL
   const handlePeriodChange = useCallback((period: string) => {
-    setSelectedPeriod(period);
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    const params = new URLSearchParams();
     params.set('period', period);
-    params.set('catId', selectedCatId); // mantém o filtro de gato
+    params.set('catId', selectedCatId);
     router.push(`?${params.toString()}`, { scroll: false });
-  }, [router, searchParams, selectedCatId]);
+  }, [router, selectedCatId]);
 
   const handleCatChange = useCallback((catId: string) => {
-    setSelectedCatId(catId);
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    const params = new URLSearchParams();
     params.set('catId', catId);
-    params.set('period', selectedPeriod); // mantém o filtro de período
+    params.set('period', selectedPeriod);
     router.push(`?${params.toString()}`, { scroll: false });
-  }, [router, searchParams, selectedPeriod]);
+  }, [router, selectedPeriod]);
 
   // Calcular o dateRange usando o novo utilitário
   const dateRange = useMemo(() => getDateRange(selectedPeriod as PeriodType), [selectedPeriod]);
@@ -549,50 +363,7 @@ export default function StatisticsPageContent() {
                   <CardDescription className="text-xs">Quantidade de alimentações por hora do dia.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0 px-2 pb-4">
-                  <div className="relative w-full aspect-[16/9]">
-                    <ChartContainer
-                      config={{
-                        valor: {
-                          label: "Quantidade",
-                          color: "hsl(var(--primary))",
-                        }
-                      }}
-                      className="absolute inset-0 [&_.recharts-cartesian-grid-horizontal_line]:stroke-muted [&_.recharts-cartesian-grid-vertical_line]:stroke-muted"
-                    >
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsBarChart
-                          data={pageState.data.timeDistributionData || []}
-                          margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
-                        >
-                          <XAxis
-                            dataKey="name"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                            tickMargin={8}
-                          />
-                          <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
-                            tickFormatter={(value) => `${value}x`}
-                            width={35}
-                            tickMargin={4}
-                          />
-                          <ChartTooltip
-                            content={<ChartTooltipContent hideLabel formatter={(value) => `${value} alimentações`}/>}
-                            cursor={{ fill: 'hsl(var(--muted-foreground))', opacity: 0.1 }}
-                          />
-                          <Bar
-                            dataKey="valor"
-                            radius={[4, 4, 0, 0]}
-                            maxBarSize={24}
-                            fill="hsl(var(--primary))"
-                          />
-                        </RechartsBarChart>
-                      </ResponsiveContainer>
-                    </ChartContainer>
-                  </div>
+                  <HourDistributionChart data={pageState.data.timeDistributionData || []} />
                 </CardContent>
               </Card>
             </m.div>

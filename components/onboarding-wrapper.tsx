@@ -1,10 +1,11 @@
 "use client"
 
-import React, { useEffect, useState, createContext, useContext } from "react"
+import React, { useEffect, createContext, useContext } from "react"
 import { usePathname } from "next/navigation"
 import { Onborda, OnbordaProvider, useOnborda } from "onborda"
 import { onboardingSteps } from "@/config/onboarding"
 import { TourCard } from "@/components/tour-card"
+import { useIsClient } from "@/lib/hooks/use-is-client"
 
 const OnboardingTourContext = createContext<string | null>(null)
 
@@ -22,11 +23,7 @@ function getTourForPath(pathname: string): string | null {
 function OnbordaTrigger() {
   const pathname = usePathname()
   const { startOnborda, isOnbordaVisible } = useOnborda()
-  const [hasMounted, setHasMounted] = useState(false)
-
-  useEffect(() => {
-    setHasMounted(true)
-  }, [])
+  const hasMounted = useIsClient()
 
   useEffect(() => {
     if (!hasMounted) return

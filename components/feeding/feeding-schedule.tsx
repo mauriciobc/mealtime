@@ -39,8 +39,8 @@ export default function FeedingSchedule() {
   if (isLoading) {
     return (
       <div className="space-y-3" data-testid="loading-skeleton">
-        {[1, 2, 3].map(i => (
-          <Card key={`skeleton-${i}`} className="animate-pulse">
+        {(['sk-a', 'sk-b', 'sk-c'] as const).map((skeletonKey) => (
+          <Card key={skeletonKey} className="animate-pulse" data-testid="loading-skeleton">
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-10 w-10 rounded-full" />

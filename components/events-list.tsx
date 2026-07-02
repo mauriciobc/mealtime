@@ -7,6 +7,20 @@ import { useFeeding } from "@/lib/context/FeedingContext"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCats } from "@/lib/context/CatsContext"
 import EventListItem from "./event-list-item"
+import { isToday, isYesterday, isSameWeek, format } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import type { FeedingLog } from "@/lib/types"
+
+function formatDateGroup(timestamp: string | Date): string {
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
+  
+  if (isToday(date)) return "Hoje"
+  if (isYesterday(date)) return "Ontem"
+  if (isSameWeek(date, new Date(), { weekStartsOn: 0 })) return "Esta Semana"
+  
+  // For older dates, show month and year
+  return format(date, "MMMM yyyy", { locale: ptBR })
+}
 
 export default function EventsList() {
   const { state: feedingState } = useFeeding()
@@ -24,11 +38,26 @@ export default function EventsList() {
     return new Map(cats.map(cat => [String(cat.id), cat]))
   }, [cats])
 
+  const groupedLogs = useMemo(() => {
+    const recentLogs = (feedingLogs || []).slice(0, 5)
+    const groups: Record<string, FeedingLog[]> = {}
+
+    recentLogs.forEach(log => {
+      const dateKey = formatDateGroup(log.timestamp)
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+      groups[dateKey].push(log)
+    })
+
+    return { groups, recentCount: recentLogs.length }
+  }, [feedingLogs])
+
   if (isLoading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map(i => (
-          <Card key={`skeleton-${i}`} className="animate-pulse">
+        {(['sk-a', 'sk-b', 'sk-c'] as const).map((skeletonKey) => (
+          <Card key={skeletonKey} className="animate-pulse">
             <CardContent className="p-3">
               <div className="flex items-center gap-3">
                 <Skeleton className="h-10 w-10 rounded-full" />
@@ -54,9 +83,7 @@ export default function EventsList() {
     )
   }
 
-  const recentLogs = (feedingLogs || []).slice(0, 5)
-
-  if (recentLogs.length === 0) {
+  if (groupedLogs.recentCount === 0) {
     return (
       <Card>
         <CardContent className="p-4 text-center">
@@ -70,19 +97,22 @@ export default function EventsList() {
 
   return (
     <m.div
-      className="space-y-3"
+      className="space-y-4"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ staggerChildren: 0.1 }}
     >
-      {recentLogs.map((log, index) => {
-        // ⚡ Bolt: Replaced O(n) `find` with O(1) `get` for significant performance gain,
-        // especially with many cats or frequent re-renders.
-        // The `cat` object is passed to the memoized `EventListItem`, preventing
-        // re-renders unless the cat's data itself changes.
-        const cat = log.cat || catsMap.get(String(log.catId))
-        return <EventListItem key={log.id} log={log} cat={cat} index={index} />
-      })}
+      {Object.entries(groupedLogs.groups).map(([dateGroup, logs], groupIndex) => (
+        <div key={dateGroup} className="space-y-3">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">
+            {dateGroup}
+          </h3>
+          {logs.map((log, index) => {
+            const cat = log.cat || catsMap.get(String(log.catId))
+            return <EventListItem key={log.id} log={log} cat={cat} index={groupIndex * logs.length + index} />
+          })}
+        </div>
+      ))}
     </m.div>
   )
 }

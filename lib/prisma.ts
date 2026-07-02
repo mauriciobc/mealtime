@@ -6,6 +6,8 @@ import { logger } from '@/lib/monitoring/logger';
 
 let PrismaPgClass: typeof PrismaPg | null = null;
 let PoolClass: typeof Pool | null = null;
+let poolInstance: Pool | null = null;
+let adapterInstance: PrismaPg | null = null;
 
 function getAdapter(): PrismaPg | undefined {
   if (typeof window === 'undefined' && typeof process !== 'undefined') {
@@ -16,12 +18,21 @@ function getAdapter(): PrismaPg | undefined {
     if (!PoolClass) {
       PoolClass = require('pg').Pool as unknown as typeof Pool;
     }
-    
-    const pool = new PoolClass({
-      connectionString: process.env.DATABASE_URL,
-    });
-    
-    return new PrismaPgClass(pool);
+    if (!poolInstance) {
+      poolInstance = new PoolClass({
+        connectionString: process.env.DATABASE_URL,
+        // Disable prepared statements to support Supavisor transaction mode (pgbouncer).
+        // pg supports this at runtime but @types/pg doesn't declare it.
+        // https://supabase.com/docs/guides/database/prisma/prisma-troubleshooting#prepared-statement-already-exists
+        prepareThreshold: 0,
+      } as any);
+      logger.info('[Prisma] Created new pg.Pool instance.');
+    }
+    if (!adapterInstance) {
+      adapterInstance = new PrismaPgClass(poolInstance);
+      logger.info('[Prisma] Created new PrismaPg adapter instance.');
+    }
+    return adapterInstance;
   }
   return undefined;
 }
@@ -69,6 +80,7 @@ if (process.env.NODE_ENV !== 'production') {
 export default prisma;
 
 export function createPrismaClient(): PrismaClient {
+  logger.warn('[Prisma] createPrismaClient() called. Prefer the default prisma export to avoid connection leaks.');
   const adapter = getAdapter();
   const logConfig: Array<'query' | 'info' | 'warn' | 'error'> = 
     process.env.NODE_ENV === 'development' 

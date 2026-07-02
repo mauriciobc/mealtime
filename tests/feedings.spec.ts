@@ -41,7 +41,7 @@ test.describe('Feedings API', () => {
       catId: cat.id,
       amount: 50,
       unit: 'g',
-      mealType: 'Refeição',
+      mealType: 'manual',
       foodType: 'Ração seca',
     });
 
