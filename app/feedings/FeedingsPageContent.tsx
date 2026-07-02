@@ -23,6 +23,7 @@ import { FeedingLog } from "@/lib/types"
 import { Timeline, TimelineItem } from "@/components/ui/timeline"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { v2Delete } from "@/lib/api/v2-client"
 import { Input } from "@/components/ui/input"
 import { groupLogsByDate } from "@/lib/utils/feedingUtils"
 import {
@@ -181,27 +182,13 @@ export default function FeedingsPageContent() {
      setLogToDelete(null) // Close dialog immediately after optimistic update
 
      try {
-       // Add X-User-ID header
-       const headers: HeadersInit = {};
-       if (currentUser?.id) {
-           headers['X-User-ID'] = currentUser.id;
-       } else {
-           toast.error("Erro de autenticação ao excluir.");
-           throw new Error("User ID missing for delete request");
+       if (!currentUser?.id) {
+         toast.error("Erro de autenticação ao excluir.");
+         throw new Error("User ID missing for delete request");
        }
-       
-       // Use string ID in URL
-       const response = await fetch(`/api/feedings/${logId}`, {
-         method: 'DELETE',
-         headers: headers // Add headers
-       })
-       if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}))
-         // Revert optimistic update on failure
-         feedingDispatch({ type: "FETCH_SUCCESS", payload: previousLogs })
-         throw new Error(errorData.error || `Falha ao excluir registro: ${response.statusText}`)
-       }
-        toast.success("Registro excluído com sucesso!")
+
+       await v2Delete(`/api/v2/feedings/${logId}`)
+       toast.success("Registro excluído com sucesso!")
       } catch (error: any) {
         toast.error(`Erro ao excluir: ${error.message || "Ocorreu um erro desconhecido"}`)
        // Ensure state is reverted if fetch fails

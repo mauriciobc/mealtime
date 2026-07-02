@@ -1,127 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-// import { getServerSession } from 'next-auth';
-// import { authOptions } from '@/lib/auth';
-import { createClient } from '@/utils/supabase/server'; // Import Supabase client
-import { cookies } from 'next/headers'; // Import cookies
-import { BaseFeedingLog } from '@/lib/types/common';
-import { z } from 'zod'; // Import Zod for validation
+import { NextRequest } from 'next/server';
+import { v1DeprecatedResponse } from '@/lib/middleware/block-v1';
 
-// Zod schema for route parameters
-const RouteParamsSchema = z.object({
-  id: z.string().refine(val => !isNaN(parseInt(val)), { message: "ID do domicílio inválido" }),
-});
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-// Reusable authorization helper (can be moved to a shared util if used elsewhere)
-async function authorizeUser(supabaseUser: any, householdId: number): Promise<{ authorized: boolean; error?: NextResponse }> {
-  if (!supabaseUser) {
-    return { authorized: false, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
-  }
-
-  try {
-    // Check if user is a member of the household
-    const householdMember = await prisma.household_members.findFirst({
-      where: { 
-        user_id: supabaseUser.id,
-        household_id: String(householdId) // Convert to string as household_id is UUID
-      },
-    });
-
-    if (!householdMember) {
-      return { authorized: false, error: NextResponse.json({ error: 'Você não tem permissão para acessar este domicílio' }, { status: 403 }) };
-    }
-
-    return { authorized: true };
-  } catch (error) {
-    console.error('Authorization error:', error);
-    return { authorized: false, error: NextResponse.json({ error: 'Erro interno do servidor durante autorização' }, { status: 500 }) };
-  }
+export async function GET(_request: NextRequest) {
+  return v1DeprecatedResponse();
 }
 
-// Remove CORS headers if middleware handles CORS
-// const corsHeaders = {
-//   'Content-Type': 'application/json',
-//   'Access-Control-Allow-Origin': '*', // Adjust for production
-//   'Access-Control-Allow-Methods': 'GET, OPTIONS', // Only GET and OPTIONS needed here
-//   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-// };
+export async function POST(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-// Remove OPTIONS handler if middleware handles CORS
-// export async function OPTIONS() {
-//   return NextResponse.json({}, { headers: corsHeaders });
-// }
+export async function PUT(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-export async function GET(
-  request: NextRequest, // Use NextRequest
-  { params }: { params: Promise<{ id: string }> } // Destructure params directly
-) {
-  const resolvedParams = await params;
-  // Validate route parameters
-  const paramsValidation = RouteParamsSchema.safeParse(resolvedParams);
-  if (!paramsValidation.success) {
-    return NextResponse.json({ error: paramsValidation.error.issues }, { status: 400 });
-  }
-  const householdId = parseInt(paramsValidation.data.id);
+export async function PATCH(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  const supabase = await createClient();
-  const { data: { user: supabaseUser } } = await supabase.auth.getUser();
+export async function DELETE(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  // Authorize user
-  const authResult = await authorizeUser(supabaseUser, householdId);
-  if (!authResult.authorized) {
-    // Add CORS headers back if not handled by middleware
-    // return new NextResponse(authResult.error!.body, { status: authResult.error!.status, headers: { ...authResult.error!.headers, ...corsHeaders } });
-    return authResult.error!;
-  }
+export async function HEAD(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  // No need to fetch household again, authorization check confirmed it exists and user belongs to it
-
-  try {
-    // Fetch feeding logs for the authorized household
-    const logs = await prisma.feeding_logs.findMany({
-      where: {
-        cat: {
-          household_id: String(householdId) // Convert to string as household_id is UUID
-        }
-      },
-      include: {
-        cat: true, // Include cat details
-        feeder: true // Include feeder details (optional, consider privacy)
-      },
-      orderBy: {
-        fed_at: 'desc'
-      }
-    });
-
-    // Convert to BaseFeedingLog format (ensure BaseFeedingLog matches Prisma model or adjust)
-    const formattedLogs: BaseFeedingLog[] = logs.map(log => {
-      const mapped: any = {
-        id: log.id,
-        catId: log.cat_id,
-        userId: log.fed_by || '', // userId is required in BaseFeedingLog, use empty string as fallback
-        timestamp: log.fed_at,
-        createdAt: log.created_at,
-      };
-      
-      // Only add optional fields if they have values
-      if (log.amount) {
-        mapped.portionSize = parseFloat(log.amount.toString());
-      }
-      if (log.notes) {
-        mapped.notes = log.notes;
-      }
-      
-      return mapped as BaseFeedingLog;
-    });
-
-    console.log('Logs encontrados:', formattedLogs.length);
-    // Add CORS headers back if not handled by middleware
-    // return NextResponse.json(formattedLogs, { headers: corsHeaders });
-    return NextResponse.json(formattedLogs);
-  } catch (error) {
-    console.error('Erro ao buscar logs de alimentação:', error);
-    // Add CORS headers back if not handled by middleware
-    // return NextResponse.json({ error: 'Erro ao buscar logs de alimentação' }, { status: 500, headers: corsHeaders });
-    return NextResponse.json({ error: 'Erro ao buscar logs de alimentação' }, { status: 500 });
-  }
-} 
+export async function OPTIONS(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}

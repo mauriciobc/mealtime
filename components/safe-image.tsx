@@ -61,7 +61,7 @@ export function SafeImage({ fallback, className, fill, onError, ...props }: Safe
         }
       }
     }
-  }, [hasError, onError, props.src]);
+  }, [hasError, onError]);
 
   const handleImageLoad = useCallback((event: React.SyntheticEvent<HTMLImageElement, Event>) => {
     if (errorRef.current || !mountedRef.current || !event.target) {

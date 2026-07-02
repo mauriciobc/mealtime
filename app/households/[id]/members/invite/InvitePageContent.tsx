@@ -28,6 +28,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Household as HouseholdType } from "@/lib/types";
 import { Loading } from "@/components/ui/loading";
 import { useLoading } from "@/lib/context/LoadingContext";
+import { v2Patch, v2Post } from "@/lib/api/v2-client";
 
 const emailSchema = z.object({
   email: z.string().email("Digite um endereço de e-mail válido"),
@@ -155,30 +156,12 @@ export default function InvitePageContent({ params }: InvitePageContentProps) {
         householdId: householdId
       });
       
-      const response = await fetch(`/api/households/${householdId}/invite`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "X-User-ID": currentUser!.id
-        },
-        body: JSON.stringify({ email: data.email }),
-      });
+      const result = await v2Post<{ message?: string; profile?: { email?: string }; details?: string }>(
+        `/api/v2/households/${householdId}/invite`,
+        { email: data.email }
+      );
 
-      console.log("Invitation response status:", response.status);
-      const result = await response.json();
       console.log("Invitation response body:", result);
-
-      if (!response.ok) {
-         throw new Error(result.error || "Falha ao enviar convite por e-mail.");
-      }
-      
-      // Detailed handling of API responses
-      console.log("DEBUG CLIENT: Invitation response details:", {
-        status: response.status,
-        message: result.message,
-        details: result.details,
-        profile: result.profile
-      });
       
       // Check for specific messages in the result
       if (result.message && result.message.includes("already a member")) {
@@ -264,20 +247,10 @@ export default function InvitePageContent({ params }: InvitePageContentProps) {
      addLoadingOperation({ id: opId, priority: 1, description: "Generating new code..." });
      setIsGenerating(true);
      try {
-       const response = await fetch(`/api/households/${householdId}/invite-code`, {
-          method: "PATCH",
-          headers: {
-            "X-User-ID": currentUser!.id,
-            "Content-Type": "application/json"
-          }
-        });
+       const result = await v2Patch<{ inviteCode: string }>(
+         `/api/v2/households/${householdId}/invite-code`
+       );
 
-        const result = await response.json();
-
-        if (!response.ok) {
-           throw new Error(result.error || "Falha ao gerar novo código de convite.");
-        }
-       
        const newCode = result.inviteCode; 
        const updatedHousehold = { ...household, inviteCode: newCode };
        setHousehold(updatedHousehold);

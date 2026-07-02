@@ -14,7 +14,7 @@ O **Model Context Protocol (MCP)** da Netlify permite que você interaja com sua
 
 ### 1. Obter o Token de Acesso Pessoal
 
-1. Acesse: [https://app.netlify.com/user/applications/personal](https://app.netlify.com/user/applications/personal)
+1. Acesse: [https://app.netlify.com/user/applications#personal-access-tokens](https://app.netlify.com/user/applications#personal-access-tokens)
 2. Clique em **"New access token"**
 3. Dê um nome descritivo (ex: "Cursor MCP")
 4. Selecione as permissões necessárias:
@@ -29,7 +29,7 @@ O **Model Context Protocol (MCP)** da Netlify permite que você interaja com sua
 Adicione o token no seu arquivo `.env` (nunca commite este arquivo!):
 
 ```bash
-NETLIFY_AUTH_TOKEN=nfp_seu_token_aqui
+NETLIFY_PERSONAL_ACCESS_TOKEN=nfp_seu_token_aqui
 ```
 
 ### 3. Reiniciar o Cursor
@@ -48,7 +48,10 @@ No Cursor, você pode:
    - "Mostre o último deploy"
    - "Qual o status do meu site?"
 
-2. **Ver logs de conexão**: 
+2. **Verificar no painel MCP**:
+   - **Settings → Tools & MCP** — o servidor `netlify` deve aparecer como ativo
+
+3. **Ver logs de conexão**:
    - Abra o Developer Tools (Ctrl+Shift+I ou Cmd+Option+I)
    - Vá para a aba Console
    - Procure por mensagens relacionadas ao MCP
@@ -99,34 +102,37 @@ Conteúdo do arquivo:
       "command": "npx",
       "args": [
         "-y",
-        "@netlify/mcp-server-netlify"
+        "@netlify/mcp"
       ],
       "env": {
-        "NETLIFY_AUTH_TOKEN": "${NETLIFY_AUTH_TOKEN}"
+        "NETLIFY_PERSONAL_ACCESS_TOKEN": "${NETLIFY_PERSONAL_ACCESS_TOKEN}"
       }
     }
   }
 }
 ```
 
+> **Nota**: O pacote oficial é `@netlify/mcp` (substitui o antigo `@netlify/mcp-server-netlify`). A variável correta é `NETLIFY_PERSONAL_ACCESS_TOKEN` (não `NETLIFY_AUTH_TOKEN`).
+
 ## 🐛 Troubleshooting (Solução de Problemas)
 
-### Erro: "NETLIFY_AUTH_TOKEN not found"
+### Erro: "NETLIFY_PERSONAL_ACCESS_TOKEN not found"
 
 **Problema**: A variável de ambiente não foi encontrada.
 
 **Solução**:
 1. Verifique se o arquivo `.env` existe na raiz do projeto
-2. Certifique-se de que a variável está definida: `NETLIFY_AUTH_TOKEN=seu_token`
+2. Certifique-se de que a variável está definida: `NETLIFY_PERSONAL_ACCESS_TOKEN=seu_token`
 3. Reinicie o Cursor completamente
-4. Em alguns casos, pode ser necessário reiniciar o terminal/computador
+4. Se `${NETLIFY_PERSONAL_ACCESS_TOKEN}` não for resolvido automaticamente no Windows, coloque o token diretamente no `env` do arquivo global `%USERPROFILE%\.cursor\mcp.json`
+5. Em alguns casos, pode ser necessário reiniciar o terminal/computador
 
 ### Erro: "Invalid token"
 
 **Problema**: O token está incorreto ou expirado.
 
 **Solução**:
-1. Gere um novo token em: https://app.netlify.com/user/applications/personal
+1. Gere um novo token em: [https://app.netlify.com/user/applications#personal-access-tokens](https://app.netlify.com/user/applications#personal-access-tokens)
 2. Revogue o token antigo por segurança
 3. Atualize o arquivo `.env` com o novo token
 4. Reinicie o Cursor
@@ -139,7 +145,8 @@ Conteúdo do arquivo:
 1. Verifique se o arquivo `.cursor/mcp.json` existe
 2. Valide o JSON (use um validador online)
 3. Verifique permissões do arquivo
-4. Reinicie o Cursor com logs: 
+4. Confirme que o pacote é `@netlify/mcp` (não o pacote antigo)
+5. Reinicie o Cursor com logs:
    - No terminal: `CURSOR_DEBUG=1 cursor .`
 
 ### Comandos não funcionam
@@ -147,7 +154,7 @@ Conteúdo do arquivo:
 **Problema**: O Cursor não responde aos comandos da Netlify.
 
 **Solução**:
-1. Verifique se o servidor MCP está ativo (veja logs no Developer Tools)
+1. Verifique se o servidor MCP está ativo em **Settings → Tools & MCP**
 2. Tente comandos mais simples primeiro (ex: "liste sites")
 3. Certifique-se de que sua conta Netlify tem sites configurados
 4. Verifique se o token tem as permissões corretas
@@ -176,6 +183,7 @@ echo ".env" >> .gitignore
 
 ## 📚 Recursos Adicionais
 
+- [Repositório oficial netlify/netlify-mcp](https://github.com/netlify/netlify-mcp)
 - [Documentação oficial do MCP](https://modelcontextprotocol.io)
 - [Netlify API Documentation](https://docs.netlify.com/api/get-started/)
 - [Netlify CLI](https://docs.netlify.com/cli/get-started/)
@@ -191,5 +199,5 @@ Se você encontrar problemas:
 
 ## 📝 Changelog
 
+- **v1.1.0** (2026-07-02): Atualizado para `@netlify/mcp` e `NETLIFY_PERSONAL_ACCESS_TOKEN`
 - **v1.0.0** (2025-10-27): Configuração inicial do servidor MCP da Netlify
-

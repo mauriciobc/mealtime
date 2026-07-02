@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { v2Put } from "@/lib/api/v2-client";
 
 const profileSchema = z.object({
   full_name: z.string().min(2, "Nome obrigatório").max(100),
@@ -62,12 +63,16 @@ export default function EditProfilePageContent() {
       return;
     }
     try {
-      const res = await fetch(`/api/profile/${currentUser.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+      await v2Put(`/api/v2/users/${currentUser.id}`, {
+        full_name: form.full_name,
+        username: form.username,
+        avatar_url: form.avatar_url || null,
       });
-      if (!res.ok) throw new Error("Erro ao salvar perfil");
+      if (form.timezone) {
+        await v2Put(`/api/v2/users/${currentUser.id}/preferences`, {
+          timezone: form.timezone,
+        });
+      }
       setSuccess(true);
       await refreshUser();
       setTimeout(() => router.push("/profile"), 1200);

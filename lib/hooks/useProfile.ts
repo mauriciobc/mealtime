@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { v2Get } from "@/lib/api/v2-client";
 
 export interface ProfileData {
   id: string;
@@ -37,9 +38,7 @@ export interface ProfileData {
 }
 
 async function fetchProfile(userId: string): Promise<ProfileData> {
-  const res = await fetch(`/api/profile/${userId}`);
-  if (!res.ok) throw new Error("Erro ao buscar perfil");
-  return res.json();
+  return v2Get<ProfileData>(`/api/v2/profile/${userId}`);
 }
 
 export function useProfile(userId: string | undefined) {

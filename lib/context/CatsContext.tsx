@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useUserContext } from './UserContext'; // Need user/household context to know which cats to fetch
-import { useLoading } from './LoadingContext';
-import { toast } from 'sonner';
-import { CatType } from "@/lib/types"; // Use the existing detailed CatType
-import { fetchCatsForHousehold } from "@/lib/services/apiService"; // Reuse the service function
+"use client";
+
+import React, { createContext, useContext, useReducer, ReactNode, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserContext } from './UserContext';
+import { CatType } from "@/lib/types";
+import { domainKeys, useCatsQuery } from '@/lib/hooks/domain';
 
 // Remove the simple Cat interface, use CatType from types.ts
 // interface Cat {
@@ -100,109 +101,41 @@ const CatsContext = createContext<{
 });
 export { CatsContext };
 
-export const CatsProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(catsReducer, initialState);
+export const CatsProvider = ({ children }: { children: ReactNode }) => <>{children}</>;
+
+export const useCats = () => {
   const { state: userState } = useUserContext();
-  const { currentUser } = userState;
-  const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const loadingIdRef = useRef<string | null>(null);
-  const hasAttemptedLoadRef = useRef(false);
-  const isMountedRef = useRef(true);
+  const householdId = userState.currentUser?.householdId ?? undefined;
+  const userId = userState.currentUser?.id;
+  const queryClient = useQueryClient();
+  const { data: cats = [], isLoading, error, refetch } = useCatsQuery(householdId, userId);
 
-  const cleanupLoading = useCallback(() => {
-    if (loadingIdRef.current) {
-      try {
-        removeLoadingOperation(loadingIdRef.current);
-      } catch (error) {
-        console.error('[CatsProvider] Error cleaning up loading:', error);
-      } finally {
-        loadingIdRef.current = null;
-      }
-    }
-  }, [removeLoadingOperation]);
+  const dispatch = useCallback(
+    (action: CatsAction) => {
+      const key = domainKeys.cats(householdId);
+      queryClient.setQueryData<CatType[]>(key, (prev = []) =>
+        catsReducer({ cats: prev, isLoading: false, error: null }, action).cats
+      );
+    },
+    [householdId, queryClient]
+  );
 
-  const loadCatsData = useCallback(async () => {
-    const loadingId = 'cats-data-load';
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    const householdId = currentUser?.householdId;
-    if (!householdId || !isMountedRef.current) {
-      if (!householdId) {
-        dispatch({ type: 'FETCH_SUCCESS', payload: [] });
-      }
-      return;
-    }
-    hasAttemptedLoadRef.current = true;
-    try {
-      loadingIdRef.current = loadingId;
-      dispatch({ type: 'FETCH_START' });
-      addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados dos gatos...' });
-      const catsData: CatType[] = await fetchCatsForHousehold(householdId, currentUser?.id, undefined, abortController.signal);
-      if (!isMountedRef.current) return;
-      dispatch({ type: 'FETCH_SUCCESS', payload: catsData });
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        return;
-      }
-      if (!isMountedRef.current) return;
-      const errorMessage = error.message || 'Falha ao carregar dados dos gatos';
-      dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-      toast.error(errorMessage);
-    } finally {
-      if (isMountedRef.current) {
-        cleanupLoading();
-      }
-    }
-  }, [addLoadingOperation, cleanupLoading, currentUser?.householdId, currentUser?.id]);
-
-  const forceRefresh = useCallback(() => {
-    hasAttemptedLoadRef.current = false;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    cleanupLoading();
-    loadCatsData();
-  }, [cleanupLoading, loadCatsData]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    hasAttemptedLoadRef.current = false;
-    loadCatsData();
-    return () => {
-      isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      cleanupLoading();
-    };
-  }, [currentUser?.householdId, currentUser?.id, addLoadingOperation, cleanupLoading, loadCatsData]);
-
-  // Bolt: Memoize the cats array into a Map for efficient O(1) lookups.
-  // This prevents consumers of the context from needing to repeatedly use
-  // Array.prototype.find() (O(n)) inside their own components.
   const catsMap = useMemo(() => {
     const map = new Map<string, CatType>();
-    for (const cat of state.cats) {
-      // Assuming cat.id is a string or can be converted to one.
+    for (const cat of cats) {
       map.set(String(cat.id), cat);
     }
     return map;
-  }, [state.cats]);
+  }, [cats]);
 
-  // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh, catsMap }), [state, dispatch, forceRefresh, catsMap]);
+  const state: CatsState = {
+    cats,
+    isLoading,
+    error: error instanceof Error ? error.message : error ? String(error) : null,
+  };
 
-  return (
-    <CatsContext.Provider value={contextValue}>
-      {children}
-    </CatsContext.Provider>
-  );
+  return { state, dispatch, forceRefresh: refetch, catsMap };
 };
-
-export const useCats = () => useContext(CatsContext);
 
 // Selector hook remains useful
 export const useCatsSelector = <T, >(selector: (state: CatsState) => T): T => {

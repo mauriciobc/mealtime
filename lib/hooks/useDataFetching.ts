@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { logger } from '@/lib/monitoring/logger';
+import { v2Get, V2ApiError } from '@/lib/api/v2-client';
 
 interface FetchOptions<T> {
   url: string;
@@ -45,61 +46,18 @@ export function useDataFetching<T>({
     return id.trim();
   }, []);
 
-  const fetchWithRetry = useCallback(async (retriesLeft: number): Promise<Response> => {
+  const fetchWithRetry = useCallback(async (retriesLeft: number): Promise<unknown> => {
     try {
-      const validatedUserId = validateUserId(userId);
-      const response = await fetch(url, {
-        headers: { 
-          'X-User-ID': validatedUserId,
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      });
-      return response;
+      validateUserId(userId);
+      return await v2Get<unknown>(url);
     } catch (error) {
-      if (retriesLeft > 0) {
+      if (retriesLeft > 0 && !(error instanceof V2ApiError && (error.status === 401 || error.status === 403))) {
         await new Promise(resolve => setTimeout(resolve, retryDelay));
         return fetchWithRetry(retriesLeft - 1);
       }
-      throw new Error(String(error));
+      throw error;
     }
   }, [url, userId, retryDelay, validateUserId]);
-
-  const processResponse = useCallback(async (response: Response): Promise<any> => {
-    const contentType = response.headers.get('content-type');
-    logger.debug('[useDataFetching] Content-Type:', { contentType });
-    
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(`Resposta inválida do servidor: Content-Type deve ser application/json`);
-    }
-
-    if (!response.ok) {
-      let errorMsg = `Falha ao buscar dados (${response.status}): ${response.statusText}`;
-      try {
-        const errorText = await response.text();
-        if (errorText) {
-          const errorJson = JSON.parse(errorText);
-          errorMsg = errorJson.error || errorMsg;
-        }
-      } catch (parseError) {
-        logger.warn('[useDataFetching] Erro ao parsear mensagem de erro', { parseError });
-      }
-      throw new Error(errorMsg);
-    }
-
-    const text = await response.text();
-    
-    if (!text.trim()) {
-      return [];
-    }
-
-    try {
-      return JSON.parse(text);
-    } catch (parseError) {
-      logger.error('[useDataFetching] Erro ao parsear JSON', { parseError });
-      throw new Error(`Erro ao processar resposta do servidor: ${parseError instanceof Error ? parseError.message : 'Erro desconhecido'}`);
-    }
-  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -124,11 +82,7 @@ export function useDataFetching<T>({
         }
 
         logger.debug('[useDataFetching] Iniciando fetch', { url });
-        const response = await fetchWithRetry(retryCount);
-        
-        if (!isMounted) return;
-
-        const rawData = await processResponse(response);
+        const rawData = await fetchWithRetry(retryCount);
         
         if (!isMounted) return;
 
@@ -163,7 +117,7 @@ export function useDataFetching<T>({
     return () => {
       isMounted = false;
     };
-  }, [url, userId, errorMessage, onSuccess, transformData, retryCount, retryDelay, cacheTime, fetchWithRetry, processResponse]);
+  }, [url, userId, errorMessage, onSuccess, transformData, retryCount, cacheTime, fetchWithRetry]);
 
   return { data, isLoading, error };
 }

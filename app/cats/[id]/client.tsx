@@ -29,7 +29,7 @@ import { useCats } from "@/lib/context/CatsContext"
 import { useLoading } from "@/lib/context/LoadingContext"
 import { useFeeding } from "@/hooks/use-feeding"
 import { getAgeString } from "@/lib/utils/dateUtils"
-import { deleteCat as deleteCatService } from "@/lib/services/apiService"
+import { v2Delete } from "@/lib/api/v2-client"
 import { toast } from "sonner"
 import { notFound } from "next/navigation"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
@@ -101,36 +101,31 @@ export default function CatDetailsClient({ id }: { id: string }) {
   // Cast para incluir schedules, já que o tipo CatType não tem essa propriedade
   const catWithSchedules = cat as CatType & { schedules?: Schedule[] };
 
-  // New delete handler: submit the form, then handle UI updates
-  const handleDelete = () => {
+  // Client-side delete via v2 API
+  const handleDelete = async () => {
     const opId = `delete-cat-${id}`;
     addLoadingOperation({ id: opId, description: `Excluindo ${cat?.name || 'gato'}...`, priority: 1 });
     setIsProcessingDelete(true);
     const previousCats = catsState.cats;
 
-    // Optimistic update
     catsDispatch({ type: "REMOVE_CAT", payload: id });
 
-    // Submit the form (triggers API route)
-    const form = document.getElementById('delete-cat-form') as HTMLFormElement;
-    if (form) {
-      form.submit();
-    }
-    // After form submission, the page will reload or redirect via router.push
-    // Remove loading state after a short delay (fallback)
-    setTimeout(() => {
+    try {
+      await v2Delete(`/api/v2/cats/${id}`);
+      toast.success(`${cat?.name || 'Gato'} foi excluído com sucesso`);
+      router.push('/cats');
+    } catch (error: any) {
+      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats });
+      toast.error(`Falha ao excluir gato: ${error.message}`);
+    } finally {
       setIsProcessingDelete(false);
       setShowDeleteDialog(false);
       removeLoadingOperation(opId);
-    }, 2000);
+    }
   };
 
   return (
     <>
-      {/* Hidden form for deletion (must be in JSX, not top-level) */}
-      <form id="delete-cat-form" action={`/api/cats/${cat.id}`} method="POST" style={{ display: 'none' }}>
-        <input type="hidden" name="_method" value="DELETE" />
-      </form>
       <PageTransition>
         <div className="bg-background min-h-screen pb-4">
           <div className="container max-w-md mx-auto p-4">

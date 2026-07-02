@@ -56,7 +56,7 @@ export default function UpcomingFeedings() {
     }
 
     try {
-      const response = await fetch('/api/feedings', {
+      const response = await fetch('/api/v2/feedings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

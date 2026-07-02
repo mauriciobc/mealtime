@@ -135,7 +135,7 @@ export default function EditHouseholdPageContent({ params }: EditHouseholdPageCo
     addLoadingOperation({ id: opId, priority: 1, description: "Saving household..." });
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/households/${householdId}`, {
+      const response = await fetch(`/api/v2/households/${householdId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: trimmedName }),

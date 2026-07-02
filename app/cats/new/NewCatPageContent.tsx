@@ -45,6 +45,7 @@ import { Loading } from "@/components/ui/loading";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DateTimePicker } from "@/components/ui/datetime-picker-new";
+import { v2Post } from "@/lib/api/v2-client";
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -140,53 +141,19 @@ export default function NewCatPageContent() {
         name: values.name.trim(),
         photoUrl: finalPhotoUrl,
         birthdate: values.birthdate ? values.birthdate.toISOString() : null,
-        weight: values.weight || null,
-        portion_size: values.portion_size || null,
+        weight: values.weight ? parseFloat(values.weight) : null,
+        portion_size: values.portion_size ? parseFloat(values.portion_size) : null,
         gender: (values.gender === "male" || values.gender === "female") ? values.gender : null,
-        feeding_interval: values.feedingInterval ? parseInt(values.feedingInterval) : null,
-        householdId: currentHouseholdId,
+        feedingInterval: values.feedingInterval ? parseInt(values.feedingInterval) : null,
         restrictions: values.restrictions?.trim() || null,
         notes: values.notes?.trim() || null
       };
 
-      console.log('Sending payload to /api/cats:', payload);
-      console.log('Current user:', currentUser);
-      console.log('Headers:', {
-        "Content-Type": "application/json",
-        "X-User-ID": currentUser?.id
-      });
+      console.log('Sending payload to /api/v2/households/cats:', payload);
 
-      // Add X-User-ID header from currentUser context
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      if (currentUser?.id) {
-        headers["X-User-ID"] = currentUser.id;
-      } else {
-         console.error('No user ID found in currentUser:', currentUser);
-         toast.error("Erro de autenticação. Tente fazer login novamente.");
-         throw new Error("User ID not found for API request");
-      }
+      await v2Post(`/api/v2/households/${currentHouseholdId}/cats`, payload);
 
-      const response = await fetch("/api/cats", {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
-
-      const responseData = await response.json();
-      console.log('Response from server:', {
-        status: response.status,
-        ok: response.ok,
-        data: responseData
-      });
-
-      if (!response.ok) {
-        console.error("Server error response:", responseData);
-        throw new Error(responseData.error || "Falha ao adicionar gato");
-      }
-
-      console.log('Successfully created cat:', responseData);
+      console.log('Successfully created cat');
       
       // Force a refresh of the cats data
       forceRefresh();

@@ -9,6 +9,34 @@
 'use server';
 
 import type { FeedingLog } from '@/components/feeding/types';
+import type { V2Envelope } from '@/lib/api/v2-client';
+
+async function v2ServerPost<T>(path: string, body: unknown): Promise<T> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL || 'http://localhost:3000';
+  const apiUrl = new URL(path, baseUrl).toString();
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  const json = (await response.json().catch(() => ({}))) as V2Envelope<T> & T;
+
+  if (!response.ok || json.success === false) {
+    const message =
+      (typeof json === 'object' && json && 'error' in json && json.error) ||
+      response.statusText ||
+      'Request failed';
+    throw new Error(String(message));
+  }
+
+  if (typeof json === 'object' && json !== null && 'data' in json) {
+    return json.data as T;
+  }
+
+  return json as T;
+}
 
 // ============================================================================
 // ACTION 1: Submissão básica de formulário
@@ -28,20 +56,7 @@ export async function submitFeedingAction(prevState: any, formData: FormData) {
       };
     }
 
-    // Construi URL absoluta para funcionar no servidor em produção
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const apiUrl = `${baseUrl}/api/feedings`;
-
-    // Salva no banco
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ catId, amount, notes }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Erro ao salvar alimentação');
-    }
+    await v2ServerPost('/api/v2/feedings', { catId, amount, notes });
 
     return {
       error: null,
@@ -71,22 +86,11 @@ export async function addFeedingOptimisticAction(formData: FormData) {
     throw new Error('Dados inválidos: catId ou quantidade ausente/inválida');
   }
 
-  // Construi URL absoluta para funcionar no servidor
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.BASE_URL || 'http://localhost:3000';
-  const apiUrl = `${baseUrl}/api/feedings`;
-
   try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ catId, amount, notes }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro do servidor: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
+    const data = await v2ServerPost<{ id: string; fed_at?: string; timestamp?: string }>(
+      '/api/v2/feedings',
+      { catId, amount, notes }
+    );
     
     // Requer ID do servidor - lança erro se ausente
     if (!data.id) {
@@ -99,7 +103,7 @@ export async function addFeedingOptimisticAction(formData: FormData) {
       catId,
       amount,
       notes,
-      timestamp: new Date(data.timestamp || Date.now()),
+      timestamp: new Date(data.fed_at || data.timestamp || Date.now()),
     };
 
     return newLog;
@@ -150,28 +154,13 @@ export async function validateAndSubmit(prevState: any, formData: FormData) {
 
   // Salva no banco
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const apiUrl = new URL('/api/feedings', baseUrl).toString();
-
     const parsedAmount = parseFloat(amount as string);
     
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        catId,
-        amount: parsedAmount,
-        notes,
-      }),
+    await v2ServerPost('/api/v2/feedings', {
+      catId,
+      amount: parsedAmount,
+      notes,
     });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      return {
-        errors: { submit: `Erro ao salvar no servidor: ${response.status} ${errorBody}` },
-        success: false,
-      };
-    }
 
     return { errors: {}, success: true };
   } catch (error) {
@@ -181,4 +170,3 @@ export async function validateAndSubmit(prevState: any, formData: FormData) {
     };
   }
 }
-

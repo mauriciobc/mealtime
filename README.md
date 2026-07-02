@@ -14,11 +14,13 @@ MealTime é um aplicativo para gerenciar a alimentação dos seus gatos, permiti
 
 ## Tecnologias
 
-- Next.js 14
-- React
-- TypeScript
-- Prisma
-- TailwindCSS
+- Next.js 16
+- React 19
+- TypeScript 5.9
+- Prisma 7
+- Supabase Auth
+- TanStack Query
+- TailwindCSS 3
 - Shadcn UI
 
 ## Começando

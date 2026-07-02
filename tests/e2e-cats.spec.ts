@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Cat Management', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.describe('Cat Creation', () => {
     test.beforeEach(async ({ loginPage, testUser, page }) => {
@@ -35,7 +35,7 @@ test.describe('Cat Management', () => {
       await apiHelper.authenticate(testUser.email, testUser.password);
 
       const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
-      const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0].id : null) || testUser.householdId;
+      const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null) || testUser.householdId;
 
       const catName = `Miau_${Date.now()}`;
       const result = await apiHelper.createCat({
@@ -135,7 +135,7 @@ test.describe('Cat Management', () => {
 });
 
 test.describe('Cat API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get cats via API', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);

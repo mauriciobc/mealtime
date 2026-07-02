@@ -1,14 +1,10 @@
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode, Dispatch, useCallback, useEffect, useRef, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Schedule } from "@/lib/types"; // Assuming Schedule type is defined here
-// Import API service functions if needed for fetching/mutating schedules
-// import { getSchedules, addSchedule, updateSchedule, deleteSchedule } from "@/lib/services/scheduleService";
-import { useLoading } from "./LoadingContext"; // If schedule operations should trigger loading indicators
-import { useUserContext } from "./UserContext"; // Need user/household context
-import { toast } from "sonner"; // For error feedback
-
+import React, { createContext, useContext, useReducer, ReactNode, Dispatch, useCallback, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Schedule } from "@/lib/types";
+import { useUserContext } from "./UserContext";
+import { domainKeys, useSchedulesQuery } from "@/lib/hooks/domain";
 // Define state type
 interface ScheduleState {
   schedules: Schedule[];
@@ -75,121 +71,32 @@ interface ScheduleContextType {
 
 const ScheduleContext = createContext<ScheduleContextType | undefined>(undefined);
 
-async function fetchSchedulesForHousehold(householdId: string, userId?: string): Promise<Schedule[]> {
-  const headers: HeadersInit = {};
-  if (userId) headers['X-User-ID'] = userId;
-  const response = await fetch(`/api/schedules?householdId=${householdId}`, { headers });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Erro ${response.status}: ${errorText || 'Failed to load schedules'}`);
-  }
-  const rawSchedulesData: any[] = await response.json();
-  return rawSchedulesData.map(s => ({
-    id: String(s.id),
-    catId: String(s.cat_id),
-    householdId: s.household_id,
-    userId: s.user_id,
-    type: s.type,
-    interval: s.interval,
-    times: Array.isArray(s.times) ? s.times : [],
-    days: Array.isArray(s.days) ? s.days : [],
-    enabled: s.enabled,
-    createdAt: s.created_at ? new Date(s.created_at) : new Date(),
-    updatedAt: s.updated_at ? new Date(s.updated_at) : undefined,
-    cat: s.cat ? {
-      id: String(s.cat.id),
-      name: s.cat.name,
-      birthdate: undefined,
-      weight: null,
-      householdId: s.household_id,
-      photo_url: null,
-      restrictions: null,
-      notes: null,
-      feeding_interval: null,
-      portion_size: undefined,
-      createdAt: undefined,
-      updatedAt: undefined,
-    } : undefined,
-  }));
-}
-
-// Create hook to use context
 export function useScheduleContext() {
-  const context = useContext(ScheduleContext);
-  if (context === undefined) {
-    throw new Error("useScheduleContext must be used within a ScheduleProvider");
-  }
-  return context;
+  const { state: userState } = useUserContext();
+  const householdId = userState.currentUser?.householdId ?? undefined;
+  const userId = userState.currentUser?.id;
+  const queryClient = useQueryClient();
+  const { data: schedules = [], isLoading, error } = useSchedulesQuery(householdId, userId);
+
+  const dispatch = useCallback(
+    (action: ScheduleAction) => {
+      const key = domainKeys.schedules(householdId);
+      queryClient.setQueryData<Schedule[]>(key, (prev = []) =>
+        scheduleReducer({ schedules: prev, isLoading: false, error: null }, action).schedules
+      );
+    },
+    [householdId, queryClient]
+  );
+
+  const state: ScheduleState = {
+    schedules,
+    isLoading,
+    error: error instanceof Error ? error.message : error ? String(error) : null,
+  };
+
+  return { state, dispatch };
 }
 
-const LOADING_ID_SCHEDULES = "schedule-load";
-
-// Create provider
 export function ScheduleProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(scheduleReducer, initialState);
-  const { state: userState } = useUserContext();
-  const { currentUser } = userState;
-  const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const loadingIdRef = useRef<string | null>(null);
-  const householdId = currentUser?.householdId;
-
-  const {
-    data: schedulesData,
-    isLoading: isSchedulesLoading,
-    isSuccess: isSchedulesSuccess,
-    isError: isSchedulesError,
-    error: schedulesError,
-  } = useQuery({
-    queryKey: ['schedules', householdId],
-    queryFn: () => fetchSchedulesForHousehold(householdId!, currentUser?.id),
-    enabled: !!householdId,
-  });
-
-  const cleanupLoading = useCallback(() => {
-    if (loadingIdRef.current) {
-      try {
-        removeLoadingOperation(loadingIdRef.current);
-      } catch (error) {
-        console.error('[ScheduleProvider] Error cleaning up loading:', error);
-      } finally {
-        loadingIdRef.current = null;
-      }
-    }
-  }, [removeLoadingOperation]);
-
-  useEffect(() => {
-    if (!householdId) {
-      dispatch({ type: "SET_SCHEDULES", payload: [] });
-      return;
-    }
-    if (isSchedulesLoading) {
-      loadingIdRef.current = LOADING_ID_SCHEDULES;
-      dispatch({ type: "FETCH_START" });
-      addLoadingOperation({ id: LOADING_ID_SCHEDULES, priority: 5, description: "Carregando agendamentos..." });
-    }
-  }, [householdId, isSchedulesLoading, addLoadingOperation]);
-
-  useEffect(() => {
-    if (isSchedulesSuccess && schedulesData !== undefined) {
-      dispatch({ type: "SET_SCHEDULES", payload: schedulesData });
-      cleanupLoading();
-    }
-  }, [isSchedulesSuccess, schedulesData, cleanupLoading]);
-
-  useEffect(() => {
-    if (isSchedulesError && schedulesError) {
-      const errorMessage = schedulesError instanceof Error ? schedulesError.message : "Failed to load schedules";
-      dispatch({ type: "FETCH_ERROR", payload: errorMessage });
-      toast.error(errorMessage);
-      cleanupLoading();
-    }
-  }, [isSchedulesError, schedulesError, cleanupLoading]); 
-
-  const value = useMemo(() => ({ state, dispatch }), [state, dispatch]);
-
-  return (
-    <ScheduleContext.Provider value={value}>
-      {children}
-    </ScheduleContext.Provider>
-  );
-} 
+  return <>{children}</>;
+}

@@ -17,6 +17,7 @@ import BottomNav from "@/components/bottom-nav"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { FeedingLog } from "@/lib/types"
+import { v2Delete, v2Get } from "@/lib/api/v2-client"
 
 interface FeedingLogDetails extends FeedingLog {
   // Assuming API returns cat and user nested
@@ -68,26 +69,7 @@ export default function FeedingDetailsPage({
       const opId = `load-feeding-${logId}`
       addLoadingOperation({ id: opId, description: "Carregando registro..." })
       try {
-        const headers: HeadersInit = {};
-        if (currentUser?.id) {
-            headers['X-User-ID'] = currentUser.id;
-        } else {
-            throw new Error("Usuário não autenticado para buscar registro.");
-        }
-        
-        const response = await fetch(`/api/feedings/${logId}`, { headers });
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error("Registro de alimentação não encontrado.")
-          } else if (response.status === 403) {
-            throw new Error("Você não tem permissão para ver este registro.")
-          } else {
-            const errorData = await response.json().catch(() => ({}))
-            throw new Error(errorData.error || `Falha ao buscar registro: ${response.statusText}`)
-          }
-        }
-        const data: FeedingLogDetails = await response.json()
-
+        const data = await v2Get<FeedingLogDetails>(`/api/v2/feedings/${logId}`);
         setFeedingLog(data)
       } catch (err: any) {
         console.error("Erro ao carregar registro de alimentação:", err)
@@ -161,23 +143,7 @@ export default function FeedingDetailsPage({
     const previousLogId = feedingLog.id
 
     try {
-      const headers: HeadersInit = {};
-      if (currentUser?.id) {
-          headers['X-User-ID'] = currentUser.id;
-      } else {
-          toast.error("Erro de autenticação ao excluir.");
-          throw new Error("User ID missing for delete request");
-      }
-      
-      const response = await fetch(`/api/feedings/${feedingLog.id}`, {
-         method: "DELETE",
-         headers: headers
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `Erro ao excluir registro (${response.status})`)
-      }
+      await v2Delete(`/api/v2/feedings/${feedingLog.id}`)
 
       toast.success("Registro excluído com sucesso!")
       router.push("/feedings")

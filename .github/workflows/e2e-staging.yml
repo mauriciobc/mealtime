@@ -1,0 +1,51 @@
+name: E2E Staging
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.PLAYWRIGHT_BASE_URL != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - name: Require test credentials in CI
+        run: |
+          test -n "$TEST_USER_EMAIL" || (echo "TEST_USER_EMAIL required" && exit 1)
+          test -n "$TEST_USER_PASSWORD" || (echo "TEST_USER_PASSWORD required" && exit 1)
+        env:
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - run: npm run test:e2e -- --project=chromium-unauthenticated tests/security.spec.ts
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+      - run: npm run test:e2e -- --project=chromium tests/cats.spec.ts tests/feedings.spec.ts tests/households.spec.ts
+        env:
+          CI: true
+          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

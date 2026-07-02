@@ -18,6 +18,7 @@ import { toast } from 'sonner'; // Import toast from sonner
 import { EmptyState } from "@/components/ui/empty-state"; // Import EmptyState
 import { ClipboardList, AlertTriangle } from "lucide-react"; // Import icons for EmptyState
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { v2Get } from "@/lib/api/v2-client";
 
 // This type should match the structure returned by your API GET /api/weight-logs
 interface WeightLogEntry {
@@ -38,15 +39,8 @@ interface RecentHistoryListProps {
   // initialLogs?: WeightLogEntry[]; // Could pass initial logs to avoid loading flicker
 }
 
-async function fetchWeightLogs(catId: string, userId: string): Promise<WeightLogEntry[]> {
-  const response = await fetch(`/api/weight-logs?catId=${catId}`, {
-    headers: { 'X-User-ID': userId },
-  });
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}));
-    throw new Error(errData.error || 'Failed to fetch weight logs');
-  }
-  const data: any[] = await response.json();
+async function fetchWeightLogs(catId: string, _userId: string): Promise<WeightLogEntry[]> {
+  const data = await v2Get<any[]>(`/api/v2/weight-logs?catId=${catId}`);
   return data.map(log => ({
     ...log,
     weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0),

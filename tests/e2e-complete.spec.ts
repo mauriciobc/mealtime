@@ -42,7 +42,7 @@ test.describe('Authentication Flow', () => {
 });
 
 test.describe('Complete E2E Workflow', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should login successfully and access dashboard', async ({ page, loginPage, testUser }) => {
     await loginPage.goto();
@@ -144,7 +144,7 @@ test.describe('Complete E2E Workflow', () => {
 });
 
 test.describe('Navigation Flow', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ page, loginPage, testUser }) => {
     await loginPage.goto();
@@ -180,7 +180,7 @@ test.describe('Navigation Flow', () => {
 });
 
 test.describe('API Integration', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should authenticate via mobile API', async ({ apiHelper, testUser }) => {
     const result = await apiHelper.authenticate(testUser.email, testUser.password);

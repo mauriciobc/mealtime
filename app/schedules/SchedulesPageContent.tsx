@@ -17,6 +17,7 @@ import Link from "next/link";
 import { m } from "framer-motion";
 import { getNextScheduledTime } from "@/lib/utils/dateUtils";
 import { toast } from "sonner";
+import { v2Delete } from "@/lib/api/v2-client";
 import { PageHeader } from "@/components/page-header";
 import PageTransition from "@/components/page-transition";
 import BottomNav from "@/components/bottom-nav";
@@ -39,13 +40,7 @@ export default function SchedulesPageContent() {
     scheduleDispatch({ type: "DELETE_SCHEDULE", payload: scheduleId });
 
     try {
-      const response = await fetch(`/api/schedules/${scheduleId}`, {
-        method: 'DELETE'
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Falha ao excluir agendamento: ${response.statusText}`);
-      }
+      await v2Delete(`/api/v2/schedules/${scheduleId}`);
       toast.success("Agendamento excluído com sucesso!");
     } catch (error: any) {
       toast.error(`Erro ao excluir: ${error.message}`);

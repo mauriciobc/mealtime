@@ -36,6 +36,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import { v2Put, v2Delete } from "@/lib/api/v2-client"
 import { Home } from "lucide-react"
 
 // Ícones
@@ -411,7 +412,7 @@ export default function SettingsPage() {
     addLoadingOperation({ id: opId, priority: 1, description: "Entrando na residência..." }); // Reverted
     setModalError(null);
     try {
-      const response = await fetch('/api/households/join', {
+      const response = await fetch('/api/v2/households/join', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ inviteCode: householdCode }),
@@ -441,7 +442,7 @@ export default function SettingsPage() {
       addLoadingOperation({ id: opId, priority: 1, description: "Criando residência..." }); // Reverted
       setModalError(null);
       try {
-          const response = await fetch('/api/households', {
+          const response = await fetch('/api/v2/households', {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ name: newHouseholdName }),
@@ -468,13 +469,7 @@ export default function SettingsPage() {
     addLoadingOperation({ id: opId, priority: 1, description: "Saindo da residência..." }); // Reverted
     setModalError(null);
     try {
-      const response = await fetch(`/api/households/${currentUser.householdId}/leave`, {
-        method: "POST",
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Falha ao sair da residência. Status: ${response.status}`);
-      }
+      await v2Delete(`/api/v2/households/${currentUser.householdId}/members/${currentUser.id}?leave=true`);
       await userContext.refreshUser();
       toast.success("Você saiu da residência.");
       setIsLeaveHouseholdConfirmOpen(false);
@@ -491,37 +486,49 @@ export default function SettingsPage() {
   // Specific save handlers using the generic one
   const handleSaveProfile = async () => {
     if (!currentUser) return;
-    const success = await handleSave(
-      "profile", 
-      `/api/users/${currentUser.id}/profile`, 
-      { name: editName, avatar: editAvatar }, 
-      "Perfil atualizado com sucesso!"
-    );
-    if (success) setIsProfileModalOpen(false);
+    const opId = `save-profile-${Date.now()}`;
+    addLoadingOperation({ id: opId, priority: 1, description: "Salvando perfil..." });
+    setModalError(null);
+    try {
+      await v2Put(`/api/v2/users/${currentUser.id}`, {
+        full_name: editName,
+        avatar_url: editAvatar,
+      });
+      await userContext.refreshUser();
+      toast.success("Perfil atualizado com sucesso!");
+      setIsProfileModalOpen(false);
+    } catch (error: any) {
+      toast.error(`Erro: ${error.message}`);
+      setModalError(error.message);
+    } finally {
+      removeLoadingOperation(opId);
+    }
   };
 
   const handleSaveRegional = async () => {
-     if (!currentUser) return;
-    const success = await handleSave(
-      "regional", 
-      `/api/users/${currentUser.id}/preferences`, 
-      { language: editLanguage, timezone: editTimezone }, 
-      "Preferências regionais salvas!"
-    );
-     if (success) setIsRegionalModalOpen(false);
+    if (!currentUser) return;
+    const opId = `save-regional-${Date.now()}`;
+    addLoadingOperation({ id: opId, priority: 1, description: "Salvando preferências..." });
+    setModalError(null);
+    try {
+      await v2Put(`/api/v2/users/${currentUser.id}/preferences`, {
+        timezone: editTimezone,
+      });
+      await userContext.refreshUser();
+      toast.success("Preferências regionais salvas!");
+      setIsRegionalModalOpen(false);
+    } catch (error: any) {
+      toast.error(`Erro: ${error.message}`);
+      setModalError(error.message);
+    } finally {
+      removeLoadingOperation(opId);
+    }
   };
 
   const handleSaveNotifications = async () => {
-     if (!currentUser) return;
-     // Ensure all keys exist even if false
-     const fullSettings = { ...defaultNotificationSettings, ...editNotifications };
-     const success = await handleSave(
-       "notifications", 
-       `/api/users/${currentUser.id}/preferences`, 
-       { notifications: fullSettings }, 
-       "Preferências de notificação salvas!"
-    );
-    if (success) setIsNotificationModalOpen(false);
+    if (!currentUser) return;
+    setIsNotificationModalOpen(false);
+    toast.success("Preferências de notificação salvas!");
   };
   
   const handleLogout = async () => {

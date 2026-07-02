@@ -81,18 +81,19 @@ export function ImageUpload({ value, onChange, className, type = 'user' }: Image
       formData.append('file', file);
       formData.append('type', type);
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch('/api/v2/upload', {
         method: 'POST',
+        credentials: 'include',
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || `Upload failed: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      const uploadedUrl = result.url;
+      const uploadedUrl = result.data?.url ?? result.url;
 
       if (!uploadedUrl) {
         throw new Error("Upload succeeded but no URL was returned.");

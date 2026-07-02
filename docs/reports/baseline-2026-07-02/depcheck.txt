@@ -1,0 +1,27 @@
+Unused dependencies
+* @netlify/plugin-nextjs
+* @radix-ui/react-label
+* @radix-ui/react-separator
+* @radix-ui/react-slot
+* @radix-ui/react-toast
+* @react-pdf/renderer
+* @shadcn/ui
+* @tanstack/react-virtual
+* @uploadthing/react
+* autoprefixer
+* cron
+* react-error-boundary
+* swagger-ui-dist
+* tw-animate-css
+* uploadthing
+Unused devDependencies
+* form-data
+* netlify-cli
+* node-gyp
+* postcss
+* react-doctor
+Missing dependencies
+* eslint-plugin-react: .\eslint.config.mjs
+* jsr:@supabase: .\supabase\functions\send-scheduled-notifications\index.ts
+* npm:@supabase: .\supabase\functions\send-scheduled-notifications\index.ts
+* @radix-ui/react-dialog: .\components\ui\command.tsx

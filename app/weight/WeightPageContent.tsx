@@ -39,7 +39,7 @@ import { format, parseISO, compareDesc } from 'date-fns';
 import ProtectedRoute from '@/components/auth/protected-route';
 
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
-import { CatsContext } from '@/lib/context/CatsContext';
+import { useCats } from '@/lib/context/CatsContext';
 import { UserContext } from "@/lib/context/UserContext";
 import {
   Card,
@@ -55,6 +55,7 @@ import { Badge } from "@/components/ui/badge";
 import { m } from "framer-motion";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from "@/components/ui/sheet";
 import { logger } from '@/lib/monitoring/logger';
+import { v2Post, v2Put, v2Delete } from '@/lib/api/v2-client';
 
 // Interface for Cat - matches expected API structure from /api/cats
 interface Cat {
@@ -173,7 +174,7 @@ export default function WeightPageContent() {
 
   // Contexts (called unconditionally)
   const userContext = useContext(UserContext);
-  const catsContext = useContext(CatsContext);
+  const catsContext = useCats();
 
   // All custom hooks MUST be called before any early returns
   const feedingHook = useFeeding();
@@ -344,58 +345,20 @@ export default function WeightPageContent() {
         const now = new Date();
         const payload = {
           ...formData,
-          date: formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date, // YYYY-MM-DD
-          catId: catId, // Use catId parameter
+          date: formData.date instanceof Date ? formData.date.toISOString().split('T')[0] : formData.date,
+          catId: catId,
         };
 
-        const url = logIdToUpdate
-          ? `/api/weight/logs?id=${logIdToUpdate}&householdId=${householdId}` // Pass householdId to PUT
-          : `/api/weight/logs?householdId=${householdId}`; // Pass householdId to POST
-        const method = logIdToUpdate ? 'PUT' : 'POST';
-
-        const response = await fetch(url, {
-          method,
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-ID': userId
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Erro desconhecido" }));
-          throw new AppError(
-            errorData.error || `Falha ao ${logIdToUpdate ? 'atualizar' : 'criar'} registro de peso`,
-            'API_ERROR',
-            errorData,
-            'Registro de Peso'
-          );
+        if (logIdToUpdate) {
+          await v2Put(`/api/v2/weight-logs?id=${logIdToUpdate}`, payload);
+        } else {
+          await v2Post('/api/v2/weight-logs', payload);
         }
 
-        // Após criar/editar, buscar logs atualizados e atualizar peso do gato
-        // Refetch logs for the entire household since WeightContext stores all logs
-        const logsResponse = await fetch(`/api/weight/logs?householdId=${householdId}`, {
-          headers: { 'X-User-ID': userId }
-        });
-        if (!logsResponse.ok) throw new Error(`Failed to fetch updated logs: ${logsResponse.statusText}`);
-        const updatedLogs: WeightLog[] = await logsResponse.json();
-        // Mapear para camelCase antes de despachar para o contexto
-        const mappedLogs = updatedLogs.map((log: any) => ({
-          ...log,
-          catId: log.cat_id,
-          createdAt: log.created_at ? new Date(log.created_at) : undefined,
-          updatedAt: log.updated_at ? new Date(log.updated_at) : undefined,
-          measuredBy: log.measured_by,
-          date: new Date(log.date), // Ensure date is a Date object for frontend logic
-        }));
-        weightDispatch({ type: 'FETCH_WEIGHT_LOGS_SUCCESS', payload: mappedLogs });
-
-        // The API should update the cat's weight, so no need to update locally here
-        // If cats context needs updating, consider a separate mechanism or refetch.
-
+        await refreshWeightData();
         setLogChangeTimestamp(Date.now());
-        setIsQuickLogPanelOpen(false); // This might need adjustment if panel is per-cat
-        setLogToEditData(null); // Clear logToEditData when closing
+        setIsQuickLogPanelOpen(false);
+        setLogToEditData(null);
       },
       {
         context: 'Registro de Peso',
@@ -404,7 +367,7 @@ export default function WeightPageContent() {
         }
       }
     );
-  }, [userId, householdId, weightDispatch]); // Depend on userId, householdId, weightDispatch
+  }, [userId, householdId, refreshWeightData]);
 
   const handleRequestEditLog = useCallback((log: WeightLogEntry) => {
     // The QuickLogPanel is global, open it and pass the log data
@@ -431,33 +394,8 @@ export default function WeightPageContent() {
     }
 
     try {
-      const response = await fetch(`/api/weight/logs?id=${logIdToDelete}&householdId=${householdId}`, { // Add householdId to delete
-        method: 'DELETE',
-        headers: {
-          'X-User-ID': userId,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao excluir." }));
-        throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
-      }
-
-      // After deleting, refetch logs for the household
-      const logsResponse = await fetch(`/api/weight/logs?householdId=${householdId}`, {
-         headers: { 'X-User-ID': userId }
-      });
-      if (!logsResponse.ok) throw new Error(`Failed to fetch updated logs: ${logsResponse.statusText}`);
-       const updatedLogs: WeightLog[] = await logsResponse.json();
-       const mappedLogs = updatedLogs.map((log: any) => ({
-         ...log,
-         catId: log.cat_id,
-         createdAt: log.created_at ? new Date(log.created_at) : undefined,
-         updatedAt: log.updated_at ? new Date(log.updated_at) : undefined,
-         measuredBy: log.measured_by,
-         date: new Date(log.date), // Ensure date is a Date object
-       }));
-       weightDispatch({ type: 'FETCH_WEIGHT_LOGS_SUCCESS', payload: mappedLogs });
+      await v2Delete(`/api/v2/weight-logs?id=${logIdToDelete}`);
+      await refreshWeightData();
       setLogChangeTimestamp(Date.now());
       toast.success("Registro de peso excluído com sucesso.");
       return true;
@@ -465,7 +403,7 @@ export default function WeightPageContent() {
       toast.error(`Falha ao excluir o registro: ${error.message}`);
       return false;
     }
-  }, [userId, householdId, weightDispatch]); // Dependencies are defined
+  }, [userId, householdId, refreshWeightData]);
 
   const handleGoalSubmit = useCallback(async (catId: string, formData: GoalFormData): Promise<void> => {
     if (!userId || !householdId) { // userId and householdId are defined above
@@ -514,58 +452,21 @@ export default function WeightPageContent() {
         }
 
         const goalPayload = {
-          ...formData,
-          user_id: userId,
-          cat_id: catId, // Use the catId parameter
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          milestones: milestones.length > 0 ? milestones : undefined
+          cat_id: catId,
+          goal_name: formData.goal_name || `Meta de peso - ${cat?.name ?? 'gato'}`,
+          start_date: formData.start_date || new Date().toISOString().split('T')[0],
+          target_date: formData.target_date,
+          initial_weight: initialWeightKg,
+          target_weight: targetWeightKg,
+          unit: formData.unit,
+          description: formData.description,
+          milestones: milestones.length > 0 ? milestones : undefined,
         };
 
-        const response = await fetch('/api/goals', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-User-ID': userId,
-          },
-          body: JSON.stringify(goalPayload),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Erro desconhecido ao criar meta." }));
-          throw new AppError(
-            errorData.error || `Falha ao criar meta: ${response.status}`,
-            'API_ERROR',
-            errorData,
-            'Criação de Meta'
-          );
-        }
-
-        // After creating a goal, refetch all goals for the household
-        // The /api/goals route currently doesn't support filtering by household,
-        // so we refetch all and let WeightContext handle filtering.
-        const goalsResponse = await fetch(`/api/goals?householdId=${householdId}`, { // Added householdId param based on analysis of /api/goals GET (although not strictly needed per its current implementation)
-           headers: { 'X-User-ID': userId } // userId is needed for /api/goals
-        });
-        if (!goalsResponse.ok) throw new Error(`Failed to fetch updated goals: ${goalsResponse.statusText}`);
-        const updatedGoals: WeightGoalWithMilestones[] = await goalsResponse.json();
-        // Mapping to camelCase is done in WeightContext's memoized `goals`
-        const mappedGoals = updatedGoals.map((goal: any) => ({
-          id: goal.id,
-          catId: goal.cat_id,
-          targetWeight: goal.target_weight ?? '',
-          targetDate: goal.target_date ? new Date(goal.target_date) : undefined,
-          startWeight: goal.initial_weight ?? goal.start_weight,
-          status: goal.status ?? (goal.isArchived ? 'completed' : 'active'),
-          notes: goal.description ?? goal.notes ?? '',
-          createdBy: goal.created_by ?? goal.createdBy ?? '',
-          createdAt: goal.created_at ? new Date(goal.created_at) : new Date(),
-          updatedAt: goal.updated_at ? new Date(goal.updated_at) : new Date(),
-        }));
-        weightDispatch({ type: 'FETCH_WEIGHT_GOALS_SUCCESS', payload: mappedGoals });
-
+        await v2Post('/api/v2/goals', goalPayload);
+        await refreshWeightData();
         setLogChangeTimestamp(Date.now());
-        setIsGoalFormSheetOpen(false); // This might need adjustment if panel is per-cat
+        setIsGoalFormSheetOpen(false);
       },
       {
         context: 'Criação de Meta',
@@ -575,7 +476,7 @@ export default function WeightPageContent() {
       }
     );
 
-  }, [userId, householdId, cats, weightDispatch]); // Dependencies are defined
+  }, [userId, householdId, cats, refreshWeightData]);
 
   // handler para passar para MilestoneProgress
   const handleGoalArchived = useCallback(() => {

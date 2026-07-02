@@ -1,42 +1,15 @@
 import prisma from "./prisma";
 import { logger } from '@/lib/monitoring/logger';
+import { v2Get } from '@/lib/api/v2-client';
 
 export { getNextFeedingTime } from './services/api-feeding-service';
 
-export async function getCats(householdId?: number) {
+export async function getCats(householdId?: number | string) {
   try {
-    const response = await fetch('/api/cats');
-    if (!response.ok) {
-      let errorMsg = `Falha ao buscar gatos (${response.status} ${response.statusText})`;
-      try {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json();
-          errorMsg = errorData.error || errorMsg;
-        } else {
-          const textError = await response.text();
-          logger.error("Server returned non-JSON error", { textError, context: 'getCats' });
-        }
-      } catch (parseOrReadError) {
-        logger.error("Failed to parse error response body", { parseOrReadError, context: 'getCats' });
-      }
-      throw new Error(errorMsg);
-    }
-
-    const contentType = response.headers.get("content-type");
-    if (!(contentType && contentType.includes("application/json"))) {
-      const textResponse = await response.text();
-      logger.error("Server returned non-JSON success response", { textResponse, context: 'getCats' });
-      throw new Error("Resposta inesperada do servidor ao buscar gatos.");
-    }
-
-    try {
-      return await response.json();
-    } catch (parseError) {
-      logger.error("Failed to parse JSON response", { parseError, context: 'getCats' });
-      throw new Error("Falha ao processar a resposta do servidor ao buscar gatos.");
-    }
-
+    const path = householdId
+      ? `/api/v2/households/${householdId}/cats`
+      : '/api/v2/cats';
+    return await v2Get(path);
   } catch (_error) {
     logger.error("Erro ao buscar gatos", { error: _error, context: 'getCats' });
     throw _error;
@@ -85,85 +58,40 @@ export async function getCatById(id: string) {
   }
 }
 
-export async function getFeedingLogs(catId?: number, limit = 20) {
+export async function getFeedingLogs(catId?: number | string, limit = 20, householdId?: string) {
   try {
-    const queryParams = new URLSearchParams();
-    if (catId) queryParams.append('catId', catId.toString());
-    if (limit) queryParams.append('limit', limit.toString());
-    
-    const url = `/api/feedings${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      let errorMsg = `Falha ao buscar registros de alimentação (${response.status} ${response.statusText})`;
-      try {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json();
-          errorMsg = errorData.error || errorMsg;
-        } else {
-          const textError = await response.text();
-          logger.error("Server returned non-JSON error", { textError, context: 'getFeedingLogs' });
-        }
-      } catch (parseOrReadError) {
-        logger.error("Failed to parse error response body", { parseOrReadError, context: 'getFeedingLogs' });
-      }
-      throw new Error(errorMsg);
+    let hhId = householdId;
+    if (!hhId && catId) {
+      const cat = await v2Get<{ household_id?: string }>(`/api/v2/cats/${catId}`);
+      hhId = cat.household_id;
     }
-    
-    const contentType = response.headers.get("content-type");
-    if (!(contentType && contentType.includes("application/json"))) {
-      const textResponse = await response.text();
-      logger.error("Server returned non-JSON success response", { textResponse, context: 'getFeedingLogs' });
-      throw new Error("Resposta inesperada do servidor ao buscar registros de alimentação.");
+    if (!hhId) {
+      throw new Error('householdId é obrigatório para buscar registros de alimentação');
     }
-    
-    try {
-      return await response.json();
-    } catch (parseError) {
-      logger.error("Failed to parse JSON response", { parseError, context: 'getFeedingLogs' });
-      throw new Error("Falha ao processar a resposta do servidor ao buscar registros de alimentação.");
-    }
+
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (catId) params.set('catId', String(catId));
+
+    return await v2Get(`/api/v2/households/${hhId}/feeding-logs?${params.toString()}`);
   } catch (_error) {
     logger.error("Erro ao buscar registros de alimentação", { error: _error, context: 'getFeedingLogs' });
     throw _error;
   }
 }
 
-export async function getSchedules(catId?: number) {
+export async function getSchedules(catId?: number | string, householdId?: string) {
   try {
-    const response = await fetch(`/api/schedules${catId ? `?catId=${catId}` : ''}`);
-    if (!response.ok) {
-      let errorMsg = `Falha ao buscar agendamentos (${response.status} ${response.statusText})`;
-      try {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json();
-          errorMsg = errorData.error || errorMsg;
-        } else {
-          const textError = await response.text();
-          logger.error("Server returned non-JSON error", { textError, context: 'getSchedules' });
-        }
-      } catch (parseOrReadError) {
-        logger.error("Failed to parse error response body", { parseOrReadError, context: 'getSchedules' });
-      }
-      throw new Error(errorMsg);
+    if (!householdId) {
+      throw new Error('householdId é obrigatório para buscar agendamentos');
     }
 
-    const contentType = response.headers.get("content-type");
-    if (!(contentType && contentType.includes("application/json"))) {
-      const textResponse = await response.text();
-      logger.error("Server returned non-JSON success response", { textResponse, context: 'getSchedules' });
-      throw new Error("Resposta inesperada do servidor ao buscar agendamentos.");
-    }
+    const schedules = await v2Get<any[]>(`/api/v2/schedules?householdId=${householdId}`);
+    if (!catId) return schedules;
 
-    try {
-      return await response.json();
-    } catch (parseError) {
-      logger.error("Failed to parse JSON response", { parseError, context: 'getSchedules' });
-      throw new Error("Falha ao processar a resposta do servidor ao buscar agendamentos.");
-    }
-
+    const catIdStr = String(catId);
+    return schedules.filter(
+      (s) => String(s.cat_id ?? s.catId) === catIdStr
+    );
   } catch (_error) {
     logger.error("Erro ao buscar agendamentos", { error: _error, context: 'getSchedules' });
     throw _error;

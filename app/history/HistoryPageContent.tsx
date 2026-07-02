@@ -75,7 +75,7 @@ export default function HistoryPageContent() {
         setIsLoading(true)
         
         // Carregar registros de alimentação
-        const logs = await getFeedingLogs()
+        const logs = (await getFeedingLogs()) as FeedingLogType[]
         setFeedingLogs(logs)
         setFilteredLogs(logs)
         

@@ -443,7 +443,7 @@ export function NewFeedingSheet({
         feedingDispatch({ type: "UPDATE_FEEDING", payload: updatedFeedingLog });
       } else {
         // Criação padrão
-        response = await fetch("/api/feedings/batch", {
+        response = await fetch("/api/v2/feedings/batch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ logs: logsToCreate }),

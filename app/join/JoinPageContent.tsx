@@ -51,7 +51,7 @@ export default function JoinPageContent() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/households/join", {
+      const response = await fetch("/api/v2/households/join", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -41,6 +41,7 @@ import { toast } from "sonner"
 import { useFeeding } from "@/lib/context/FeedingContext"
 import { GlobalLoading } from "@/components/ui/global-loading"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { v2Delete } from "@/lib/api/v2-client"
 
 export default function CatsPageContent() {
   const router = useRouter()
@@ -92,11 +93,7 @@ export default function CatsPageContent() {
     catsDispatch({ type: "REMOVE_CAT", payload: catId })
 
     try {
-      const response = await fetch(`/api/cats/${catId}`, { method: 'DELETE' })
-      if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}))
-         throw new Error(errorData.error || 'Failed to delete cat')
-      }
+      await v2Delete(`/api/v2/cats/${catId}`)
       toast.success("Gato excluído com sucesso!")
     } catch (error: any) {
       toast.error(`Erro ao excluir gato: ${error.message}`)

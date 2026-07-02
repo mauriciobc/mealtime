@@ -1,51 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { BaseCats, parseGender } from "@/lib/types/common";
+import { NextRequest } from 'next/server';
+import { v1DeprecatedResponse } from '@/lib/middleware/block-v1';
 
-// GET /api/feedings/cats - Listar gatos para o formulário de alimentação
-export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const householdId = searchParams.get('householdId');
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-    if (!householdId) {
-      return NextResponse.json(
-        { error: 'householdId é obrigatório' },
-        { status: 400 }
-      );
-    }
+export async function GET(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    // Consulta para obter gatos com informações necessárias para alimentação
-    const cats = await prisma.cats.findMany({
-      where: {
-        household_id: householdId
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
+export async function POST(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    // Converter para o formato BaseCats
-    const formattedCats: BaseCats[] = cats.map(cat => ({
-      id: cat.id,
-      created_at: cat.created_at,
-      updated_at: cat.updated_at,
-      name: cat.name,
-      birth_date: cat.birth_date,
-      weight: cat.weight ? parseFloat(cat.weight.toString()) : null,
-      household_id: cat.household_id,
-      owner_id: cat.owner_id,
-      gender: parseGender(cat.gender)
-    }));
+export async function PUT(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    console.log(`Encontrados ${formattedCats.length} gatos para a residência ${householdId}`);
-    
-    return NextResponse.json(formattedCats);
-  } catch (error) {
-    console.error('Erro ao buscar gatos para o formulário de alimentação:', error);
-    return NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar os gatos' },
-      { status: 500 }
-    );
-  }
-} 
+export async function PATCH(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
+
+export async function DELETE(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
+
+export async function HEAD(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
+
+export async function OPTIONS(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}

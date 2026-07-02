@@ -9,14 +9,14 @@ import { test, expect } from './fixtures/test-fixtures';
  * - Feedings/households responses that embed cat data include gender
  */
 test.describe('API Gender field', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('POST /api/v2/cats accepts gender and GET returns it', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
     const householdId = Array.isArray(households?.data) && households.data.length > 0
-      ? households.data[0].id
+      ? households.data[0]!.id
       : testUser.householdId;
     expect(householdId, 'Need a household to create a cat').toBeTruthy();
 
@@ -43,7 +43,7 @@ test.describe('API Gender field', () => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
-    const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0].id : null) || testUser.householdId;
+    const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null) || testUser.householdId;
     if (!householdId) {
       test.skip();
       return;
@@ -89,7 +89,7 @@ test.describe('API Gender field', () => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
-    const householdId = Array.isArray(households?.data) && households.data.length > 0 ? households.data[0].id : null;
+    const householdId = Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null;
     if (!householdId) {
       test.skip();
       return;
@@ -105,7 +105,7 @@ test.describe('API Gender field', () => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
-    const householdId = Array.isArray(households?.data) && households.data.length > 0 ? households.data[0].id : null;
+    const householdId = Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null;
     if (!householdId) {
       test.skip();
       return;

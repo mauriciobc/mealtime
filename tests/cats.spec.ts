@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Cats Management', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should navigate to cats page', async ({ catsPage }) => {
     await catsPage.goto();
@@ -47,7 +47,7 @@ test.describe('Cats Management', () => {
 });
 
 test.describe('Cats API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get cats list', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -59,7 +59,7 @@ test.describe('Cats API', () => {
     await apiHelper.authenticate(testUser.email, testUser.password);
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
-    const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0].id : null) || testUser.householdId;
+    const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null) || testUser.householdId;
     expect(householdId, 'Need a household to create a cat').toBeTruthy();
 
     const catName = `Miau_${Date.now()}`;

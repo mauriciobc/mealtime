@@ -21,6 +21,7 @@ import {
   ChartContainer,
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
+import { v2Put } from "@/lib/api/v2-client";
 
 // TypeScript Interfaces (Define or import from a central types file e.g., types/weight.ts)
 interface Milestone {
@@ -277,13 +278,8 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
   ];
 
   const archiveGoalMutation = useMutation({
-    mutationFn: async ({ goalId, hhId }: { goalId: string; hhId: string }) => {
-      const res = await fetch(`/api/weight/goals?id=${goalId}&householdId=${hhId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "completed" }),
-      });
-      if (!res.ok) throw new Error(`PUT failed: ${res.status}`);
+    mutationFn: async ({ goalId }: { goalId: string; hhId: string }) => {
+      await v2Put(`/api/v2/goals?id=${goalId}`, { status: "completed" });
     },
     onSuccess: () => {
       refreshCounter.current += 1;
@@ -306,7 +302,7 @@ export function MilestoneProgress({ activeGoal, currentWeight, currentWeightDate
     if (!isGoalAchieved) {
       hasArchived.current = false;
     }
-  }, [activeGoal, isGoalAchieved, householdId, onGoalArchived]);
+  }, [activeGoal, isGoalAchieved, householdId, onGoalArchived, archiveGoalMutation]);
 
   if (!activeGoal || currentWeight === null) {
     return (

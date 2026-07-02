@@ -64,6 +64,7 @@ import { cn } from "@/lib/utils"
 import { DateTimePicker } from "@/components/ui/datetime-picker-new"
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 import { useMemo } from "react"
+import { v2Delete, v2Put } from "@/lib/api/v2-client"
 
 interface EditCatPageContentProps {
   params: { id: string };
@@ -208,23 +209,7 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
     catsDispatch({ type: "REMOVE_CAT", payload: cat.id })
     
     try {
-      const headers: HeadersInit = {};
-      if (currentUser?.id) {
-          headers['X-User-ID'] = currentUser.id;
-      } else {
-          toast.error("Erro de autenticação ao excluir.");
-          throw new Error("User ID missing for delete request");
-      }
-      
-      const response = await fetch(`/api/cats/${cat.id}`, { 
-          method: 'DELETE',
-          headers: headers
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || 'Failed to delete cat on server')
-      }
+      await v2Delete(`/api/v2/cats/${cat.id}`)
       toast.success(`${cat.name} foi excluído com sucesso`)
       router.push("/cats")
     } catch (error: any) {
@@ -250,15 +235,15 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
     setIsSubmitting(true)
     
     try {
-      const updatedData: Partial<CatType> = {
+      const updatedData = {
         name: formData.name.trim(),
-        photo_url: formData.photoUrl || null,
-        birthdate: formData.birthdate ? new Date(formData.birthdate) : null,
+        photoUrl: formData.photoUrl || null,
+        birthDate: formData.birthdate ? new Date(formData.birthdate).toISOString() : null,
         weight: formData.weight ? parseFloat(formData.weight) : null,
         gender: (formData.gender === "male" || formData.gender === "female") ? formData.gender : null,
         restrictions: formData.restrictions?.trim() || null,
         feeding_interval: formData.feedingInterval ? parseInt(formData.feedingInterval) : null,
-        portion_size: formData.portion_size ? String(formData.portion_size) : null,
+        portion_size: formData.portion_size ? parseFloat(formData.portion_size) : null,
         notes: formData.notes?.trim() || null,
       }
       
@@ -271,30 +256,7 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
 
       console.log('Sending update request with data:', updatedData)
       
-      // Add X-User-ID header
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      };
-      if (currentUser?.id) {
-          headers['X-User-ID'] = currentUser.id;
-      } else {
-          toast.error("Erro de autenticação ao salvar.");
-          throw new Error("User ID missing for update request");
-      }
-      
-      const response = await fetch(`/api/cats/${cat.id}`, {
-        method: 'PUT',
-        headers: headers, // Use updated headers
-        body: JSON.stringify(updatedData),
-      })
-      
-      const responseData = await response.json()
-      
-      if (!response.ok) {
-        console.error('Server response:', responseData)
-        throw new Error(responseData.error || 'Failed to update cat on server')
-      }
+      const responseData = await v2Put<CatType>(`/api/v2/cats/${cat.id}`, updatedData)
       
       console.log('Server response:', responseData)
       

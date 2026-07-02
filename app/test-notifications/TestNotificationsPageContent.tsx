@@ -234,7 +234,7 @@ export default function TestNotificationsPageContent() {
       
       console.log("[TestNotificationsPage] Scheduling notification with payload:", payload);
       
-      const response = await fetch("/api/scheduled-notifications", {
+      const response = await fetch("/api/v2/scheduled-notifications", {
         method: "POST",
         headers: {
           'Content-Type': 'application/json',
@@ -298,7 +298,7 @@ export default function TestNotificationsPageContent() {
         catId: form.catId || undefined,
       };
       
-      const response = await fetch("/api/scheduled-notifications", {
+      const response = await fetch("/api/v2/scheduled-notifications", {
         method: "POST",
         headers: {
           'Content-Type': 'application/json',

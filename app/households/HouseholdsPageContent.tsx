@@ -115,7 +115,7 @@ export default function HouseholdsPageContent() {
     const previousHouseholds = households;
 
     try {
-      const response = await fetch(`/api/households/${id}`, {
+      const response = await fetch(`/api/v2/households/${id}`, {
         method: 'DELETE',
       });
 

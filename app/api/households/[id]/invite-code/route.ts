@@ -1,81 +1,33 @@
-import { type NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import prisma from '@/lib/prisma';
-import { v4 as uuidv4 } from 'uuid';
-import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
+import { NextRequest } from 'next/server';
+import { v1DeprecatedResponse } from '@/lib/middleware/block-v1';
 
-// Helper function to check admin/owner status (can be shared if needed)
-async function isUserAdmin(userId: string, householdId: string): Promise<boolean> {
-  if (!userId || !householdId) {
-    return false;
-  }
-  try {
-    const membership = await prisma.household_members.findUnique({
-      where: {
-        household_id_user_id: {
-          household_id: householdId,
-          user_id: userId,
-        },
-      },
-      select: { role: true },
-    });
-    return membership?.role?.toLowerCase() === 'admin' || membership?.role?.toLowerCase() === 'owner';
-  } catch (error) {
-    console.error('Error checking admin status:', error);
-    return false;
-  }
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+export async function GET(_request: NextRequest) {
+  return v1DeprecatedResponse();
 }
 
-// Helper to generate a unique invite code (simple UUID for now)
-function generateInviteCode(): string {
-  // Generate a full UUID and take the first 8 characters for a shorter code
-  // Add collision check if necessary, but unlikely with UUID prefix
-  return uuidv4().substring(0, 8);
+export async function POST(_request: NextRequest) {
+  return v1DeprecatedResponse();
 }
 
-export async function PATCH(
-  request: NextRequest, // request is unused but required by the signature
-  context: { params: Promise<{ id: string }> } // context instead of destructuring params
-) {
-  const headersList = await headers();
-  const params = await context.params; // Await params as required by Next.js
-  const authUserId = headersList.get('X-User-ID');
-  const householdId = params.id;
+export async function PUT(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  if (!authUserId) {
-    return NextResponse.json({ error: 'Unauthorized: Missing user ID' }, { status: 401 });
-  }
+export async function PATCH(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  // Verify requester is admin/owner of the target household
-  const isAdmin = await isUserAdmin(authUserId, householdId);
-  if (!isAdmin) {
-    return NextResponse.json(
-      { error: 'Forbidden: User does not have permission to modify this household' },
-      { status: 403 },
-    );
-  }
+export async function DELETE(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  try {
-    const newInviteCode = generateInviteCode();
+export async function HEAD(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    // Update the household with the new invite code
-    const updatedHousehold = await prisma.households.update({
-      where: { id: householdId },
-      data: { inviteCode: newInviteCode },
-      select: { inviteCode: true }, // Only select the field we need to return
-    });
-
-    if (!updatedHousehold) {
-        // Should not happen if admin check passed, but good practice
-        return NextResponse.json({ error: 'Household not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ inviteCode: updatedHousehold.inviteCode }, { status: 200 });
-
-  } catch (error) {
-    console.error('Error regenerating invite code:', error);
-    // Handle potential unique constraint violation if generateInviteCode is not unique enough
-    // Although substring(0,8) of UUID v4 is highly unlikely to collide in practice for this scale
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-} 
+export async function OPTIONS(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}

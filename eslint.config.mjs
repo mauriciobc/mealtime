@@ -24,7 +24,6 @@ export default [
       '**/playwright-report/**',
       '**/test-results/**',
       '**/.cursor/**',
-      '**/tests/**',
     ],
   },
   {
@@ -50,6 +49,14 @@ export default [
       ...nextPlugin.configs['core-web-vitals'].rules,
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+    },
+  },
+  {
+    files: ['tests/**/*.{js,mjs,cjs,jsx,ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react-hooks/rules-of-hooks': 'off',
+      'react-hooks/exhaustive-deps': 'off',
     },
   },
 ];

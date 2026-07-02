@@ -17,6 +17,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 import { EmptyState } from "@/components/ui/empty-state"; // Import EmptyState
 import { BarChartBig } from "lucide-react"; // Import an icon for EmptyState
+import { v2Get } from "@/lib/api/v2-client";
 
 // Updated Sample Data
 export const sampleWeightLogs = [
@@ -133,10 +134,8 @@ const CustomActiveDot: React.FC<CustomActiveDotProps> = (props) => {
   );
 };
 
-async function fetchWeightLogsForChart(catId: string, userId: string): Promise<WeightLog[]> {
-  const response = await fetch(`/api/weight-logs?catId=${catId}`, { headers: { 'X-User-ID': userId } });
-  if (!response.ok) throw new Error(`Failed to fetch weight logs: ${response.statusText}`);
-  const allLogsRaw: any[] = await response.json();
+async function fetchWeightLogsForChart(catId: string, _userId: string): Promise<WeightLog[]> {
+  const allLogsRaw = await v2Get<any[]>(`/api/v2/weight-logs?catId=${catId}`);
   return allLogsRaw.map(log => ({
     ...log,
     weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0),
@@ -144,11 +143,20 @@ async function fetchWeightLogsForChart(catId: string, userId: string): Promise<W
   }));
 }
 
-async function fetchFeedingLogsForChart(catId: string, userId: string): Promise<FeedingLog[]> {
-  const response = await fetch(`/api/feeding-logs?catId=${catId}`, { headers: { 'X-User-ID': userId } });
-  if (!response.ok) throw new Error(`Failed to fetch feeding logs: ${response.statusText}`);
-  const logs = await response.json();
-  return Array.isArray(logs) ? logs : [];
+async function fetchFeedingLogsForChart(catId: string, _userId: string): Promise<FeedingLog[]> {
+  const cat = await v2Get<{ household_id?: string }>(`/api/v2/cats/${catId}`);
+  const householdId = cat.household_id;
+  if (!householdId) return [];
+
+  const logs = await v2Get<any[]>(
+    `/api/v2/households/${householdId}/feeding-logs?catId=${catId}`
+  );
+  return logs.map((log) => ({
+    date: log.fed_at ?? log.timestamp ?? log.date,
+    meal_type: log.meal_type ?? log.mealType ?? 'manual',
+    amount: log.amount != null ? Number(log.amount) : undefined,
+    unit: log.unit,
+  }));
 }
 
 const WeightTrendChart: React.FC<WeightTrendChartProps> = ({ catId, userId, logChangeTimestamp, period }) => {

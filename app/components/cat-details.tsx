@@ -51,6 +51,7 @@ import { useLoading } from "@/lib/context/LoadingContext"
 import { useFeeding } from "@/hooks/use-feeding"
 import { getAgeString } from "@/lib/utils/dateUtils"
 import { toast } from "sonner"
+import { v2Delete } from "@/lib/api/v2-client"
 import { ptBR } from "date-fns/locale"
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
 import { FeedingForm } from "./feeding-form"
@@ -208,12 +209,7 @@ export default function CatDetails({ params }: CatDetailsProps) {
     catsDispatch({ type: "REMOVE_CAT", payload: String(params.id) });
 
     try {
-      const response = await fetch(`/api/cats/${catIdStr}`, { method: 'DELETE' });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Falha ao excluir o gato no servidor');
-      }
+      await v2Delete(`/api/v2/cats/${catIdStr}`);
 
       toast.success(`${cat.name} foi excluído`);
       throw new Error('DELETE_SUCCESS');

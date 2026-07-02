@@ -1,24 +1,18 @@
 import { FeedingLog, CatType } from '@/lib/types';
-import { formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
-import { addHours, isBefore, differenceInHours } from 'date-fns';
-import { getUserTimezone, calculateNextFeeding } from '../utils/dateUtils';
-import { toDate } from 'date-fns-tz';
-import { BaseCat, BaseFeedingLog, ID } from '../types/common';
+import { BaseCat, BaseFeedingLog } from '../types/common';
 import { Notification } from '../types/notification';
 import { 
   generateFeedingNotifications,
   isDuplicateFeeding
 } from './feeding-notification-service';
-import { getData, setData, delay } from './apiService';
+import { v2Get, v2Post } from '@/lib/api/v2-client';
 
 /**
  * Busca a última alimentação de um gato
  */
 export const getLastFeeding = async (catId: string): Promise<BaseFeedingLog | null> => {
   try {
-    const response = await fetch(`/api/feedings/last/${catId}`);
-    if (!response.ok) return null;
-    return response.json();
+    return await v2Get<BaseFeedingLog>(`/api/v2/feedings/last/${catId}`);
   } catch (_error) {
     console.error('Erro ao buscar última alimentação:', _error);
     return null;
@@ -30,9 +24,7 @@ export const getLastFeeding = async (catId: string): Promise<BaseFeedingLog | nu
  */
 export const getCat = async (catId: string): Promise<BaseCat | null> => {
   try {
-    const response = await fetch(`/api/cats/${catId}`);
-    if (!response.ok) return null;
-    return response.json();
+    return await v2Get<BaseCat>(`/api/v2/cats/${catId}`);
   } catch (_error) {
     console.error('Erro ao buscar gato:', _error);
     return null;
@@ -49,10 +41,8 @@ export const registerFeeding = async (
   notes?: string
 ): Promise<Response> => {
   try {
-    // Buscar última alimentação do gato
     const lastFeeding = await getLastFeeding(catId);
     
-    // Verificar se é uma alimentação duplicada
     if (lastFeeding && isDuplicateFeeding(new Date(lastFeeding.timestamp))) {
       const cat = await getCat(catId);
       if (cat) {
@@ -67,26 +57,12 @@ export const registerFeeding = async (
       throw new Error('Tentativa de alimentação duplicada');
     }
 
-    // Registrar a alimentação
-    const response = await fetch('/api/feedings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        catId,
-        userId,
-        portionSize,
-        notes,
-        timestamp: new Date().toISOString(),
-      }),
+    const data = await v2Post<{ id: string }>('/api/v2/feedings', {
+      catId,
+      amount: portionSize,
+      notes,
     });
 
-    if (!response.ok) {
-      throw new Error('Falha ao registrar alimentação');
-    }
-
-    // Buscar informações do gato para notificação
     const cat = await getCat(catId);
     if (cat) {
       const notifications = generateFeedingNotifications(
@@ -98,7 +74,7 @@ export const registerFeeding = async (
       await saveNotifications(notifications);
     }
 
-    return response;
+    return new Response(JSON.stringify(data), { status: 201 });
   } catch (_error) {
     console.error('Erro ao registrar alimentação:', _error);
     throw _error;
@@ -118,19 +94,16 @@ export const updateFeedingSchedule = async (
   }
 ): Promise<Response> => {
   try {
-    const response = await fetch(`/api/cats/${catId}/schedule`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newSchedule),
-    });
+    const payload = {
+      catId,
+      type: newSchedule.type,
+      interval: newSchedule.interval,
+      times: newSchedule.times ? newSchedule.times.split(',') : undefined,
+      enabled: true,
+    };
 
-    if (!response.ok) {
-      throw new Error('Falha ao atualizar horário de alimentação');
-    }
+    const data = await v2Post('/api/v2/schedules', payload);
 
-    // Buscar informações do gato para notificação
     const cat = await getCat(catId);
     if (cat) {
       const nextFeedingTime = await getNextFeedingTime(catId, userId);
@@ -144,7 +117,7 @@ export const updateFeedingSchedule = async (
       }
     }
 
-    return response;
+    return new Response(JSON.stringify(data), { status: 200 });
   } catch (_error) {
     console.error('Erro ao atualizar horário de alimentação:', _error);
     throw _error;
@@ -154,48 +127,27 @@ export const updateFeedingSchedule = async (
 /**
  * Busca a próxima alimentação de um gato via API.
  */
-export const getNextFeedingTime = async (catId: string, userId?: string): Promise<Date | null> => {
-  console.log(`[getNextFeedingTime] Fetching next feeding for cat: ${catId}, user: ${userId}`);
+export const getNextFeedingTime = async (catId: string, _userId?: string): Promise<Date | null> => {
+  console.log(`[getNextFeedingTime] Fetching next feeding for cat: ${catId}`);
   if (!catId) {
     throw new Error('Cat ID is required');
   }
 
-  // Prepare headers
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json'
-  };
-  if (userId) {
-    headers['X-User-ID'] = userId;
-  } else {
-    console.warn(`[getNextFeedingTime] User ID not provided. API call might fail authorization.`);
-  }
-
   try {
-    // Fetch directly from the dedicated API endpoint
-    const response = await fetch(`/api/cats/${catId}/next-feeding`, { headers });
+    const data = await v2Get<{ nextFeeding: string | null }>(`/api/v2/cats/${catId}/next-feeding`);
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[getNextFeedingTime] API Error (${response.status}): ${errorText}`);
-      throw new Error(`Failed to fetch next feeding time: ${errorText}`);
-    }
-    
-    const _data = await response.json();
-    
-    // If nextFeeding is explicitly null, this is a valid state
-    if (_data.nextFeeding === null) {
+    if (data.nextFeeding === null) {
       console.log(`[getNextFeedingTime] No next feeding time scheduled.`);
       return null;
     }
     
-    // Otherwise, validate the date
-    if (!_data.nextFeeding || typeof _data.nextFeeding !== 'string') {
+    if (!data.nextFeeding || typeof data.nextFeeding !== 'string') {
       throw new Error('Invalid response format from API');
     }
 
-    const nextDate = new Date(_data.nextFeeding);
+    const nextDate = new Date(data.nextFeeding);
     if (isNaN(nextDate.getTime())) {
-      throw new Error(`Invalid date received from API: ${_data.nextFeeding}`);
+      throw new Error(`Invalid date received from API: ${data.nextFeeding}`);
     }
 
     console.log(`[getNextFeedingTime] Successfully fetched next feeding time: ${nextDate.toISOString()}`);
@@ -203,19 +155,16 @@ export const getNextFeedingTime = async (catId: string, userId?: string): Promis
 
   } catch (_error) {
     console.error(`[getNextFeedingTime] Error fetching next feeding for ${catId}:`, _error);
-    throw _error; // Re-throw to propagate to useFeeding hook
+    throw _error;
   }
 };
 
 /**
  * Busca os logs de alimentação de um gato
  */
-// THIS FUNCTION IS FLAWED (uses localStorage) - Needs refactoring or removal
-export const getFeedingLogs = async (catId: string, userTimezone?: string): Promise<FeedingLog[]> => {
-  // ... existing flawed implementation ...
+export const getFeedingLogs = async (catId: string, _userTimezone?: string): Promise<FeedingLog[]> => {
   console.warn("[getFeedingLogs] THIS FUNCTION IS USING LOCALSTORAGE AND IS LIKELY INCORRECT - Needs refactoring to use API");
-  // ... 
-  return []; // Return empty for now
+  return [];
 };
 
 /**
@@ -223,14 +172,15 @@ export const getFeedingLogs = async (catId: string, userTimezone?: string): Prom
  */
 const saveNotifications = async (notifications: Notification[]): Promise<void> => {
   try {
-    await fetch('/api/notifications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(notifications),
-    });
+    for (const notification of notifications) {
+      await v2Post('/api/v2/notifications', {
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        metadata: notification.metadata,
+      });
+    }
   } catch (_error) {
     console.error('Erro ao salvar notificações:', _error);
   }
-}; 
+};

@@ -23,26 +23,32 @@ export default defineConfig({
       name: 'setup',
       testMatch: /.*\.setup\.ts/,
     },
-    // Unauthenticated tests (e.g., login, signup tests)
+    // Unauthenticated security tests (no auth.setup dependency)
     {
       name: 'chromium-unauthenticated',
-      testMatch: /.*auth\.spec\.ts/,
-      use: { 
+      testMatch: /.*(auth|security)\.spec\.ts/,
+      use: {
         ...devices['Desktop Chrome'],
-        storageState: { cookies: [], origins: [] }, // No authentication
+        storageState: { cookies: [], origins: [] },
       },
     },
-    // Authenticated tests (all other tests)
+    // Authenticated tests (all other tests except auth/security)
     {
       name: 'chromium',
-      testIgnore: /.*auth\.spec\.ts/,
+      testIgnore: /.*(auth|security)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
     {
       name: 'mobile-chrome',
-      testIgnore: /.*auth\.spec\.ts/,
+      testIgnore: /.*(auth|security)\.spec\.ts/,
       use: { ...devices['Pixel 5'] },
+      dependencies: ['setup'],
+    },
+    {
+      name: 'mobile-safari',
+      testIgnore: /.*(auth|security)\.spec\.ts/,
+      use: { ...devices['iPhone 13'] },
       dependencies: ['setup'],
     },
   ],
