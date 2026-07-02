@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Household Edit - UI', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -88,7 +88,7 @@ test.describe('Household Edit - UI', () => {
 });
 
 test.describe('Household Cats Page', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -129,7 +129,7 @@ test.describe('Household Cats Page', () => {
 });
 
 test.describe('Household Invite Features', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -208,7 +208,7 @@ test.describe('Household Invite Features', () => {
 });
 
 test.describe('Household Detail Page', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -255,7 +255,7 @@ test.describe('Household Detail Page', () => {
 });
 
 test.describe('Household API - Detail & Members', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get household detail via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);

@@ -4,6 +4,11 @@ import { z } from "zod";
 import prisma from '@/lib/prisma';
 import { headers } from 'next/headers';
 import { isDuplicateFeeding } from '@/lib/services/feeding-notification-service';
+import {
+  buildDuplicateFeedingWarning,
+  buildFeedingRegisteredNotification,
+  buildHouseholdFeedingBroadcast,
+} from '@/lib/notifications/event-payloads';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
@@ -91,22 +96,13 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     if (lastFeedingLog && isDuplicateFeeding(new Date(lastFeedingLog.fed_at))) {
       try {
         await prisma.notifications.create({
-          data: {
+          data: buildDuplicateFeedingWarning({
             id: crypto.randomUUID(),
-            user_id: user.id, // Recipient: the authenticated user attempting the duplicate feeding
-            title: 'Alimentação duplicada',
-            message: `O gato ${cat.name} já foi alimentado recentemente.`,
-            type: 'warning',
-            metadata: {
-              catId: cat.id,
-              userId: user.id, // Added for consistency with other notifications
-              householdId: String(cat.household_id),
-              actionUrl: `/cats/${cat.id}`,
-              duplicate: true,
-            },
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
+            userId: user.id,
+            catId: cat.id,
+            catName: cat.name,
+            householdId: String(cat.household_id),
+          }),
         });
       } catch (notifyError) {
         logger.error('[POST /api/v2/feedings] Failed to create duplicate warning notification', { notifyError });
@@ -146,21 +142,13 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     // Event-driven notification: feeding (for the user who registered the feeding)
     try {
       await prisma.notifications.create({
-        data: {
+        data: buildFeedingRegisteredNotification({
           id: crypto.randomUUID(),
-          user_id: user.id, // Recipient: the user who registered the feeding
-          title: `Alimentação registrada para o gato`,
-          message: `O gato foi alimentado com sucesso.`,
-          type: 'feeding',
-          metadata: {
-            catId: catId,
-            userId: user.id,
-            feedingLogId: feedingLog.id,
-            householdId: userHouseholdId,
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
+          userId: user.id,
+          catId: catId,
+          feedingLogId: feedingLog.id,
+          householdId: userHouseholdId,
+        }),
       });
     } catch (notifyError) {
       logger.error('[POST /api/v2/feedings] Failed to create feeding notification', { notifyError });
@@ -180,22 +168,18 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       select: { full_name: true }
     });
 
-    const notificationsData = householdMembers.map(member => ({
-      id: crypto.randomUUID(),
-      user_id: member.user_id,
-      title: "Alimentação registrada",
-      message: `Seu gato ${cat.name} foi alimentado por ${feederProfile?.full_name || "alguém"}.`,
-      type: "feeding",
-      metadata: {
+    const fedAt = new Date().toISOString();
+    const notificationsData = householdMembers.map((member) =>
+      buildHouseholdFeedingBroadcast({
+        id: crypto.randomUUID(),
+        recipientUserId: member.user_id,
         catId: cat.id,
         catName: cat.name,
         feederId: user.id,
         feederName: feederProfile?.full_name,
-        fedAt: new Date().toISOString()
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }));
+        fedAt,
+      })
+    );
 
     if (notificationsData.length > 0) {
       await prisma.notifications.createMany({ data: notificationsData });

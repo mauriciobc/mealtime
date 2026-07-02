@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Cat Detail Page', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -72,7 +72,7 @@ test.describe('Cat Detail Page', () => {
 });
 
 test.describe('Cat Edit Page - UI', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -239,7 +239,7 @@ test.describe('Cat Edit Page - UI', () => {
 });
 
 test.describe('Cat Delete - UI', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();

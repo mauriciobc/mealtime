@@ -139,7 +139,7 @@
 
 - [x] Audit and update all business logic to call `createNotification` for the above events *(feeding registration handler updated, warning audit in progress, household join/leave notifications implemented server-side)*
 - [x] Ensure notification payloads match the unified type system
-- [ ] Add/expand tests for event-driven notification triggers
+- [x] Add/expand tests for event-driven notification triggers *(unit tests in `tests/unit/notification-triggers.test.ts`)*
 - [ ] Document trigger points and update architecture docs
 
 ---

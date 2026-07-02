@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Schedule Creation - UI', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -99,7 +99,7 @@ test.describe('Schedule Creation - UI', () => {
 });
 
 test.describe('Schedule API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should create and delete schedule via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);

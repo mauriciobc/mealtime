@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { handleApiError, handleValidationError } from '@/lib/utils/api-error-handling';
 import { createNotification } from '@/lib/services/notificationService';
+import { buildScheduleUpdateNotification } from '@/lib/notifications/event-payloads';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
@@ -221,16 +222,14 @@ export const PATCH = withHybridAuth(async (
 
     // Trigger system notification for schedule update
     try {
-      await createNotification({
-        title: 'Horário de alimentação atualizado',
-        message: `O agendamento do gato ${existingSchedule.cat.name} foi atualizado.`,
-        type: 'system',
-        metadata: {
+      await createNotification(
+        buildScheduleUpdateNotification({
           catId: existingSchedule.cat.id,
+          catName: existingSchedule.cat.name,
           scheduleId: id,
           updatedFields,
-        },
-      });
+        })
+      );
     } catch (notifyError) {
       logger.error('[PATCH /api/v2/schedules/[id]] Failed to create schedule update notification', { notifyError });
     }

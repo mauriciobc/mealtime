@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Settings Page', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();

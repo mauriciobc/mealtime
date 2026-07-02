@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Feeding Detail Page', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -81,7 +81,7 @@ test.describe('Feeding Detail Page', () => {
 });
 
 test.describe('Feeding Complete/Skip API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should complete a feeding via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -128,7 +128,7 @@ test.describe('Feeding Complete/Skip API', () => {
 });
 
 test.describe('Feeding Batch API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should create batch feedings via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -168,7 +168,7 @@ test.describe('Feeding Batch API', () => {
 });
 
 test.describe('Feeding New - UI', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
