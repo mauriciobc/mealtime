@@ -19,6 +19,8 @@ jobs:
 
       - run: npm ci --omit=optional
 
+      - run: npm run prisma:generate
+
       - run: npm run lint
 
       - run: npm run typecheck
