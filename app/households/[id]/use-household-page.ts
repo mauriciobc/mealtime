@@ -13,6 +13,8 @@ import {
   householdPageReducer,
   initialHouseholdPageState,
 } from "./household-page-reducer";
+import { v2Delete, v2Get, v2Patch } from "@/lib/api/v2-client";
+import type { Household } from "@/lib/types";
 
 export function useHouseholdPage(householdId: string) {
   const router = useRouter();
@@ -65,14 +67,9 @@ export function useHouseholdPage(householdId: string) {
     addLoadingOperation({ id: opId, priority: 1, description: "Leaving household..." });
     pageDispatch({ type: "SET_PROCESSING", value: true });
     try {
-      const response = await fetch(`/api/households/${household.id}/members/${currentUser.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao sair da residência");
-      }
+      await v2Delete(
+        `/api/v2/households/${household.id}/members/${currentUser.id}?leave=true`
+      );
 
       householdDispatch({
         type: "REMOVE_MEMBER",
@@ -101,17 +98,7 @@ export function useHouseholdPage(householdId: string) {
     addLoadingOperation({ id: opId, priority: 1, description: "Deleting household..." });
     pageDispatch({ type: "SET_PROCESSING", value: true });
     try {
-      const response = await fetch(`/api/households/${household.id}`, {
-        method: "DELETE",
-        headers: {
-          "X-User-ID": currentUser.id,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao excluir residência");
-      }
+      await v2Delete(`/api/v2/households/${household.id}`);
 
       householdDispatch({ type: "SET_HOUSEHOLD", payload: undefined });
       toast.success("Residência excluída com sucesso.");
@@ -132,21 +119,11 @@ export function useHouseholdPage(householdId: string) {
     addLoadingOperation({ id: opId, priority: 1, description: "Updating member role..." });
     pageDispatch({ type: "SET_PROCESSING", value: true });
     try {
-      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-ID": currentUser.id,
-        },
-        body: JSON.stringify({ role: newRole.toLowerCase() }),
-      });
+      const updatedHousehold = await v2Patch<Household>(
+        `/api/v2/households/${household.id}/members/${memberId}`,
+        { role: newRole.toLowerCase() }
+      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao atualizar função do membro");
-      }
-
-      const updatedHousehold = await response.json();
       householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
       toast.success(`Membro ${newRole === "Admin" ? "promovido" : "rebaixado"} com sucesso.`);
     } catch (error: unknown) {
@@ -165,20 +142,9 @@ export function useHouseholdPage(householdId: string) {
     addLoadingOperation({ id: opId, priority: 1, description: "Removing member..." });
     pageDispatch({ type: "SET_PROCESSING", value: true });
     try {
-      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
-        method: "DELETE",
-        headers: {
-          "X-User-ID": currentUser.id,
-        },
-      });
+      await v2Delete(`/api/v2/households/${household.id}/members/${memberId}`);
+      const updatedHousehold = await v2Get<Household>(`/api/v2/households/${household.id}`);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao remover membro");
-      }
-
-      const responseData = await response.json();
-      const updatedHousehold = responseData;
       householdDispatch({ type: "SET_HOUSEHOLD", payload: updatedHousehold });
       toast.success("Membro removido com sucesso.");
     } catch (error: unknown) {
@@ -197,17 +163,7 @@ export function useHouseholdPage(householdId: string) {
     addLoadingOperation({ id: opId, priority: 1, description: "Deleting cat..." });
     pageDispatch({ type: "SET_PROCESSING", value: true });
     try {
-      const response = await fetch(`/api/cats/${catId}`, {
-        method: "DELETE",
-        headers: {
-          "X-User-ID": currentUser.id,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao excluir gato");
-      }
+      await v2Delete(`/api/v2/cats/${catId}`);
 
       pageDispatch({ type: "REMOVE_CAT", catId });
       toast.success("Gato removido com sucesso.");
