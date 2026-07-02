@@ -110,7 +110,6 @@
     "eslint-config-next": "^16.1.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "form-data": "^4.0.4",
-    "netlify-cli": "^23.9.5",
     "node-gyp": "^11.5.0",
     "postcss": "^8.5.6",
     "@modelcontextprotocol/sdk": "^1.29.0",
