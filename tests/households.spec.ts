@@ -1,7 +1,6 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Households Management', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should navigate to households page', async ({ householdsPage }) => {
     await householdsPage.goto();
@@ -57,7 +56,6 @@ test.describe('Households Management', () => {
 });
 
 test.describe('Households API', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get households list', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);

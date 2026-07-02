@@ -9,8 +9,12 @@ setup.use({
 });
 
 setup('authenticate', async ({ page }) => {
-  const testEmail = process.env.TEST_USER_EMAIL || 'test_e2e@example.com';
-  const testPassword = process.env.TEST_USER_PASSWORD || 'Test@123456';
+  const testEmail = process.env.TEST_USER_EMAIL;
+  const testPassword = process.env.TEST_USER_PASSWORD;
+
+  if (!testEmail || !testPassword) {
+    throw new Error('TEST_USER_EMAIL and TEST_USER_PASSWORD are required for auth.setup (use .env.test.local)');
+  }
 
   const loginPage = new LoginPage(page);
   

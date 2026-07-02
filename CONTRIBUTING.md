@@ -91,7 +91,11 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - Use proper HTTP methods (GET, POST, PUT, DELETE)
 - Return consistent JSON responses using `ApiResponse` class
 - Validate input using Zod schemas
-- Use the `withAuth` helper for protected routes
+- Use `withHybridAuth` for protected routes (supports Supabase session + mobile JWT)
+
+### Frontend API calls
+- Prefer `v2Get`, `v2Post`, `v2Patch`, `v2Delete` from `lib/api/v2-client.ts`
+- Do **not** send `X-User-ID`; authentication is via session cookie or `Authorization: Bearer`
 
 ### Database
 - Use Prisma ORM with TypeScript
@@ -102,6 +106,8 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ## Testing
 
 ### E2E Tests (Playwright)
+Copy `.env.test.example` to `.env.test.local` and set credentials before running authenticated specs.
+
 ```bash
 # Run all tests
 npm run test:e2e
@@ -112,6 +118,8 @@ npm run test:e2e:cats
 # Run with UI
 npm run test:e2e:ui
 ```
+
+Authenticated specs auto-skip when `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` are unset (except `auth.spec.ts` / `security.spec.ts` UI flows).
 
 ### Unit Tests
 Add unit tests for:
@@ -129,7 +137,12 @@ Add unit tests for:
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Yes |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins | No |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins (required in production) | No |
+| `CRON_SECRET` | Secret for cron/scheduled API routes | No |
+| `TEST_USER_EMAIL` | E2E authenticated user email (`.env.test.local`) | E2E only |
+| `TEST_USER_PASSWORD` | E2E authenticated user password | E2E only |
+| `TEST_HOUSEHOLD_ID` | Optional household ID for household-specific E2E | E2E only |
+| `PLAYWRIGHT_BASE_URL` | Base URL for Playwright (default `http://localhost:3000`) | E2E only |
 
 ## Submitting Changes
 

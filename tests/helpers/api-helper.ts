@@ -44,10 +44,6 @@ export class APIHelper {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
-    if (this.userId) {
-      headers['X-User-ID'] = this.userId;
-    }
-
     return headers;
   }
 
@@ -147,7 +143,30 @@ export class APIHelper {
     notes?: string;
     fedAt?: string;
   }): Promise<unknown> {
-    return this.post('/api/v2/feedings', data);
+    return this.post('/api/v2/feedings', {
+      catId: data.catId,
+      amount: data.amount,
+      unit: data.unit,
+      meal_type: data.mealType ?? 'manual',
+      food_type: data.foodType,
+      notes: data.notes,
+    });
+  }
+
+  async getNotifications(params?: { limit?: number; unreadOnly?: boolean }): Promise<unknown> {
+    const search = new URLSearchParams();
+    if (params?.limit != null) search.set('limit', String(params.limit));
+    if (params?.unreadOnly) search.set('unreadOnly', 'true');
+    const query = search.toString();
+    return this.get(`/api/v2/notifications${query ? `?${query}` : ''}`);
+  }
+
+  async postFeedingRaw(data: Record<string, unknown>): Promise<{ status: number; body: unknown }> {
+    const response = await this.page.request.post('/api/v2/feedings', {
+      headers: await this.getHeaders(),
+      data: JSON.stringify(data),
+    });
+    return { status: response.status(), body: await response.json() };
   }
 
   async deleteFeeding(feedingId: string): Promise<unknown> {

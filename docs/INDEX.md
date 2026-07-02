@@ -28,6 +28,7 @@ Documentação relacionada a deploy e configurações de produção:
 
 ### 📊 `/reports/`
 Relatórios de progresso, correções e melhorias:
+- **[FOUNDATIONAL-AUDIT-2026-MASTER.md](./reports/FOUNDATIONAL-AUDIT-2026-MASTER.md)** — auditoria foundational e plano de remediação (R1–R9)
 - Relatórios de correção de lint
 - Relatórios de TypeScript
 - Resumos de refatoração
@@ -35,6 +36,7 @@ Relatórios de progresso, correções e melhorias:
 
 ### ✅ `/todos/`
 Listas de tarefas, planejamentos e roadmaps:
+- **[CURRENT.md](./todos/CURRENT.md)** — status atual da remediação (R1–R9)
 - TODO geral do projeto
 - TODOs específicos por feature
 - Planos de desenvolvimento
