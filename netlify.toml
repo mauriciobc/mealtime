@@ -1,12 +1,14 @@
 # Netlify configuration for Next.js 16
-# Configuração otimizada para OpenNext v3 Adapter
+# Rate limiting: auth routes use authRateLimiter in app/api/auth/mobile/* (5 req/15min per IP).
+# For site-wide Netlify rate limiting, configure Team Rulesets in Netlify dashboard (Enterprise)
+# or add edge function config — see https://docs.netlify.com/manage/security/secure-access-to-sites/rate-limiting/
 
 [build]
   command = "npm run build"
   # Build usa --webpack flag para compatibilidade com config webpack customizada
 
 [build.environment]
-  NODE_VERSION = "20.18.0"
+  NODE_VERSION = "20.19.0"
   NPM_FLAGS = "--include=dev"
 
 [[plugins]]

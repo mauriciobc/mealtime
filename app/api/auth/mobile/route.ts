@@ -3,33 +3,13 @@ import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 import prisma from '@/lib/prisma';
+import { authRateLimiter } from '@/lib/middleware/rate-limit';
 
 // Configuração de runtime para Netlify/Vercel
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/**
- * POST /api/auth/mobile - Autenticação para aplicativos mobile
- * 
- * Este endpoint permite que aplicativos Android/iOS se autentiquem
- * e recebam um token JWT para usar nas requisições subsequentes.
- * 
- * Body esperado:
- * {
- *   "email": "user@example.com",
- *   "password": "password123"
- * }
- * 
- * Resposta de sucesso:
- * {
- *   "success": true,
- *   "user": { ... },
- *   "access_token": "jwt_token_here",
- *   "refresh_token": "refresh_token_here",
- *   "expires_in": 3600
- * }
- */
-export async function POST(request: NextRequest) {
+async function handleMobileLogin(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
@@ -182,6 +162,10 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: NextRequest) {
+  return authRateLimiter(request, handleMobileLogin);
 }
 
 /**

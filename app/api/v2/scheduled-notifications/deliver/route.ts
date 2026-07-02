@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
-import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
-import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 
 // Handler interno para processar a entrega de notificações agendadas
 // Pode ser chamado com ou sem autenticação de usuário
@@ -266,25 +264,21 @@ async function deliverScheduledNotifications(request: NextRequest) {
   }
 }
 
-// POST /api/v2/scheduled-notifications/deliver - Entregar notificações pendentes
-// Aceita chamadas de cron jobs (via X-Cron-Secret) ou usuários autenticados
-export const POST = async (request: NextRequest, context: { params: Promise<any> }) => {
-  // Verifica se é uma chamada de cron job
+// POST /api/v2/scheduled-notifications/deliver - Cron only (X-Cron-Secret)
+export const POST = async (request: NextRequest) => {
   const cronSecret = request.headers.get('X-Cron-Secret');
   const expectedSecret = process.env.CRON_SECRET;
 
-  if (cronSecret && expectedSecret && cronSecret === expectedSecret) {
-    // Autenticação via cron secret - permite chamadas sem contexto de usuário
-    logger.debug('[POST /api/v2/scheduled-notifications/deliver] Authenticated via X-Cron-Secret');
-    return deliverScheduledNotifications(request);
+  if (!expectedSecret) {
+    logger.error('[POST /api/v2/scheduled-notifications/deliver] CRON_SECRET not configured');
+    return NextResponse.json({ success: false, error: 'Cron not configured' }, { status: 503 });
   }
 
-  // Caso contrário, usa autenticação híbrida para usuários autenticados
-  const authenticatedHandler = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
-    logger.debug('[POST /api/v2/scheduled-notifications/deliver] Authenticated via user auth');
-    return deliverScheduledNotifications(request);
-  });
-  
-  return authenticatedHandler(request, context);
+  if (!cronSecret || cronSecret !== expectedSecret) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  logger.debug('[POST /api/v2/scheduled-notifications/deliver] Authenticated via X-Cron-Secret');
+  return deliverScheduledNotifications(request);
 };
 

@@ -4,6 +4,7 @@ import { logger } from '@/lib/monitoring/logger';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { generateRequestId } from '@/lib/utils/log-sanitizer';
+import { authRateLimiter } from '@/lib/middleware/rate-limit';
 
 // Schema de validação para registro
 const registerSchema = z.object({
@@ -36,6 +37,10 @@ export type MobileRegisterRequest = z.infer<typeof registerSchema>;
  * }
  */
 export async function POST(request: NextRequest) {
+  return authRateLimiter(request, handleMobileRegister);
+}
+
+async function handleMobileRegister(request: NextRequest) {
   const requestId = generateRequestId();
   
   try {

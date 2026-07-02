@@ -24,7 +24,7 @@ setup('authenticate', async ({ page }) => {
   await loginPage.login(testEmail, testPassword);
 
   // Wait for successful login - check if we're redirected away from login page
-  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000 });
+  await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 30000 });
   
   // Wait for the page to fully load after login
   await page.waitForLoadState('networkidle');

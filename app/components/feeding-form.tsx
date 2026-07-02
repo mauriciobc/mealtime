@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FeedingFormProps } from "@/lib/types";
 import { useCats } from "@/lib/context/CatsContext";
+import { useHaptics } from "@/lib/context/HapticsContext";
 
 export function FeedingForm({ catId, onMarkAsFed }: FeedingFormProps) {
   const { state: catsState } = useCats();
+  const { triggerNudge, triggerSuccess, triggerError } = useHaptics();
   const cat = catsState.cats.find((c) => String(c.id) === String(catId));
   const [amount, setAmount] = useState(cat?.portion_size?.toString() || "");
   const [notes, setNotes] = useState("");
@@ -23,13 +25,16 @@ export function FeedingForm({ catId, onMarkAsFed }: FeedingFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    triggerNudge();
     setIsSubmitting(true);
 
     try {
       await onMarkAsFed(amount, notes);
+      triggerSuccess();
       setAmount("");
       setNotes("");
     } catch (error) {
+      triggerError();
       console.error("Erro ao registrar alimentação:", error);
     } finally {
       setIsSubmitting(false);

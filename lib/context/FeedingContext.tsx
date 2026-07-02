@@ -1,17 +1,16 @@
-import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useUserContext } from './UserContext'; // Need householdId
-import { useLoading } from './LoadingContext';
-import { toast } from 'sonner';
-import { FeedingLog } from "@/lib/types"; // Use the existing detailed FeedingLog type
+"use client";
+
+import React, { createContext, useContext, useReducer, ReactNode, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserContext } from './UserContext';
+import { FeedingLog } from "@/lib/types";
 import { CatType } from "@/lib/types";
-import { useCats } from './CatsContext'; // Needed for chart selector
-import { format, startOfDay, isEqual, addHours, isBefore, compareAsc, endOfDay, subDays, compareDesc } from 'date-fns'; // Date helpers
-import { toDate } from 'date-fns-tz'; // Import toDate for timezone-aware conversion
-import { useScheduleContext } from './ScheduleContext'; // Fixed import name
-import { getUserTimezone } from "../utils/dateUtils"; // Import timezone utility
-import { useUserContext as useUserContextLib } from "@/lib/context/UserContext"
-import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
+import { useCats } from './CatsContext';
+import { format, startOfDay, isEqual, addHours, isBefore, compareAsc, endOfDay, subDays, compareDesc } from 'date-fns';
+import { toDate } from 'date-fns-tz';
+import { useScheduleContext } from './ScheduleContext';
+import { getUserTimezone } from "../utils/dateUtils";
+import { domainKeys, useFeedingsQuery } from '@/lib/hooks/domain';
 
 // Remove the simple Feeding interface, use FeedingLog from types.ts
 // interface Feeding {
@@ -128,38 +127,33 @@ const FeedingContext = createContext<{
   dispatch: React.Dispatch<FeedingAction>;
 }>({ state: initialState, dispatch: () => null });
 
-async function fetchFeedingsForHousehold(householdId: string, userId?: string): Promise<FeedingLog[]> {
-  const headers: HeadersInit = {};
-  if (userId) headers['X-User-ID'] = userId;
-  const response = await fetch(`/api/feedings?householdId=${householdId}`, { headers });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Erro ao carregar alimentações (${response.status}): ${errorText || 'Unknown error'}`);
-  }
-  const rawFeedingsData: any[] = await response.json();
-  const mappedFeedingsData: FeedingLog[] = rawFeedingsData.map(meal => ({
-    id: meal.id,
-    catId: meal.cat_id,
-    userId: meal.fed_by,
-    timestamp: new Date(meal.fed_at),
-    amount: typeof meal.amount === 'string' ? parseFloat(meal.amount) : meal.amount,
-    portionSize: typeof meal.amount === 'string' ? parseFloat(meal.amount) : meal.amount,
-    notes: meal.notes,
-    mealType: meal.meal_type,
-    householdId: meal.household_id,
-    user: {
-      id: meal.fed_by,
-      name: meal.feeder?.full_name ?? null,
-      avatar: meal.feeder?.avatar_url ?? null,
+export const FeedingProvider = ({ children }: { children: ReactNode }) => <>{children}</>;
+
+export const useFeeding = () => {
+  const { state: userState } = useUserContext();
+  const householdId = userState.currentUser?.householdId ?? undefined;
+  const userId = userState.currentUser?.id;
+  const queryClient = useQueryClient();
+  const { data: feedingLogs = [], isLoading, error } = useFeedingsQuery(householdId, userId);
+
+  const dispatch = useCallback(
+    (action: FeedingAction) => {
+      const key = domainKeys.feedings(householdId);
+      queryClient.setQueryData<FeedingLog[]>(key, (prev = []) =>
+        feedingReducer({ feedingLogs: prev, isLoading: false, error: null }, action).feedingLogs
+      );
     },
-    cat: undefined as any,
-    status: undefined as any,
-    createdAt: undefined as any,
-  }));
-  return mappedFeedingsData.sort((a, b) =>
-    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    [householdId, queryClient]
   );
-}
+
+  const state: FeedingState = {
+    feedingLogs,
+    isLoading,
+    error: error instanceof Error ? error.message : error ? String(error) : null,
+  };
+
+  return { state, dispatch };
+};
 
 // Helper function to calculate average portion size - memoized
 const selectAveragePortionSize = (logs: FeedingLog[] | null): number | null => {
@@ -180,84 +174,6 @@ const selectAveragePortionSize = (logs: FeedingLog[] | null): number | null => {
   
   return validCount > 0 ? totalPortion / validCount : null;
 };
-
-const LOADING_ID_FEEDINGS = 'feedings-data-load';
-
-export const FeedingProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(feedingReducer, initialState);
-  const { state: userState } = useUserContext();
-  const { currentUser } = userState;
-  const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const loadingIdRef = useRef<string | null>(null);
-  const { state: userStateLib } = useUserContextLib();
-  const userLanguage = userStateLib.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
-
-  const householdId = currentUser?.householdId;
-
-  const {
-    data: feedingsData,
-    isLoading: isFeedingsLoading,
-    isSuccess: isFeedingsSuccess,
-    isError: isFeedingsError,
-    error: feedingsError,
-  } = useQuery({
-    queryKey: ['feedings', householdId],
-    queryFn: () => fetchFeedingsForHousehold(householdId!, currentUser?.id),
-    enabled: !!householdId,
-  });
-
-  const cleanupLoading = useCallback(() => {
-    if (loadingIdRef.current) {
-      try {
-        removeLoadingOperation(loadingIdRef.current);
-      } catch (_error) {
-        console.error('[FeedingProvider] Error cleaning up loading:', _error);
-      } finally {
-        loadingIdRef.current = null;
-      }
-    }
-  }, [removeLoadingOperation]);
-
-  useEffect(() => {
-    if (!householdId) {
-      dispatch({ type: 'FETCH_SUCCESS', payload: [] });
-      return;
-    }
-    if (isFeedingsLoading) {
-      loadingIdRef.current = LOADING_ID_FEEDINGS;
-      dispatch({ type: 'FETCH_START' });
-      addLoadingOperation({ id: LOADING_ID_FEEDINGS, priority: 4, description: 'Carregando histórico de alimentação...' });
-    }
-  }, [householdId, isFeedingsLoading, addLoadingOperation]);
-
-  useEffect(() => {
-    if (isFeedingsSuccess && feedingsData !== undefined) {
-      dispatch({ type: 'FETCH_SUCCESS', payload: feedingsData });
-      cleanupLoading();
-    }
-  }, [isFeedingsSuccess, feedingsData, cleanupLoading]);
-
-  useEffect(() => {
-    if (isFeedingsError && feedingsError) {
-      const errorMessage = feedingsError instanceof Error ? feedingsError.message : 'Falha ao carregar histórico de alimentação';
-      dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-      toast.error(errorMessage);
-      cleanupLoading();
-    }
-  }, [isFeedingsError, feedingsError, cleanupLoading]);
-
-  // Memoize context value to prevent unnecessary re-renders
-  const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
-
-  return (
-    <FeedingContext.Provider value={contextValue}>
-      {children}
-    </FeedingContext.Provider>
-  );
-};
-
-export const useFeeding = () => useContext(FeedingContext);
 
 // --- Selectors --- 
 

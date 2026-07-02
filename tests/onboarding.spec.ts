@@ -38,13 +38,12 @@ test.describe('Onboarding Tours', () => {
       ];
 
       for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
+        const step = steps[i]!;
         await expect(tourCard).toContainText(step, { timeout: 5000 });
 
         if (i < steps.length - 1) {
           await page.getByRole('button', { name: 'Próximo' }).click();
-          // Wait for the next step to appear, which indicates the transition is complete
-          await expect(tourCard).toContainText(steps[i + 1], { timeout: 5000 });
+          await expect(tourCard).toContainText(steps[i + 1]!, { timeout: 5000 });
         }
       }
     });
@@ -101,11 +100,11 @@ test.describe('Onboarding Tours', () => {
       ];
 
       for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
+        const step = steps[i]!;
         await expect(tourCard).toContainText(step, { timeout: 5000 });
         if (i < steps.length - 1) {
           await page.getByRole('button', { name: 'Próximo' }).click();
-          await expect(tourCard).toContainText(steps[i + 1], { timeout: 5000 });
+          await expect(tourCard).toContainText(steps[i + 1]!, { timeout: 5000 });
         }
       }
     });

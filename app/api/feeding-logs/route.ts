@@ -1,91 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { z } from 'zod';
-import { getAuthenticatedUser, AuthenticatedUser } from '@/lib/auth';
-import { ApiResponse } from '@/lib/responses/api-responses';
+import { NextRequest } from 'next/server';
+import { v1DeprecatedResponse } from '@/lib/middleware/block-v1';
 
-const CatIdQuerySchema = z.object({
-  catId: z.string().uuid(),
-});
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-export async function OPTIONS(request: NextRequest) {
-  return ApiResponse.json(null, 204, request);
+export async function GET(_request: NextRequest) {
+  return v1DeprecatedResponse();
 }
 
-export async function GET(request: NextRequest) {
-  const authResult = await getAuthenticatedUser(request);
-  
-  if (!authResult.success) {
-    return ApiResponse.error(
-      authResult.error || 'Not authenticated',
-      authResult.statusCode || 401,
-      'AUTH_ERROR',
-      undefined,
-      request
-    );
-  }
+export async function POST(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  const user: AuthenticatedUser = authResult.user!;
+export async function PUT(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  try {
-    const { searchParams } = new URL(request.url);
-    const parseResult = CatIdQuerySchema.safeParse(Object.fromEntries(searchParams));
-    
-    if (!parseResult.success) {
-      return ApiResponse.validationError(parseResult.error.flatten(), request);
-    }
-    
-    const { catId } = parseResult.data;
+export async function PATCH(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: {
-        id: true,
-        owner_id: true,
-        household_id: true,
-        household: {
-          select: {
-            id: true,
-            household_members: {
-              select: { user_id: true }
-            }
-          }
-        }
-      }
-    });
-    
-    if (!cat) {
-      return ApiResponse.notFound('Cat not found', request);
-    }
+export async function DELETE(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    const isOwner = cat.owner_id === user.id;
-    const isHouseholdMember = cat.household.household_members.some(
-      (member) => member.user_id === user.id
-    );
-    
-    if (!isOwner && !isHouseholdMember) {
-      return ApiResponse.error('Forbidden: You do not have access to this cat', 403, 'FORBIDDEN', undefined, request);
-    }
+export async function HEAD(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    const feedingLogs = await prisma.feeding_logs.findMany({
-      where: { cat_id: catId },
-      orderBy: { fed_at: 'desc' },
-    });
-
-    const formattedLogs = feedingLogs.map(log => ({
-      id: log.id,
-      catId: log.cat_id,
-      userId: log.fed_by,
-      date: log.fed_at ? log.fed_at.toISOString().slice(0, 10) : null,
-      meal_type: log.meal_type,
-      amount: log.amount,
-      unit: log.unit,
-      notes: log.notes,
-      createdAt: log.created_at,
-    }));
-
-    return ApiResponse.success(formattedLogs, 200, request);
-  } catch (error) {
-    return ApiResponse.error('Internal Server Error', 500, 'INTERNAL_ERROR', error, request);
-  }
+export async function OPTIONS(_request: NextRequest) {
+  return v1DeprecatedResponse();
 }

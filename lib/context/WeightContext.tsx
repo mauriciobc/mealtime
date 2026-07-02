@@ -1,14 +1,10 @@
-import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useUserContext } from './UserContext';
-import { useLoading } from './LoadingContext';
-import { toast } from 'sonner';
-import { format, startOfDay, isEqual, addHours, isBefore, compareAsc, endOfDay, subDays, compareDesc } from 'date-fns';
-import { toDate } from 'date-fns-tz';
-import { getUserTimezone } from "../utils/dateUtils";
-import { resolveDateFnsLocale } from "../utils/dateFnsLocale";
+"use client";
 
-// Adicione no topo do arquivo
-console.log('[WeightContext][DEBUG] Arquivo importado');
+import React, { createContext, useContext, useReducer, ReactNode, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUserContext } from './UserContext';
+import { format, subDays } from 'date-fns';
+import { domainKeys, useWeightDataQuery, type WeightData } from '@/lib/hooks/domain';
 
 // Interfaces para os tipos de dados
 interface WeightLog {
@@ -121,204 +117,40 @@ const WeightContext = createContext<{
   forceRefresh: () => void;
 }>({ state: initialState, dispatch: () => null, forceRefresh: () => null });
 
-export const WeightProvider = ({ children }: { children: ReactNode }) => {
-  console.log('[WeightContext][DEBUG] WeightProvider montado');
-  const [state, dispatch] = useReducer(weightReducer, initialState);
+export const WeightProvider = ({ children }: { children: ReactNode }) => <>{children}</>;
+
+export const useWeight = () => {
   const { state: userState } = useUserContext();
-  const { currentUser } = userState;
-  const { addLoadingOperation, removeLoadingOperation } = useLoading();
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const loadingIdRef = useRef<string | null>(null);
-  const hasAttemptedLoadRef = useRef(false);
-  const isMountedRef = useRef(true);
-  const userLanguage = userState.currentUser?.preferences?.language;
-  const userLocale = resolveDateFnsLocale(userLanguage);
+  const householdId = userState.currentUser?.householdId ?? undefined;
+  const queryClient = useQueryClient();
+  const { data, isLoading, error, refetch } = useWeightDataQuery(householdId);
 
-  const cleanupLoading = useCallback(() => {
-    if (loadingIdRef.current) {
-      try {
-        removeLoadingOperation(loadingIdRef.current);
-      } catch (_error) {
-        console.error('[WeightProvider] Error cleaning up loading:', _error);
-      } finally {
-        loadingIdRef.current = null;
-      }
-    }
-  }, [removeLoadingOperation]);
-
-  const loadWeightData = useCallback(async () => {
-    // LOG de debug para currentUser e householdId
-    console.log('[WeightContext][DEBUG] currentUser:', currentUser);
-    console.log('[WeightContext][DEBUG] householdId:', currentUser?.householdId);
-    const loadingId = 'weight-data-load';
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-    const householdId = currentUser?.householdId;
-    
-    // Validação explícita de currentUser e householdId
-    if (!currentUser || !currentUser.id) {
-      console.error('[WeightContext][ERRO] currentUser não definido.');
-      toast.error('Usuário não autenticado. Faça login novamente.');
-      return;
-    }
-    if (!householdId) {
-      console.error('[WeightContext][ERRO] householdId não definido para o usuário.');
-      toast.error('Não foi possível identificar a casa do usuário.');
-      return;
-    }
-    if (!isMountedRef.current) {
-      return;
-    }
-
-    hasAttemptedLoadRef.current = true;
-
-    try {
-      loadingIdRef.current = loadingId;
-      dispatch({ type: 'FETCH_START' });
-      addLoadingOperation({ id: loadingId, priority: 3, description: 'Carregando dados de peso...' });
-
-      // LOG: início da requisição de logs
-      const logsUrl = `/api/weight/logs?householdId=${householdId}`;
-      const headers: HeadersInit = {};
-      if (currentUser?.id) {
-        headers['X-User-ID'] = currentUser.id;
-      }
-      console.log('[WeightContext][SERVER] GET', logsUrl, headers);
-
-      // Fetch weight logs
-      const logsResponse = await fetch(logsUrl, {
-        signal: abortController.signal,
-        headers
+  const dispatch = useCallback(
+    (action: WeightAction) => {
+      const key = domainKeys.weightLogs(householdId);
+      queryClient.setQueryData<WeightData>(key, (prev) => {
+        const base: WeightState = {
+          weightLogs: prev?.weightLogs ?? [],
+          weightGoals: prev?.weightGoals ?? [],
+          isLoading: false,
+          error: null,
+        };
+        const next = weightReducer(base, action);
+        return { weightLogs: next.weightLogs, weightGoals: next.weightGoals };
       });
-      console.log('[WeightContext][SERVER] logsResponse status:', logsResponse.status);
-      let weightLogsData = [];
-      try {
-        weightLogsData = await logsResponse.json();
-        console.log('[WeightContext][SERVER] logsResponse body:', weightLogsData);
-      } catch (e) {
-        console.error('[WeightContext][SERVER] Falha ao parsear body dos logs:', e);
-      }
-
-      if (!isMountedRef.current) return;
-
-      if (!logsResponse.ok) {
-        throw new Error(`Erro ao carregar logs de peso (${logsResponse.status})`);
-      }
-
-      // LOG: início da requisição de metas
-      const goalsUrl = `/api/goals`;
-      console.log('[WeightContext][SERVER] GET', goalsUrl, headers);
-      const goalsResponse = await fetch(goalsUrl, {
-        signal: abortController.signal,
-        headers
-      });
-      console.log('[WeightContext][SERVER] goalsResponse status:', goalsResponse.status);
-      let weightGoalsData = [];
-      try {
-        weightGoalsData = await goalsResponse.json();
-        console.log('[WeightContext][SERVER] goalsResponse body:', weightGoalsData);
-      } catch (e) {
-        console.error('[WeightContext][SERVER] Falha ao parsear body das metas:', e);
-      }
-
-      if (!isMountedRef.current) return;
-
-      if (!goalsResponse.ok) {
-        throw new Error(`Erro ao carregar metas de peso (${goalsResponse.status})`);
-      }
-
-      // Map and sort the data
-      const mappedWeightLogs: WeightLog[] = weightLogsData.map((log: any) => ({
-        id: log.id,
-        catId: log.cat_id,
-        weight: parseFloat(log.weight),
-        date: new Date(log.date),
-        notes: log.notes,
-        measuredBy: log.measured_by,
-        createdAt: new Date(log.created_at),
-        updatedAt: new Date(log.updated_at)
-      })).sort((a: any, b: any) => b.date.getTime() - a.date.getTime());
-
-      const mappedWeightGoals: WeightGoal[] = weightGoalsData.map((goal: any) => ({
-        id: goal.id,
-        catId: goal.cat_id,
-        targetWeight: parseFloat(goal.target_weight),
-        targetDate: goal.target_date ? new Date(goal.target_date) : undefined,
-        startWeight: goal.start_weight ? parseFloat(goal.start_weight) : undefined,
-        status: goal.status,
-        notes: goal.notes,
-        createdBy: goal.created_by,
-        createdAt: new Date(goal.created_at),
-        updatedAt: new Date(goal.updated_at)
-      }));
-
-      console.log('[WeightContext] Logs mapeados:', mappedWeightLogs);
-      console.log('[WeightContext] Metas mapeadas:', mappedWeightGoals);
-
-      dispatch({ type: 'FETCH_WEIGHT_LOGS_SUCCESS', payload: mappedWeightLogs });
-      dispatch({ type: 'FETCH_WEIGHT_GOALS_SUCCESS', payload: mappedWeightGoals });
-
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        console.log('[WeightContext] Requisição abortada');
-        return;
-      }
-
-      if (!isMountedRef.current) return;
-
-      console.error('[WeightContext][SERVER] Erro ao carregar dados de peso:', error);
-      const errorMessage = error.message || 'Falha ao carregar dados de peso';
-      dispatch({ type: 'FETCH_ERROR', payload: errorMessage });
-      toast.error(errorMessage);
-    } finally {
-      if (isMountedRef.current) {
-        cleanupLoading();
-      }
-    }
-  }, [addLoadingOperation, cleanupLoading, currentUser]);
-
-  const forceRefresh = useCallback(() => {
-    hasAttemptedLoadRef.current = false;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    cleanupLoading();
-    loadWeightData();
-  }, [cleanupLoading, loadWeightData]);
-
-  useEffect(() => {
-    console.log('[WeightContext][DEBUG] useEffect disparado', currentUser, currentUser?.householdId);
-    isMountedRef.current = true;
-    hasAttemptedLoadRef.current = false;
-    if (
-      currentUser &&
-      typeof currentUser.householdId === 'string' &&
-      currentUser.householdId.length > 0
-    ) {
-      loadWeightData();
-    }
-    return () => {
-      isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      cleanupLoading();
-    };
-  }, [currentUser, addLoadingOperation, cleanupLoading, loadWeightData]);
-
-  const contextValue = useMemo(() => ({ state, dispatch, forceRefresh }), [state, forceRefresh]);
-
-  return (
-    <WeightContext.Provider value={contextValue}>
-      {children}
-    </WeightContext.Provider>
+    },
+    [householdId, queryClient]
   );
-};
 
-// Hook principal
-export const useWeight = () => useContext(WeightContext);
+  const state: WeightState = {
+    weightLogs: data?.weightLogs ?? [],
+    weightGoals: data?.weightGoals ?? [],
+    isLoading,
+    error: error instanceof Error ? error.message : error ? String(error) : null,
+  };
+
+  return { state, dispatch, forceRefresh: refetch };
+};
 
 // Hook selector
 export const useWeightSelector = <T,>(selector: (state: WeightState) => T): T => {

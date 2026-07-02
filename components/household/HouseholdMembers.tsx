@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreVertical, ShieldCheck, ShieldX, UserMinus, UserPlus } from "lucide-react"
 import { toast } from "sonner"
+import { v2Delete, v2Patch, v2Get } from "@/lib/api/v2-client"
 
 interface HouseholdMembersProps {
   household: Household
@@ -48,41 +49,9 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
   const handleRemoveMember = async (memberId: string) => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
-        method: "DELETE",
-      })
+      await v2Delete(`/api/v2/households/${household.id}/members/${memberId}`)
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[DEBUG] Response object:", response);
-      }
-      let updatedHousehold;
-      try {
-        updatedHousehold = await response.json();
-        if (process.env.NODE_ENV === 'development') {
-          console.log("[DEBUG] Parsed JSON:", updatedHousehold);
-        }
-      } catch (jsonErr) {
-        console.error("[DEBUG] Error parsing JSON:", jsonErr);
-        throw jsonErr;
-      }
-
-      if (!response.ok) {
-        let errorMessage = "Failed to remove member"
-        try {
-          const errorData = updatedHousehold;
-          if (errorData?.error) {
-            if (Array.isArray(errorData.error)) {
-              errorMessage = errorData.error.map((err: any) => err.message || JSON.stringify(err)).join(", ")
-            } else if (typeof errorData.error === "object") {
-              errorMessage = Object.values(errorData.error).join(", ")
-            } else {
-              errorMessage = errorData.error
-            }
-          }
-        } catch {}
-        throw new Error(errorMessage)
-      }
-
+      const updatedHousehold = await v2Get<Household>(`/api/v2/households/${household.id}`)
       householdDispatch({ type: 'SET_HOUSEHOLD', payload: updatedHousehold })
       toast.success("Member removed successfully")
     } catch (error: any) {
@@ -95,23 +64,15 @@ export function HouseholdMembers({ household }: HouseholdMembersProps) {
   const handleUpdateRole = async (memberId: string, newRole: "Admin" | "Member") => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/households/${household.id}/members/${memberId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ role: newRole }),
+      await v2Patch(`/api/v2/households/${household.id}/members/${memberId}`, {
+        role: newRole.toLowerCase(),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to update member role")
-      }
-
-      const updatedHousehold = await response.json()
+      const updatedHousehold = await v2Get<Household>(`/api/v2/households/${household.id}`)
       householdDispatch({ type: 'SET_HOUSEHOLD', payload: updatedHousehold })
       toast.success("Member role updated successfully")
-    } catch (error) {
-      toast.error("Failed to update member role")
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update member role")
     } finally {
       setIsLoading(false)
     }

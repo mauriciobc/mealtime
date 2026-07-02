@@ -1,15 +1,14 @@
 import { BaseCat, BaseFeedingLog } from '../types/common';
 import { Notification } from '../types/notification';
 import { generateFeedingNotifications, isDuplicateFeeding } from './feeding-notification-service';
+import { v2Get, v2Post } from '@/lib/api/v2-client';
 
 /**
  * Busca a última alimentação de um gato
  */
 export const getLastFeeding = async (catId: string): Promise<BaseFeedingLog | null> => {
   try {
-    const response = await fetch(`/api/feedings/last/${catId}`);
-    if (!response.ok) return null;
-    return response.json();
+    return await v2Get<BaseFeedingLog>(`/api/v2/feedings/last/${catId}`);
   } catch (_error) {
     console.error('Erro ao buscar última alimentação:', _error);
     return null;
@@ -21,9 +20,7 @@ export const getLastFeeding = async (catId: string): Promise<BaseFeedingLog | nu
  */
 export const getCat = async (catId: string): Promise<BaseCat | null> => {
   try {
-    const response = await fetch(`/api/cats/${catId}`);
-    if (!response.ok) return null;
-    return response.json();
+    return await v2Get<BaseCat>(`/api/v2/cats/${catId}`);
   } catch (_error) {
     console.error('Erro ao buscar gato:', _error);
     return null;
@@ -37,10 +34,8 @@ export const registerFeeding = async (
   notes?: string
 ): Promise<Response> => {
   try {
-    // Buscar última alimentação do gato
     const lastFeeding = await getLastFeeding(catId);
     
-    // Verificar se é uma alimentação duplicada
     if (lastFeeding && isDuplicateFeeding(new Date(lastFeeding.timestamp))) {
       const cat = await getCat(catId);
       if (cat) {
@@ -55,26 +50,12 @@ export const registerFeeding = async (
       throw new Error('Tentativa de alimentação duplicada');
     }
 
-    // Registrar a alimentação
-    const response = await fetch('/api/feedings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        catId,
-        userId,
-        portionSize,
-        notes,
-        timestamp: new Date().toISOString(),
-      }),
+    const data = await v2Post<{ id: string }>('/api/v2/feedings', {
+      catId,
+      amount: portionSize,
+      notes,
     });
 
-    if (!response.ok) {
-      throw new Error('Falha ao registrar alimentação');
-    }
-
-    // Buscar informações do gato para notificação
     const cat = await getCat(catId);
     if (cat) {
       const notifications = generateFeedingNotifications(
@@ -86,7 +67,7 @@ export const registerFeeding = async (
       await saveNotifications(notifications);
     }
 
-    return response;
+    return new Response(JSON.stringify(data), { status: 201 });
   } catch (_error) {
     console.error('Erro ao registrar alimentação:', _error);
     throw _error;
@@ -106,19 +87,16 @@ export const updateFeedingSchedule = async (
   }
 ): Promise<Response> => {
   try {
-    const response = await fetch(`/api/cats/${catId}/schedule`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newSchedule),
-    });
+    const payload = {
+      catId,
+      type: newSchedule.type,
+      interval: newSchedule.interval,
+      times: newSchedule.times ? newSchedule.times.split(',') : undefined,
+      enabled: true,
+    };
 
-    if (!response.ok) {
-      throw new Error('Falha ao atualizar horário de alimentação');
-    }
+    const data = await v2Post('/api/v2/schedules', payload);
 
-    // Buscar informações do gato para notificação
     const cat = await getCat(catId);
     if (cat) {
       const nextFeedingTime = await getNextFeedingTime(catId, userId);
@@ -132,7 +110,7 @@ export const updateFeedingSchedule = async (
       }
     }
 
-    return response;
+    return new Response(JSON.stringify(data), { status: 200 });
   } catch (_error) {
     console.error('Erro ao atualizar horário de alimentação:', _error);
     throw _error;
@@ -142,17 +120,11 @@ export const updateFeedingSchedule = async (
 /**
  * Busca a próxima alimentação de um gato
  */
-export const getNextFeedingTime = async (catId: string, userId: string): Promise<Date | null> => {
+export const getNextFeedingTime = async (catId: string, _userId: string): Promise<Date | null> => {
   try {
-    const response = await fetch(`/api/cats/${catId}/next-feeding`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    if (!response.ok) return null;
-    const _data = await response.json();
-    return _data ? new Date(_data) : null;
+    const data = await v2Get<{ nextFeeding: string | null }>(`/api/v2/cats/${catId}/next-feeding`);
+    if (!data?.nextFeeding) return null;
+    return new Date(data.nextFeeding);
   } catch (_error) {
     console.error('Erro ao buscar próxima alimentação:', _error);
     return null;
@@ -164,14 +136,15 @@ export const getNextFeedingTime = async (catId: string, userId: string): Promise
  */
 const saveNotifications = async (notifications: Notification[]): Promise<void> => {
   try {
-    await fetch('/api/notifications', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(notifications),
-    });
+    for (const notification of notifications) {
+      await v2Post('/api/v2/notifications', {
+        title: notification.title,
+        message: notification.message,
+        type: notification.type,
+        metadata: notification.metadata,
+      });
+    }
   } catch (_error) {
     console.error('Erro ao salvar notificações:', _error);
   }
-}; 
+};

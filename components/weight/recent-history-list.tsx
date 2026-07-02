@@ -18,6 +18,7 @@ import { toast } from 'sonner'; // Import toast from sonner
 import { EmptyState } from "@/components/ui/empty-state"; // Import EmptyState
 import { ClipboardList, AlertTriangle } from "lucide-react"; // Import icons for EmptyState
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { v2Get } from "@/lib/api/v2-client";
 
 // This type should match the structure returned by your API GET /api/weight-logs
 interface WeightLogEntry {
@@ -38,69 +39,13 @@ interface RecentHistoryListProps {
   // initialLogs?: WeightLogEntry[]; // Could pass initial logs to avoid loading flicker
 }
 
-async function fetchWeightLogs(catId: string, userId: string): Promise<WeightLogEntry[]> {
-  try {
-    const response = await fetch(`/api/weight-logs?catId=${catId}`, {
-      headers: { 'X-User-ID': userId },
-    });
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || 'Failed to fetch weight logs');
-    }
-    const data: any[] = await response.json();
-    return data.map(log => ({
-      ...log,
-      weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0),
-      date: log.date,
-    }));
-  } catch (error) {
-    toast.error("Erro ao Buscar Histórico", {
-      description: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
-}
-
-interface FormattedLog extends WeightLogEntry {
-  displayDate: string;
-  trendIcon: React.ReactNode;
-}
-
-function WeightLogItemContent({ log }: { log: FormattedLog }) {
-  return (
-    <div className="grid grid-cols-3 gap-2 p-2 text-sm items-center">
-      <div className="col-span-3 sm:col-span-1 font-medium flex items-center">
-        {log.displayDate}
-      </div>
-      <div className="col-span-1 sm:col-span-1 flex items-center">
-        {log.weight.toFixed(2)} kg {log.trendIcon}
-      </div>
-      <div className="col-span-2 sm:col-span-1 text-muted-foreground truncate">
-        {log.notes || '-'}
-      </div>
-    </div>
-  );
-}
-
-function WeightLogItemActions({
-  log,
-  onEdit,
-  onDelete,
-}: {
-  log: WeightLogEntry;
-  onEdit: (log: WeightLogEntry) => void;
-  onDelete: (logId: string) => void;
-}) {
-  return (
-    <div className="flex items-center justify-end space-x-1">
-      <Button variant="ghost" size="icon" onClick={() => onEdit(log)} aria-label="Editar registro">
-        <Edit2 className="h-4 w-4" />
-      </Button>
-      <Button variant="ghost" size="icon" onClick={() => onDelete(log.id)} aria-label="Excluir registro" className="text-destructive hover:text-destructive/90">
-        <Trash2 className="h-4 w-4" />
-      </Button>
-    </div>
-  );
+async function fetchWeightLogs(catId: string, _userId: string): Promise<WeightLogEntry[]> {
+  const data = await v2Get<any[]>(`/api/v2/weight-logs?catId=${catId}`);
+  return data.map(log => ({
+    ...log,
+    weight: typeof log.weight === 'string' ? parseFloat(log.weight) : (typeof log.weight === 'number' ? log.weight : 0),
+    date: log.date,
+  }));
 }
 
 const RecentHistoryList: React.FC<RecentHistoryListProps> = ({ catId, userId, onEditRequest, onDeleteRequest, logChangeTimestamp }) => {
@@ -113,6 +58,14 @@ const RecentHistoryList: React.FC<RecentHistoryListProps> = ({ catId, userId, on
   });
 
   const error = queryError ? (queryError instanceof Error ? queryError.message : 'Failed to fetch weight logs') : null;
+
+  useEffect(() => {
+    if (queryError) {
+      toast.error("Erro ao Buscar Histórico", {
+        description: queryError instanceof Error ? queryError.message : String(queryError),
+      });
+    }
+  }, [queryError]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -150,7 +103,7 @@ const RecentHistoryList: React.FC<RecentHistoryListProps> = ({ catId, userId, on
     return null; // Or a neutral icon for no change
   };
 
-  const formattedLogs = useMemo((): FormattedLog[] => {
+  const formattedLogs = useMemo(() => {
     return logs.map((log, index) => {
       const previousLog = logs[index + 1]; // Logs are desc, so previous is next in array
       return {
@@ -220,6 +173,32 @@ const RecentHistoryList: React.FC<RecentHistoryListProps> = ({ catId, userId, on
     );
   }
 
+  const renderLogItemContent = (log: typeof formattedLogs[0]) => (
+    <div className="grid grid-cols-3 gap-2 p-2 text-sm items-center">
+      <div className="col-span-3 sm:col-span-1 font-medium flex items-center">
+        {log.displayDate}
+      </div>
+      <div className="col-span-1 sm:col-span-1 flex items-center">
+        {log.weight.toFixed(2)} kg {log.trendIcon}
+      </div>
+      <div className="col-span-2 sm:col-span-1 text-muted-foreground truncate">
+        {log.notes || '-'}
+      </div>
+      {/* Actions will be on the row/accordion item level */}
+    </div>
+  );
+  
+  const renderLogItemActions = (log: WeightLogEntry) => (
+    <div className="flex items-center justify-end space-x-1">
+      <Button variant="ghost" size="icon" onClick={() => handleEdit(log)} aria-label="Editar registro">
+        <Edit2 className="h-4 w-4" />
+      </Button>
+      <Button variant="ghost" size="icon" onClick={() => handleDelete(log.id)} aria-label="Excluir registro" className="text-destructive hover:text-destructive/90">
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <Card className="mt-6">
       <CardHeader>
@@ -241,7 +220,7 @@ const RecentHistoryList: React.FC<RecentHistoryListProps> = ({ catId, userId, on
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  <WeightLogItemContent log={log} />
+                  {renderLogItemContent(log)}
                 </AccordionContent>
               </AccordionItem>
             ))}
@@ -262,9 +241,7 @@ const RecentHistoryList: React.FC<RecentHistoryListProps> = ({ catId, userId, on
                   <TableCell className="font-medium">{log.displayDate}</TableCell>
                   <TableCell className="flex items-center">{log.weight.toFixed(2)} kg {log.trendIcon}</TableCell>
                   <TableCell className="text-muted-foreground max-w-xs truncate">{log.notes || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <WeightLogItemActions log={log} onEdit={handleEdit} onDelete={handleDelete} />
-                  </TableCell>
+                  <TableCell className="text-right">{renderLogItemActions(log)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -1,0 +1,84 @@
+react-doctor v0.0.17
+
+Scanning D:\Mauricio\Code\mealtime...
+
+- Detecting framework. Found Next.js.
+ÔêÜ Detecting framework. Found Next.js.
+- Detecting React version. Found React ^19.2.0.
+ÔêÜ Detecting React version. Found React ^19.2.0.
+- Detecting language. Found TypeScript.
+ÔêÜ Detecting language. Found TypeScript.
+- Detecting React Compiler. Not found.
+ÔêÜ Detecting React Compiler. Not found.
+- Found 528 source files.
+ÔêÜ Found 528 source files.
+
+- Running lint checks...
+- Running lint checks.
+ÔêÜ Running lint checks.
+- Detecting dead code...
+ÔêÜ Detecting dead code.
+  ÔÜá Array index "i" used as key ÔÇö causes bugs when list is reordered or filtered (9)
+    Use a stable unique identifier: `key={item.id}` or `key={item.slug}` ÔÇö index keys break on reorder/filter
+
+  ÔÜá Component "FeedingsPageContent" has 5 useState calls ÔÇö consider useReducer for related state (16)
+    Group related state: `const [state, dispatch] = useReducer(reducer, { field1, field2, ... })`
+
+  ÔÜá Component "FeedingsPageContent" is 432 lines ÔÇö consider breaking it into smaller focused components (16)
+    Extract logical sections into focused components: `<UserHeader />`, `<UserActions />`, etc.
+
+  ÔÜá 4 setState calls in a single useEffect ÔÇö consider using useReducer or deriving state (9)
+    Combine into useReducer: `const [state, dispatch] = useReducer(reducer, initialState)`
+
+  ÔÜá "recharts" is a heavy library ÔÇö use React.lazy() or next/dynamic for code splitting (5)
+    Use `const Component = dynamic(() => import('library'), { ssr: false })` from next/dynamic or React.lazy()
+
+  ÔÜá useSearchParams() requires a <Suspense> boundary ÔÇö without one, the entire page bails out to client-side rendering (5)
+    Wrap the component using useSearchParams: `<Suspense fallback={<Skeleton />}><SearchComponent /></Suspense>`
+
+  ÔÜá Client-side redirect in useEffect ÔÇö use redirect() in a server component or middleware instead (14)
+    Use `redirect('/path')` from 'next/navigation' in a Server Component, or handle in middleware
+
+  ÔÜá useEffect simulating an event handler ÔÇö move logic to an actual event handler instead (11)
+    Move the conditional logic into onClick, onChange, or onSubmit handlers directly
+
+  ÔÜá Unknown property found (3)
+    Remove unknown property
+
+  ÔÜá Do not use `dangerouslySetInnerHTML` prop
+    `dangerouslySetInnerHTML` is a way to inject HTML into your React component. This is dangerous because it can easily lead to XSS vulnerabilities.
+
+  ÔÜá useEffect(setState, []) on mount causes a flash ÔÇö consider useSyncExternalStore or suppressHydrationWarning (4)
+    Use `useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)` or add `suppressHydrationWarning` to the element
+
+  ÔÜá Inline render function "renderLogItemContent()" ÔÇö extract to a separate component for proper reconciliation (2)
+    Extract to a named component: `const ListItem = ({ item }) => <div>{item.name}</div>`
+
+  ÔÜá useState initialized from prop "currentWeight" ÔÇö if this value should stay in sync with the prop, derive it during render instead (3)
+    Remove useState and compute the value inline: `const value = transform(propName)`
+
+  ÔÜá <link rel="stylesheet"> tag ÔÇö import CSS directly for bundling and optimization
+    Import CSS directly: `import './styles.css'` or use CSS Modules: `import styles from './Button.module.css'`
+
+  ÔÜá Avoid passing children using a prop.
+    The canonical way to pass children in React is to use JSX elements
+
+  ÔÜá Unused file (118)
+    This file is not imported by any other file in the project.
+
+  ÔÜá Unused export: createMiddlewareClient (119)
+
+  ÔÜá Unused type: Notification (36)
+
+  ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+  Ôöé React Doctor (www.react.doctor)                                     Ôöé
+  Ôöé                                                                     Ôöé
+  Ôöé You are offline, could not calculate score. Reconnect to calculate. Ôöé
+  Ôöé                                                                     Ôöé
+  Ôöé ÔÜá 373 warnings  across 228/528 files  in 3.5s                       Ôöé
+  ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+  Full diagnostics written to C:\Users\mauri\AppData\Local\Temp\react-doctor-9b78774a-1925-4ef9-a04d-31e1f942927b
+
+  Share your results: https://www.react.doctor/share?p=mealtime-app&w=373&f=228
+

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
+import { v2Post } from "@/lib/api/v2-client";
 import { format } from "date-fns";
 import { useScheduleContext } from "@/lib/context/ScheduleContext";
 import { useCats } from "@/lib/context/CatsContext";
@@ -154,30 +155,14 @@ export default function NewSchedulePageContent() {
     }
 
     try {
-      const headers: HeadersInit = {
-          'Content-Type': 'application/json'
-      };
-      if (currentUser?.id) {
-          headers['X-User-ID'] = currentUser.id;
-      } else {
-          toast.error("Erro de autenticação. Tente novamente.");
-          throw new Error("User ID missing for create schedule request");
+      if (!currentUser?.id) {
+        toast.error("Erro de autenticação. Tente novamente.");
+        throw new Error("User ID missing for create schedule request");
       }
 
-      const response = await fetch("/api/schedules", {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify(payload),
-      });
+      const newSchedule = await v2Post<Record<string, unknown>>("/api/v2/schedules", payload);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Falha ao criar agendamento");
-      }
-
-      const newSchedule = await response.json();
-
-      scheduleDispatch({ type: "ADD_SCHEDULE", payload: newSchedule });
+      scheduleDispatch({ type: "ADD_SCHEDULE", payload: newSchedule as unknown as import("@/lib/types").Schedule });
 
       toast.success("Agendamento criado com sucesso!");
       router.push("/schedules");

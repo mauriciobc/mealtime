@@ -168,7 +168,16 @@ export async function validateHouseholdAccess(
   householdId: string
 ): Promise<{ success: boolean; error?: string; statusCode?: number }> {
   try {
-    if (user.household_id === null || user.household_id === undefined || user.household_id !== householdId) {
+    void request;
+    const membership = await prisma.household_members.findFirst({
+      where: {
+        user_id: user.id,
+        household_id: householdId,
+      },
+      select: { household_id: true },
+    });
+
+    if (!membership) {
       return {
         success: false,
         error: 'Acesso negado ao household',

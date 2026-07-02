@@ -1,0 +1,15 @@
+
+key                           scopes
+---                           ------
+GOOGLE_CLIENT_SECRET          {builds, functions, post_processing, runtime}
+NEXTAUTH_URL                  {builds, functions, post_processing, runtime}
+NEXT_PUBLIC_SUPABASE_ANON_KEY {builds, functions, post_processing, runtime}
+NEXT_PUBLIC_SUPABASE_URL      {builds, functions, post_processing, runtime}
+CRON_SECRET                   {builds, functions, runtime}
+DATABASE_URL                  {builds, functions, runtime}
+NODE_VERSION                  {builds, functions, post_processing, runtime}
+SUPABASE_SERVICE_ROLE_KEY     {builds, functions, runtime}
+DIRECT_URL                    {builds, functions, runtime}
+GOOGLE_CLIENT_ID              {builds, functions, post_processing, runtime}
+
+

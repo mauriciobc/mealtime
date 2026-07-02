@@ -3,7 +3,7 @@ import { formatDateTimeForDisplay } from '@/lib/utils/dateUtils';
 import { addHours, isBefore, differenceInHours } from 'date-fns';
 import { getUserTimezone, calculateNextFeeding } from '../utils/dateUtils';
 import { toDate } from 'date-fns-tz';
-import { BaseUser, BaseCat, BaseFeedingLog, ID, parseGender } from '../types/common';
+import { BaseFeedingLog, parseGender } from '../types/common';
 import { Notification } from '../types/notification';
 import { generateUUID } from '../utils/uuid';
 import { 
@@ -14,6 +14,7 @@ import {
   isFeedingMissed,
   shouldSendReminder
 } from './feeding-notification-service';
+import { v2Fetch, v2Get, v2Post, v2Put } from '@/lib/api/v2-client';
 
 // Helper function to simulate async operations
 export const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -87,35 +88,15 @@ export async function getCats(): Promise<CatType[]> {
   return getData<CatType>('cats');
 }
 
-export async function fetchCatsForHousehold(householdId: string, userId: string | undefined, userTimezone?: string, signal?: AbortSignal): Promise<CatType[]> {
+export async function fetchCatsForHousehold(householdId: string, _userId?: string, userTimezone?: string, signal?: AbortSignal): Promise<CatType[]> {
   await delay(300);
   try {
-    // Prepare headers
-    const headers: HeadersInit = {};
-    if (userId) {
-      headers['X-User-ID'] = userId;
-    } else {
-      console.warn("[getCatsByHouseholdId] User ID not provided. API call might fail authorization.");
-      // Proceed without header - API should handle unauthorized request
-    }
-
-    // Add headers to fetch call
-    const fetchOptions: RequestInit = { 
-      headers
-    };
-    
-    // Only add signal if it's defined (not undefined)
+    const fetchOptions: RequestInit = { credentials: 'include' };
     if (signal) {
       fetchOptions.signal = signal;
     }
-    
-    const response = await fetch(`/api/households/${householdId}/cats`, fetchOptions);
-    if (!response.ok) {
-      const errorText = await response.text(); // Get error body
-      console.error("[getCatsByHouseholdId] Error response:", { status: response.status, text: errorText });
-      throw new Error(`Error fetching cats: ${response.status} ${errorText || response.statusText}`);
-    }
-    const { data: cats } = await response.json();
+
+    const cats = await v2Fetch<any[]>(`/api/v2/households/${householdId}/cats`, fetchOptions);
     // Log the raw response from the API
     console.log("[getCatsByHouseholdId] Raw cats data from API:", JSON.stringify(cats, null, 2));
     
@@ -166,11 +147,7 @@ export async function fetchCatsForHousehold(householdId: string, userId: string 
 export async function getCatById(catId: string, userTimezone?: string): Promise<CatType | null> {
   await delay(300);
   try {
-    const response = await fetch(`/api/cats/${catId}`);
-    if (!response.ok) {
-      throw new Error(`Erro ao buscar gato: ${response.status}`);
-    }
-    const cat = await response.json();
+    const cat = await v2Get<any>(`/api/v2/cats/${catId}`);
     return {
       ...cat,
       createdAt: cat.createdAt || toDate(new Date(), { timeZone: getUserTimezone(userTimezone) })
@@ -217,19 +194,7 @@ export async function createCat(cat: Omit<CatType, 'id'>): Promise<CatType> {
 export async function updateCat(catId: string, catData: Partial<CatType>): Promise<CatType> {
   try {
     // Primeiro, tentar atualizar via API
-    const response = await fetch(`/api/cats/${catId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(catData),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Erro ao atualizar gato: ${response.status}`);
-    }
-
-    const updatedCat = await response.json();
+    const updatedCat = await v2Put<any>(`/api/v2/cats/${catId}`, catData);
 
     // Atualizar o localStorage
     const cats = await getData<CatType>('cats');
@@ -297,33 +262,10 @@ export async function deleteCat(id: string): Promise<void> {
 export { registerFeeding, updateFeedingSchedule, getNextFeedingTime } from './api-feeding-service';
 
 // Modify signature to accept userId
-export async function addFeedingLog(log: Omit<BaseFeedingLog, 'id'>, userId?: string): Promise<FeedingLog> {
-  await delay(500); // Keep simulated delay for now
+export async function addFeedingLog(log: Omit<BaseFeedingLog, 'id'>, _userId?: string): Promise<FeedingLog> {
+  await delay(500);
   try {
-    // Prepare headers
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (userId) {
-      headers['X-User-ID'] = userId;
-    } else {
-        console.warn("[createFeedingLog] User ID not provided. API call will likely fail authorization.");
-        // Proceed without header, API should handle unauthorized request (return 401)
-    }
-
-    const response = await fetch('/api/feedings', {
-      method: 'POST',
-      headers: headers, // Use headers object
-      body: JSON.stringify(log),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[createFeedingLog] API Error (${response.status}): ${errorText}`);
-      throw new Error(`Failed to create feeding log: ${response.status} ${errorText}`);
-    }
-
-    const createdLog = await response.json(); // API now returns the full log with feeder
+    const createdLog = await v2Post<any>('/api/v2/feedings', log);
 
     // Map the API response (which should match GET /api/feedings structure)
     const mappedLog: Partial<FeedingLog> = {

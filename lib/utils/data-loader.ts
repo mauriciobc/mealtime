@@ -101,8 +101,7 @@ export function useDataLoader<T>(
 /*
 const { reload, cleanup } = useDataLoader(
   async () => {
-    const response = await fetch('/api/data');
-    return response.json();
+    return v2Get('/api/v2/cats');
   },
   {
     id: 'load-data',

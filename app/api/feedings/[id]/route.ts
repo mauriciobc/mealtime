@@ -1,188 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { headers } from 'next/headers';
-import { addDeprecatedWarning } from '@/lib/middleware/deprecated-warning';
-import { parseGender } from '@/lib/types/common';
-import { getAuthenticatedUser } from '@/lib/auth';
+import { NextRequest } from 'next/server';
+import { v1DeprecatedResponse } from '@/lib/middleware/block-v1';
 
-// GET /api/feedings/[id] - Buscar detalhes de um registro de alimentação
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const authResult = await getAuthenticatedUser(request);
-  
-  if (!authResult.success) {
-    return NextResponse.json({ error: authResult.error || 'Authentication required' }, { status: authResult.statusCode || 401 });
-  }
-  
-  const authUserId = authResult.user!.id;
-  const params = await context.params;
-  const logId = params.id;
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-  if (!logId) {
-    return NextResponse.json({ error: 'ID do registro inválido' }, { status: 400 });
-  }
-
-  if (!logId) {
-    return NextResponse.json({ error: 'ID do registro inválido' }, { status: 400 });
-  }
-
-  console.log(`[GET /api/feedings/${logId}] Request from user ${authUserId}`);
-
-  try {
-    // Fetch log including household ID for verification
-    const feedingLog = await prisma.feeding_logs.findUnique({
-      where: { id: logId },
-      include: {
-        cat: {
-          select: {
-            id: true,
-            name: true,
-            photo_url: true,
-            household_id: true,
-            gender: true
-          }
-        },
-        feeder: {
-          select: {
-            id: true,
-            full_name: true,
-            avatar_url: true
-          }
-        }
-      }
-    });
-
-    if (!feedingLog) {
-      console.log(`[GET /api/feedings/${logId}] Failed: Feeding log not found`);
-      return NextResponse.json(
-        { error: 'Registro de alimentação não encontrado' },
-        { status: 404 }
-      );
-    }
-
-    // Verify user belongs to the household associated with the log
-    const logHouseholdId = feedingLog.household_id;
-    if (!logHouseholdId) {
-      console.error(`[GET /api/feedings/${logId}] Failed: Log ${logId} has no household ID.`);
-      return NextResponse.json({ error: 'Log is not associated with a household' }, { status: 500 });
-    }
-
-    console.log(`[GET /api/feedings/${logId}] Verifying user ${authUserId} membership in household ${logHouseholdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: authUserId,
-        household_id: logHouseholdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      console.log(`[GET /api/feedings/${logId}] Failed: User ${authUserId} not member of household ${logHouseholdId}`);
-      return NextResponse.json({ error: 'Access denied: User cannot view this log' }, { status: 403 });
-    }
-    console.log(`[GET /api/feedings/${logId}] User ${authUserId} authorized.`);
-
-    // Transform the data to match the FeedingLog interface
-    const transformedLog = {
-      id: feedingLog.id,
-      catId: feedingLog.cat_id,
-      userId: feedingLog.fed_by,
-      timestamp: feedingLog.fed_at,
-      portionSize: feedingLog.amount,
-      notes: feedingLog.notes,
-      mealType: feedingLog.meal_type,
-      food_type: feedingLog.food_type,
-      householdId: feedingLog.household_id,
-      cat: feedingLog.cat ? {
-        id: feedingLog.cat.id,
-        name: feedingLog.cat.name,
-        photoUrl: feedingLog.cat.photo_url,
-        gender: parseGender(feedingLog.cat.gender)
-      } : undefined,
-      user: feedingLog.feeder ? {
-        id: feedingLog.feeder.id,
-        name: feedingLog.feeder.full_name,
-        avatar: feedingLog.feeder.avatar_url
-      } : undefined
-    };
-
-    return NextResponse.json(transformedLog);
-  } catch (error) {
-    console.error(`[GET /api/feedings/${logId}] Error fetching feeding log:`, error);
-    return NextResponse.json(
-      { error: 'Ocorreu um erro ao buscar o registro de alimentação', details: (error instanceof Error) ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
-  }
+export async function GET(_request: NextRequest) {
+  return v1DeprecatedResponse();
 }
 
-// DELETE /api/feedings/[id] - Excluir um registro de alimentação
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const authResult = await getAuthenticatedUser(request);
-  
-  if (!authResult.success) {
-    return NextResponse.json({ error: authResult.error || 'Authentication required' }, { status: authResult.statusCode || 401 });
-  }
-  
-  const authUserId = authResult.user!.id;
-  const params = await context.params;
-  const logId = params.id;
+export async function POST(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  console.log(`[DELETE /api/feedings/${logId}] Attempting delete by user ${authUserId}`);
+export async function PUT(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-  try {
-    console.log(`[DELETE /api/feedings/${logId}] Fetching feeding log...`);
-    const feedingLog = await prisma.feeding_logs.findUnique({
-      where: { id: logId },
-      select: { household_id: true }
-    });
+export async function PATCH(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    if (!feedingLog) {
-      console.log(`[DELETE /api/feedings/${logId}] Failed: Feeding log not found`);
-      return NextResponse.json({ error: 'Feeding log not found' }, { status: 404 });
-    }
+export async function DELETE(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    const householdId = feedingLog.household_id;
-    if (!householdId) {
-      console.error(`[DELETE /api/feedings/${logId}] Failed: Log ${logId} has no household ID.`);
-      return NextResponse.json({ error: 'Log is not associated with a household' }, { status: 500 });
-    }
+export async function HEAD(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}
 
-    console.log(`[DELETE /api/feedings/${logId}] Verifying user ${authUserId} membership in household ${householdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: authUserId,
-        household_id: householdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      console.log(`[DELETE /api/feedings/${logId}] Failed: User ${authUserId} not member of household ${householdId}`);
-      return NextResponse.json({ error: 'Access denied: User does not belong to this household' }, { status: 403 });
-    }
-    console.log(`[DELETE /api/feedings/${logId}] User ${authUserId} authorized.`);
-
-    console.log(`[DELETE /api/feedings/${logId}] Deleting log...`);
-    await prisma.feeding_logs.delete({
-      where: { id: logId }
-    });
-    console.log(`[DELETE /api/feedings/${logId}] Log deleted successfully.`);
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error(`[DELETE /api/feedings/${logId}] Error deleting feeding log:`, error);
-    if (error instanceof Error && (error as any).code === 'P2025') {
-      return NextResponse.json({ error: 'Log not found during delete attempt.' }, { status: 404 });
-    }
-    return NextResponse.json(
-      { error: 'An error occurred while deleting the feeding log', details: (error instanceof Error) ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
-  }
-} 
+export async function OPTIONS(_request: NextRequest) {
+  return v1DeprecatedResponse();
+}

@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 
 import { useUserContext } from "@/lib/context/UserContext";
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale";
-import { scheduleNotification } from '@/lib/services/notificationService';
 import { GlobalLoading } from "@/components/ui/global-loading";
 
 const NotificationIcon = ({ type }: { type: Notification['type'] }) => {

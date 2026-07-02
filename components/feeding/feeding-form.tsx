@@ -20,6 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useFeeding } from "@/hooks/use-feeding";
+import { useHaptics } from "@/lib/context/HapticsContext";
 import { toast } from "sonner";
 
 const formSchema = z.object({
@@ -43,6 +44,7 @@ interface FeedingFormProps {
 export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { triggerNudge, triggerSuccess, triggerError } = useHaptics();
   const { handleMarkAsFed, nextFeedingTime, formattedNextFeedingTime, isLoading, error: feedingHookError } = useFeeding(catId);
 
   const form = useForm<FormValues>({
@@ -71,10 +73,11 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
       }
     }
 
+    triggerNudge();
     setIsSubmitting(true);
     try {
       await handleMarkAsFed(values.amount, values.notes || undefined, values.timestamp);
-      
+      triggerSuccess();
       router.refresh();
       if (onSuccess) {
         onSuccess();
@@ -86,6 +89,7 @@ export function FeedingForm({ catId, catPortionSize, onSuccess }: FeedingFormPro
         });
       }
     } catch (error: any) {
+      triggerError();
       console.error("Erro ao registrar alimentação (FeedingForm):", error);
     } finally {
       setIsSubmitting(false);

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { GlobalLoading } from "@/components/ui/global-loading";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { useUserContext } from "@/lib/context/UserContext";
+import { v2Put } from "@/lib/api/v2-client";
 
 interface SettingsClientPageProps {
   cat: CatType;
@@ -51,25 +52,13 @@ export default function SettingsClientPage({ cat }: SettingsClientPageProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`/api/cats/${cat.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          breed: formData.breed || null,
-          weight: formData.weight ? parseFloat(formData.weight.toString()) : null,
-          feeding_interval: formData.feedingInterval ? parseInt(formData.feedingInterval.toString()) : null,
-          restrictions: formData.restrictions || null,
-          photo_url: formData.photoUrl || null,
-        }),
+      await v2Put(`/api/v2/cats/${cat.id}`, {
+        name: formData.name,
+        weight: formData.weight ? parseFloat(formData.weight.toString()) : null,
+        feeding_interval: formData.feedingInterval ? parseInt(formData.feedingInterval.toString()) : null,
+        restrictions: formData.restrictions || null,
+        photoUrl: formData.photoUrl || null,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to update cat settings");
-      }
 
       toast.success("Configurações atualizadas com sucesso!");
       router.refresh();

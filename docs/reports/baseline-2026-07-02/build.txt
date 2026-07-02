@@ -1,0 +1,193 @@
+
+> mealtime-app@0.1.0 build
+> node scripts/validate-env.mjs && npm run prisma:generate && next build --webpack
+
+
+> mealtime-app@0.1.0 prisma:generate
+> npx prisma generate
+
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma\schema.prisma.
+
+Ô£ö Generated Prisma Client (v7.2.0) to .\node_modules\.prisma\client in 211ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+Ôû▓ Next.js 16.1.0 (webpack)
+- Environments: .env.local, .env
+- Experiments (use with caution):
+  ┬À serverActions
+  Ô£ô serverSourceMaps
+
+  Creating an optimized production build ...
+Ô£ô Compiled successfully in 18.5s
+  Running TypeScript ...
+  Collecting page data using 15 workers ...
+{"timestamp":"2026-07-02T18:27:02.614Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.621Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.622Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.642Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.656Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.658Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.662Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.671Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.674Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.680Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.680Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.691Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.728Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.753Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.784Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.785Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.783Z","level":"info","message":"[Prisma] Creating new PrismaClient instance."}
+{"timestamp":"2026-07-02T18:27:02.786Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.789Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.795Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.801Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.806Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.805Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.815Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.815Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.816Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.822Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.833Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+[/api/households] Runtime: nodejs
+{"timestamp":"2026-07-02T18:27:02.888Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+{"timestamp":"2026-07-02T18:27:02.935Z","level":"info","message":"[Prisma] Using existing PrismaClient instance in production."}
+  Generating static pages using 15 workers (0/95) ...
+  Generating static pages using 15 workers (23/95) 
+  Generating static pages using 15 workers (47/95) 
+  Generating static pages using 15 workers (71/95) 
+Ô£ô Generating static pages using 15 workers (95/95) in 2.6s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+Ôöî Ôùï /
+Ôö£ Ôùï /_not-found
+Ôö£ Ôùï /api-docs
+Ôö£ ãÆ /api/auth/callback
+Ôö£ ãÆ /api/auth/mobile
+Ôö£ ãÆ /api/auth/mobile/register
+Ôö£ ãÆ /api/cats
+Ôö£ ãÆ /api/cats/[catId]
+Ôö£ ãÆ /api/cats/[catId]/next-feeding
+Ôö£ ãÆ /api/feeding-logs
+Ôö£ ãÆ /api/feedings
+Ôö£ ãÆ /api/feedings/[id]
+Ôö£ ãÆ /api/feedings/batch
+Ôö£ ãÆ /api/feedings/cats
+Ôö£ ãÆ /api/feedings/last/[catId]
+Ôö£ ãÆ /api/feedings/stats
+Ôö£ ãÆ /api/goals
+Ôö£ ãÆ /api/households
+Ôö£ ãÆ /api/households/[id]
+Ôö£ ãÆ /api/households/[id]/cats
+Ôö£ ãÆ /api/households/[id]/cats/[catId]
+Ôö£ ãÆ /api/households/[id]/feeding-logs
+Ôö£ ãÆ /api/households/[id]/invite
+Ôö£ ãÆ /api/households/[id]/invite-code
+Ôö£ ãÆ /api/households/[id]/members
+Ôö£ ãÆ /api/households/[id]/members/[userId]
+Ôö£ ãÆ /api/households/join
+Ôö£ ãÆ /api/mobile/cats
+Ôö£ ãÆ /api/monitoring/errors
+Ôö£ ãÆ /api/profile/[idOrUsername]
+Ôö£ ãÆ /api/scheduled-notifications
+Ôö£ ãÆ /api/scheduled-notifications/deliver
+Ôö£ ãÆ /api/schedules
+Ôö£ ãÆ /api/schedules/[id]
+Ôö£ ãÆ /api/statistics
+Ôö£ ãÆ /api/swagger
+Ôö£ ãÆ /api/upload
+Ôö£ ãÆ /api/users/[id]
+Ôö£ ãÆ /api/users/[id]/[userId]/preferences
+Ôö£ ãÆ /api/users/[id]/preferences
+Ôö£ ãÆ /api/v2/cats
+Ôö£ ãÆ /api/v2/cats/[catId]
+Ôö£ ãÆ /api/v2/cats/[catId]/next-feeding
+Ôö£ ãÆ /api/v2/feedings
+Ôö£ ãÆ /api/v2/feedings/[id]
+Ôö£ ãÆ /api/v2/feedings/batch
+Ôö£ ãÆ /api/v2/feedings/cats
+Ôö£ ãÆ /api/v2/feedings/last/[catId]
+Ôö£ ãÆ /api/v2/feedings/stats
+Ôö£ ãÆ /api/v2/goals
+Ôö£ ãÆ /api/v2/households
+Ôö£ ãÆ /api/v2/households/[id]
+Ôö£ ãÆ /api/v2/households/[id]/cats
+Ôö£ ãÆ /api/v2/households/[id]/feeding-logs
+Ôö£ ãÆ /api/v2/households/[id]/invite
+Ôö£ ãÆ /api/v2/households/[id]/invite-code
+Ôö£ ãÆ /api/v2/households/[id]/members
+Ôö£ ãÆ /api/v2/households/[id]/members/[userId]
+Ôö£ ãÆ /api/v2/households/invites/[notificationId]/accept
+Ôö£ ãÆ /api/v2/households/invites/[notificationId]/reject
+Ôö£ ãÆ /api/v2/households/join
+Ôö£ ãÆ /api/v2/notifications
+Ôö£ ãÆ /api/v2/notifications/[id]
+Ôö£ ãÆ /api/v2/notifications/bulk
+Ôö£ ãÆ /api/v2/profile/[idOrUsername]
+Ôö£ ãÆ /api/v2/scheduled-notifications
+Ôö£ ãÆ /api/v2/scheduled-notifications/deliver
+Ôö£ ãÆ /api/v2/schedules
+Ôö£ ãÆ /api/v2/schedules/[id]
+Ôö£ ãÆ /api/v2/statistics
+Ôö£ ãÆ /api/v2/swagger
+Ôö£ ãÆ /api/v2/upload
+Ôö£ ãÆ /api/v2/users/[id]
+Ôö£ ãÆ /api/v2/users/[id]/preferences
+Ôö£ ãÆ /api/v2/weight-logs
+Ôö£ ãÆ /api/weight-logs
+Ôö£ ãÆ /api/weight/goals
+Ôö£ ãÆ /api/weight/logs
+Ôö£ Ôùï /auth/auth-code-error
+Ôö£ Ôùï /cats
+Ôö£ ãÆ /cats/[id]
+Ôö£ ãÆ /cats/[id]/edit
+Ôö£ Ôùï /cats/new
+Ôö£ ÔùÅ /docs/[[...slug]]
+Ôöé Ôö£ /docs
+Ôöé Ôö£ /docs/docs
+Ôöé Ôö£ /docs/getting-started
+Ôöé Ôöö [+31 more paths]
+Ôö£ Ôùï /error
+Ôö£ Ôùï /feedings
+Ôö£ ãÆ /feedings/[id]
+Ôö£ Ôùï /feedings/new
+Ôö£ Ôùï /history
+Ôö£ ãÆ /history/[id]
+Ôö£ Ôùï /households
+Ôö£ ãÆ /households/[id]
+Ôö£ ãÆ /households/[id]/cats
+Ôö£ ãÆ /households/[id]/edit
+Ôö£ ãÆ /households/[id]/members/invite
+Ôö£ Ôùï /households/new
+Ôö£ Ôùï /join
+Ôö£ Ôùï /login
+Ôö£ Ôùï /notifications
+Ôö£ Ôùï /offline
+Ôö£ Ôùï /privacy
+Ôö£ Ôùï /profile
+Ôö£ Ôùï /profile/edit
+Ôö£ Ôùï /schedules
+Ôö£ Ôùï /schedules/new
+Ôö£ Ôùï /settings
+Ôö£ ãÆ /settings/[id]
+Ôö£ Ôùï /signup
+Ôö£ Ôùï /statistics
+Ôö£ Ôùï /terms
+Ôö£ Ôùï /test-calendar
+Ôö£ Ôùï /test-notifications
+Ôöö Ôùï /weight
+
+
+ãÆ Proxy (Middleware)
+
+Ôùï  (Static)   prerendered as static content
+ÔùÅ  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ãÆ  (Dynamic)  server-rendered on demand
+

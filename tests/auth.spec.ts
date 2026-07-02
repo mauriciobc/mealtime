@@ -95,7 +95,7 @@ test.describe('Authentication', () => {
 });
 
 test.describe('Authentication - Mobile API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping API tests - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping API tests - no test user configured');
 
   test('should authenticate via mobile API', async ({ apiHelper, testUser }) => {
     const result = await apiHelper.authenticate(testUser.email, testUser.password);

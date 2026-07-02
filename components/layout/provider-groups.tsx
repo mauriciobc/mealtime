@@ -5,13 +5,9 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { ReactQueryProvider } from "@/lib/providers/react-query-provider";
 import { ErrorProvider, ErrorBoundary } from "@/lib/context/ErrorContext";
 import { UserProvider } from "@/lib/context/UserContext";
-import { HouseholdProvider } from "@/lib/context/HouseholdContext";
-import { CatsProvider } from "@/lib/context/CatsContext";
-import { WeightProvider } from "@/lib/context/WeightContext";
-import { FeedingProvider } from "@/lib/context/FeedingContext";
-import { ScheduleProvider } from "@/lib/context/ScheduleContext";
 import { LoadingProvider } from "@/lib/context/LoadingContext";
 import { NotificationProvider } from "@/lib/context/NotificationContext";
+import { HapticsProvider } from "@/lib/context/HapticsContext";
 import { OnboardingWrapper } from "@/components/onboarding-wrapper";
 
 export const CoreProviders = ({ children }: { children: React.ReactNode }) => {
@@ -33,21 +29,12 @@ export const CoreProviders = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+/** Auth + global loading only — domain data via React Query hooks in lib/hooks/domain */
 export const DataProviders = ({ children }: { children: React.ReactNode }) => {
   return (
     <LoadingProvider>
       <UserProvider>
-        <HouseholdProvider>
-          <CatsProvider>
-            <WeightProvider>
-              <FeedingProvider>
-                <ScheduleProvider>
-                  {children}
-                </ScheduleProvider>
-              </FeedingProvider>
-            </WeightProvider>
-          </CatsProvider>
-        </HouseholdProvider>
+        {children}
       </UserProvider>
     </LoadingProvider>
   );
@@ -56,9 +43,11 @@ export const DataProviders = ({ children }: { children: React.ReactNode }) => {
 export const UIProviders = ({ children }: { children: React.ReactNode }) => {
   return (
     <NotificationProvider>
-      <OnboardingWrapper>
-        {children}
-      </OnboardingWrapper>
+      <HapticsProvider>
+        <OnboardingWrapper>
+          {children}
+        </OnboardingWrapper>
+      </HapticsProvider>
     </NotificationProvider>
   );
 };

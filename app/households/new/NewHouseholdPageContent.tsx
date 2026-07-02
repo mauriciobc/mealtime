@@ -78,7 +78,7 @@ export default function NewHouseholdPageContent() {
     setErrorMessage("");
     
     try {
-      const response = await fetch('/api/households', {
+      const response = await fetch('/api/v2/households', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

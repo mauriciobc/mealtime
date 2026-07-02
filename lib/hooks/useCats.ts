@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { logger } from '@/lib/monitoring/logger';
+import { v2Delete, v2Get, v2Patch, v2Post } from '@/lib/api/v2-client';
 
 interface Cat {
   id: string;
@@ -15,124 +16,45 @@ interface Cat {
   updated_at: string;
 }
 
-interface CatsResponse {
-  data: Cat[];
-  error?: string;
-}
-
 export function useCats(householdId: string) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
   const fetchCats = async (): Promise<Cat[]> => {
     try {
-      const response = await fetch(`/api/households/${householdId}/cats`);
-      const json = await response.json() as CatsResponse;
-
-      if (!response.ok) {
-        // Handle specific error cases
-        if (response.status === 401) {
+      return await v2Get<Cat[]>(`/api/v2/households/${householdId}/cats`);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
           router.push('/login');
           throw new Error('Please login to continue');
         }
-        if (response.status === 403) {
+        if (error.message.includes('403')) {
           router.push('/households');
           throw new Error('You do not have access to this household');
         }
-        throw new Error(json.error || 'Failed to fetch cats');
       }
-
-      return json.data;
-    } catch (error) {
-      logger.error('[useCats] Error fetching cats', { 
-        householdId, 
-        error 
-      });
-      throw new Error(String(error));
+      logger.error('[useCats] Error fetching cats', { householdId, error });
+      throw error;
     }
   };
 
   const addCat = async (cat: Partial<Cat>): Promise<Cat> => {
-    try {
-      const response = await fetch(`/api/households/${householdId}/cats`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(cat),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add cat');
-      }
-
-      const newCat = await response.json();
-      return newCat;
-    } catch (error) {
-      logger.error('[useCats] Error adding cat', {
-        householdId,
-        cat,
-        error
-      });
-      throw new Error(String(error));
-    }
+    return v2Post<Cat>(`/api/v2/households/${householdId}/cats`, cat);
   };
 
   const updateCat = async (catId: string, updates: Partial<Cat>): Promise<Cat> => {
-    try {
-      const response = await fetch(`/api/households/${householdId}/cats/${catId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update cat');
-      }
-
-      const updatedCat = await response.json();
-      return updatedCat;
-    } catch (error) {
-      logger.error('[useCats] Error updating cat', {
-        householdId,
-        catId,
-        updates,
-        error
-      });
-      throw new Error(String(error));
-    }
+    return v2Patch<Cat>(`/api/v2/cats/${catId}`, updates);
   };
 
   const deleteCat = async (catId: string): Promise<void> => {
-    try {
-      const response = await fetch(`/api/households/${householdId}/cats/${catId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete cat');
-      }
-    } catch (error) {
-      logger.error('[useCats] Error deleting cat', {
-        householdId,
-        catId,
-        error
-      });
-      throw new Error(String(error));
-    }
+    await v2Delete<void>(`/api/v2/cats/${catId}`);
   };
 
-  // Query hook for fetching cats
   const catsQuery = useQuery({
     queryKey: ['cats', householdId],
     queryFn: fetchCats,
     retry: (failureCount, error: any) => {
-      // Don't retry on auth errors
       if (error?.message?.includes('login') || error?.message?.includes('access')) {
         return false;
       }
@@ -140,7 +62,6 @@ export function useCats(householdId: string) {
     },
   });
 
-  // Mutation hooks
   const addCatMutation = useMutation({
     mutationFn: addCat,
     onSuccess: () => {
@@ -187,4 +108,4 @@ export function useCats(householdId: string) {
     isUpdating: updateCatMutation.isPending,
     isDeleting: deleteCatMutation.isPending,
   };
-} 
+}

@@ -58,8 +58,8 @@ test.describe('Weight Goals API', () => {
       weight: '4.5',
     });
 
-    const startDate = new Date().toISOString().split('T')[0];
-    const targetDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate = new Date().toISOString().slice(0, 10);
+    const targetDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     const createResult = await apiHelper.createGoal({
       cat_id: cat.id,
@@ -89,8 +89,8 @@ test.describe('Weight Goals API', () => {
       weight: '4.5',
     });
 
-    const startDate = new Date().toISOString().split('T')[0];
-    const targetDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const startDate = new Date().toISOString().slice(0, 10);
+    const targetDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
     const result = await apiHelper.createGoal({
       cat_id: cat.id,

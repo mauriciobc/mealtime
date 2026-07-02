@@ -116,7 +116,7 @@ test.describe('Notifications API', () => {
     expect(notificationsResult).toHaveProperty('success', true);
 
     if (notificationsResult.data && notificationsResult.data.length > 0) {
-      const notification = notificationsResult.data[0];
+      const notification = notificationsResult.data[0]!;
       const deleteResult = await apiHelper.delete(`/api/v2/notifications/${notification.id}`) as { success?: boolean };
       expect(deleteResult).toHaveProperty('success', true);
     }

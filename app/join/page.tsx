@@ -9,5 +9,5 @@ interface JoinPageProps {
 
 export default async function JoinPage({ searchParams }: JoinPageProps) {
   const params = await searchParams;
-  return <JoinPageContent initialInviteCode={params.code ?? ""} />;
+  return <JoinPageContent />;
 }
