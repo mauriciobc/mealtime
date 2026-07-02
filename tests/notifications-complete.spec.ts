@@ -1,7 +1,6 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Notifications Page', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -79,7 +78,6 @@ test.describe('Notifications Page', () => {
 });
 
 test.describe('Notifications API', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get notifications via API', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);

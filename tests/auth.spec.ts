@@ -94,8 +94,12 @@ test.describe('Authentication', () => {
   });
 });
 
-test.describe('Authentication - Mobile API', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping API tests - no test user configured');
+const describeWithCredentials =
+  process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD
+    ? test.describe
+    : test.describe.skip;
+
+describeWithCredentials('Authentication - Mobile API', () => {
 
   test('should authenticate via mobile API', async ({ apiHelper, testUser }) => {
     const result = await apiHelper.authenticate(testUser.email, testUser.password);
@@ -128,8 +132,7 @@ test.describe('Authentication - Mobile API', () => {
   });
 });
 
-test.describe('Logout', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user credentials');
+describeWithCredentials('Logout', () => {
 
   test('should logout and redirect to login', async ({ page, loginPage, testUser }) => {
     await loginPage.goto();

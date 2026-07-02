@@ -1,7 +1,6 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Cat Management', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.describe('Cat Creation', () => {
     test.beforeEach(async ({ loginPage, testUser, page }) => {
@@ -135,7 +134,6 @@ test.describe('Cat Management', () => {
 });
 
 test.describe('Cat API', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get cats via API', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);

@@ -1,6 +1,6 @@
 # MealTime — Current Engineering Status
 
-**Last updated:** 2026-07-02 (post remediation R3–R6)  
+**Last updated:** 2026-07-02 (post remediation R9)  
 **Source of truth:** [FOUNDATIONAL-AUDIT-2026-MASTER.md](../reports/FOUNDATIONAL-AUDIT-2026-MASTER.md)
 
 ## Completed
@@ -16,9 +16,18 @@
 - **R8.3:** Fixed `test.skip` guards in `*-complete.spec.ts` (userId → email/password)
 - **R8.4:** Applied Supabase migration `revoke_cleanup_system_tables_anon` on remote project
 
-## Next (R9)
+## Completed (R9)
 
-## Deploy (Fase 0)
+- **R9.1:** Docs — `docs/INDEX.md` → MASTER audit + `CURRENT.md`; `CONTRIBUTING.md` env/auth updates
+- **R9.2:** Centralized E2E credential guard in `tests/fixtures/test-fixtures.ts` (removed ~40 duplicate `test.skip` lines)
+- **R9.3:** `tests/notifications-triggers.spec.ts` — API E2E for feeding + duplicate warning notifications
+- **R9.4:** Removed legacy `X-User-ID` from `tests/helpers/api-helper.ts`; fixed `createFeeding` body (`meal_type`)
+
+## Next
+
+- Monitor production smoke after Netlify deploy (`npm run smoke:prod`)
+- Optional: un-skip cat detail UI tests when SSR auth context aligns with API-created cats
+
 
 Push `main` → Netlify auto-deploy → verify:
 

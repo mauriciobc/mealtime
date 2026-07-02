@@ -9,7 +9,6 @@ import { test, expect } from './fixtures/test-fixtures';
  * - Feedings/households responses that embed cat data include gender
  */
 test.describe('API Gender field', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('POST /api/v2/cats accepts gender and GET returns it', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -44,10 +43,7 @@ test.describe('API Gender field', () => {
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
     const householdId = (Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null) || testUser.householdId;
-    if (!householdId) {
-      test.skip();
-      return;
-    }
+    expect(householdId, 'Need a household to create a cat').toBeTruthy();
 
     const createRes = await apiHelper.createCat({
       name: `GenderUpdate_${Date.now()}`,
@@ -57,7 +53,7 @@ test.describe('API Gender field', () => {
       gender: 'female',
     }) as { success?: boolean; data?: { id: string } };
     if (!createRes?.success || !createRes?.data?.id) {
-      test.skip();
+      expect(createRes?.success, 'Cat creation failed').toBe(true);
       return;
     }
     const catId = createRes.data.id;
@@ -90,10 +86,7 @@ test.describe('API Gender field', () => {
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
     const householdId = Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null;
-    if (!householdId) {
-      test.skip();
-      return;
-    }
+    expect(householdId, 'Need a household').toBeTruthy();
 
     const res = await apiHelper.get(`/api/v2/households/${householdId}`) as { success?: boolean; data?: { cats?: unknown[] } };
     expect(res?.success).toBe(true);
@@ -106,10 +99,7 @@ test.describe('API Gender field', () => {
 
     const households = (await apiHelper.getHouseholds()) as { success?: boolean; data?: { id: string }[] };
     const householdId = Array.isArray(households?.data) && households.data.length > 0 ? households.data[0]!.id : null;
-    if (!householdId) {
-      test.skip();
-      return;
-    }
+    expect(householdId, 'Need a household').toBeTruthy();
 
     const res = await apiHelper.get(`/api/v2/feedings/cats?householdId=${householdId}`) as { success?: boolean; data?: { gender?: string | null }[] };
     expect(res?.success).toBe(true);

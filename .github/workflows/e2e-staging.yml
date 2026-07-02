@@ -35,7 +35,7 @@ jobs:
           PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
 
-      - run: npm run test:e2e -- --project=chromium tests/cats.spec.ts tests/feedings.spec.ts tests/households.spec.ts
+      - run: npm run test:e2e -- --project=chromium tests/cats.spec.ts tests/feedings.spec.ts tests/households.spec.ts tests/notifications-triggers.spec.ts
         env:
           CI: true
           PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}

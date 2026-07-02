@@ -1,7 +1,6 @@
 import { test, expect } from './fixtures/test-fixtures';
 
-test.describe('Cat Detail Page', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
+test.describe.skip('Cat Detail Page (UI — SSR auth mismatch)', () => {
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -21,7 +20,7 @@ test.describe('Cat Detail Page', () => {
     });
   });
 
-  test.skip('should display cat detail page', async ({ page, testDataManager }) => {
+  test('should display cat detail page', async ({ page, testDataManager }) => {
     // Skipped: server-side page uses prisma directly which can't access API-created cats
     // due to RLS/auth context mismatch between mobile JWT and Supabase session
     const cat = await testDataManager.createTestCat({
@@ -36,7 +35,7 @@ test.describe('Cat Detail Page', () => {
     await expect(page.locator('text=' + cat.name).first()).toBeVisible({ timeout: 5000 });
   });
 
-  test.skip('should navigate from cats list to detail page', async ({ page, testDataManager }) => {
+  test('should navigate from cats list to detail page', async ({ page, testDataManager }) => {
     // Skipped: same RLS issue as above
     const cat = await testDataManager.createTestCat({
       name: `NavTest_${Date.now()}`,
@@ -56,7 +55,7 @@ test.describe('Cat Detail Page', () => {
     }
   });
 
-  test.skip('should show back button on cat detail page', async ({ page, testDataManager }) => {
+  test('should show back button on cat detail page', async ({ page, testDataManager }) => {
     // Skipped: same RLS issue as above
     const cat = await testDataManager.createTestCat({
       name: `BackTest_${Date.now()}`,
@@ -71,8 +70,7 @@ test.describe('Cat Detail Page', () => {
   });
 });
 
-test.describe('Cat Edit Page - UI', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
+test.describe.skip('Cat Edit Page - UI (SSR auth mismatch)', () => {
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -92,7 +90,7 @@ test.describe('Cat Edit Page - UI', () => {
     });
   });
 
-  test.skip('should display cat edit page', async ({ page, testDataManager }) => {
+  test('should display cat edit page', async ({ page, testDataManager }) => {
     // Skipped: client-side page uses useCats() context which doesn't have API-created cats
     const cat = await testDataManager.createTestCat({
       name: `EditUITest_${Date.now()}`,
@@ -107,7 +105,7 @@ test.describe('Cat Edit Page - UI', () => {
     await expect(page.locator('input#name').first()).toBeVisible({ timeout: 5000 });
   });
 
-  test.skip('should update cat name via UI', async ({ page, testDataManager }) => {
+  test('should update cat name via UI', async ({ page, testDataManager }) => {
     // Skipped: same useCats() context issue
     const cat = await testDataManager.createTestCat({
       name: `EditName_${Date.now()}`,
@@ -136,7 +134,7 @@ test.describe('Cat Edit Page - UI', () => {
     expect(hasUpdatedName).toBeTruthy();
   });
 
-  test.skip('should update cat weight via UI', async ({ page, testDataManager }) => {
+  test('should update cat weight via UI', async ({ page, testDataManager }) => {
     // Skipped: same useCats() context issue
     const cat = await testDataManager.createTestCat({
       name: `EditWeight_${Date.now()}`,
@@ -164,7 +162,7 @@ test.describe('Cat Edit Page - UI', () => {
     expect(weightValue).toBe('5.2');
   });
 
-  test.skip('should update cat gender via UI', async ({ page, testDataManager }) => {
+  test('should update cat gender via UI', async ({ page, testDataManager }) => {
     // Skipped: same useCats() context issue
     const cat = await testDataManager.createTestCat({
       name: `EditGender_${Date.now()}`,
@@ -192,7 +190,7 @@ test.describe('Cat Edit Page - UI', () => {
     await page.waitForTimeout(2000);
   });
 
-  test.skip('should show validation error for invalid feeding interval', async ({ page, testDataManager }) => {
+  test('should show validation error for invalid feeding interval', async ({ page, testDataManager }) => {
     // Skipped: same useCats() context issue
     const cat = await testDataManager.createTestCat({
       name: `EditInterval_${Date.now()}`,
@@ -216,7 +214,7 @@ test.describe('Cat Edit Page - UI', () => {
     expect(hasError || true).toBeTruthy();
   });
 
-  test.skip('should cancel edit and return', async ({ page, testDataManager }) => {
+  test('should cancel edit and return', async ({ page, testDataManager }) => {
     // Skipped: same useCats() context issue
     const cat = await testDataManager.createTestCat({
       name: `CancelEdit_${Date.now()}`,
@@ -238,8 +236,7 @@ test.describe('Cat Edit Page - UI', () => {
   });
 });
 
-test.describe('Cat Delete - UI', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
+test.describe.skip('Cat Delete - UI (SSR auth mismatch)', () => {
 
   test.beforeEach(async ({ loginPage, testUser, page }) => {
     await loginPage.goto();
@@ -259,7 +256,7 @@ test.describe('Cat Delete - UI', () => {
     });
   });
 
-  test.skip('should delete cat via UI', async ({ page, testDataManager }) => {
+  test('should delete cat via UI', async ({ page, testDataManager }) => {
     // Skipped: same useCats() context issue
     const cat = await testDataManager.createTestCat({
       name: `DeleteTest_${Date.now()}`,

@@ -75,8 +75,8 @@ test.describe('Onboarding Tours', () => {
     });
   });
 
-  test.describe('Weight Page Tour', () => {
-    test.skip('should trigger on weight page', async ({ page }) => {
+  test.describe.skip('Weight Page Tour (requires authenticated weight page)', () => {
+    test('should trigger on weight page', async ({ page }) => {
       // Skipped: Weight page requires cats data to be loaded which needs full auth setup
       await page.goto('/weight');
       const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
@@ -84,7 +84,7 @@ test.describe('Onboarding Tours', () => {
       await expect(tourCard).toContainText('Rastreamento de Peso');
     });
 
-    test.skip('should show all 6 weight steps', async ({ page }) => {
+    test('should show all 6 weight steps', async ({ page }) => {
       // Skipped: Weight page requires cats data to be loaded which needs full auth setup
       await page.goto('/weight');
       const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
@@ -131,25 +131,24 @@ test.describe('Onboarding Tours', () => {
       expect(storageValue).toBe('true');
     });
 
-    test.skip('should have separate storage keys for different tours', async ({ page }) => {
-      // Skipped: Weight page requires cats data to be loaded which needs full auth setup
-      await page.goto('/');
-      const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
-      await tourCard.waitFor({ state: 'visible', timeout: 5000 });
+    test.describe.skip('weight tour keys', () => {
+      test('should have separate storage keys for different tours', async ({ page }) => {
+        await page.goto('/');
+        const tourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+        await tourCard.waitFor({ state: 'visible', timeout: 5000 });
 
-      // Complete first tour
-      const nextButton = page.getByRole('button', { name: 'Próximo' });
-      for (let i = 0; i < 5; i++) {
-        await nextButton.click();
-      }
-      await page.getByRole('button', { name: 'Concluir' }).click();
-      await tourCard.waitFor({ state: 'hidden', timeout: 5000 });
+        const nextButton = page.getByRole('button', { name: 'Próximo' });
+        for (let i = 0; i < 5; i++) {
+          await nextButton.click();
+        }
+        await page.getByRole('button', { name: 'Concluir' }).click();
+        await tourCard.waitFor({ state: 'hidden', timeout: 5000 });
 
-      // Weight tour should still be available
-      await page.goto('/weight');
-      const weightTourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
-      await weightTourCard.waitFor({ state: 'visible', timeout: 5000 });
-      await expect(weightTourCard).toContainText('Rastreamento de Peso');
+        await page.goto('/weight');
+        const weightTourCard = page.locator('[class*="border-2"][class*="shadow-xl"]').first();
+        await weightTourCard.waitFor({ state: 'visible', timeout: 5000 });
+        await expect(weightTourCard).toContainText('Rastreamento de Peso');
+      });
     });
   });
 });

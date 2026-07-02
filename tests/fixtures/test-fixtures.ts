@@ -1,4 +1,4 @@
-import { test as base, type Page, type BrowserContext } from '@playwright/test';
+import { test as base, type Page, type BrowserContext, type TestInfo } from '@playwright/test';
 import { LoginPage } from '../pages/login-page';
 import { DashboardPage } from '../pages/dashboard-page';
 import { CatsPage } from '../pages/cats-page';
@@ -25,6 +25,7 @@ import { TestDataManager } from '../helpers/test-data-manager';
 import { APIHelper } from '../helpers/api-helper';
 
 interface TestFixtures {
+  _requireTestCredentials: void;
   page: Page;
   context: BrowserContext;
   loginPage: LoginPage;
@@ -63,7 +64,20 @@ interface TestFixtures {
   };
 }
 
+const PUBLIC_E2E_PROJECTS = new Set(['chromium-unauthenticated']);
+
 export const test = base.extend<TestFixtures>({
+  _requireTestCredentials: [async ({}, use: () => Promise<void>, testInfo: TestInfo) => {
+    if (PUBLIC_E2E_PROJECTS.has(testInfo.project.name)) {
+      await use();
+      return;
+    }
+    if (!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD) {
+      testInfo.skip(true, 'TEST_USER_EMAIL and TEST_USER_PASSWORD required for authenticated E2E');
+    }
+    await use();
+  }, { auto: true }],
+
   page: async ({ page }, use) => {
     page.on('console', msg => {
       if (msg.type() === 'error') {
@@ -196,15 +210,10 @@ export const test = base.extend<TestFixtures>({
   },
 
   testUser: async ({}, use) => {
-    const testEmail = process.env.TEST_USER_EMAIL || 'test_e2e@example.com';
-    const testPassword = process.env.TEST_USER_PASSWORD || 'Test@123456';
+    const testEmail = process.env.TEST_USER_EMAIL ?? '';
+    const testPassword = process.env.TEST_USER_PASSWORD ?? '';
     const testUserId = process.env.TEST_USER_ID || '';
     const testHouseholdId = process.env.TEST_HOUSEHOLD_ID || '';
-
-    // Warn if critical env vars are missing (but don't fail - allow defaults for local dev)
-    if (!process.env.TEST_USER_EMAIL || !process.env.TEST_USER_PASSWORD) {
-      console.warn('⚠️  TEST_USER_EMAIL or TEST_USER_PASSWORD not set. Using defaults. Tests may fail if defaults are invalid.');
-    }
 
     await use({
       email: testEmail,

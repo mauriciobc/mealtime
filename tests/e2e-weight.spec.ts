@@ -1,7 +1,6 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Weight Management', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test.describe('Weight Page', () => {
     test.beforeEach(async ({ loginPage, testUser, page }) => {
@@ -72,10 +71,7 @@ test.describe('Weight Management', () => {
       await page.goto('/weight', { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle');
       const onWeightPage = await page.locator('h1:has-text("Painel de Peso")').first().isVisible({ timeout: 15000 }).catch(() => false);
-      if (!onWeightPage) {
-        test.skip(true, 'Weight page did not load (maybe not authenticated or redirect to login)');
-        return;
-      }
+      expect(onWeightPage, 'Weight page should load when authenticated via setup').toBe(true);
       await expect(page.locator('text=Progresso da Meta').first()).toBeVisible({ timeout: 10000 });
       await page.waitForLoadState('networkidle');
       for (const { status } of putResponses) {
@@ -150,7 +146,6 @@ test.describe('Weight Management', () => {
 });
 
 test.describe('Weight API', () => {
-  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get weight logs via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
