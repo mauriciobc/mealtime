@@ -4,6 +4,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { z } from 'zod';
+import { buildHouseholdJoinNotifications } from '@/lib/notifications/event-payloads';
 
 // Schema de validação para entrada em domicílio
 const joinHouseholdSchema = z.object({
@@ -173,19 +174,14 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       const joiningUser = members.find(u => u.id === prismaUser.id);
       const otherMembers = members.filter(u => u.id !== prismaUser.id);
       
-      const notifications = otherMembers.map(member => ({
-        id: crypto.randomUUID(),
-        user_id: member.id,
-        title: 'Novo membro na residência',
-        message: `${joiningUser?.full_name || 'Um usuário'} entrou na residência ${updatedHousehold.name}`,
-        type: 'household',
-        metadata: {
-          householdId: updatedHousehold.id,
-          actionUrl: `/households/${updatedHousehold.id}`
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }));
+      const notifications = buildHouseholdJoinNotifications({
+        householdId: updatedHousehold.id,
+        householdName: updatedHousehold.name,
+        joiningUserId: prismaUser.id,
+        joiningUserName: joiningUser?.full_name,
+        otherMemberIds: otherMembers.map((m) => m.id),
+        idFactory: () => crypto.randomUUID(),
+      });
       
       if (notifications.length > 0) {
         await prisma.notifications.createMany({ data: notifications });

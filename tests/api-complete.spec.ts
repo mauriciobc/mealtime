@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures/test-fixtures';
 
 test.describe('Statistics API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get statistics for 7dias period', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -31,7 +31,7 @@ test.describe('Statistics API', () => {
 });
 
 test.describe('Next Feeding API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get next feeding for a cat', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -48,7 +48,7 @@ test.describe('Next Feeding API', () => {
 });
 
 test.describe('Weight Goals API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should create and get weight goal', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -107,7 +107,7 @@ test.describe('Weight Goals API', () => {
 });
 
 test.describe('User Preferences API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get user preferences', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -146,7 +146,7 @@ test.describe('User Preferences API', () => {
 });
 
 test.describe('Upload API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should reject upload without authentication', async ({ apiHelper }) => {
     await apiHelper.setAccessToken('');
@@ -159,7 +159,7 @@ test.describe('Upload API', () => {
 });
 
 test.describe('Feeding Logs API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should get feeding logs via API', async ({ apiHelper, testUser, testDataManager }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -176,7 +176,7 @@ test.describe('Feeding Logs API', () => {
 });
 
 test.describe('Household Join API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should reject join with invalid invite code', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
@@ -186,7 +186,7 @@ test.describe('Household Join API', () => {
 });
 
 test.describe('Invite Accept/Reject API', () => {
-  test.skip(({ testUser }) => !testUser.userId, 'Skipping - no test user configured');
+  test.skip(({ testUser }) => !testUser.email || !testUser.password, 'Skipping - no test user configured');
 
   test('should reject accept invite with invalid notification id', async ({ apiHelper, testUser }) => {
     await apiHelper.authenticate(testUser.email, testUser.password);
