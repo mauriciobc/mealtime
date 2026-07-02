@@ -2,6 +2,7 @@
 
 import { useReducer, useEffect, useMemo, useRef } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { v2Patch } from "@/lib/api/v2-client";
 import {
   Milestone,
   MilestoneProgressProps,
@@ -176,13 +177,8 @@ export function useMilestoneProgress({
   ];
 
   const archiveGoalMutation = useMutation({
-    mutationFn: async ({ goalId, hhId }: { goalId: string; hhId: string }) => {
-      const res = await fetch(`/api/weight/goals?id=${goalId}&householdId=${hhId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "completed" }),
-      });
-      if (!res.ok) throw new Error(`PUT failed: ${res.status}`);
+    mutationFn: async ({ goalId }: { goalId: string; hhId: string }) => {
+      await v2Patch(`/api/v2/goals?id=${goalId}`, { status: "completed" });
     },
     onSuccess: () => {
       refreshCounter.current += 1;

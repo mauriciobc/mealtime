@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { sanitizeError, sanitizeDatabaseError } from '@/lib/utils/error-sanitizer';
+import { z } from 'zod';
 
 interface NewGoalData {
   cat_id: string;
@@ -208,6 +209,48 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     
     const sanitized = sanitizeError(err, 'Internal server error');
     return NextResponse.json(sanitized, { status: 500 });
+  }
+});
+
+const PatchGoalBodySchema = z.object({
+  status: z.enum(['active', 'completed', 'cancelled']),
+});
+
+export const PATCH = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
+  try {
+    const goalId = request.nextUrl.searchParams.get('id');
+    if (!goalId || !z.string().uuid().safeParse(goalId).success) {
+      return NextResponse.json({ success: false, error: 'Valid goal id is required' }, { status: 400 });
+    }
+
+    const body = PatchGoalBodySchema.safeParse(await request.json());
+    if (!body.success) {
+      return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const goal = await prisma.weight_goals.findUnique({
+      where: { id: goalId },
+      select: { id: true, created_by: true, cat_id: true },
+    });
+
+    if (!goal) {
+      return NextResponse.json({ success: false, error: 'Goal not found' }, { status: 404 });
+    }
+
+    if (goal.created_by !== user.id) {
+      return NextResponse.json({ success: false, error: 'Access denied' }, { status: 403 });
+    }
+
+    const updated = await prisma.weight_goals.update({
+      where: { id: goalId },
+      data: { status: body.data.status, updated_at: new Date() },
+      include: { milestones: true },
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    logger.error('[PATCH /api/v2/goals] Error', { error });
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 });
 

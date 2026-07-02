@@ -8,6 +8,7 @@ import { useUserContext } from "@/lib/context/UserContext"
 import { useHousehold } from "@/lib/context/HouseholdContext"
 import { useHouseholdDetail } from "@/lib/hooks/useHouseholdDetail"
 import { NotificationSettings } from "@/lib/types"
+import { v2Delete, v2Post } from "@/lib/api/v2-client"
 
 const defaultNotificationSettings: NotificationSettings = {
   pushEnabled: true,
@@ -212,15 +213,7 @@ export function useSettingsPage() {
     addLoadingOperation({ id: opId, priority: 1, description: "Entrando na residência..." });
     dispatch({ type: 'SET_MODAL_ERROR', value: null });
     try {
-      const response = await fetch('/api/households/join', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inviteCode: householdCode }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Falha ao entrar na residência. Status: ${response.status}`);
-      }
+      await v2Post("/api/v2/households/join", { inviteCode: householdCode });
       await userContext.refreshUser();
       toast.success("Você entrou na residência com sucesso!");
       dispatch({ type: 'SET_MODAL', modal: 'household', value: false });
@@ -242,15 +235,7 @@ export function useSettingsPage() {
     addLoadingOperation({ id: opId, priority: 1, description: "Criando residência..." });
     dispatch({ type: 'SET_MODAL_ERROR', value: null });
     try {
-      const response = await fetch('/api/households', {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newHouseholdName }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Falha ao criar residência. Status: ${response.status}`);
-      }
+      await v2Post("/api/v2/households", { name: newHouseholdName });
       await userContext.refreshUser();
       toast.success("Residência criada com sucesso!");
       dispatch({ type: 'SET_MODAL', modal: 'household', value: false });
@@ -269,13 +254,9 @@ export function useSettingsPage() {
     addLoadingOperation({ id: opId, priority: 1, description: "Saindo da residência..." });
     dispatch({ type: 'SET_MODAL_ERROR', value: null });
     try {
-      const response = await fetch(`/api/households/${currentUser.householdId}/leave`, {
-        method: "POST",
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Falha ao sair da residência. Status: ${response.status}`);
-      }
+      await v2Delete(
+        `/api/v2/households/${currentUser.householdId}/members/${currentUser.id}?leave=true`
+      );
       await userContext.refreshUser();
       toast.success("Você saiu da residência.");
       dispatch({ type: 'SET_MODAL', modal: 'leaveConfirm', value: false });

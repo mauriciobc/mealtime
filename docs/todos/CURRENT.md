@@ -6,10 +6,15 @@
 ## Completed
 
 - **R1–R2:** v1 spoofable → 410; CI lint/typecheck/build; test-prisma removed
-- **R3:** Frontend migrated to `/api/v2/*`; all v1 routes return 410; auth on feedings/cats & schedules blocked; rate limit on `/api/auth/mobile*`
-- **R4:** Removed `new-feeding-sheet` duplicate; orphan facades removed
-- **R5:** Deleted `.bak` routes; gated `test-*` pages in production; edge function duplicates removed; Supabase migration for `cleanup_system_tables`
-- **R6:** Vitest unit tests; `.env.test.local` template; E2E staging expanded; security spec decoupled from auth.setup
+- **R3–R6:** Frontend migrated to `/api/v2/*`; all v1 routes return 410; auth on feedings/cats & schedules blocked; rate limit on `/api/auth/mobile*`; Vitest; E2E staging
+- **R7 (in progress):** Zero v1/`X-User-ID` leaks in active frontend hooks — household page, weight page, milestone archive, settings hook
+
+## Next (R8)
+
+- Notification event-driven tests (`docs/todos/notifications-cron-todo.md`)
+- Reduce E2E `test.skip` to <5
+- Apply Supabase `cleanup_system_tables` migration on remote
+- Docs reconciliation (README, INDEX, CONTRIBUTING)
 
 ## Deploy (Fase 0)
 
