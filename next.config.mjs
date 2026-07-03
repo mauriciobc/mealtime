@@ -1,3 +1,30 @@
+/**
+ * Content Security Policy — Phase 1 (Report-Only)
+ * =============================================================================
+ * This policy runs in report-only mode to collect violations without blocking
+ * anything. After 48h of monitoring, switch to active mode by removing
+ * '-Report-Only' from the header key in the headers() config below.
+ *
+ * Notes:
+ *   • 'unsafe-inline' in style-src is required for Tailwind/Next.js runtime
+ *     until we confirm no inline <style> blocks are injected.
+ *   • report-uri uses a relative path; browsers resolve it against the
+ *     document origin, which works correctly in all modern browsers.
+ * =============================================================================
+ */
+const CSP_REPORT_ONLY = [
+  "default-src 'self'",
+  "script-src 'self' https:",
+  "style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https:",
+  "connect-src 'self' https: wss:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'self'",
+  "report-uri /api/csp-violation/report",
+].join('; ');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // REMOVIDO: output: 'standalone' - incompatível com Netlify
@@ -54,6 +81,47 @@ const nextConfig = {
     },
     serverSourceMaps: true,
   },
+  // Security headers - override any automatic CSP from Next.js runtime
+  //
+  // Scope: applies to ALL routes including static assets.
+  // This is intentional — security headers should be uniform across the
+  // entire application. Static assets (/_next/static/*, /images/*) are
+  // served by Netlify's CDN and these headers have negligible performance
+  // impact on cacheable resources.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy-Report-Only',
+            value: CSP_REPORT_ONLY,
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+    ];
+  },
+
   // Flutter client compatibility rewrites
   async rewrites() {
     return [
