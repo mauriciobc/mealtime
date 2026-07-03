@@ -7,6 +7,7 @@ export const ACTIVE_NON_V1_API_PREFIXES = [
   '/api/auth/',
   '/api/health',
   '/api/monitoring/',
+  '/api/csp-violation/',
 ] as const;
 
 export function isDeprecatedV1ApiPath(pathname: string): boolean {
