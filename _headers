@@ -1,0 +1,52 @@
+# =============================================================================
+# SECURITY HEADERS — MealTime App (Netlify _headers)
+# =============================================================================
+# Deployed via: feat/csp-hardening branch → Netlify staging
+#
+# PHASE 1 (Current): CSP in REPORT-ONLY mode
+#   → Logs violations without blocking anything
+#   → Monitor for 48h to identify inline scripts/styles from Next.js runtime
+#
+# PHASE 2 (After validation): Switch Content-Security-Policy-Report-Only
+#   → to Content-Security-Policy (drop the -Report-Only suffix)
+#   → Requires evidence that no critical inline scripts exist
+# =============================================================================
+
+/*
+  # ---------------------------------------------------------------------------
+  # Content Security Policy — REPORT-ONLY (Phase 1)
+  # ---------------------------------------------------------------------------
+  # Notes for Phase 2 hardening:
+  #   • Remove 'unsafe-inline' from style-src once Tailwind/Next.js runtime
+  #     is confirmed not to inject inline <style> blocks
+  #   • Add specific script-src hashes for any inline scripts that must stay
+  #   • Tighten default-src to 'self' only if no external resources needed
+  #
+  Content-Security-Policy-Report-Only: default-src 'self';
+    script-src 'self' https:;
+    style-src 'self' https://fonts.googleapis.com 'unsafe-inline';
+    font-src 'self' https://fonts.gstatic.com;
+    img-src 'self' data: https:;
+    connect-src 'self' https: wss:;
+    object-src 'none';
+    base-uri 'self';
+    frame-ancestors 'self';
+    report-uri /api/csp-violation/report;
+    report-to csp-endpoint;
+
+  # ---------------------------------------------------------------------------
+  # Transport Layer Security
+  # ---------------------------------------------------------------------------
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+  # ---------------------------------------------------------------------------
+  # Request / Response Integrity
+  # ---------------------------------------------------------------------------
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+
+  # ---------------------------------------------------------------------------
+  # Referrer & Permissions Policy
+  # ---------------------------------------------------------------------------
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
