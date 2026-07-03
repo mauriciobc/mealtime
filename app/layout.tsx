@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://mealtime.app'),
   title: "MealTime - Gerenciador de Alimentação",
   description: "Gerencie a alimentação dos seus gatos de forma simples e eficiente",
-  generator: 'MealTime App',
   icons: {
     icon: [
       { url: '/favicon.ico' },
