@@ -219,7 +219,7 @@ export default function HouseholdsPageContent() {
   }
 
 
-  const householdsToDisplay = households || [];
+  const householdsToDisplay = Array.isArray(households) ? households : [];
 
   return (
     <PageTransition>
