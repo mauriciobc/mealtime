@@ -2,10 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Household } from '@/lib/types';
 import { domainKeys } from './query-keys';
 
-import { useQuery } from '@tanstack/react-query';
-import { Household } from '@/lib/types';
-import { domainKeys } from './query-keys';
-
 type HouseholdsListResponse = {
   success?: boolean;
   data?: Household[];
