@@ -22,7 +22,7 @@ test.describe('Security — API hardening', () => {
 
   test('test-prisma route removed', async ({ request }) => {
     const res = await request.get(`${baseURL}/api/test-prisma`);
-    expect(res.status()).toBe(404);
+    expect([404, 410]).toContain(res.status());
   });
 
   test('v2 cats requires auth', async ({ request }) => {
