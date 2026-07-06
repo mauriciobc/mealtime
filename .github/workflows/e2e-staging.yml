@@ -6,9 +6,28 @@ on:
   workflow_dispatch:
 
 jobs:
-  e2e:
+  secrets-gate:
     runs-on: ubuntu-latest
-    if: ${{ secrets.PLAYWRIGHT_BASE_URL != '' }}
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL }}
+          TEST_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+        run: |
+          if [ -n "$BASE_URL" ] && [ -n "$TEST_EMAIL" ] && [ -n "$TEST_PASSWORD" ]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "E2E staging secrets not configured — skipping"
+          fi
+
+  e2e:
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.ready == 'true'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -20,14 +39,6 @@ jobs:
       - run: npm ci
 
       - run: npx playwright install --with-deps chromium
-
-      - name: Require test credentials in CI
-        run: |
-          test -n "$TEST_USER_EMAIL" || (echo "TEST_USER_EMAIL required" && exit 1)
-          test -n "$TEST_USER_PASSWORD" || (echo "TEST_USER_PASSWORD required" && exit 1)
-        env:
-          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
       - run: npm run test:e2e -- --project=chromium-unauthenticated tests/security.spec.ts
         env:

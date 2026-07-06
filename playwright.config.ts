@@ -3,6 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: ['.env.test.local', '.env.local'] });
 
+const isLocalBaseUrl =
+  !process.env.PLAYWRIGHT_BASE_URL ||
+  process.env.PLAYWRIGHT_BASE_URL.includes('localhost') ||
+  process.env.PLAYWRIGHT_BASE_URL.includes('127.0.0.1');
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
@@ -52,12 +57,16 @@ export default defineConfig({
       dependencies: ['setup'],
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  ...(isLocalBaseUrl
+    ? {
+        webServer: {
+          command: 'npm run dev',
+          url: 'http://localhost:3000',
+          reuseExistingServer: !process.env.CI,
+          timeout: 120000,
+        },
+      }
+    : {}),
   expect: {
     toHaveScreenshot: {
       maxDiffPixels: 100,
