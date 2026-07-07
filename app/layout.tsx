@@ -60,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" className={cn(fontSans.variable, fontHeading.variable)}>
+    <html lang="pt-BR" suppressHydrationWarning className={cn(fontSans.variable, fontHeading.variable)}>
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />

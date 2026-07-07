@@ -4,6 +4,11 @@ import { useEffect } from 'react';
 
 export function ServiceWorkerRegister() {
   useEffect(() => {
+    // SW caches / and conflicts with webpack HMR — dev/preview server only.
+    if (process.env.NODE_ENV !== 'production') {
+      return;
+    }
+
     if ('serviceWorker' in navigator) {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 

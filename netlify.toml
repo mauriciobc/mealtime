@@ -8,7 +8,7 @@
   # Build usa --webpack flag para compatibilidade com config webpack customizada
 
 [build.environment]
-  NODE_VERSION = "22.12.0"
+  NODE_VERSION = "22.13.0"
   NPM_FLAGS = "--include=dev"
 
 # Preview Server / netlify dev — Next.js listens on 3000
