@@ -11,9 +11,8 @@
   NODE_VERSION = "22.13.0"
   NPM_FLAGS = "--include=dev"
 
-# Preview Server — runs `npm run build` first, then serves the production build.
-# Using `next start` (not `next dev`) avoids Next.js 16 cross-origin dev chunk blocking
-# when the browser origin is devserver-*--meowtime.netlify.app.
+# Preview Server — [build] is NOT run before [dev]; this command builds then serves.
+# Using `next start` (not `next dev`) avoids Next.js 16 cross-origin dev chunk blocking.
 [dev]
   command = "npm run start:preview"
   targetPort = 3000

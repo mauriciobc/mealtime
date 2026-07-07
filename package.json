@@ -12,7 +12,7 @@
     "validate:env": "node scripts/validate-env.mjs",
     "typecheck": "tsc --noEmit",
     "start": "next start -H 0.0.0.0 -p $PORT || next start -H 0.0.0.0 -p 10000",
-    "start:preview": "next start -H 0.0.0.0 -p 3000",
+    "start:preview": "npm run build && next start -H 0.0.0.0 -p 3000",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "prisma:seed": "npx prisma db seed",
