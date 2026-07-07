@@ -8,8 +8,12 @@
   # Build usa --webpack flag para compatibilidade com config webpack customizada
 
 [build.environment]
-  NODE_VERSION = "20.19.0"
+  NODE_VERSION = "22.12.0"
   NPM_FLAGS = "--include=dev"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+# Preview Server / netlify dev — Next.js listens on 3000
+[dev]
+  command = "npm run dev"
+  targetPort = 3000
+  port = 8888
+  framework = "#custom"

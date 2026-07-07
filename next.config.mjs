@@ -139,9 +139,7 @@ const nextConfig = {
     ];
   },
   
-  // Turbopack é o bundler padrão no Next.js 15
-  // Config vazio indica que queremos usar Turbopack sem configuração customizada
-  turbopack: {},
+  // Build uses --webpack (see package.json) for client bundle fallbacks below.
   webpack: (config, { isServer }) => {
     // Exclude Node.js modules from client bundle
     if (!isServer) {
