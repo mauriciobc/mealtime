@@ -25,8 +25,42 @@ const CSP_REPORT_ONLY = [
   "report-uri /api/csp-violation/report",
 ].join('; ');
 
+/**
+ * Hostnames allowed to access Next.js dev assets (HMR, etc.) when the browser
+ * origin differs from localhost — e.g. Netlify Preview Server proxies :8888 → :3000.
+ * @see https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ */
+function getAllowedDevOrigins() {
+  const origins = ['localhost', '127.0.0.1'];
+
+  const siteName = process.env.SITE_NAME || 'meowtime';
+  // Preview Server URL: devserver-{branch-with-slashes-as-dashes}--{site}.netlify.app
+  origins.push('*.netlify.app');
+
+  const branch = process.env.BRANCH || process.env.HEAD;
+  if (branch) {
+    origins.push(`devserver-${branch.replace(/\//g, '-')}--${siteName}.netlify.app`);
+  }
+
+  const urlHost = safeGetHostname(process.env.URL);
+  if (urlHost) {
+    origins.push(urlHost);
+  }
+
+  if (process.env.NEXT_ALLOWED_DEV_ORIGINS) {
+    origins.push(
+      ...process.env.NEXT_ALLOWED_DEV_ORIGINS.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  }
+
+  return [...new Set(origins)];
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: getAllowedDevOrigins(),
   // REMOVIDO: output: 'standalone' - incompatível com Netlify
   // Netlify usa OpenNext v3 automaticamente
   productionBrowserSourceMaps: false,
@@ -89,18 +123,11 @@ const nextConfig = {
   // served by Netlify's CDN and these headers have negligible performance
   // impact on cacheable resources.
   async headers() {
-    return [
+    const securityHeaders = [
       {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy-Report-Only',
-            value: CSP_REPORT_ONLY,
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
-          },
+        key: 'Strict-Transport-Security',
+        value: 'max-age=31536000; includeSubDomains; preload',
+      },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
@@ -113,11 +140,25 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
-          },
-        ],
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=()',
+      },
+    ];
+
+    // Webpack dev (npm run dev) uses eval() in main-app.js. CSP report-only without
+    // 'unsafe-eval' floods /api/csp-violation/report and can starve the dev server.
+    if (process.env.NODE_ENV === 'production') {
+      securityHeaders.unshift({
+        key: 'Content-Security-Policy-Report-Only',
+        value: CSP_REPORT_ONLY,
+      });
+    }
+
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
       },
     ];
   },
@@ -139,9 +180,7 @@ const nextConfig = {
     ];
   },
   
-  // Turbopack é o bundler padrão no Next.js 15
-  // Config vazio indica que queremos usar Turbopack sem configuração customizada
-  turbopack: {},
+  // Build uses --webpack (see package.json) for client bundle fallbacks below.
   webpack: (config, { isServer }) => {
     // Exclude Node.js modules from client bundle
     if (!isServer) {

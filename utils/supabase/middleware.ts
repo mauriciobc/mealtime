@@ -48,6 +48,10 @@ const SKIP_AUTH_ROUTES = [
   '/android-chrome',
   '/mstile',
   '/browserconfig.xml',
+  '/sw.js',
+  '/register-sw.js',
+  '/offline.html',
+  '/offline.css',
   // Add common static asset extensions
 ];
 
@@ -67,7 +71,7 @@ const isPublicRoute = (path: string) =>
 
 // Helper to skip auth for static assets by extension
 function hasStaticAssetExtension(path: string): boolean {
-  return /\.(svg|png|jpg|jpeg|gif|webp|ico|json|xml)$/i.test(path);
+  return /\.(svg|png|jpg|jpeg|gif|webp|ico|json|xml|css|js|woff2?|ttf)$/i.test(path);
 }
 
 const shouldSkipAuth = (path: string) =>
@@ -208,15 +212,16 @@ export async function updateSession(request: NextRequest) {
       // Log based on error type and route protection status
       if (isProtectedRoute(currentPath)) {
         if (isExpectedFailure) {
-          // Stale/missing/revoked session — expected, log at WARN.
-          logger.warn('[updateSession] Expected auth failure on protected route (re-auth required):', logPayload);
+          // Stale/missing session — expected when unauthenticated; quiet in dev/preview.
+          const log = process.env.NODE_ENV === 'development' ? logger.debug.bind(logger) : logger.warn.bind(logger);
+          log('[updateSession] Expected auth failure on protected route (re-auth required):', logPayload);
         } else if (isTransientError) {
           logger.warn('[updateSession] Transient auth error on protected route:', logPayload);
         } else {
           logger.error('[updateSession] Unexpected auth error on protected route:', logPayload);
         }
-      } else {
-        logger.info('[updateSession] Supabase user error (non-protected route, likely expected):', logPayload);
+      } else if (!isExpectedFailure) {
+        logger.info('[updateSession] Supabase user error (non-protected route):', logPayload);
       }
 
       // For transient errors on protected routes, allow the request to proceed
@@ -234,7 +239,11 @@ export async function updateSession(request: NextRequest) {
         if (isExpectedFailure) {
           clearStaleSupabaseCookies(request, response);
         }
-        logger.warn(`[updateSession] Redirecting due to userError on protected path: ${currentPath}`);
+        if (process.env.NODE_ENV !== 'development') {
+          logger.warn(`[updateSession] Redirecting due to userError on protected path: ${currentPath}`);
+        } else {
+          logger.debug(`[updateSession] Redirecting due to userError on protected path: ${currentPath}`);
+        }
         const redirectUrl = new URL('/login', request.url);
         if (currentPath !== '/') {
           redirectUrl.searchParams.set('redirectTo', currentPath);
@@ -245,7 +254,9 @@ export async function updateSession(request: NextRequest) {
       }
 
       // Allow non-protected routes even if getUser has error (might be transient)
-      logger.warn(`[updateSession] Allowing request despite userError on non-protected path: ${currentPath}`);
+      if (!isExpectedFailure) {
+        logger.warn(`[updateSession] Allowing request despite userError on non-protected path: ${currentPath}`);
+      }
       return response;
     }
 

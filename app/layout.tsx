@@ -60,11 +60,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="pt-BR" className={cn(fontSans.variable, fontHeading.variable)}>
+    <html lang="pt-BR" suppressHydrationWarning className={cn(fontSans.variable, fontHeading.variable)}>
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="theme-color" content="hsl(221.2, 83.2%, 53.3%)" />
+        {/* Netlify Preview Server: purge stale production SW before React loads */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var h=location.hostname;if(h.indexOf('devserver-')===-1)return;if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister()})})}if(window.caches){caches.keys().then(function(k){k.forEach(function(n){caches.delete(n)})})}})();`,
+          }}
+        />
       </head>
       <body className={cn("min-h-screen bg-background antialiased", fontSans.className)}>
         <RootClientLayout>

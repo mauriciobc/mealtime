@@ -8,8 +8,13 @@
   # Build usa --webpack flag para compatibilidade com config webpack customizada
 
 [build.environment]
-  NODE_VERSION = "20.19.0"
+  NODE_VERSION = "22.13.0"
   NPM_FLAGS = "--include=dev"
 
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+# Preview Server — [build] is NOT run before [dev]; start:preview builds then serves.
+# Requires DATABASE_URL + DIRECT_URL with deploy context "All"/"Dev" AND scope "Builds" (not Runtime-only).
+[dev]
+  command = "npm run start:preview"
+  targetPort = 3000
+  port = 8888
+  framework = "#custom"
