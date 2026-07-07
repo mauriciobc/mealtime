@@ -23,14 +23,29 @@ const DEFAULT_ALLOWED_ORIGINS = [
 ];
 
 const ALLOWED_ORIGINS = (() => {
+  const origins = new Set<string>();
   const envOrigins = process.env.ALLOWED_ORIGINS;
-  if (envOrigins && envOrigins.trim()) {
-    return envOrigins
-      .split(',')
-      .map(origin => origin.trim())
-      .filter(origin => origin.length > 0);
+  if (envOrigins?.trim()) {
+    for (const origin of envOrigins.split(',').map((o) => o.trim()).filter(Boolean)) {
+      origins.add(origin);
+    }
+  } else {
+    for (const origin of DEFAULT_ALLOWED_ORIGINS) {
+      origins.add(origin);
+    }
   }
-  return DEFAULT_ALLOWED_ORIGINS;
+
+  // Netlify Preview Server / deploy previews inject URL at runtime
+  for (const candidate of [process.env.URL, process.env.DEPLOY_PRIME_URL]) {
+    if (!candidate) continue;
+    try {
+      origins.add(new URL(candidate).origin);
+    } catch {
+      // ignore invalid URL
+    }
+  }
+
+  return [...origins];
 })();
 
 // API routes that should return JSON
