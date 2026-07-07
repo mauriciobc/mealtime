@@ -337,8 +337,11 @@ export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const method = request.method;
 
-  // Rate limiting (skip for health checks)
-  if (!pathname.startsWith('/api/health')) {
+  // Rate limiting (skip for health checks and CSP violation sink)
+  if (
+    !pathname.startsWith('/api/health') &&
+    !pathname.startsWith('/api/csp-violation/')
+  ) {
     const rateLimitKey = getRateLimitKey(request);
     if (isRateLimited(rateLimitKey)) {
       logger.warn('[Middleware] Rate limit exceeded:', { key: rateLimitKey });

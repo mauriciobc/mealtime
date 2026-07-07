@@ -89,18 +89,11 @@ const nextConfig = {
   // served by Netlify's CDN and these headers have negligible performance
   // impact on cacheable resources.
   async headers() {
-    return [
+    const securityHeaders = [
       {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy-Report-Only',
-            value: CSP_REPORT_ONLY,
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=31536000; includeSubDomains; preload',
-          },
+        key: 'Strict-Transport-Security',
+        value: 'max-age=31536000; includeSubDomains; preload',
+      },
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
@@ -113,11 +106,25 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
-          },
-        ],
+      {
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=()',
+      },
+    ];
+
+    // Webpack dev (npm run dev) uses eval() in main-app.js. CSP report-only without
+    // 'unsafe-eval' floods /api/csp-violation/report and can starve the dev server.
+    if (process.env.NODE_ENV === 'production') {
+      securityHeaders.unshift({
+        key: 'Content-Security-Policy-Report-Only',
+        value: CSP_REPORT_ONLY,
+      });
+    }
+
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaders,
       },
     ];
   },
