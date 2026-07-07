@@ -69,6 +69,8 @@ interface GlobalLoadingProps {
   mode?: 'progress' | 'spinner' | 'overlay' | 'lottie';
   text?: string;
   size?: 'sm' | 'md' | 'lg';
+  /** Show even when LoadingContext has no active operations (auth gates, Suspense, etc.) */
+  forceVisible?: boolean;
 }
 
 const sizeClasses = {
@@ -77,7 +79,7 @@ const sizeClasses = {
   lg: 'h-8 w-8',
 };
 
-export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLoadingProps) {
+export function GlobalLoading({ mode = 'progress', text, size = 'md', forceVisible = false }: GlobalLoadingProps) {
   const { isLoading, state } = useLoading();
   const hasOperations = state.operations && state.operations.length > 0;
   const currentOperation = hasOperations ? state.operations[0] : null;
@@ -97,13 +99,14 @@ export function GlobalLoading({ mode = 'progress', text, size = 'md' }: GlobalLo
     }
   }, [mode, animationData, animationLoadError]);
 
-  if (!isLoading) {
+  const show = forceVisible || isLoading;
+  if (!show) {
     return null;
   }
 
   return (
     <AnimatePresence>
-      {isLoading && (
+      {show && (
         <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
