@@ -73,11 +73,19 @@ switch (command) {
       console.error('Usage: netlify:preview-server:stop <branch>');
       process.exit(1);
     }
-    execFileSync(
-      'npx',
-      ['netlify', 'api', 'deleteSiteDevServers', '--data', JSON.stringify({ site_id: siteId, branch })],
-      { cwd: ROOT, stdio: 'inherit' },
-    );
+    try {
+      execFileSync(
+        'npx',
+        ['netlify', 'api', 'deleteSiteDevServers', '--data', JSON.stringify({ site_id: siteId, branch })],
+        { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' },
+      );
+    } catch (error) {
+      // Netlify returns 202 Accepted for async stop — treat as success
+      const stderr = error?.stderr ?? '';
+      if (!String(stderr).includes('Accepted') && error?.status !== 0) {
+        throw error;
+      }
+    }
     console.log(`Preview Server stopped for branch: ${branch}`);
     break;
   }
