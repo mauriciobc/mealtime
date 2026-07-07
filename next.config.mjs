@@ -25,8 +25,42 @@ const CSP_REPORT_ONLY = [
   "report-uri /api/csp-violation/report",
 ].join('; ');
 
+/**
+ * Hostnames allowed to access Next.js dev assets (HMR, etc.) when the browser
+ * origin differs from localhost — e.g. Netlify Preview Server proxies :8888 → :3000.
+ * @see https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ */
+function getAllowedDevOrigins() {
+  const origins = ['localhost', '127.0.0.1'];
+
+  const siteName = process.env.SITE_NAME || 'meowtime';
+  // Preview Server URL: devserver-{branch-with-slashes-as-dashes}--{site}.netlify.app
+  origins.push('*.netlify.app');
+
+  const branch = process.env.BRANCH || process.env.HEAD;
+  if (branch) {
+    origins.push(`devserver-${branch.replace(/\//g, '-')}--${siteName}.netlify.app`);
+  }
+
+  const urlHost = safeGetHostname(process.env.URL);
+  if (urlHost) {
+    origins.push(urlHost);
+  }
+
+  if (process.env.NEXT_ALLOWED_DEV_ORIGINS) {
+    origins.push(
+      ...process.env.NEXT_ALLOWED_DEV_ORIGINS.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    );
+  }
+
+  return [...new Set(origins)];
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: getAllowedDevOrigins(),
   // REMOVIDO: output: 'standalone' - incompatível com Netlify
   // Netlify usa OpenNext v3 automaticamente
   productionBrowserSourceMaps: false,
