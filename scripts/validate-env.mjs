@@ -44,6 +44,9 @@ if (isProduction) {
       '[validate-env] For Netlify Preview Server, set env vars with scope "All" or "Dev" in Site settings → Environment variables.',
     );
     console.error(
+      '[validate-env] Each var must include the "Builds" scope (not Runtime-only) so npm run build can read them.',
+    );
+    console.error(
       '[validate-env] Tip: netlify env:get DATABASE_URL --context production && netlify env:set DATABASE_URL "<value>" --context dev',
     );
     process.exit(1);

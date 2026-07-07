@@ -12,7 +12,7 @@
   NPM_FLAGS = "--include=dev"
 
 # Preview Server — [build] is NOT run before [dev]; start:preview builds then serves.
-# Requires DATABASE_URL + DIRECT_URL in Netlify env with scope "All" or "Dev" (not Production-only).
+# Requires DATABASE_URL + DIRECT_URL with deploy context "All"/"Dev" AND scope "Builds" (not Runtime-only).
 [dev]
   command = "npm run start:preview"
   targetPort = 3000
