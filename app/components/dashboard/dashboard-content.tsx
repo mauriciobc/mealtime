@@ -4,17 +4,15 @@ import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { m } from "framer-motion";
 import Link from "next/link";
-import { Clock, Utensils, Calendar, PlusCircle, Gauge, ArrowRight, Plus, CheckCircle2, Circle, BarChart3 } from "lucide-react";
-import { format } from "date-fns";
+import { Clock, Utensils, Calendar, PlusCircle, Gauge, Plus, BarChart3 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FeedingLogItem } from "@/components/feeding/feeding-log-item";
-import { EmptyState } from "@/components/ui/empty-state";
 import { CatType, FeedingLog, User } from "@/lib/types";
 import { NewFeedingSheet } from "@/components/feeding/new-feeding-sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import EventsList from "@/components/events-list";
+import { DashboardCatsScroll } from "./dashboard-cats-scroll";
 
 const DashboardFeedingsChart = dynamic(
   () => import("./dashboard-feedings-chart").then((m) => m.DashboardFeedingsChart),
@@ -126,52 +124,10 @@ export default function DashboardContent({
         </div>
       </m.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr),auto] gap-6 mb-6">
         {cats && cats.length > 0 && (
-          <m.div variants={itemVariants} layoutId="dashboard-cats-scroll">
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-              {cats.map((cat) => (
-                <TooltipProvider key={cat.id}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link
-                        href={`/cats/${cat.id}`}
-                        className="flex-shrink-0 group"
-                      >
-                        <div className="relative">
-                          <Avatar className="h-16 w-16 md:h-20 md:w-20 ring-2 ring-transparent group-hover:ring-primary group-hover:scale-105 transition-all duration-200 rounded-2xl">
-                            <AvatarImage src={cat.photo_url || ''} alt={cat.name} className="object-cover" />
-                            <AvatarFallback className="text-lg bg-secondary">
-                              {cat.name.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          {fedCats.includes(cat.id) && (
-                            <div className="absolute -bottom-1 -right-1 bg-accent rounded-full p-1">
-                              <CheckCircle2 className="h-4 w-4 text-accent-foreground" />
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs md:text-sm font-medium mt-2 text-center truncate max-[100px]">
-                          {cat.name}
-                        </p>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Ver perfil de {cat.name}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ))}
-              <Link
-                href="/cats/new"
-                className="flex-shrink-0 flex flex-col items-center justify-center"
-              >
-                <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl border-2 border-dashed border-muted-foreground/30 flex items-center justify-center hover:border-primary hover:bg-secondary/50 transition-colors">
-                  <Plus className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-xs mt-2 text-muted-foreground">Adicionar</p>
-              </Link>
-            </div>
+          <m.div variants={itemVariants} layoutId="dashboard-cats-scroll" className="min-w-0 max-w-full">
+            <DashboardCatsScroll cats={cats} fedCatIds={fedCats} />
           </m.div>
         )}
 
@@ -232,24 +188,26 @@ export default function DashboardContent({
             </Link>
           </m.div>
 
-          <m.div variants={itemVariants} className="hidden lg:block">
-            <Card 
-              className="bg-gradient-to-br from-primary to-primary/90 shadow-sm hover:shadow-lg transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
-              onClick={() => setIsNewFeedingSheetOpen(true)}
-            >
-              <CardContent className="p-4 h-full flex items-center justify-center">
-                <div className="flex items-center gap-3 text-primary-foreground">
-                  <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
-                    <Plus className="h-6 w-6" />
+          <div className="hidden lg:block h-full">
+            <m.div variants={itemVariants} className="h-full">
+              <Card 
+                className="bg-gradient-to-br from-primary to-primary/90 shadow-sm hover:shadow-lg transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] h-full"
+                onClick={() => setIsNewFeedingSheetOpen(true)}
+              >
+                <CardContent className="p-4 h-full flex items-center justify-center">
+                  <div className="flex items-center gap-3 text-primary-foreground">
+                    <div className="h-12 w-12 rounded-xl bg-white/20 flex items-center justify-center">
+                      <Plus className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-lg">Registrar</p>
+                      <p className="text-xs opacity-90">Nova alimentação</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-bold text-lg">Registrar</p>
-                    <p className="text-xs opacity-90">Nova alimentação</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </m.div>
+                </CardContent>
+              </Card>
+            </m.div>
+          </div>
         </div>
       </div>
 
