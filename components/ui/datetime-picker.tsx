@@ -4,7 +4,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { format, addDays } from "date-fns";
+import { format } from "date-fns";
 import { type Locale, enUS } from "date-fns/locale";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import * as React from "react";
@@ -217,37 +217,56 @@ interface TimePickerProps {
   granularity?: 'second' | 'minute' | 'hour';
 }
 const TimePicker: React.FC<TimePickerProps> = ({ date, onChange, hourCycle = 24, granularity = 'second' }) => {
-  const [hour, setHour] = React.useState(getDateByType(date, hourCycle === 24 ? 'hours' : '12hours'));
-  const [minute, setMinute] = React.useState(getDateByType(date, 'minutes'));
-  const [second, setSecond] = React.useState(getDateByType(date, 'seconds'));
-  const [period, setPeriod] = React.useState<Period>(date.getHours() >= 12 ? 'PM' : 'AM');
+  const hourType = hourCycle === 24 ? 'hours' : '12hours';
+  const [hour, setHour] = React.useState(() => getDateByType(date, hourType));
+  const [minute, setMinute] = React.useState(() => getDateByType(date, 'minutes'));
+  const [second, setSecond] = React.useState(() => getDateByType(date, 'seconds'));
+  const [period, setPeriod] = React.useState<Period>(() => (date.getHours() >= 12 ? 'PM' : 'AM'));
 
+  // Keep inputs in sync when the controlled date changes (e.g. form reset to "now")
   React.useEffect(() => {
-    let newDate = new Date(date);
-    if (hourCycle === 24) {
-      newDate = setHours(newDate, hour);
-    } else {
-      newDate = set12Hours(newDate, hour, period);
-    }
-    newDate = setMinutes(newDate, minute);
-    if (granularity === 'second') {
-      newDate = setSeconds(newDate, second);
-    }
-    onChange(newDate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hour, minute, second, period]);
+    setHour(getDateByType(date, hourType));
+    setMinute(getDateByType(date, 'minutes'));
+    setSecond(getDateByType(date, 'seconds'));
+    setPeriod(date.getHours() >= 12 ? 'PM' : 'AM');
+  }, [date, hourType]);
+
+  const emitChange = React.useCallback(
+    (nextHour: string, nextMinute: string, nextSecond: string, nextPeriod: Period) => {
+      let newDate = new Date(date);
+      if (hourCycle === 24) {
+        newDate = setHours(newDate, nextHour);
+      } else {
+        newDate = set12Hours(newDate, nextHour, nextPeriod);
+      }
+      newDate = setMinutes(newDate, nextMinute);
+      if (granularity === 'second') {
+        newDate = setSeconds(newDate, nextSecond);
+      }
+      onChange(newDate);
+    },
+    [date, hourCycle, granularity, onChange]
+  );
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-center gap-2">
       <TimePickerInput
         value={hour}
-        onChange={e => setHour(e.target.value)}
+        onChange={e => {
+          const next = e.target.value;
+          setHour(next);
+          emitChange(next, minute, second, period);
+        }}
         aria-label="Hour"
       />
       <span>:</span>
       <TimePickerInput
         value={minute}
-        onChange={e => setMinute(e.target.value)}
+        onChange={e => {
+          const next = e.target.value;
+          setMinute(next);
+          emitChange(hour, next, second, period);
+        }}
         aria-label="Minute"
       />
       {granularity === 'second' && (
@@ -255,13 +274,24 @@ const TimePicker: React.FC<TimePickerProps> = ({ date, onChange, hourCycle = 24,
           <span>:</span>
           <TimePickerInput
             value={second}
-            onChange={e => setSecond(e.target.value)}
+            onChange={e => {
+              const next = e.target.value;
+              setSecond(next);
+              emitChange(hour, minute, next, period);
+            }}
             aria-label="Second"
           />
         </>
       )}
       {hourCycle === 12 && (
-        <Select value={period} onValueChange={v => setPeriod(v as Period)}>
+        <Select
+          value={period}
+          onValueChange={v => {
+            const next = v as Period;
+            setPeriod(next);
+            emitChange(hour, minute, second, next);
+          }}
+        >
           <SelectTrigger className="w-16">
             <SelectValue />
           </SelectTrigger>
@@ -298,7 +328,7 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
   (
     {
       locale = enUS,
-      defaultPopupValue = new Date(new Date().setHours(0, 0, 0, 0)),
+      defaultPopupValue,
       value,
       onChange,
       onMonthChange,
@@ -313,33 +343,34 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
     },
     ref,
   ) => {
-    const [month, setMonth] = React.useState<Date>(value ?? defaultPopupValue);
+    // Prefer the controlled value's time; never default the popup clock to midnight.
+    const fallbackDate = defaultPopupValue ?? value ?? new Date();
+    const [month, setMonth] = React.useState<Date>(value ?? fallbackDate);
     const buttonRef = useRef<HTMLButtonElement>(null);
     const [displayDate, setDisplayDate] = React.useState<Date | undefined>(value ?? undefined);
     onMonthChange ||= onChange;
+
     React.useEffect(() => {
       setDisplayDate(value);
+      if (value) {
+        setMonth(value);
+      }
     }, [value]);
+
+    const timeSource = displayDate ?? month;
+
     const handleMonthChange = (newDay: Date | undefined) => {
       if (!newDay) {
         return;
       }
-      if (!defaultPopupValue) {
-        newDay.setHours(month?.getHours() ?? 0, month?.getMinutes() ?? 0, month?.getSeconds() ?? 0);
-        onMonthChange?.(newDay);
-        setMonth(newDay);
-        return;
-      }
-      const diff = newDay.getTime() - defaultPopupValue.getTime();
-      const diffInDays = diff / (1000 * 60 * 60 * 24);
-      const newDateFull = addDays(defaultPopupValue, Math.ceil(diffInDays));
-      newDateFull.setHours(
-        month?.getHours() ?? 0,
-        month?.getMinutes() ?? 0,
-        month?.getSeconds() ?? 0,
+      newDay.setHours(
+        timeSource.getHours(),
+        timeSource.getMinutes(),
+        timeSource.getSeconds(),
+        timeSource.getMilliseconds(),
       );
-      onMonthChange?.(newDateFull);
-      setMonth(newDateFull);
+      onMonthChange?.(newDay);
+      setMonth(newDay);
     };
     const onSelect = (newDay?: Date) => {
       if (!newDay) {
@@ -355,14 +386,15 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
         ...buttonRef.current,
         value: displayDate,
         reset: () => {
+          const now = new Date();
           setDisplayDate(undefined);
-          setMonth(defaultPopupValue);
+          setMonth(now);
           if (onChange) {
-            onChange(new Date());
+            onChange(now);
           }
         },
       }),
-      [displayDate, defaultPopupValue, onChange],
+      [displayDate, onChange],
     );
     const initHourFormat = {
       hour24:
@@ -401,7 +433,7 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0">
+        <PopoverContent className="w-auto overflow-hidden p-0 rounded-md">
           <CalendarPicker
             mode="single"
             selected={displayDate}
@@ -409,9 +441,10 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
             onSelect={(newDate) => {
               if (newDate) {
                 newDate.setHours(
-                  month?.getHours() ?? 0,
-                  month?.getMinutes() ?? 0,
-                  month?.getSeconds() ?? 0,
+                  timeSource.getHours(),
+                  timeSource.getMinutes(),
+                  timeSource.getSeconds(),
+                  timeSource.getMilliseconds(),
                 );
                 onSelect(newDate);
               }
@@ -424,14 +457,14 @@ const DateTimePicker = React.forwardRef<Partial<DateTimePickerRef>, DateTimePick
           {granularity !== 'day' && (
             <div className="border-border border-t p-3">
               <TimePicker
-                onChange={(value) => {
-                  onChange?.(value);
-                  setDisplayDate(value);
-                  if (value) {
-                    setMonth(value);
+                onChange={(next) => {
+                  onChange?.(next);
+                  setDisplayDate(next);
+                  if (next) {
+                    setMonth(next);
                   }
                 }}
-                date={month}
+                date={timeSource}
                 hourCycle={hourCycle}
                 granularity={granularity}
               />

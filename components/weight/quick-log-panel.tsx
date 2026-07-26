@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -55,28 +55,36 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
 
   const form = useForm<WeightLogFormValues>({
     resolver: zodResolver(weightLogSchema) as any,
+    defaultValues: {
+      catId,
+      weight: undefined,
+      date: new Date(),
+      notes: '',
+    },
   });
 
-  const handlePanelOpenChange = (open: boolean) => {
-    if (open) {
-      if (isEditing && logToEdit) {
-        form.reset({
-          catId: logToEdit.catId || catId,
-          weight: logToEdit.weight,
-          date: new Date(logToEdit.date),
-          notes: logToEdit.notes || '',
-        });
-      } else {
-        form.reset({
-          catId: catId,
-          weight: NaN,
-          date: new Date(),
-          notes: '',
-        });
-      }
+  // Drawer is controlled via isPanelOpen from the FAB; onOpenChange(true) is NOT
+  // called on that path, so defaults must be applied when the panel opens.
+  useEffect(() => {
+    if (!isPanelOpen) return;
+
+    if (isEditing && logToEdit) {
+      form.reset({
+        catId: logToEdit.catId || catId,
+        weight: logToEdit.weight,
+        date: new Date(logToEdit.date),
+        notes: logToEdit.notes || '',
+      });
+      return;
     }
-    onPanelOpenChange(open);
-  };
+
+    form.reset({
+      catId,
+      weight: undefined,
+      date: new Date(),
+      notes: '',
+    });
+  }, [isPanelOpen, isEditing, logToEdit, catId, form]);
 
   async function onSubmit(data: WeightLogFormValues) {
     try {
@@ -88,7 +96,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
 
   return (
     <>
-      <Drawer open={isPanelOpen} onOpenChange={handlePanelOpenChange}>
+      <Drawer open={isPanelOpen} onOpenChange={onPanelOpenChange} shouldScaleBackground={false}>
         <DrawerContent>
           <div className="mx-auto w-full max-w-md">
             <DrawerHeader className="text-left">
@@ -114,7 +122,11 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
                             step="0.01"
                             placeholder="ex: 5.2"
                             {...field}
-                            value={isNaN(field.value as number) ? '' : field.value}
+                            value={field.value ?? ''}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              field.onChange(raw === '' ? undefined : e.target.valueAsNumber);
+                            }}
                           />
                         </FormControl>
                         <FormMessage />
@@ -131,6 +143,7 @@ const QuickLogPanel: React.FC<QuickLogPanelProps> = ({
                           <DateTimePicker
                             value={field.value}
                             onChange={(date) => field.onChange(date)}
+                            defaultPopupValue={field.value ?? new Date()}
                             hourCycle={24}
                             granularity="minute"
                             placeholder="Selecione a data e hora"
