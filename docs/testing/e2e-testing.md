@@ -15,7 +15,7 @@ The E2E tests verify that the application works correctly from the user's perspe
 
 ## Prerequisites
 
-1. Node.js >= 20.19.0
+1. Node.js >= 22.12.0
 2. Dependencies installed (`npm install`)
 3. Development server running (`npm run dev`)
 4. Test database with test data

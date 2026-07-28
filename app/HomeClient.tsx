@@ -18,7 +18,7 @@ export default function HomeClient() {
 
   switch (appState.type) {
     case 'LOADING_USER':
-      return <GlobalLoading mode="lottie" text="Carregando dados do usuário..." />;
+      return <GlobalLoading mode="lottie" text="Carregando dados do usuário..." forceVisible />;
 
     case 'ERROR_USER':
       return (
@@ -28,7 +28,7 @@ export default function HomeClient() {
       );
 
     case 'NO_USER':
-      return <GlobalLoading mode="lottie" text="Redirecionando para login..." />;
+      return <GlobalLoading mode="lottie" text="Redirecionando para login..." forceVisible />;
 
     case 'NO_HOUSEHOLD':
       return (
@@ -48,7 +48,7 @@ export default function HomeClient() {
       );
 
     case 'LOADING_DASHBOARD':
-      return <GlobalLoading mode="lottie" text="Carregando dados do painel..." />;
+      return <GlobalLoading mode="lottie" text="Carregando dados do painel..." forceVisible />;
 
     case 'ERROR_DASHBOARD':
       return (

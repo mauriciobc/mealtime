@@ -8,7 +8,7 @@ set -e
 GIT_REPO_URL="https://github.com/mauriciobc/mealtime" # e.g., git@github.com:your_username/mealtime.git
 PROJECT_DIR="/home/apps/mealtime"    # Directory where the app will live on the server
 APP_NAME="mealtime-app"                # Name for the PM2 process
-NODE_VERSION="20"                      # Specify the desired Node.js major version (e.g., 18, 20)
+NODE_VERSION="22"                      # Specify the desired Node.js major version (e.g., 20, 22)
 
 # --- Permission Checks ---
 # Check if script is run as root

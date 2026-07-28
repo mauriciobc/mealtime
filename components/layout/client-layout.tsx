@@ -15,7 +15,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const { state: { isLoading: profileLoading, currentUser: _currentUser }, authLoading } = useUserContext();
 
   if (authLoading || profileLoading) {
-    return <GlobalLoading mode="overlay" />;
+    return <GlobalLoading mode="overlay" forceVisible />;
   }
 
   const headerProps =
