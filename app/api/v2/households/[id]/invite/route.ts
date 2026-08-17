@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { createAdminClient } from '@/utils/supabase/admin';
@@ -6,6 +6,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireHouseholdAdmin } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Define input schema
 const inviteSchema = z.object({
@@ -23,10 +24,7 @@ export const POST = withHybridAuth(async (
   logger.info('[POST /api/v2/households/invite] Invite request received', { householdId, userId: user.id });
 
   if (!householdId) {
-    return NextResponse.json({
-      success: false,
-      error: 'Household ID is required'
-    }, { status: 400 });
+    return v2Err('Household ID is required', 400);
   }
 
   const adminAccess = await requireHouseholdAdmin(user.id, householdId);
@@ -39,16 +37,9 @@ export const POST = withHybridAuth(async (
     validatedData = inviteSchema.parse(body);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid input',
-        details: error.issues
-      }, { status: 400 });
+      return v2Err('Invalid input', 400, error.issues);
     }
-    return NextResponse.json({
-      success: false,
-      error: 'Invalid request body'
-    }, { status: 400 });
+    return v2Err('Invalid request body', 400);
   }
 
   const { email: targetEmail } = validatedData;
@@ -61,10 +52,7 @@ export const POST = withHybridAuth(async (
     });
 
     if (!household) {
-      return NextResponse.json({
-        success: false,
-        error: 'Household not found'
-      }, { status: 404 });
+      return v2Err('Household not found', 404);
     }
 
     // Check if a user with this email already exists (query profiles table directly - avoids pagination issues)
@@ -99,10 +87,7 @@ export const POST = withHybridAuth(async (
 
       if (existingMembership) {
         logger.info(`[POST /api/v2/households/invite] User already member`, { userId: targetUser.id, householdId });
-        return NextResponse.json({
-          success: true,
-          message: 'User is already a member of this household'
-        }, { status: 200 });
+        return v2Ok({ message: 'User is already a member of this household' });
       }
 
       // User exists but not in household
@@ -128,10 +113,7 @@ export const POST = withHybridAuth(async (
           householdId,
           notificationId: existingInvite.id 
         });
-        return NextResponse.json({
-          success: true,
-          message: 'Invitation already sent to this user'
-        }, { status: 200 });
+        return v2Ok({ message: 'Invitation already sent to this user' });
       }
 
       // Get inviter's name for the notification
@@ -168,20 +150,14 @@ export const POST = withHybridAuth(async (
         householdId 
       });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Invitation sent successfully. The user will need to accept it.'
-      }, { status: 200 });
+      return v2Ok({ message: 'Invitation sent successfully. The user will need to accept it.' });
 
     } else {
       // User does not exist, send an invite via Supabase Auth
       const supabaseAdmin = createAdminClient();
       if (!supabaseAdmin) {
         logger.error('[POST /api/v2/households/invite] Failed to initialize admin client');
-        return NextResponse.json({
-          success: false,
-          error: 'Failed to initialize admin client'
-        }, { status: 500 });
+        return v2Err('Failed to initialize admin client', 500);
       }
 
       const inviteRedirectUrl = `${request.nextUrl.origin}/api/auth/callback?redirectTo=/join?householdId=${householdId}`;
@@ -197,32 +173,20 @@ export const POST = withHybridAuth(async (
         logger.error('[POST /api/v2/households/invite] Supabase invite error', { inviteError });
         
         if (inviteError.message.includes('rate limit')) {
-          return NextResponse.json({
-            success: false,
-            error: 'Invite rate limit exceeded. Please try again later.'
-          }, { status: 429 });
+          return v2Err('Invite rate limit exceeded. Please try again later.', 429);
         }
         
-        return NextResponse.json({
-          success: false,
-          error: 'Failed to send invitation'
-        }, { status: 500 });
+        return v2Err('Failed to send invitation', 500);
       }
 
       logger.info('[POST /api/v2/households/invite] Invitation sent successfully', { email: targetEmail, householdId });
 
-      return NextResponse.json({
-        success: true,
-        message: 'Invitation sent successfully'
-      }, { status: 200 });
+      return v2Ok({ message: 'Invitation sent successfully' });
     }
 
   } catch (error) {
     logger.error('[POST /api/v2/households/invite] Error processing household invite', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+    return v2Err('Internal server error', 500);
   }
 });
 

@@ -5,6 +5,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { requireHouseholdAdmin, requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -59,10 +60,7 @@ export const GET = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   try {
@@ -71,11 +69,7 @@ export const GET = withHybridAuth(async (
     // Validate route parameters
     const paramsValidation = RouteParamsSchema.safeParse(params);
     if (!paramsValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'ID do domicílio inválido',
-        details: paramsValidation.error.issues
-      }, { status: 400 });
+      return v2Err('ID do domicílio inválido', 400, paramsValidation.error.issues);
     }
     const householdId = paramsValidation.data.id;
 
@@ -122,11 +116,7 @@ export const GET = withHybridAuth(async (
       count: members.length
     });
 
-    return NextResponse.json({
-      success: true,
-      data: members,
-      count: members.length
-    });
+    return v2Ok(members);
 
   } catch (error) {
     logger.error('[GET /api/v2/households/[id]/members] Error fetching members:', {
@@ -134,10 +124,7 @@ export const GET = withHybridAuth(async (
       error
     });
     
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao buscar os membros'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao buscar os membros', 500);
   }
 });
 
@@ -156,10 +143,7 @@ export const POST = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   try {
@@ -168,11 +152,7 @@ export const POST = withHybridAuth(async (
     // Validate route parameters
     const paramsValidation = RouteParamsSchema.safeParse(params);
     if (!paramsValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'ID do domicílio inválido',
-        details: paramsValidation.error.issues
-      }, { status: 400 });
+      return v2Err('ID do domicílio inválido', 400, paramsValidation.error.issues);
     }
     const householdId = paramsValidation.data.id;
 
@@ -192,11 +172,7 @@ export const POST = withHybridAuth(async (
     const bodyValidation = PostBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'Dados inválidos',
-        details: bodyValidation.error.issues
-      }, { status: 400 });
+      return v2Err('Dados inválidos', 400, bodyValidation.error.issues);
     }
 
     const { email: emailToAdd, role: roleToAdd } = bodyValidation.data;
@@ -208,10 +184,7 @@ export const POST = withHybridAuth(async (
     });
 
     if (!userToAdd) {
-      return NextResponse.json({
-        success: false,
-        error: 'Usuário com este email não encontrado.'
-      }, { status: 404 });
+      return v2Err('Usuário com este email não encontrado.', 404);
     }
 
     // Use transaction to prevent race conditions
@@ -275,25 +248,16 @@ export const POST = withHybridAuth(async (
       memberId: member.id
     });
 
-    return NextResponse.json({
-      success: true,
-      data: member
-    }, { status: 201 });
+    return v2Ok(member, 201);
 
   } catch (error) {
     // Handle custom transaction errors
     if ((error as Error).message === 'ALREADY_IN_HOUSEHOLD') {
-      return NextResponse.json({
-        success: false,
-        error: 'Este usuário já pertence a este domicílio.'
-      }, { status: 400 });
+      return v2Err('Este usuário já pertence a este domicílio.', 400);
     }
     
     if ((error as Error).message === 'ALREADY_IN_OTHER_HOUSEHOLD') {
-      return NextResponse.json({
-        success: false,
-        error: 'Este usuário já pertence a outro domicílio.'
-      }, { status: 400 });
+      return v2Err('Este usuário já pertence a outro domicílio.', 400);
     }
     
     logger.error('[POST /api/v2/households/[id]/members] Error adding member:', {
@@ -303,16 +267,10 @@ export const POST = withHybridAuth(async (
     
     // Handle specific Prisma errors
     if ((error as any).code === 'P2002') {
-      return NextResponse.json({
-        success: false,
-        error: 'Erro de conflito ao adicionar membro.'
-      }, { status: 409 });
+      return v2Err('Erro de conflito ao adicionar membro.', 409);
     }
     
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao adicionar o membro'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao adicionar o membro', 500);
   }
 });
 

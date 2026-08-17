@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/prisma';
@@ -6,6 +6,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireCatAccess } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 /**
  * Helper function to report errors to monitoring/alerting services
@@ -89,11 +90,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       logger.warn('[POST /api/v2/feedings/batch] Invalid request data', {
         validationError: validationResult.error.format()
       });
-      return NextResponse.json({
-        success: false,
-        error: "Invalid request data",
-        details: validationResult.error.format()
-      }, { status: 400 });
+      return v2Err("Invalid request data", 400, validationResult.error.format());
     }
 
     const { logs } = validationResult.data;
@@ -214,41 +211,24 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       tempId: logs[index]?.tempId
     }));
 
-    // Build response payload with optional warnings
-    const responsePayload: {
-      success: boolean;
-      data: {
-        count: number;
-        logs: typeof logsWithTempId;
-      };
-      warnings?: string[];
-    } = {
-      success: true,
-      data: {
-        count: createdFeedings.length,
-        logs: logsWithTempId
-      }
-    };
-
-    // Include warnings if any scheduling failures occurred
     if (schedulingWarnings.length > 0) {
-      responsePayload.warnings = schedulingWarnings;
       logger.warn(`[POST /api/v2/feedings/batch] Response includes ${schedulingWarnings.length} scheduling warning(s)`, {
         warnings: schedulingWarnings,
         userId: user.id
       });
     }
 
-    return NextResponse.json(responsePayload, { status: 201 });
+    return v2Ok(
+      {
+        count: createdFeedings.length,
+        logs: logsWithTempId,
+        ...(schedulingWarnings.length > 0 ? { warnings: schedulingWarnings } : {}),
+      },
+      201
+    );
   } catch (error) {
     logger.error('[POST /api/v2/feedings/batch] Error creating batch feeding logs', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to create feeding logs',
-      ...(process.env.NODE_ENV !== 'production' && {
-        details: (error instanceof Error) ? error.message : 'Unknown error'
-      })
-    }, { status: 500 });
+    return v2Err('Failed to create feeding logs', 500);
   }
 });
 

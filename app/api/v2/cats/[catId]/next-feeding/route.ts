@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { calculateNextFeedingTime } from '@/lib/utils/dateUtils';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireCatAccess } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,10 +17,7 @@ export const GET = withHybridAuth(async (
   // Extrair catId do context
   if (!context?.params) {
     logger.error('[GET /api/v2/cats/[catId]/next-feeding] Missing context.params');
-    return NextResponse.json({
-      success: false,
-      error: 'Internal routing error: missing route parameters'
-    }, { status: 500 });
+    return v2Err('Internal routing error: missing route parameters', 500);
   }
   
   const params = await context.params;
@@ -27,10 +25,7 @@ export const GET = withHybridAuth(async (
 
   if (typeof catId !== 'string' || !catId) {
     logger.error('[GET /api/v2/cats/[catId]/next-feeding] Invalid or missing catId parameter', { catId });
-    return NextResponse.json({
-      success: false,
-      error: 'Invalid cat ID'
-    }, { status: 400 });
+    return v2Err('Invalid cat ID', 400);
   }
 
   logger.debug(`[GET /api/v2/cats/${catId}/next-feeding] Request from user ${user.id}`);
@@ -79,23 +74,16 @@ export const GET = withHybridAuth(async (
     }
 
     // 4. Return Result
-    return NextResponse.json({
-      success: true,
-      data: {
+    return v2Ok({
         nextFeeding: nextFeedingDate ? nextFeedingDate.toISOString() : null,
         catId: catId,
         hasSchedules: schedules.length > 0,
         lastFeedingTime: lastFeedingLog?.fed_at?.toISOString() || null
-      }
-    });
+      });
 
   } catch (error) {
     logger.error(`[GET /api/v2/cats/${catId}/next-feeding] Error`, { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to calculate next feeding time',
-      details: (error instanceof Error) ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return v2Err('Failed to calculate next feeding time', 500, (error instanceof Error) ? error.message : 'Unknown error');
   }
 });
 

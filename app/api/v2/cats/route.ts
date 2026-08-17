@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
@@ -6,6 +6,7 @@ import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { parseGender } from '@/lib/types/common';
 import { requireHouseholdMember } from '@/lib/authz/household-access';
 import { createCatSchema, feedingIntervalOf } from '@/lib/validations/cats';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // GET /api/v2/cats - Listar todos os gatos (filtragem opcional por householdId)
 export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
@@ -29,11 +30,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     } else {
       if (userHouseholdIds.length === 0) {
         logger.info(`[GET /api/v2/cats] User ${user.id} belongs to no households. Returning empty.`);
-        return NextResponse.json({ 
-          success: true,
-          data: [],
-          count: 0
-        });
+        return v2Ok([]);
       }
       targetHouseholdIds = userHouseholdIds;
       logger.debug(`[GET /api/v2/cats] Fetching for all authorized households.`);
@@ -67,17 +64,10 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      data: cats,
-      count: cats.length
-    });
+    return v2Ok(cats);
   } catch (error: any) {
     logger.logError(error, { message: 'Erro ao buscar gatos', requestUrl: request.nextUrl.toString() });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao buscar os gatos'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao buscar os gatos', 500);
   }
 });
 
@@ -92,11 +82,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     const parsed = createCatSchema.safeParse(body);
     if (!parsed.success) {
       logger.warn('[POST /api/v2/cats] Invalid body:', parsed.error.format());
-      return NextResponse.json({
-        success: false,
-        error: 'Dados inválidos',
-        details: parsed.error.format()
-      }, { status: 400 });
+      return v2Err('Dados inválidos', 400, parsed.error.format());
     }
 
     const data = parsed.data;
@@ -150,10 +136,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     }
 
     logger.debug(`[POST /api/v2/cats] Cat created successfully:`, newCat);
-    return NextResponse.json({
-      success: true,
-      data: newCat
-    }, { status: 201 });
+    return v2Ok(newCat, 201);
   } catch (error: any) {
     logger.error('[POST /api/v2/cats] Error creating cat:', {
       error: error,
@@ -164,16 +147,10 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     });
     
     if (error.code === '22P02') {
-      return NextResponse.json({
-        success: false,
-        error: 'Formato inválido para um ou mais campos'
-      }, { status: 400 });
+      return v2Err('Formato inválido para um ou mais campos', 400);
     }
     
-    return NextResponse.json({
-      success: false,
-      error: 'Erro ao criar o perfil do gato'
-    }, { status: 500 });
+    return v2Err('Erro ao criar o perfil do gato', 500);
   }
 });
 

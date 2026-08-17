@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { handleApiError, handleAuthError, handleValidationError } from '@/lib/utils/api-error-handling';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireCatAccess, requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // GET /api/v2/schedules - Listar agendamentos for a specific household
 export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
@@ -15,10 +16,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     const householdId = searchParams.get('householdId');
 
     if (!householdId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Household ID is required'
-      }, { status: 400 });
+      return v2Err('Household ID is required', 400);
     }
 
     const access = await requireHouseholdMember(user.id, householdId);
@@ -50,18 +48,10 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       days: [],
     }));
     
-    return NextResponse.json({
-      success: true,
-      data: mappedSchedules,
-      count: mappedSchedules.length
-    });
+    return v2Ok(mappedSchedules);
   } catch (error) {
     logger.error('[GET /api/v2/schedules] Error', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch schedules',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    return v2Err('Failed to fetch schedules', 500, error instanceof Error ? error.message : String(error));
   }
 });
 
@@ -80,10 +70,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     } = body;
 
     if (!catId || !type) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat ID and schedule type are required'
-      }, { status: 400 });
+      return v2Err('Cat ID and schedule type are required', 400);
     }
     
     const catAccess = await requireCatAccess(user.id, catId);
@@ -92,25 +79,16 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 
     // Validate schedule type
     if (type !== 'interval' && type !== 'fixedTime') {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid schedule type'
-      }, { status: 400 });
+      return v2Err('Invalid schedule type', 400);
     }
 
     // Validate type-specific data
     if (type === 'interval' && (!interval || interval <= 0)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Interval must be greater than zero'
-      }, { status: 400 });
+      return v2Err('Interval must be greater than zero', 400);
     }
     
     if (type === 'fixedTime' && (!Array.isArray(times) || times.length === 0)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Times array is required for fixed time schedules'
-      }, { status: 400 });
+      return v2Err('Times array is required for fixed time schedules', 400);
     }
 
     // Validate each time entry format for fixedTime schedules
@@ -127,11 +105,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       });
 
       if (invalidTimes.length > 0) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid time format detected',
-          details: `The following times are invalid: ${invalidTimes.join(', ')}. Times must be in HH:MM 24-hour format (e.g., "08:30", "14:00", "23:59").`
-        }, { status: 400 });
+        return v2Err('Invalid time format detected', 400, `The following times are invalid: ${invalidTimes.join(', ')}. Times must be in HH:MM 24-hour format (e.g., "08:30", "14:00", "23:59").`);
       }
     }
 
@@ -158,17 +132,10 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     
     logger.info(`[POST /api/v2/schedules] Schedule created successfully: ${schedule.id}`);
 
-    return NextResponse.json({
-      success: true,
-      data: schedule
-    }, { status: 201 });
+    return v2Ok(schedule, 201);
   } catch (error) {
     logger.error('[POST /api/v2/schedules] Error', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to create schedule',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    return v2Err('Failed to create schedule', 500, error instanceof Error ? error.message : String(error));
   }
 });
 

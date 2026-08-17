@@ -1,10 +1,11 @@
-import { type NextRequest, NextResponse } from 'next/server';
+import { type NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { v4 as uuidv4 } from 'uuid';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireHouseholdAdmin } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Helper to generate a unique invite code
 async function generateInviteCode(): Promise<string> {
@@ -33,10 +34,7 @@ export const PATCH = withHybridAuth(async (
   logger.debug(`[PATCH /api/v2/households/${householdId}/invite-code] Request from user: ${user.id}`);
 
   if (!householdId) {
-    return NextResponse.json({
-      success: false,
-      error: 'Household ID is required'
-    }, { status: 400 });
+    return v2Err('Household ID is required', 400);
   }
 
   const adminAccess = await requireHouseholdAdmin(user.id, householdId);
@@ -54,26 +52,17 @@ export const PATCH = withHybridAuth(async (
 
     logger.info(`[PATCH /api/v2/households/invite-code] Invite code regenerated for household ${householdId}`);
 
-    return NextResponse.json({
-      success: true,
-      data: { inviteCode: updatedHousehold.inviteCode }
-    });
+    return v2Ok({ inviteCode: updatedHousehold.inviteCode });
 
   } catch (error) {
     // Handle Prisma P2025 error (record not found)
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
-      return NextResponse.json({
-        success: false,
-        error: 'Household not found'
-      }, { status: 404 });
+      return v2Err('Household not found', 404);
     }
 
     // Handle all other errors
     logger.error('[PATCH /api/v2/households/invite-code] Error regenerating invite code', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error'
-    }, { status: 500 });
+    return v2Err('Internal server error', 500);
   }
 });
 

@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { BaseCats, parseGender } from "@/lib/types/common";
 import { requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -20,10 +21,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 
     if (!householdId) {
       logger.warn('[GET /api/v2/feedings/cats] Missing householdId parameter');
-      return NextResponse.json({
-        success: false,
-        error: 'householdId é obrigatório'
-      }, { status: 400 });
+      return v2Err('householdId é obrigatório', 400);
     }
 
     const access = await requireHouseholdMember(user.id, householdId);
@@ -55,20 +53,10 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 
     logger.info(`[GET /api/v2/feedings/cats] Found ${formattedCats.length} cats for household ${householdId}`);
     
-    return NextResponse.json({
-      success: true,
-      data: formattedCats,
-      count: formattedCats.length
-    });
+    return v2Ok(formattedCats);
   } catch (error) {
     logger.error('[GET /api/v2/feedings/cats] Error fetching cats', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao buscar os gatos',
-      ...(process.env.NODE_ENV !== 'production' && {
-        details: (error instanceof Error) ? error.message : 'Unknown error'
-      })
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao buscar os gatos', 500);
   }
 });
 

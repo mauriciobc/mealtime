@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { getFeedingStatistics } from '@/lib/services/api/statistics-service';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // GET /api/v2/statistics - Obter estatísticas de alimentação
 export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
@@ -13,10 +14,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     const userHouseholdIds = user.household_ids ?? [];
     if (userHouseholdIds.length === 0) {
       logger.warn(`[GET /api/v2/statistics] User ${user.id} has no households`);
-      return NextResponse.json(
-        { error: "Usuário não associado a nenhum domicílio" },
-        { status: 403 }
-      );
+      return v2Err("Usuário não associado a nenhum domicílio", 403);
     }
 
     const { searchParams } = new URL(request.url);
@@ -40,10 +38,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     const validPeriods = ["7dias", "30dias", "3meses"];
     if (!validPeriods.includes(period)) {
       logger.warn(`[GET /api/v2/statistics] Invalid period: ${period}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Período inválido. Use: 7dias, 30dias ou 3meses'
-      }, { status: 400 });
+      return v2Err('Período inválido. Use: 7dias, 30dias ou 3meses', 400);
     }
 
     // Validate catId
@@ -54,10 +49,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
         householdIds: userHouseholdIds,
         validCatIds: validCatIds
       });
-      return NextResponse.json({
-        success: false,
-        error: 'ID do gato inválido ou não autorizado'
-      }, { status: 400 });
+      return v2Err('ID do gato inválido ou não autorizado', 400);
     }
 
     logger.debug("Parâmetros recebidos:", { period, catId, householdId });
@@ -73,19 +65,13 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       averagePortionSize: stats.averagePortionSize
     });
 
-    return NextResponse.json({
-      success: true,
-      data: stats
-    });
+    return v2Ok(stats);
   } catch (error: any) {
     logger.logError(error, {
       message: 'Erro ao buscar estatísticas',
       requestUrl: request.nextUrl.toString()
     });
-    return NextResponse.json({
-      success: false,
-      error: "Erro ao buscar estatísticas"
-    }, { status: 500 });
+    return v2Err("Erro ao buscar estatísticas", 500);
   }
 });
 

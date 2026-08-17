@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
@@ -6,6 +6,7 @@ import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { parseGender } from '@/lib/types/common';
 import { requireCatAccess } from '@/lib/authz/household-access';
 import { feedingIntervalOf, updateCatSchema } from '@/lib/validations/cats';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // GET /api/v2/cats/[catId] - Buscar gato por ID
 export const GET = withHybridAuth(async (
@@ -19,10 +20,7 @@ export const GET = withHybridAuth(async (
 
     if (!catId) {
       logger.warn('[GET /api/v2/cats/[catId]] Missing catId parameter');
-      return NextResponse.json({
-        success: false,
-        error: 'ID do gato é obrigatório'
-      }, { status: 400 });
+      return v2Err('ID do gato é obrigatório', 400);
     }
 
     logger.debug('[GET /api/v2/cats/[catId]] Authenticated user:', { 
@@ -68,26 +66,17 @@ export const GET = withHybridAuth(async (
         catId,
         userId: user.id
       });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado ou acesso negado'
-      }, { status: 404 });
+      return v2Err('Gato não encontrado ou acesso negado', 404);
     }
 
     logger.info(`[GET /api/v2/cats/[catId]] Cat retrieved successfully:`, { catId });
-    return NextResponse.json({
-      success: true,
-      data: cat
-    });
+    return v2Ok(cat);
   } catch (error: any) {
     logger.logError(error, {
       message: 'Erro ao buscar gato',
       requestUrl: request.nextUrl.toString()
     });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao buscar o gato'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao buscar o gato', 500);
   }
 });
 
@@ -103,10 +92,7 @@ export const PUT = withHybridAuth(async (
 
     if (!catId) {
       logger.warn('[PUT /api/v2/cats/[catId]] Missing catId parameter');
-      return NextResponse.json({
-        success: false,
-        error: 'ID do gato é obrigatório'
-      }, { status: 400 });
+      return v2Err('ID do gato é obrigatório', 400);
     }
 
     logger.debug('[PUT /api/v2/cats/[catId]] Authenticated user:', { 
@@ -122,11 +108,7 @@ export const PUT = withHybridAuth(async (
       logger.warn('[PUT /api/v2/cats/[catId]] Invalid request body:', {
         errors: validationResult.error.format()
       });
-      return NextResponse.json({
-        success: false,
-        error: 'Dados inválidos',
-        details: validationResult.error.format()
-      }, { status: 400 });
+      return v2Err('Dados inválidos', 400, validationResult.error.format());
     }
 
     const data = validationResult.data;
@@ -185,28 +167,19 @@ export const PUT = withHybridAuth(async (
     });
 
     logger.info(`[PUT /api/v2/cats/[catId]] Cat updated successfully:`, { catId });
-    return NextResponse.json({
-      success: true,
-      data: updatedCat
-    });
+    return v2Ok(updatedCat);
   } catch (error: any) {
     // Handle Prisma errors
     if (error.code === 'P2025') {
       logger.warn('[PUT /api/v2/cats/[catId]] Cat not found during update');
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado'
-      }, { status: 404 });
+      return v2Err('Gato não encontrado', 404);
     }
 
     logger.logError(error, {
       message: 'Erro ao atualizar gato',
       requestUrl: request.nextUrl.toString()
     });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao atualizar o gato'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao atualizar o gato', 500);
   }
 });
 
@@ -222,10 +195,7 @@ export const DELETE = withHybridAuth(async (
 
     if (!catId) {
       logger.warn('[DELETE /api/v2/cats/[catId]] Missing catId parameter');
-      return NextResponse.json({
-        success: false,
-        error: 'ID do gato é obrigatório'
-      }, { status: 400 });
+      return v2Err('ID do gato é obrigatório', 400);
     }
 
     logger.debug(`[DELETE /api/v2/cats/[catId]] Attempting delete by user:`, {
@@ -272,18 +242,12 @@ export const DELETE = withHybridAuth(async (
     });
 
     logger.info(`[DELETE /api/v2/cats/[catId]] Deletion transaction completed successfully:`, { catId });
-    return NextResponse.json({
-      success: true,
-      message: 'Gato deletado com sucesso'
-    });
+    return v2Ok({ message: 'Gato deletado com sucesso' });
   } catch (error: any) {
     // Handle Prisma errors
     if (error.code === 'P2025') {
       logger.warn('[DELETE /api/v2/cats/[catId]] Cat not found during delete');
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado'
-      }, { status: 404 });
+      return v2Err('Gato não encontrado', 404);
     }
 
     logger.logError(error, {
@@ -291,17 +255,13 @@ export const DELETE = withHybridAuth(async (
       requestUrl: request.nextUrl.toString()
     });
     
-    const errorResponse: { success: false; error: string; details?: string } = {
-      success: false,
-      error: 'Ocorreu um erro ao deletar o gato'
-    };
-    
-    // Apenas incluir detalhes do erro em ambientes não-produção
-    if (process.env.NODE_ENV !== 'production') {
-      errorResponse.details = (error instanceof Error) ? error.message : 'Unknown error';
-    }
-    
-    return NextResponse.json(errorResponse, { status: 500 });
+    return v2Err(
+      'Ocorreu um erro ao deletar o gato',
+      500,
+      process.env.NODE_ENV !== 'production'
+        ? ((error instanceof Error) ? error.message : 'Unknown error')
+        : undefined
+    );
   }
 });
 

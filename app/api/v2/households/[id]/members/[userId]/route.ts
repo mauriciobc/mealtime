@@ -5,6 +5,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { requireHouseholdAdmin } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -77,14 +78,14 @@ export const PATCH = withHybridAuth(async (
   context?: { params: Promise<{ id: string; userId: string }> }
 ) => {
   if (!context?.params) {
-    return NextResponse.json({ success: false, error: 'Missing route parameters' }, { status: 500 });
+    return v2Err('Missing route parameters', 500);
   }
 
   try {
     const params = await context.params;
     const paramsValidation = RouteParamsSchema.safeParse(params);
     if (!paramsValidation.success) {
-      return NextResponse.json({ success: false, error: 'Parâmetros inválidos' }, { status: 400 });
+      return v2Err('Parâmetros inválidos', 400);
     }
 
     const { id: householdId, userId: targetUserId } = paramsValidation.data;
@@ -96,7 +97,7 @@ export const PATCH = withHybridAuth(async (
     const body = await request.json();
     const bodyValidation = PatchBodySchema.safeParse(body);
     if (!bodyValidation.success) {
-      return NextResponse.json({ success: false, error: 'Corpo inválido' }, { status: 400 });
+      return v2Err('Corpo inválido', 400);
     }
 
     const newRole = bodyValidation.data.role.toLowerCase() as 'admin' | 'member';
@@ -109,7 +110,7 @@ export const PATCH = withHybridAuth(async (
     });
 
     if (!memberToUpdate) {
-      return NextResponse.json({ success: false, error: 'Membro não encontrado' }, { status: 404 });
+      return v2Err('Membro não encontrado', 404);
     }
 
     if (memberToUpdate.role === 'admin' && newRole !== 'admin') {
@@ -117,10 +118,7 @@ export const PATCH = withHybridAuth(async (
         where: { household_id: householdId, role: 'admin' },
       });
       if (adminCount <= 1) {
-        return NextResponse.json({
-          success: false,
-          error: 'Não é possível rebaixar o último administrador',
-        }, { status: 400 });
+        return v2Err('Não é possível rebaixar o último administrador', 400);
       }
     }
 
@@ -130,10 +128,10 @@ export const PATCH = withHybridAuth(async (
     });
 
     const updatedHousehold = await getFormattedHousehold(householdId);
-    return NextResponse.json({ success: true, data: updatedHousehold });
+    return v2Ok(updatedHousehold);
   } catch (error) {
     logger.error('[PATCH /api/v2/households/[id]/members/[userId]] Error', { error });
-    return NextResponse.json({ success: false, error: 'Erro ao atualizar membro' }, { status: 500 });
+    return v2Err('Erro ao atualizar membro', 500);
   }
 });
 
@@ -152,10 +150,7 @@ export const DELETE = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   try {
@@ -164,11 +159,7 @@ export const DELETE = withHybridAuth(async (
     // Validate route parameters
     const paramsValidation = RouteParamsSchema.safeParse(params);
     if (!paramsValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'Parâmetros inválidos',
-        details: paramsValidation.error.issues
-      }, { status: 400 });
+      return v2Err('Parâmetros inválidos', 400, paramsValidation.error.issues);
     }
     const { id: householdId, userId: userIdToRemove } = paramsValidation.data;
     const isSelfLeave =
@@ -192,7 +183,7 @@ export const DELETE = withHybridAuth(async (
       });
 
       if (!membership) {
-        return NextResponse.json({ success: false, error: 'Membro não encontrado' }, { status: 404 });
+        return v2Err('Membro não encontrado', 404);
       }
 
       if (membership.role === 'admin') {
@@ -200,24 +191,18 @@ export const DELETE = withHybridAuth(async (
           where: { household_id: householdId, role: 'admin' },
         });
         if (adminCount <= 1) {
-          return NextResponse.json({
-            success: false,
-            error: 'Não é possível sair sendo o último administrador. Transfira a administração ou exclua a residência.',
-          }, { status: 400 });
+          return v2Err('Não é possível sair sendo o último administrador. Transfira a administração ou exclua a residência.', 400);
         }
       }
 
       await prisma.household_members.delete({ where: { id: membership.id } });
 
-      return NextResponse.json({ success: true, message: 'Você saiu da residência' });
+      return v2Ok({ message: 'Você saiu da residência' });
     }
 
     // Prevent self-removal via admin remove (use leave household flow)
     if (userIdToRemove === user.id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Use sair da residência nas configurações para remover a si mesmo.'
-      }, { status: 400 });
+      return v2Err('Use sair da residência nas configurações para remover a si mesmo.', 400);
     }
 
     // Authorize: Only admins can remove members
@@ -241,10 +226,7 @@ export const DELETE = withHybridAuth(async (
     });
 
     if (!membershipToRemove) {
-      return NextResponse.json({
-        success: false,
-        error: 'Membro não encontrado neste domicílio'
-      }, { status: 404 });
+      return v2Err('Membro não encontrado neste domicílio', 404);
     }
 
     // Atomically check admin count and delete member in a transaction to prevent race conditions
@@ -280,10 +262,7 @@ export const DELETE = withHybridAuth(async (
       userIdToRemove
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Membro removido com sucesso'
-    }, { status: 200 });
+    return v2Ok({ message: 'Membro removido com sucesso' });
 
   } catch (error) {
     // Handle sentinel error for last admin removal attempt
@@ -292,10 +271,7 @@ export const DELETE = withHybridAuth(async (
         requestId,
         householdId: context?.params ? (await context.params).id : 'unknown'
       });
-      return NextResponse.json({
-        success: false,
-        error: 'Não é possível remover o último administrador do domicílio'
-      }, { status: 400 });
+      return v2Err('Não é possível remover o último administrador do domicílio', 400);
     }
 
     logger.error('[DELETE /api/v2/households/[id]/members/[userId]] Error removing member:', {
@@ -305,16 +281,10 @@ export const DELETE = withHybridAuth(async (
     
     // Handle specific Prisma errors
     if ((error as any).code === 'P2025') {
-      return NextResponse.json({
-        success: false,
-        error: 'Membro não encontrado'
-      }, { status: 404 });
+      return v2Err('Membro não encontrado', 404);
     }
     
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao remover o membro'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao remover o membro', 500);
   }
 });
 

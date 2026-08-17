@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { v2Get } from '@/lib/api/v2-client';
+import { mapApiWeightGoal, mapApiWeightLog } from '@/lib/mappers/weight';
 import { domainKeys } from './query-keys';
 
 export interface WeightLogRecord {
@@ -31,57 +33,36 @@ export interface WeightData {
 }
 
 export async function fetchWeightData(householdId: string): Promise<WeightData> {
-  const fetchInit: RequestInit = { credentials: 'include' };
-
-  const catsResponse = await fetch(`/api/v2/households/${householdId}/cats`, fetchInit);
-  const catsJson = await catsResponse.json();
-  const cats: Array<{ id: string }> = catsJson.data ?? catsJson ?? [];
-
-  if (!catsResponse.ok) {
-    throw new Error(`Erro ao carregar gatos (${catsResponse.status})`);
-  }
+  const cats = await v2Get<Array<{ id: string }>>(`/api/v2/households/${householdId}/cats`);
+  const catList = Array.isArray(cats) ? cats : [];
 
   const logBatches = await Promise.all(
-    cats.map(async (cat) => {
-      const res = await fetch(`/api/v2/weight-logs?catId=${cat.id}`, fetchInit);
-      const body = await res.json();
-      return res.ok ? (body.data ?? []) : [];
+    catList.map(async (cat) => {
+      try {
+        const rows = await v2Get<unknown[]>(`/api/v2/weight-logs?catId=${cat.id}`);
+        return Array.isArray(rows) ? rows : [];
+      } catch {
+        return [];
+      }
     })
   );
-  const weightLogsData = logBatches.flat();
 
-  const goalsResponse = await fetch('/api/v2/goals', fetchInit);
-  let weightGoalsData: any[] = [];
-  if (goalsResponse.ok) {
-    const goalsJson = await goalsResponse.json();
-    weightGoalsData = goalsJson.data ?? goalsJson ?? [];
+  let goalsRaw: unknown[] = [];
+  try {
+    const goals = await v2Get<unknown[]>('/api/v2/goals');
+    goalsRaw = Array.isArray(goals) ? goals : [];
+  } catch {
+    goalsRaw = [];
   }
 
-  const weightLogs: WeightLogRecord[] = weightLogsData
-    .map((log: any) => ({
-      id: log.id,
-      catId: log.cat_id,
-      weight: parseFloat(log.weight),
-      date: new Date(log.date),
-      notes: log.notes,
-      measuredBy: log.measured_by,
-      createdAt: new Date(log.created_at),
-      updatedAt: new Date(log.updated_at),
-    }))
-    .sort((a: WeightLogRecord, b: WeightLogRecord) => b.date.getTime() - a.date.getTime());
+  const weightLogs = logBatches
+    .flat()
+    .map((log) => mapApiWeightLog(log as Record<string, unknown>))
+    .sort((a, b) => b.date.getTime() - a.date.getTime());
 
-  const weightGoals: WeightGoalRecord[] = weightGoalsData.map((goal: any) => ({
-    id: goal.id,
-    catId: goal.cat_id,
-    targetWeight: parseFloat(goal.target_weight),
-    targetDate: goal.target_date ? new Date(goal.target_date) : undefined,
-    startWeight: goal.start_weight ? parseFloat(goal.start_weight) : undefined,
-    status: goal.status,
-    notes: goal.notes,
-    createdBy: goal.created_by,
-    createdAt: new Date(goal.created_at),
-    updatedAt: new Date(goal.updated_at),
-  }));
+  const weightGoals = goalsRaw.map((goal) =>
+    mapApiWeightGoal(goal as Record<string, unknown>)
+  );
 
   return { weightLogs, weightGoals };
 }

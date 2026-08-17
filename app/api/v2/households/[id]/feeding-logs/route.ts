@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 import { logger } from '@/lib/monitoring/logger';
@@ -6,6 +6,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { BaseFeedingLog } from '@/lib/types/common';
 import { requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -65,10 +66,7 @@ export const GET = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   try {
@@ -77,11 +75,7 @@ export const GET = withHybridAuth(async (
     // Validate route parameters
     const paramsValidation = RouteParamsSchema.safeParse(params);
     if (!paramsValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'ID do domicílio inválido',
-        details: paramsValidation.error.issues
-      }, { status: 400 });
+      return v2Err('ID do domicílio inválido', 400, paramsValidation.error.issues);
     }
     const householdId = paramsValidation.data.id;
 
@@ -174,17 +168,7 @@ export const GET = withHybridAuth(async (
       totalCount
     });
 
-    return NextResponse.json({
-      success: true,
-      data: formattedLogs,
-      count: formattedLogs.length,
-      totalCount,
-      pagination: {
-        limit,
-        offset,
-        hasMore: (offset + formattedLogs.length) < totalCount
-      }
-    });
+    return v2Ok(formattedLogs);
 
   } catch (error) {
     logger.error('[GET /api/v2/households/[id]/feeding-logs] Error fetching logs:', {
@@ -194,16 +178,10 @@ export const GET = withHybridAuth(async (
     
     // Check for Prisma connection errors
     if ((error as any)?.code?.startsWith('P1')) {
-      return NextResponse.json({
-        success: false,
-        error: "Database connection error"
-      }, { status: 503 });
+      return v2Err("Database connection error", 503);
     }
     
-    return NextResponse.json({
-      success: false,
-      error: 'Erro ao buscar logs de alimentação'
-    }, { status: 500 });
+    return v2Err('Erro ao buscar logs de alimentação', 500);
   }
 });
 

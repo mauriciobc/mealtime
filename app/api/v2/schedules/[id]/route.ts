@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { handleApiError, handleValidationError } from '@/lib/utils/api-error-handling';
 import { createNotification } from '@/lib/services/notificationService';
@@ -7,6 +7,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // GET /api/v2/schedules/[id] - Get a specific schedule
 export const GET = withHybridAuth(async (
@@ -19,10 +20,7 @@ export const GET = withHybridAuth(async (
     const id = params?.id || request.nextUrl.pathname.split('/').pop();
 
     if (!id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid ID'
-      }, { status: 400 });
+      return v2Err('Invalid ID', 400);
     }
 
     logger.debug(`[GET /api/v2/schedules/${id}] Request from user: ${user.id}`);
@@ -42,19 +40,13 @@ export const GET = withHybridAuth(async (
     });
 
     if (!schedule) {
-      return NextResponse.json({
-        success: false,
-        error: 'Schedule not found'
-      }, { status: 404 });
+      return v2Err('Schedule not found', 404);
     }
 
     const access = await requireHouseholdMember(user.id, schedule.cat.household_id);
     if (!access.ok) return access.response;
 
-    return NextResponse.json({
-      success: true,
-      data: schedule
-    });
+    return v2Ok(schedule);
   } catch (error) {
     // Log full error details server-side for debugging (including stack trace)
     logger.error('[GET /api/v2/schedules/[id]] Error', { 
@@ -64,10 +56,7 @@ export const GET = withHybridAuth(async (
     });
     
     // Return generic error message to client (no internal details)
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch schedule'
-    }, { status: 500 });
+    return v2Err('Failed to fetch schedule', 500);
   }
 });
 
@@ -82,10 +71,7 @@ export const PATCH = withHybridAuth(async (
     const id = params?.id || request.nextUrl.pathname.split('/').pop();
 
     if (!id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid ID'
-      }, { status: 400 });
+      return v2Err('Invalid ID', 400);
     }
 
     logger.debug(`[PATCH /api/v2/schedules/${id}] Request from user: ${user.id}`);
@@ -112,10 +98,7 @@ export const PATCH = withHybridAuth(async (
     });
 
     if (!existingSchedule) {
-      return NextResponse.json({
-        success: false,
-        error: 'Schedule not found'
-      }, { status: 404 });
+      return v2Err('Schedule not found', 404);
     }
 
     const patchAccess = await requireHouseholdMember(user.id, existingSchedule.cat.household_id);
@@ -123,10 +106,7 @@ export const PATCH = withHybridAuth(async (
 
     // Validate schedule type if provided
     if (type && type !== 'interval' && type !== 'fixedTime') {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid schedule type'
-      }, { status: 400 });
+      return v2Err('Invalid schedule type', 400);
     }
 
     // Determine the effective type (new type or existing type)
@@ -134,19 +114,13 @@ export const PATCH = withHybridAuth(async (
 
     // Validate type-specific data against the effective type
     if (effectiveType === 'interval' && interval !== undefined && interval <= 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Interval must be greater than zero'
-      }, { status: 400 });
+      return v2Err('Interval must be greater than zero', 400);
     }
 
     if (effectiveType === 'fixedTime' && times !== undefined) {
       const trimmedTimes = typeof times === 'string' ? times.trim() : '';
       if (trimmedTimes === '') {
-        return NextResponse.json({
-          success: false,
-          error: 'Times are required for fixed time schedules'
-        }, { status: 400 });
+        return v2Err('Times are required for fixed time schedules', 400);
       }
     }
 
@@ -211,10 +185,7 @@ export const PATCH = withHybridAuth(async (
 
     logger.info(`[PATCH /api/v2/schedules/${id}] Schedule updated successfully`);
 
-    return NextResponse.json({
-      success: true,
-      data: schedule
-    });
+    return v2Ok(schedule);
   } catch (error) {
     // Log full error details server-side for debugging (including stack trace)
     logger.error('[PATCH /api/v2/schedules/[id]] Error', { 
@@ -224,10 +195,7 @@ export const PATCH = withHybridAuth(async (
     });
     
     // Return generic error message to client (no internal details)
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to update schedule'
-    }, { status: 500 });
+    return v2Err('Failed to update schedule', 500);
   }
 });
 
@@ -242,10 +210,7 @@ export const DELETE = withHybridAuth(async (
     const id = params?.id || request.nextUrl.pathname.split('/').pop();
 
     if (!id) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid ID'
-      }, { status: 400 });
+      return v2Err('Invalid ID', 400);
     }
 
     logger.debug(`[DELETE /api/v2/schedules/${id}] Request from user: ${user.id}`);
@@ -263,10 +228,7 @@ export const DELETE = withHybridAuth(async (
     });
 
     if (!existingSchedule) {
-      return NextResponse.json({
-        success: false,
-        error: 'Schedule not found'
-      }, { status: 404 });
+      return v2Err('Schedule not found', 404);
     }
 
     const deleteAccess = await requireHouseholdMember(user.id, existingSchedule.cat.household_id);
@@ -279,10 +241,7 @@ export const DELETE = withHybridAuth(async (
 
     logger.info(`[DELETE /api/v2/schedules/${id}] Schedule deleted successfully`);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Schedule deleted successfully'
-    });
+    return v2Ok({ message: 'Schedule deleted successfully' });
   } catch (error) {
     // Log full error details server-side for debugging (including stack trace)
     logger.error('[DELETE /api/v2/schedules/[id]] Error', { 
@@ -292,10 +251,7 @@ export const DELETE = withHybridAuth(async (
     });
     
     // Return generic error message to client (no internal details)
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to delete schedule'
-    }, { status: 500 });
+    return v2Err('Failed to delete schedule', 500);
   }
 });
 
