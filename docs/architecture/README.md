@@ -1,35 +1,35 @@
 # Arquitetura do MealTime
 
-## Visão Geral
-O MealTime é uma aplicação Next.js que utiliza uma arquitetura baseada em domínios para gerenciar alimentação de gatos.
+O MealTime é um app Next.js para registrar alimentação, peso e rotina de gatos em um household compartilhado.
 
-## Estrutura de Diretórios
+## Stack
+
+- **Next.js 16** (App Router)
+- **Supabase Auth** (sessão no browser + JWT no mobile). Não usamos NextAuth.
+- **Prisma** no Postgres
+- **React Query** para dados de domínio (gatos, feedings, schedules, peso, households)
+- **Context** só como fachada: sessão do usuário, haptics, e wrappers finos em cima do React Query
+- **Tailwind + shadcn/ui**
+
+## Onde mora cada regra
+
+| Regra | Dono |
+| --- | --- |
+| Autorização de household / gato | `lib/authz/household-access.ts` — ver [authz.md](./authz.md) |
+| Contrato de escrita de gato | `lib/validations/cats.ts` |
+| Fetch HTTP v2 | `lib/api/v2-client.ts` + envelope `lib/responses/v2-json.ts` |
+| Tradução snake_case → tipos da UI | `lib/mappers/` |
+| Query keys de domínio | `lib/hooks/domain/query-keys.ts` |
+
+## Estrutura
+
 ```
-mealtime-app/
-├── app/              # Rotas e páginas Next.js
-├── components/       # Componentes React organizados por domínio
-├── lib/             # Utilitários e lógica de negócio
-├── types/           # Definições de tipos TypeScript
-└── __tests__/       # Testes automatizados
+app/                 # páginas e rotas (API viva em app/api/v2)
+components/          # UI por domínio
+lib/authz/           # membership e acesso a gato
+lib/hooks/domain/    # React Query
+lib/mappers/         # um mapper por recurso
+lib/validations/     # Zod
 ```
 
-## Domínios Principais
-- Gatos (Cats)
-- Alimentações (Feedings)
-- Agendamentos (Schedules)
-- Residências (Households)
-- Notificações (Notifications)
-
-## Tecnologias Principais
-- Next.js 14
-- React
-- TypeScript
-- Prisma
-- TailwindCSS
-- Shadcn UI
-
-## Padrões de Projeto
-- Context API para gerenciamento de estado
-- Hooks personalizados para lógica reutilizável
-- Componentes baseados em domínio
-- API Routes para endpoints serverless 
+A API v1 (`/api/cats`, `/api/feedings`, …) está desligada: o proxy responde **410**. Clientes novos usam `/api/v2/*`.

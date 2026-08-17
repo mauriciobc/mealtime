@@ -61,7 +61,7 @@ import {
 import { Calendar as CalendarIcon } from "@/components/ui/calendar"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { DateTimePicker } from "@/components/ui/datetime-picker-new"
+import { DateTimePicker } from "@/components/ui/datetime-picker"
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 import { useMemo } from "react"
 import { v2Delete, v2Put } from "@/lib/api/v2-client"
@@ -363,8 +363,8 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
                   <DateTimePicker
                     {...(formData.birthdate ? { value: new Date(formData.birthdate) } : {})}
                     onChange={date => setFormData(prev => ({ ...prev, birthdate: date ? date.toISOString().split('T')[0] ?? "" : "" }))}
-                    fromYear={1980}
-                    toYear={2030}
+                    granularity="day"
+                    displayFormat={{ hour24: 'PPP', hour12: 'PP' }}
                     placeholder="Selecione uma data"
                   />
                 </div>

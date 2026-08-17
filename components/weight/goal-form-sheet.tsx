@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from 'sonner';
-import { DateTimePicker } from "@/components/ui/datetime-picker-new";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 
 export interface GoalFormData {
   cat_id: string;
@@ -255,6 +255,8 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
                 <DateTimePicker
                   value={startDate ?? undefined}
                   onChange={(date) => dispatch({ type: 'SET_START_DATE', value: date ?? null })}
+                  granularity="day"
+                  displayFormat={{ hour24: 'PPP', hour12: 'PP' }}
                   placeholder="Selecione a data de início"
                   className="w-full"
                 />
@@ -264,6 +266,8 @@ const GoalFormSheet: React.FC<GoalFormSheetProps> = ({
                 <DateTimePicker
                   value={targetDate ?? undefined}
                   onChange={(date) => dispatch({ type: 'SET_TARGET_DATE', value: date ?? null })}
+                  granularity="day"
+                  displayFormat={{ hour24: 'PPP', hour12: 'PP' }}
                   placeholder="Selecione a data alvo"
                   className="w-full"
                 />
