@@ -29,6 +29,7 @@ Documentação relacionada a deploy e configurações de produção:
 ### 📊 `/reports/`
 Relatórios de progresso, correções e melhorias:
 - **[FOUNDATIONAL-AUDIT-2026-MASTER.md](./reports/FOUNDATIONAL-AUDIT-2026-MASTER.md)** — auditoria foundational e plano de remediação (R1–R9)
+- **[SOFTWARE-SIMPLICITY-ASSESSMENT-2026-08-17.md](./reports/SOFTWARE-SIMPLICITY-ASSESSMENT-2026-08-17.md)** — GQM simplicity scorecard (repository, `151b17f`)
 - Relatórios de correção de lint
 - Relatórios de TypeScript
 - Resumos de refatoração
