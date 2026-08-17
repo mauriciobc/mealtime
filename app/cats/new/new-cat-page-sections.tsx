@@ -27,7 +27,7 @@ import { ImageUpload } from "@/components/ui/image-upload";
 import { Loading } from "@/components/ui/loading";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { DateTimePicker } from "@/components/ui/datetime-picker-new";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 
 export const newCatFormSchema = z.object({
   name: z.string().min(2, {
@@ -150,8 +150,8 @@ export function NewCatFormSection({ form, currentUserId, isSubmitting, onSubmit 
                   <DateTimePicker
                     {...(field.value ? { value: field.value } : {})}
                     onChange={field.onChange}
-                    fromYear={1980}
-                    toYear={2030}
+                    granularity="day"
+                    displayFormat={{ hour24: 'PPP', hour12: 'PP' }}
                     placeholder="Selecione uma data"
                   />
                 </FormControl>

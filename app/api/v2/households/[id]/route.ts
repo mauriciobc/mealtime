@@ -5,6 +5,8 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { parseGender } from '@/lib/types/common';
+import { requireHouseholdAdmin, requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -26,109 +28,15 @@ const PatchBodySchema = z.object({
 
 // Authorizes if the user is a member of the household
 async function authorizeMember(userId: string, householdId: string): Promise<{ authorized: boolean; error?: NextResponse }> {
-  try {
-    const prismaUser = await prisma.profiles.findUnique({ 
-      where: { id: userId }, 
-      select: { 
-        id: true, 
-        household_members: {
-          where: { household_id: householdId },
-          select: { household_id: true }
-        }
-      } 
-    });
-    
-    if (!prismaUser) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Usuário não encontrado'
-        }, { status: 404 })
-      };
-    }
-    
-    // Check if user is a member of the household
-    const isMember = prismaUser.household_members.length > 0;
-    if (!isMember) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Você não tem permissão para acessar este domicílio'
-        }, { status: 403 })
-      };
-    }
-    
-    return { authorized: true };
-  } catch (error) { 
-    logger.error('Member Auth Error:', { error });
-    return { 
-      authorized: false, 
-      error: NextResponse.json({
-        success: false,
-        error: 'Erro interno do servidor'
-      }, { status: 500 })
-    };
-  }
+  const result = await requireHouseholdMember(userId, householdId);
+  if (!result.ok) return { authorized: false, error: result.response };
+  return { authorized: true };
 }
 
-// Authorizes if the user is an admin of the household
 async function authorizeAdmin(userId: string, householdId: string): Promise<{ authorized: boolean; error?: NextResponse }> {
-  try {
-    const prismaUser = await prisma.profiles.findUnique({ 
-      where: { id: userId }, 
-      select: { 
-        id: true, 
-        household_members: {
-          where: { household_id: householdId },
-          select: { role: true }
-        }
-      } 
-    });
-    
-    if (!prismaUser) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Usuário não encontrado'
-        }, { status: 404 })
-      };
-    }
-    
-    const membership = prismaUser.household_members[0];
-    if (!membership) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Você não pertence a este domicílio'
-        }, { status: 403 })
-      };
-    }
-    
-    if (membership.role.trim().toLowerCase() !== 'admin') {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Apenas administradores podem executar esta ação.'
-        }, { status: 403 })
-      };
-    }
-    
-    return { authorized: true };
-  } catch (error) { 
-    logger.error('Admin Auth Error:', { error });
-    return { 
-      authorized: false, 
-      error: NextResponse.json({
-        success: false,
-        error: 'Erro interno do servidor'
-      }, { status: 500 })
-    };
-  }
+  const result = await requireHouseholdAdmin(userId, householdId);
+  if (!result.ok) return { authorized: false, error: result.response };
+  return { authorized: true };
 }
 
 // GET /api/v2/households/[id] - Get a specific household
@@ -146,10 +54,7 @@ export const GET = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   try {
@@ -162,11 +67,7 @@ export const GET = withHybridAuth(async (
         requestId,
         issues: paramsValidation.error.issues
       });
-      return NextResponse.json({
-        success: false,
-        error: 'ID do domicílio inválido',
-        details: paramsValidation.error.issues
-      }, { status: 400 });
+      return v2Err('ID do domicílio inválido', 400, paramsValidation.error.issues);
     }
     const householdId = paramsValidation.data.id;
 
@@ -213,10 +114,7 @@ export const GET = withHybridAuth(async (
     });
 
     if (!household) {
-      return NextResponse.json({
-        success: false,
-        error: "Domicílio não encontrado"
-      }, { status: 404 });
+      return v2Err("Domicílio não encontrado", 404);
     }
 
     // Find the owner (admin member)
@@ -263,20 +161,14 @@ export const GET = withHybridAuth(async (
       householdId
     });
 
-    return NextResponse.json({
-      success: true,
-      data: formattedHousehold
-    });
+    return v2Ok(formattedHousehold);
   } catch (error) {
     logger.error('[GET /api/v2/households/[id]] Error:', {
       requestId,
       error
     });
     
-    return NextResponse.json({
-      success: false,
-      error: "Erro interno do servidor"
-    }, { status: 500 });
+    return v2Err("Erro interno do servidor", 500);
   }
 });
 
@@ -295,10 +187,7 @@ export const PATCH = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   try {
@@ -307,11 +196,7 @@ export const PATCH = withHybridAuth(async (
     // Validate params
     const paramsValidation = RouteParamsSchema.safeParse(params);
     if (!paramsValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'ID do domicílio inválido',
-        details: paramsValidation.error.issues
-      }, { status: 400 });
+      return v2Err('ID do domicílio inválido', 400, paramsValidation.error.issues);
     }
     const householdId = paramsValidation.data.id;
 
@@ -331,19 +216,12 @@ export const PATCH = withHybridAuth(async (
     const bodyValidation = PatchBodySchema.safeParse(body);
 
     if (!bodyValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'Dados inválidos',
-        details: bodyValidation.error.issues
-      }, { status: 400 });
+      return v2Err('Dados inválidos', 400, bodyValidation.error.issues);
     }
 
     // Ensure there's data to update
     if (Object.keys(bodyValidation.data).length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: "Nenhum dado fornecido para atualização."
-      }, { status: 400 });
+      return v2Err("Nenhum dado fornecido para atualização.", 400);
     }
 
     // Build update data explicitly to avoid undefined values
@@ -405,10 +283,7 @@ export const PATCH = withHybridAuth(async (
       householdId
     });
 
-    return NextResponse.json({
-      success: true,
-      data: formattedHousehold
-    });
+    return v2Ok(formattedHousehold);
 
   } catch (error) {
     logger.error('[PATCH /api/v2/households/[id]] Error updating household:', {
@@ -416,10 +291,7 @@ export const PATCH = withHybridAuth(async (
       error
     });
     
-    return NextResponse.json({
-      success: false,
-      error: 'Erro ao atualizar domicílio'
-    }, { status: 500 });
+    return v2Err('Erro ao atualizar domicílio', 500);
   }
 });
 
@@ -438,10 +310,7 @@ export const DELETE = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   try {
@@ -450,11 +319,7 @@ export const DELETE = withHybridAuth(async (
     // Validate params
     const paramsValidation = RouteParamsSchema.safeParse(params);
     if (!paramsValidation.success) {
-      return NextResponse.json({
-        success: false,
-        error: 'ID do domicílio inválido',
-        details: paramsValidation.error.issues
-      }, { status: 400 });
+      return v2Err('ID do domicílio inválido', 400, paramsValidation.error.issues);
     }
     const householdId = paramsValidation.data.id;
 
@@ -484,10 +349,7 @@ export const DELETE = withHybridAuth(async (
     });
 
     if (!householdData) {
-      return NextResponse.json({
-        success: false,
-        error: 'Domicílio não encontrado'
-      }, { status: 404 });
+      return v2Err('Domicílio não encontrado', 404);
     }
 
     // Perform the deletion in a transaction
@@ -509,10 +371,7 @@ export const DELETE = withHybridAuth(async (
       householdId
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Domicílio excluído com sucesso'
-    }, { status: 200 });
+    return v2Ok({ message: 'Domicílio excluído com sucesso' });
 
   } catch (error) {
     logger.error('[DELETE /api/v2/households/[id]] Error deleting household:', {
@@ -521,16 +380,10 @@ export const DELETE = withHybridAuth(async (
     });
     
     if ((error as any).code === 'P2025') { // Record to delete not found
-      return NextResponse.json({
-        success: false,
-        error: 'Domicílio não encontrado para exclusão.'
-      }, { status: 404 });
+      return v2Err('Domicílio não encontrado para exclusão.', 404);
     }
     
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao excluir o domicílio'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao excluir o domicílio', 500);
   }
 });
 

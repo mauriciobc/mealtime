@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { z } from "zod";
 import prisma from '@/lib/prisma';
@@ -12,6 +12,8 @@ import {
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireCatAccess, requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -39,55 +41,22 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     const validationResult = createFeedingSchema.safeParse(body);
     if (!validationResult.success) {
       logger.error("[POST /api/v2/feedings] Invalid body", { errors: validationResult.error.format() });
-      return NextResponse.json({
-        success: false,
-        error: "Invalid request data",
-        details: validationResult.error.format()
-      }, { status: 400 });
+      return v2Err("Invalid request data", 400, validationResult.error.format());
     }
 
     const { catId, amount, notes, meal_type: mealType, unit, food_type } = validationResult.data;
 
-    // Authorization & Validation
     logger.debug(`[POST /api/v2/feedings] Verifying access for user ${user.id} and cat ${catId}`);
-    const [cat, userHouseholds, lastFeedingLog] = await Promise.all([
-      prisma.cats.findUnique({
-        where: { id: catId },
-        select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true, gender: true }
-      }),
-      prisma.household_members.findMany({
-        where: { user_id: user.id },
-        select: { household_id: true }
-      }),
+    const [catAccess, lastFeedingLog] = await Promise.all([
+      requireCatAccess(user.id, catId),
       prisma.feeding_logs.findFirst({
         where: { cat_id: catId },
         orderBy: { fed_at: 'desc' }
       })
     ]);
 
-    const userHouseholdIds = userHouseholds.map(h => h.household_id);
-
-    if (!cat) {
-      logger.warn(`[POST /api/v2/feedings] Cat not found: ${catId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-    if (userHouseholdIds.length === 0) {
-      logger.warn(`[POST /api/v2/feedings] User ${user.id} not associated with any household.`);
-      return NextResponse.json({
-        success: false,
-        error: 'User household not found'
-      }, { status: 403 });
-    }
-    if (!userHouseholdIds.includes(cat.household_id)) {
-      logger.warn(`[POST /api/v2/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${user.id} (households ${userHouseholdIds.join(', ')})`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: Cat does not belong to user\'s household'
-      }, { status: 403 });
-    }
+    if (!catAccess.ok) return catAccess.response;
+    const cat = catAccess.data.cat;
 
     const userHouseholdId = cat.household_id;
     logger.info(`[POST /api/v2/feedings] Access granted for user ${user.id} to cat ${catId} in household ${userHouseholdId}`);
@@ -107,10 +76,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       } catch (notifyError) {
         logger.error('[POST /api/v2/feedings] Failed to create duplicate warning notification', { notifyError });
       }
-      return NextResponse.json({
-        success: false,
-        error: 'Tentativa de alimentação duplicada'
-      }, { status: 409 });
+      return v2Err('Tentativa de alimentação duplicada', 409);
     }
 
     // Create the feeding record
@@ -214,18 +180,11 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: feedingLog
-    }, { status: 201 });
+    return v2Ok(feedingLog, 201);
 
   } catch (error) {
     logger.error("[POST /api/v2/feedings] Error creating feeding log", { error });
-    return NextResponse.json({
-      success: false,
-      error: "Failed to create feeding log",
-      details: (error instanceof Error) ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return v2Err("Failed to create feeding log", 500, (error instanceof Error) ? error.message : 'Unknown error');
   }
 });
 
@@ -235,32 +194,11 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
   const householdId = searchParams.get('householdId');
 
   if (!householdId) {
-    return NextResponse.json({
-      success: false,
-      error: 'Household ID is required'
-    }, { status: 400 });
+    return v2Err('Household ID is required', 400);
   }
 
-  // Verify user access
-  try {
-    const userAccess = await prisma.household_members.findFirst({
-      where: { household_id: householdId, user_id: user.id }
-    });
-    
-    if (!userAccess) {
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this household'
-      }, { status: 403 });
-    }
-  } catch (error) {
-    logger.error('[GET /api/v2/feedings] Failed to verify household access', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to verify household access',
-      details: (error instanceof Error) ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
+  const access = await requireHouseholdMember(user.id, householdId);
+  if (!access.ok) return access.response;
 
   // Fetch feedings
   try {
@@ -274,18 +212,10 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       take: 50
     });
     
-    return NextResponse.json({
-      success: true,
-      data: feedings,
-      count: feedings.length
-    });
+    return v2Ok(feedings);
   } catch (error) {
     logger.error("[GET /api/v2/feedings] Error fetching feeding data", { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch feeding data',
-      details: (error instanceof Error) ? error.message : 'Unknown database error'
-    }, { status: 500 });
+    return v2Err('Failed to fetch feeding data', 500, (error instanceof Error) ? error.message : 'Unknown database error');
   }
 });
 

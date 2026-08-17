@@ -91,7 +91,7 @@ test.describe.skip('Cat Edit Page - UI (SSR auth mismatch)', () => {
   });
 
   test('should display cat edit page', async ({ page, testDataManager }) => {
-    // Skipped: client-side page uses useCats() context which doesn't have API-created cats
+    // Client page loads cats via useCatsQuery (domainKeys.cats)
     const cat = await testDataManager.createTestCat({
       name: `EditUITest_${Date.now()}`,
       weight: '4.5',
@@ -106,7 +106,7 @@ test.describe.skip('Cat Edit Page - UI (SSR auth mismatch)', () => {
   });
 
   test('should update cat name via UI', async ({ page, testDataManager }) => {
-    // Skipped: same useCats() context issue
+    // Shared React Query cache (domainKeys.cats)
     const cat = await testDataManager.createTestCat({
       name: `EditName_${Date.now()}`,
       weight: '4.5',
@@ -135,7 +135,7 @@ test.describe.skip('Cat Edit Page - UI (SSR auth mismatch)', () => {
   });
 
   test('should update cat weight via UI', async ({ page, testDataManager }) => {
-    // Skipped: same useCats() context issue
+    // Shared React Query cache (domainKeys.cats)
     const cat = await testDataManager.createTestCat({
       name: `EditWeight_${Date.now()}`,
       weight: '4.5',
@@ -163,7 +163,7 @@ test.describe.skip('Cat Edit Page - UI (SSR auth mismatch)', () => {
   });
 
   test('should update cat gender via UI', async ({ page, testDataManager }) => {
-    // Skipped: same useCats() context issue
+    // Shared React Query cache (domainKeys.cats)
     const cat = await testDataManager.createTestCat({
       name: `EditGender_${Date.now()}`,
       weight: '4.5',
@@ -191,7 +191,7 @@ test.describe.skip('Cat Edit Page - UI (SSR auth mismatch)', () => {
   });
 
   test('should show validation error for invalid feeding interval', async ({ page, testDataManager }) => {
-    // Skipped: same useCats() context issue
+    // Shared React Query cache (domainKeys.cats)
     const cat = await testDataManager.createTestCat({
       name: `EditInterval_${Date.now()}`,
       weight: '4.5',
@@ -215,7 +215,7 @@ test.describe.skip('Cat Edit Page - UI (SSR auth mismatch)', () => {
   });
 
   test('should cancel edit and return', async ({ page, testDataManager }) => {
-    // Skipped: same useCats() context issue
+    // Shared React Query cache (domainKeys.cats)
     const cat = await testDataManager.createTestCat({
       name: `CancelEdit_${Date.now()}`,
       weight: '4.5',
@@ -257,7 +257,7 @@ test.describe.skip('Cat Delete - UI (SSR auth mismatch)', () => {
   });
 
   test('should delete cat via UI', async ({ page, testDataManager }) => {
-    // Skipped: same useCats() context issue
+    // Shared React Query cache (domainKeys.cats)
     const cat = await testDataManager.createTestCat({
       name: `DeleteTest_${Date.now()}`,
       weight: '4.5',

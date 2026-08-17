@@ -11,6 +11,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { ImageValidationError } from '@/lib/image-errors';
 import { ValidationError } from '@/lib/utils/error-handler';
+import { parseUploadType } from '@/lib/validations/params';
 
 // Configuração de limite máximo de upload
 // Permite configuração via env (MAX_UPLOAD_SIZE_MB em MB) ou usa padrão de 50MB
@@ -50,24 +51,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     const file = fileValue;
     
     // Validar que 'type' é uma string e um dos valores permitidos
-    const typeValue = formData.get('type');
-    const allowedTypes = ['user', 'cat', 'thumbnail'] as const;
-    let type: 'user' | 'cat' | 'thumbnail' = 'user';
-    
-    if (typeValue && typeof typeValue === 'string') {
-      const normalizedType = typeValue.trim().toLowerCase();
-      if (allowedTypes.includes(normalizedType as typeof type)) {
-        type = normalizedType as typeof type;
-      } else {
-        logger.warn('[POST /api/v2/upload] Invalid type value, using default "user":', { 
-          providedType: typeValue 
-        });
-      }
-    } else if (typeValue !== null) {
-      logger.warn('[POST /api/v2/upload] Type is not a string, using default "user":', { 
-        typeValue: typeof typeValue 
-      });
-    }
+    const type = parseUploadType(formData.get('type'));
 
     // Verificar se é uma imagem
     if (!file.type.startsWith('image/')) {

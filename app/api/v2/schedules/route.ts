@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { handleApiError, handleAuthError, handleValidationError } from '@/lib/utils/api-error-handling';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireCatAccess, requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
+import { createScheduleSchema } from '@/lib/validations/schedules';
 
 // GET /api/v2/schedules - Listar agendamentos for a specific household
 export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
@@ -14,28 +16,11 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     const householdId = searchParams.get('householdId');
 
     if (!householdId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Household ID is required'
-      }, { status: 400 });
+      return v2Err('Household ID is required', 400);
     }
 
-    // Authorization Check
-    logger.debug(`[GET /api/v2/schedules] Verifying access for user ${user.id} to household ${householdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId,
-      },
-    });
-
-    if (!userAccess) {
-      logger.warn(`[GET /api/v2/schedules] Access denied for user ${user.id} to household ${householdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this household'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     // Fetch schedules for the specified household
     logger.debug(`[GET /api/v2/schedules] Fetching schedules for household ${householdId}`);
@@ -63,18 +48,10 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       days: [],
     }));
     
-    return NextResponse.json({
-      success: true,
-      data: mappedSchedules,
-      count: mappedSchedules.length
-    });
+    return v2Ok(mappedSchedules);
   } catch (error) {
     logger.error('[GET /api/v2/schedules] Error', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch schedules',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    return v2Err('Failed to fetch schedules', 500, error instanceof Error ? error.message : String(error));
   }
 });
 
@@ -84,96 +61,15 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     logger.debug(`[POST /api/v2/schedules] Request from user: ${user.id}`);
 
     const body = await request.json();
-    const {
-      catId,
-      type,
-      interval,
-      times,
-      enabled,
-    } = body;
-
-    if (!catId || !type) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat ID and schedule type are required'
-      }, { status: 400 });
+    const parsed = createScheduleSchema.safeParse(body);
+    if (!parsed.success) {
+      return v2Err('Invalid schedule data', 400, parsed.error.flatten());
     }
+    const { catId, type, interval, times, enabled } = parsed.data;
     
-    // Authorization & Validation
-    // First, fetch the cat
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: { household_id: true }
-    });
-
-    if (!cat) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-
-    // Then, verify user's membership in the cat's household
-    logger.debug(`[POST /api/v2/schedules] Verifying user ${user.id} membership in household ${cat.household_id}`);
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[POST /api/v2/schedules] Access denied: User ${user.id} is not a member of household ${cat.household_id} (cat ${catId})`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: Cat does not belong to user\'s household'
-      }, { status: 403 });
-    }
-
-    // Validate schedule type
-    if (type !== 'interval' && type !== 'fixedTime') {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid schedule type'
-      }, { status: 400 });
-    }
-
-    // Validate type-specific data
-    if (type === 'interval' && (!interval || interval <= 0)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Interval must be greater than zero'
-      }, { status: 400 });
-    }
-    
-    if (type === 'fixedTime' && (!Array.isArray(times) || times.length === 0)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Times array is required for fixed time schedules'
-      }, { status: 400 });
-    }
-
-    // Validate each time entry format for fixedTime schedules
-    if (type === 'fixedTime') {
-      const timeFormatRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      const invalidTimes: string[] = [];
-
-      times.forEach((time: unknown, index: number) => {
-        if (typeof time !== 'string') {
-          invalidTimes.push(`Entry at index ${index} is not a string: ${JSON.stringify(time)}`);
-        } else if (!timeFormatRegex.test(time)) {
-          invalidTimes.push(`"${time}" (invalid format, expected HH:MM)`);
-        }
-      });
-
-      if (invalidTimes.length > 0) {
-        return NextResponse.json({
-          success: false,
-          error: 'Invalid time format detected',
-          details: `The following times are invalid: ${invalidTimes.join(', ')}. Times must be in HH:MM 24-hour format (e.g., "08:30", "14:00", "23:59").`
-        }, { status: 400 });
-      }
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
+    const cat = catAccess.data.cat;
 
     // Create the schedule
     logger.debug(`[POST /api/v2/schedules] Creating schedule for cat ${catId} in household ${cat.household_id}`);
@@ -198,17 +94,10 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     
     logger.info(`[POST /api/v2/schedules] Schedule created successfully: ${schedule.id}`);
 
-    return NextResponse.json({
-      success: true,
-      data: schedule
-    }, { status: 201 });
+    return v2Ok(schedule, 201);
   } catch (error) {
     logger.error('[POST /api/v2/schedules] Error', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to create schedule',
-      details: error instanceof Error ? error.message : String(error)
-    }, { status: 500 });
+    return v2Err('Failed to create schedule', 500, error instanceof Error ? error.message : String(error));
   }
 });
 

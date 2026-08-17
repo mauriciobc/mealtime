@@ -1,29 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { BaseCats, parseGender } from "@/lib/types/common";
-import { z } from "zod";
 import { logger } from "@/lib/monitoring/logger";
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
+import { requireHouseholdMember } from '@/lib/authz/household-access';
+import { createCatInHouseholdSchema, feedingIntervalOf } from '@/lib/validations/cats';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
-
-// Zod schema for POST request body
-const PostBodySchema = z.object({
-  name: z.string().trim().min(1),
-  photoUrl: z.string().url().nullable().optional(),
-  birthdate: z.string().datetime().nullable().optional(),
-  weight: z.number().positive().nullable().optional(),
-  restrictions: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
-  gender: z.enum(['male', 'female']).optional().nullable(),
-  feedingInterval: z.number().int().min(1).max(24).optional(),
-  portion_size: z.number().positive().optional(),
-}).strict();
 
 // GET /api/v2/households/[id]/cats - Listar gatos de um domicílio
 export const GET = withHybridAuth(async (
@@ -40,10 +29,7 @@ export const GET = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   const params = await context.params;
@@ -57,32 +43,12 @@ export const GET = withHybridAuth(async (
 
   if (!householdId || typeof householdId !== 'string' || householdId.length === 0) {
     logger.error(`[GET /api/v2/households/cats] Invalid or missing householdId`, { householdId });
-    return NextResponse.json({
-      success: false,
-      error: "ID do domicílio inválido ou ausente"
-    }, { status: 400 });
+    return v2Err("ID do domicílio inválido ou ausente", 400);
   }
 
   try {
-    // Verify user has access to this household
-    const membership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      }
-    });
-
-    if (!membership) {
-      logger.warn("[GET /api/v2/households/[id]/cats] User not authorized for household", {
-        requestId,
-        userId: user.id,
-        householdId,
-      });
-      return NextResponse.json({
-        success: false,
-        error: "Not authorized to access this household"
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     // Fetch cats for the household
     const cats = await prisma.cats.findMany({
@@ -122,11 +88,7 @@ export const GET = withHybridAuth(async (
       count: cats.length,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: transformedCats,
-      count: transformedCats.length
-    });
+    return v2Ok(transformedCats);
   } catch (error) {
     logger.error("[GET /api/v2/households/[id]/cats] Unexpected error", {
       requestId,
@@ -135,16 +97,10 @@ export const GET = withHybridAuth(async (
     
     // Check for Prisma connection errors (P1001, P1002, P1003, etc.)
     if ((error as any)?.code?.startsWith('P1')) {
-      return NextResponse.json({
-        success: false,
-        error: "Database connection error"
-      }, { status: 503 });
+      return v2Err("Database connection error", 503);
     }
     
-    return NextResponse.json({
-      success: false,
-      error: "Internal server error"
-    }, { status: 500 });
+    return v2Err("Internal server error", 500);
   }
 });
 
@@ -160,10 +116,7 @@ export const POST = withHybridAuth(async (
       userId: user.id,
       url: request.url
     });
-    return NextResponse.json({
-      success: false,
-      error: "Internal routing error: missing route parameters"
-    }, { status: 500 });
+    return v2Err("Internal routing error: missing route parameters", 500);
   }
 
   const params = await context.params;
@@ -173,39 +126,19 @@ export const POST = withHybridAuth(async (
 
   if (!householdId || typeof householdId !== 'string' || householdId.length === 0) {
     logger.error(`[POST /api/v2/households/cats] Invalid or missing householdId`, { householdId });
-    return NextResponse.json({
-      success: false,
-      error: "ID do domicílio inválido ou ausente"
-    }, { status: 400 });
+    return v2Err("ID do domicílio inválido ou ausente", 400);
   }
 
   try {
-    // Verify user has access to this household
-    const membership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      }
-    });
-
-    if (!membership) {
-      logger.warn(`[POST /api/v2/households/${householdId}/cats] User ${user.id} not authorized`);
-      return NextResponse.json({
-        success: false,
-        error: "Not authorized to access this household"
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     const body = await request.json();
-    const bodyValidation = PostBodySchema.safeParse(body);
+    const bodyValidation = createCatInHouseholdSchema.safeParse(body);
 
     if (!bodyValidation.success) {
       logger.error(`[POST /api/v2/households/${householdId}/cats] Invalid body`, { issues: bodyValidation.error.issues });
-      return NextResponse.json({
-        success: false,
-        error: 'Dados inválidos',
-        details: bodyValidation.error.issues
-      }, { status: 400 });
+      return v2Err('Dados inválidos', 400, bodyValidation.error.issues);
     }
 
     const data = bodyValidation.data;
@@ -222,7 +155,7 @@ export const POST = withHybridAuth(async (
         restrictions: data.restrictions ?? null,
         notes: data.notes ?? null,
         gender: parseGender(data.gender),
-        feeding_interval: data.feedingInterval ?? null,
+        feeding_interval: feedingIntervalOf(data),
         portion_size: data.portion_size ?? null
       }
     });
@@ -247,31 +180,19 @@ export const POST = withHybridAuth(async (
       portion_size: cat.portion_size?.toNumber() ?? null
     };
 
-    return NextResponse.json({
-      success: true,
-      data: formattedCat
-    }, { status: 201 });
+    return v2Ok(formattedCat, 201);
   } catch (error) {
     logger.error(`[POST /api/v2/households/${householdId}/cats] Error creating cat`, { error });
     
     if (error instanceof Error && error.message.includes('connect')) {
-      return NextResponse.json({
-        success: false,
-        error: 'Database connection error'
-      }, { status: 503 });
+      return v2Err('Database connection error', 503);
     }
     
     if ((error as any).code === 'P2002') {
-      return NextResponse.json({
-        success: false,
-        error: 'Erro: Conflito ao criar gato (ex: nome duplicado?)'
-      }, { status: 409 });
+      return v2Err('Erro: Conflito ao criar gato (ex: nome duplicado?)', 409);
     }
     
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao criar o gato'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao criar o gato', 500);
   }
 });
 

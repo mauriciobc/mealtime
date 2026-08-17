@@ -1,105 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
-import { z } from 'zod';
 import { parseGender } from '@/lib/types/common';
-
-/**
- * Valida e normaliza o peso do gato
- */
-function validateWeight(weight: any): { isValid: boolean; value: number | null; error?: string } {
-  if (weight === null || weight === undefined || weight === '') {
-    return { isValid: true, value: null };
-  }
-
-  const weightNum = Number(parseFloat(weight));
-  
-  if (Number.isNaN(weightNum)) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Peso deve ser um número válido' 
-    };
-  }
-
-  if (weightNum < 0) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Peso não pode ser negativo' 
-    };
-  }
-
-  // Validação adicional: peso máximo razoável para um gato (50kg)
-  if (weightNum > 50) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Peso deve ser menor que 50kg' 
-    };
-  }
-
-  return { isValid: true, value: weightNum };
-}
-
-/**
- * Valida e normaliza a data de nascimento do gato
- */
-function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | null; error?: string } {
-  if (birth_date === null || birth_date === undefined || birth_date === '') {
-    return { isValid: true, value: null };
-  }
-
-  const date = new Date(birth_date);
-  
-  if (isNaN(date.getTime())) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Data de nascimento deve ser uma data válida' 
-    };
-  }
-
-  // Validação adicional: data não pode ser no futuro
-  const now = new Date();
-  if (date > now) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Data de nascimento não pode ser no futuro' 
-    };
-  }
-
-  // Validação adicional: data não pode ser muito antiga (mais de 30 anos)
-  const thirtyYearsAgo = new Date();
-  thirtyYearsAgo.setFullYear(thirtyYearsAgo.getFullYear() - 30);
-  if (date < thirtyYearsAgo) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Data de nascimento não pode ser há mais de 30 anos' 
-    };
-  }
-
-  return { isValid: true, value: date };
-}
-
-// Schema de validação para atualização de gato
-const updateCatSchema = z.object({
-  name: z.string().min(1).optional(),
-  photoUrl: z.string().url().nullable().optional(),
-  birthDate: z.string().optional(),
-  weight: z.union([z.number(), z.null()]).optional(),
-  gender: z.enum(['male', 'female']).optional().nullable(),
-  feeding_interval: z.number().int().min(1).max(24).optional(),
-  portion_size: z.number().positive().optional(),
-  restrictions: z.string().optional(),
-  notes: z.string().optional(),
-}).refine((data) => Object.keys(data).length > 0, {
-  message: 'Pelo menos um campo deve ser fornecido para atualização',
-});
+import { requireCatAccess } from '@/lib/authz/household-access';
+import { feedingIntervalOf, updateCatSchema } from '@/lib/validations/cats';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // GET /api/v2/cats/[catId] - Buscar gato por ID
 export const GET = withHybridAuth(async (
@@ -113,10 +20,7 @@ export const GET = withHybridAuth(async (
 
     if (!catId) {
       logger.warn('[GET /api/v2/cats/[catId]] Missing catId parameter');
-      return NextResponse.json({
-        success: false,
-        error: 'ID do gato é obrigatório'
-      }, { status: 400 });
+      return v2Err('ID do gato é obrigatório', 400);
     }
 
     logger.debug('[GET /api/v2/cats/[catId]] Authenticated user:', { 
@@ -124,18 +28,11 @@ export const GET = withHybridAuth(async (
       catId 
     });
 
-    // Get the cat and verify the user has access through their household
-    const cat = await prisma.cats.findFirst({
-      where: {
-        id: catId,
-        household: {
-          household_members: {
-            some: {
-              user_id: user.id
-            }
-          }
-        }
-      },
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
+
+    const cat = await prisma.cats.findUnique({
+      where: { id: catId },
       include: {
         household: {
           select: {
@@ -169,26 +66,17 @@ export const GET = withHybridAuth(async (
         catId,
         userId: user.id
       });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado ou acesso negado'
-      }, { status: 404 });
+      return v2Err('Gato não encontrado ou acesso negado', 404);
     }
 
     logger.info(`[GET /api/v2/cats/[catId]] Cat retrieved successfully:`, { catId });
-    return NextResponse.json({
-      success: true,
-      data: cat
-    });
+    return v2Ok(cat);
   } catch (error: any) {
     logger.logError(error, {
       message: 'Erro ao buscar gato',
       requestUrl: request.nextUrl.toString()
     });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao buscar o gato'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao buscar o gato', 500);
   }
 });
 
@@ -204,10 +92,7 @@ export const PUT = withHybridAuth(async (
 
     if (!catId) {
       logger.warn('[PUT /api/v2/cats/[catId]] Missing catId parameter');
-      return NextResponse.json({
-        success: false,
-        error: 'ID do gato é obrigatório'
-      }, { status: 400 });
+      return v2Err('ID do gato é obrigatório', 400);
     }
 
     logger.debug('[PUT /api/v2/cats/[catId]] Authenticated user:', { 
@@ -223,106 +108,29 @@ export const PUT = withHybridAuth(async (
       logger.warn('[PUT /api/v2/cats/[catId]] Invalid request body:', {
         errors: validationResult.error.format()
       });
-      return NextResponse.json({
-        success: false,
-        error: 'Dados inválidos',
-        details: validationResult.error.format()
-      }, { status: 400 });
+      return v2Err('Dados inválidos', 400, validationResult.error.format());
     }
 
-    // Validar peso se fornecido
-    if (body.weight !== undefined) {
-      const weightValidation = validateWeight(body.weight);
-      if (!weightValidation.isValid) {
-        logger.warn('[PUT /api/v2/cats/[catId]] Invalid weight:', body.weight);
-        return NextResponse.json({
-          success: false,
-          error: weightValidation.error
-        }, { status: 400 });
-      }
-    }
+    const data = validationResult.data;
 
-    // Validar data de nascimento se fornecida
-    if (body.birthDate !== undefined) {
-      const birthDateValidation = validateBirthDate(body.birthDate);
-      if (!birthDateValidation.isValid) {
-        logger.warn('[PUT /api/v2/cats/[catId]] Invalid birthDate:', body.birthDate);
-        return NextResponse.json({
-          success: false,
-          error: birthDateValidation.error
-        }, { status: 400 });
-      }
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
 
-    // Get the cat and verify the user has access through their household
-    const cat = await prisma.cats.findFirst({
-      where: {
-        id: catId,
-        household: {
-          household_members: {
-            some: {
-              user_id: user.id
-            }
-          }
-        }
-      },
-      select: {
-        id: true,
-        household_id: true
-      }
-    });
+    const updateData: Record<string, unknown> = {};
 
-    if (!cat) {
-      logger.warn(`[PUT /api/v2/cats/[catId]] Cat not found or access denied:`, {
-        catId,
-        userId: user.id
-      });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado ou acesso negado'
-      }, { status: 404 });
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.birthdate !== undefined) {
+      updateData.birth_date = data.birthdate ? new Date(data.birthdate) : null;
     }
-
-    // Preparar dados para atualização com validações aplicadas
-    const updateData: any = {};
-    
-    if (body.name !== undefined) {
-      updateData.name = body.name.trim();
+    if (data.weight !== undefined) updateData.weight = data.weight;
+    if (data.photoUrl !== undefined) updateData.photo_url = data.photoUrl || null;
+    if (data.feedingInterval !== undefined || data.feeding_interval !== undefined) {
+      updateData.feeding_interval = feedingIntervalOf(data);
     }
-    
-    if (body.birthDate !== undefined) {
-      const birthDateValidation = validateBirthDate(body.birthDate);
-      updateData.birth_date = birthDateValidation.value;
-    }
-    
-    if (body.weight !== undefined) {
-      const weightValidation = validateWeight(body.weight);
-      updateData.weight = weightValidation.value;
-    }
-    
-    if (body.photoUrl !== undefined) {
-      updateData.photo_url = body.photoUrl;
-    }
-
-    if (body.feeding_interval !== undefined) {
-      updateData.feeding_interval = body.feeding_interval;
-    }
-
-    if (body.portion_size !== undefined) {
-      updateData.portion_size = body.portion_size;
-    }
-
-    if (body.restrictions !== undefined) {
-      updateData.restrictions = body.restrictions.trim() || null;
-    }
-
-    if (body.notes !== undefined) {
-      updateData.notes = body.notes.trim() || null;
-    }
-
-    if (body.gender !== undefined) {
-      updateData.gender = parseGender(body.gender);
-    }
+    if (data.portion_size !== undefined) updateData.portion_size = data.portion_size;
+    if (data.restrictions !== undefined) updateData.restrictions = data.restrictions?.trim() || null;
+    if (data.notes !== undefined) updateData.notes = data.notes?.trim() || null;
+    if (data.gender !== undefined) updateData.gender = parseGender(data.gender);
 
     // Update the cat
     const updatedCat = await prisma.cats.update({
@@ -359,28 +167,19 @@ export const PUT = withHybridAuth(async (
     });
 
     logger.info(`[PUT /api/v2/cats/[catId]] Cat updated successfully:`, { catId });
-    return NextResponse.json({
-      success: true,
-      data: updatedCat
-    });
+    return v2Ok(updatedCat);
   } catch (error: any) {
     // Handle Prisma errors
     if (error.code === 'P2025') {
       logger.warn('[PUT /api/v2/cats/[catId]] Cat not found during update');
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado'
-      }, { status: 404 });
+      return v2Err('Gato não encontrado', 404);
     }
 
     logger.logError(error, {
       message: 'Erro ao atualizar gato',
       requestUrl: request.nextUrl.toString()
     });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao atualizar o gato'
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao atualizar o gato', 500);
   }
 });
 
@@ -396,10 +195,7 @@ export const DELETE = withHybridAuth(async (
 
     if (!catId) {
       logger.warn('[DELETE /api/v2/cats/[catId]] Missing catId parameter');
-      return NextResponse.json({
-        success: false,
-        error: 'ID do gato é obrigatório'
-      }, { status: 400 });
+      return v2Err('ID do gato é obrigatório', 400);
     }
 
     logger.debug(`[DELETE /api/v2/cats/[catId]] Attempting delete by user:`, {
@@ -407,52 +203,8 @@ export const DELETE = withHybridAuth(async (
       catId
     });
 
-    // 1. Find the cat and its household ID
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: { household_id: true, name: true }
-    });
-
-    if (!cat) {
-      logger.warn(`[DELETE /api/v2/cats/[catId]] Cat not found:`, { catId });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado'
-      }, { status: 404 });
-    }
-    
-    const householdId = cat.household_id;
-    if (!householdId) {
-      logger.error(`[DELETE /api/v2/cats/[catId]] Cat has no associated household:`, { catId });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não está associado a um domicílio'
-      }, { status: 500 });
-    }
-
-    // 2. Verify user membership in that household
-    logger.debug(`[DELETE /api/v2/cats/[catId]] Verifying user membership:`, {
-      userId: user.id,
-      householdId
-    });
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[DELETE /api/v2/cats/[catId]] Access denied:`, {
-        userId: user.id,
-        householdId
-      });
-      return NextResponse.json({
-        success: false,
-        error: 'Acesso negado: Usuário não pertence a este domicílio'
-      }, { status: 403 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
     
     logger.debug(`[DELETE /api/v2/cats/[catId]] User authorized, starting deletion transaction`);
 
@@ -490,18 +242,12 @@ export const DELETE = withHybridAuth(async (
     });
 
     logger.info(`[DELETE /api/v2/cats/[catId]] Deletion transaction completed successfully:`, { catId });
-    return NextResponse.json({
-      success: true,
-      message: 'Gato deletado com sucesso'
-    });
+    return v2Ok({ message: 'Gato deletado com sucesso' });
   } catch (error: any) {
     // Handle Prisma errors
     if (error.code === 'P2025') {
       logger.warn('[DELETE /api/v2/cats/[catId]] Cat not found during delete');
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado'
-      }, { status: 404 });
+      return v2Err('Gato não encontrado', 404);
     }
 
     logger.logError(error, {
@@ -509,17 +255,13 @@ export const DELETE = withHybridAuth(async (
       requestUrl: request.nextUrl.toString()
     });
     
-    const errorResponse: { success: false; error: string; details?: string } = {
-      success: false,
-      error: 'Ocorreu um erro ao deletar o gato'
-    };
-    
-    // Apenas incluir detalhes do erro em ambientes não-produção
-    if (process.env.NODE_ENV !== 'production') {
-      errorResponse.details = (error instanceof Error) ? error.message : 'Unknown error';
-    }
-    
-    return NextResponse.json(errorResponse, { status: 500 });
+    return v2Err(
+      'Ocorreu um erro ao deletar o gato',
+      500,
+      process.env.NODE_ENV !== 'production'
+        ? ((error instanceof Error) ? error.message : 'Unknown error')
+        : undefined
+    );
   }
 });
 

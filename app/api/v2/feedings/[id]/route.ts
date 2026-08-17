@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
@@ -6,6 +6,8 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { parseGender } from '@/lib/types/common';
+import { requireHouseholdMember } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 /**
  * Extrai e valida o ID do parâmetro de rota de forma robusta
@@ -62,10 +64,7 @@ export const GET = withHybridAuth(async (
 
   if (!logId) {
     logger.warn('[GET /api/v2/feedings/[id]] Invalid or missing ID');
-    return NextResponse.json({
-      success: false,
-      error: 'ID do registro inválido ou ausente'
-    }, { status: 400 });
+    return v2Err('ID do registro inválido ou ausente', 400);
   }
 
   logger.debug(`[GET /api/v2/feedings/${logId}] Request from user ${user.id}`);
@@ -96,38 +95,19 @@ export const GET = withHybridAuth(async (
 
     if (!feedingLog) {
       logger.warn(`[GET /api/v2/feedings/${logId}] Feeding log not found`);
-      return NextResponse.json({
-        success: false,
-        error: 'Registro de alimentação não encontrado'
-      }, { status: 404 });
+      return v2Err('Registro de alimentação não encontrado', 404);
     }
 
     // Verify user belongs to the household associated with the log
     const logHouseholdId = feedingLog.household_id;
     if (!logHouseholdId) {
       logger.error(`[GET /api/v2/feedings/${logId}] Log ${logId} has no household ID`);
-      return NextResponse.json({
-        success: false,
-        error: 'Log is not associated with a household'
-      }, { status: 500 });
+      return v2Err('Log is not associated with a household', 500);
     }
 
     logger.debug(`[GET /api/v2/feedings/${logId}] Verifying user ${user.id} membership in household ${logHouseholdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: logHouseholdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[GET /api/v2/feedings/${logId}] User ${user.id} not member of household ${logHouseholdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: User cannot view this log'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, logHouseholdId);
+    if (!access.ok) return access.response;
     
     logger.info(`[GET /api/v2/feedings/${logId}] User ${user.id} authorized`);
 
@@ -155,19 +135,10 @@ export const GET = withHybridAuth(async (
       } : undefined
     };
 
-    return NextResponse.json({
-      success: true,
-      data: transformedLog
-    });
+    return v2Ok(transformedLog);
   } catch (error) {
     logger.error(`[GET /api/v2/feedings/${logId}] Error fetching feeding log`, { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao buscar o registro de alimentação',
-      ...(process.env.NODE_ENV === 'development' && {
-        details: (error instanceof Error) ? error.message : 'Unknown error'
-      })
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao buscar o registro de alimentação', 500);
   }
 });
 
@@ -220,10 +191,7 @@ export const PUT = withHybridAuth(async (
 
   if (!logId) {
     logger.warn('[PUT /api/v2/feedings/[id]] Invalid or missing ID');
-    return NextResponse.json({
-      success: false,
-      error: 'ID do registro inválido ou ausente'
-    }, { status: 400 });
+    return v2Err('ID do registro inválido ou ausente', 400);
   }
 
   logger.debug(`[PUT /api/v2/feedings/${logId}] Attempting update by user ${user.id}`);
@@ -237,11 +205,7 @@ export const PUT = withHybridAuth(async (
       logger.error('[PUT /api/v2/feedings/[id]] Invalid body', { 
         errors: validationResult.error.format() 
       });
-      return NextResponse.json({
-        success: false,
-        error: 'Dados inválidos',
-        details: validationResult.error.format()
-      }, { status: 400 });
+      return v2Err('Dados inválidos', 400, validationResult.error.format());
     }
 
     // Fetch log including household ID for verification
@@ -256,38 +220,19 @@ export const PUT = withHybridAuth(async (
 
     if (!feedingLog) {
       logger.warn(`[PUT /api/v2/feedings/${logId}] Feeding log not found`);
-      return NextResponse.json({
-        success: false,
-        error: 'Registro de alimentação não encontrado'
-      }, { status: 404 });
+      return v2Err('Registro de alimentação não encontrado', 404);
     }
 
     // Verify user belongs to the household associated with the log
     const logHouseholdId = feedingLog.household_id;
     if (!logHouseholdId) {
       logger.error(`[PUT /api/v2/feedings/${logId}] Log ${logId} has no household ID`);
-      return NextResponse.json({
-        success: false,
-        error: 'Log is not associated with a household'
-      }, { status: 500 });
+      return v2Err('Log is not associated with a household', 500);
     }
 
     logger.debug(`[PUT /api/v2/feedings/${logId}] Verifying user ${user.id} membership in household ${logHouseholdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: logHouseholdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[PUT /api/v2/feedings/${logId}] User ${user.id} not member of household ${logHouseholdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: User cannot update this log'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, logHouseholdId);
+    if (!access.ok) return access.response;
     
     logger.info(`[PUT /api/v2/feedings/${logId}] User ${user.id} authorized`);
 
@@ -370,31 +315,19 @@ export const PUT = withHybridAuth(async (
       } : undefined
     };
 
-    return NextResponse.json({
-      success: true,
-      data: transformedLog
-    });
+    return v2Ok(transformedLog);
   } catch (error: any) {
     // Handle Prisma errors
     if (error.code === 'P2025') {
       logger.warn('[PUT /api/v2/feedings/[id]] Feeding log not found during update');
-      return NextResponse.json({
-        success: false,
-        error: 'Registro de alimentação não encontrado'
-      }, { status: 404 });
+      return v2Err('Registro de alimentação não encontrado', 404);
     }
 
     logger.logError(error, {
       message: 'Erro ao atualizar registro de alimentação',
       requestUrl: request.nextUrl.toString()
     });
-    return NextResponse.json({
-      success: false,
-      error: 'Ocorreu um erro ao atualizar o registro de alimentação',
-      ...(process.env.NODE_ENV === 'development' && {
-        details: (error instanceof Error) ? error.message : 'Unknown error'
-      })
-    }, { status: 500 });
+    return v2Err('Ocorreu um erro ao atualizar o registro de alimentação', 500);
   }
 });
 
@@ -422,10 +355,7 @@ export const DELETE = withHybridAuth(async (
 
   if (!logId) {
     logger.warn('[DELETE /api/v2/feedings/[id]] Invalid or missing ID');
-    return NextResponse.json({
-      success: false,
-      error: 'ID do registro inválido ou ausente'
-    }, { status: 400 });
+    return v2Err('ID do registro inválido ou ausente', 400);
   }
 
   logger.debug(`[DELETE /api/v2/feedings/${logId}] Attempting delete by user ${user.id}`);
@@ -439,37 +369,18 @@ export const DELETE = withHybridAuth(async (
 
     if (!feedingLog) {
       logger.warn(`[DELETE /api/v2/feedings/${logId}] Feeding log not found`);
-      return NextResponse.json({
-        success: false,
-        error: 'Feeding log not found'
-      }, { status: 404 });
+      return v2Err('Feeding log not found', 404);
     }
 
     const householdId = feedingLog.household_id;
     if (!householdId) {
       logger.error(`[DELETE /api/v2/feedings/${logId}] Log ${logId} has no household ID`);
-      return NextResponse.json({
-        success: false,
-        error: 'Log is not associated with a household'
-      }, { status: 500 });
+      return v2Err('Log is not associated with a household', 500);
     }
 
     logger.debug(`[DELETE /api/v2/feedings/${logId}] Verifying user ${user.id} membership in household ${householdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[DELETE /api/v2/feedings/${logId}] User ${user.id} not member of household ${householdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: User does not belong to this household'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
     
     logger.info(`[DELETE /api/v2/feedings/${logId}] User ${user.id} authorized`);
 
@@ -479,22 +390,13 @@ export const DELETE = withHybridAuth(async (
     });
     logger.info(`[DELETE /api/v2/feedings/${logId}] Log deleted successfully`);
 
-    return NextResponse.json({ success: true });
+    return v2Ok(null);
   } catch (error) {
     logger.error(`[DELETE /api/v2/feedings/${logId}] Error deleting feeding log`, { error });
     if (error instanceof Error && (error as any).code === 'P2025') {
-      return NextResponse.json({
-        success: false,
-        error: 'Log not found during delete attempt'
-      }, { status: 404 });
+      return v2Err('Log not found during delete attempt', 404);
     }
-    return NextResponse.json({
-      success: false,
-      error: 'An error occurred while deleting the feeding log',
-      ...(process.env.NODE_ENV === 'development' && {
-        details: (error instanceof Error) ? error.message : 'Unknown error'
-      })
-    }, { status: 500 });
+    return v2Err('An error occurred while deleting the feeding log', 500);
   }
 });
 

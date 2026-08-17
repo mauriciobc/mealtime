@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import prisma from "@/lib/prisma";
 import { z } from "zod";
 import { withHybridAuth } from "@/lib/middleware/hybrid-auth";
@@ -6,6 +6,8 @@ import { MobileAuthUser } from "@/lib/middleware/mobile-auth";
 import { logger } from "@/lib/monitoring/logger";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { requireCatAccess } from "@/lib/authz/household-access";
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Validation schema for query parameters
 const statsQuerySchema = z.object({
@@ -30,46 +32,19 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       logger.warn('[GET /api/v2/feedings/stats] Invalid query parameters:', { 
         validationError: validationResult.error.format() 
       });
-      return NextResponse.json({
-        success: false,
-        error: "Invalid query parameters",
-        details: validationResult.error.format()
-      }, { status: 400 });
+      return v2Err("Invalid query parameters", 400, validationResult.error.format());
     }
 
     const { catId, days } = validationResult.data;
 
-    // Validate user has a household
-    if (!user.household_id) {
+    if (!user.household_ids?.length) {
       logger.warn(`[GET /api/v2/feedings/stats] User ${user.id} has no household`);
-      return NextResponse.json({
-        success: false,
-        error: 'User must belong to a household'
-      }, { status: 403 });
+      return v2Err('User must belong to a household', 403);
     }
 
-    // If catId is provided, validate it belongs to user's household BEFORE querying
     if (catId) {
-      const cat = await prisma.cats.findUnique({
-        where: { id: catId },
-        select: { household_id: true }
-      });
-      
-      if (!cat) {
-        logger.warn(`[GET /api/v2/feedings/stats] Cat ${catId} not found`);
-        return NextResponse.json({
-          success: false,
-          error: 'Cat not found'
-        }, { status: 404 });
-      }
-      
-      if (cat.household_id !== user.household_id) {
-        logger.warn(`[GET /api/v2/feedings/stats] User ${user.id} not authorized for cat ${catId}`);
-        return NextResponse.json({
-          success: false,
-          error: 'Access denied to this cat'
-        }, { status: 403 });
-      }
+      const catAccess = await requireCatAccess(user.id, catId);
+      if (!catAccess.ok) return catAccess.response;
     }
 
     // Calculate the date range with UTC-normalized day boundaries
@@ -93,7 +68,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
         lte: endDate,
       },
       cat: {
-        household_id: user.household_id // SECURITY: Always filter by user's household
+        household_id: { in: user.household_ids }
       }
     };
     
@@ -253,10 +228,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       catId: catId || 'all'
     });
 
-    return NextResponse.json({
-      success: true,
-      data: responseData
-    });
+    return v2Ok(responseData);
   } catch (error) {
     // Log full error details on server for debugging
     logger.error("[GET /api/v2/feedings/stats] Error fetching feeding statistics", { 
@@ -265,27 +237,18 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       stack: error instanceof Error ? error.stack : undefined
     });
     
-    // Return generic error to client, only include details in development
-    const response: any = {
-      success: false,
-      error: "Failed to fetch feeding statistics"
-    };
-    
-    // Only expose sanitized error details in non-production environments
+    let details: string | undefined;
     if (process.env.NODE_ENV !== "production" && error instanceof Error) {
-      // Sanitize error message to remove sensitive DB/schema details
-      const sanitizedMessage = error.message
+      details = error.message
         .replace(/Prisma.*?:/gi, 'Database:')
         .replace(/prisma\.[a-z_]+/gi, 'table')
         .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '[UUID]')
         .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/gi, '[EMAIL]')
         .replace(/password[^\s]*/gi, '[REDACTED]')
         .replace(/token[^\s]*/gi, '[REDACTED]');
-      
-      response.details = sanitizedMessage;
     }
-    
-    return NextResponse.json(response, { status: 500 });
+
+    return v2Err("Failed to fetch feeding statistics", 500, details);
   }
 });
 

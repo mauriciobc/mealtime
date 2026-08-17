@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { parseGender } from '@/lib/types/common';
+import { requireCatAccess } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -44,49 +46,14 @@ export const GET = withHybridAuth(async (
 
   if (!catId) {
     logger.warn('[GET /api/v2/feedings/last/[catId]] Invalid or missing catId');
-    return NextResponse.json({
-      success: false,
-      error: 'ID do gato inválido'
-    }, { status: 400 });
+    return v2Err('ID do gato inválido', 400);
   }
 
   logger.debug(`[GET /api/v2/feedings/last/${catId}] Request from user ${user.id}`);
 
   try {
-    // Find the user's household via household_members
-    const householdMember = await prisma.household_members.findFirst({
-      where: { user_id: user.id },
-      select: { household_id: true }
-    });
-
-    if (!householdMember?.household_id) {
-      logger.warn(`[GET /api/v2/feedings/last/${catId}] User ${user.id} not associated with any household`);
-      return NextResponse.json({
-        success: false,
-        error: 'Usuário não associado a uma residência'
-      }, { status: 403 });
-    }
-
-    // Verify the cat belongs to the user's household
-    const cat = await prisma.cats.findUnique({
-      where: {
-        id: catId,
-        household_id: householdMember.household_id
-      },
-      select: { 
-        id: true,
-        name: true,
-        household_id: true
-      }
-    });
-
-    if (!cat) {
-      logger.warn(`[GET /api/v2/feedings/last/${catId}] Cat not found or user ${user.id} not authorized`);
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado ou acesso não autorizado'
-      }, { status: 404 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
 
     // Find the last feeding log for this cat
     logger.debug(`[GET /api/v2/feedings/last/${catId}] Fetching last feeding log`);
@@ -118,11 +85,7 @@ export const GET = withHybridAuth(async (
 
     if (!lastFeeding) {
       logger.info(`[GET /api/v2/feedings/last/${catId}] No feeding log found for this cat`);
-      return NextResponse.json({
-        success: true,
-        data: null,
-        count: 0
-      });
+      return v2Ok(null);
     }
 
     // Transform the data to match expected format
@@ -151,20 +114,10 @@ export const GET = withHybridAuth(async (
 
     logger.info(`[GET /api/v2/feedings/last/${catId}] Last feeding found: ${lastFeeding.id}`);
 
-    return NextResponse.json({
-      success: true,
-      data: transformedLog,
-      count: 1
-    });
+    return v2Ok(transformedLog);
   } catch (error) {
     logger.error(`[GET /api/v2/feedings/last/${catId}] Error fetching last feeding`, { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Erro interno do servidor',
-      ...(process.env.NODE_ENV !== 'production' && {
-        details: (error instanceof Error) ? error.message : 'Unknown error'
-      })
-    }, { status: 500 });
+    return v2Err('Erro interno do servidor', 500);
   }
 });
 

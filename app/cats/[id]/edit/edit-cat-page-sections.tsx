@@ -17,7 +17,7 @@ import PageTransition from "@/components/page-transition"
 import { Loading } from "@/components/ui/loading"
 import { PageHeader } from "@/components/page-header"
 import { ImageUpload } from "@/components/ui/image-upload"
-import { DateTimePicker } from "@/components/ui/datetime-picker-new"
+import { DateTimePicker } from "@/components/ui/datetime-picker"
 import { CatType } from "@/lib/types"
 
 export type EditCatPageState =
@@ -218,8 +218,8 @@ export function EditCatFormSection({
               <DateTimePicker
                 {...(formData.birthdate ? { value: new Date(formData.birthdate) } : {})}
                 onChange={date => dispatch({ type: 'PATCH_FORM', formData: { birthdate: date ? date.toISOString().split('T')[0] ?? "" : "" } })}
-                fromYear={1980}
-                toYear={2030}
+                granularity="day"
+                displayFormat={{ hour24: 'PPP', hour12: 'PP' }}
                 placeholder="Selecione uma data"
               />
             </div>

@@ -19,9 +19,8 @@ import BottomNav from "@/components/bottom-nav"
 // import { ScrollArea } from "@/components/ui/scroll-area"
 // import { formatDistanceToNow } from "date-fns"
 import { createClient } from "@/utils/supabase/server";
-// import { cookies } from "next/headers";
-import prisma from "@/lib/prisma";
 import { notFound, redirect } from 'next/navigation';
+import { requireCatAccess } from '@/lib/authz/household-access';
 
 
 // TODO: Define the CatHistoryClient component later
@@ -47,15 +46,9 @@ export default async function CatHistoryPage({ params }: { params: Promise<{ id:
     notFound()
   }
 
-  const prismaUser = await prisma.profiles.findUnique({
-    where: { id: supabaseUser.id },
-    select: { household_members: { select: { household_id: true } } }
-  });
-
-  const householdId = prismaUser?.household_members[0]?.household_id;
-
-  if (!prismaUser || !householdId || householdId !== cat.household_id) {
-    console.error(`CatHistoryPage: User ${supabaseUser.id} (household ${householdId}) unauthorized attempt to access history for cat ${cat.id} (household ${cat.household_id}).`);
+  const catAccess = await requireCatAccess(supabaseUser.id, cat.id);
+  if (!catAccess.ok) {
+    console.error(`CatHistoryPage: User ${supabaseUser.id} unauthorized attempt to access history for cat ${cat.id} (household ${cat.household_id}).`);
     notFound();
   }
 

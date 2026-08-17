@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireCatAccess } from '@/lib/authz/household-access';
+import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // Zod schema for request body validation
 const CreateWeightLogBodySchema = z.object({
@@ -94,64 +96,24 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 
     if (!validatedBody.success) {
       logger.warn('[POST /api/v2/weight-logs] Invalid request body', { error: validatedBody.error.format() });
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid request body',
-        details: validatedBody.error.format()
-      }, { status: 400 });
+      return v2Err('Invalid request body', 400, validatedBody.error.format());
     }
 
-    // Verify user has access to the cat
-    const cat = await prisma.cats.findUnique({
-      where: { id: validatedBody.data.catId },
-      select: { household_id: true }
-    });
-
-    if (!cat) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-
-    // Verify user has access to the cat's household
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[POST /api/v2/weight-logs] User ${user.id} not authorized for cat ${validatedBody.data.catId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this cat'
-      }, { status: 403 });
-    }
+    const catAccess = await requireCatAccess(user.id, validatedBody.data.catId);
+    if (!catAccess.ok) return catAccess.response;
 
     const result = await createWeightLogAndUpdateCat(validatedBody.data, user.id);
     
     logger.info('[POST /api/v2/weight-logs] Weight log created:', { logId: result.id, catId: validatedBody.data.catId });
 
-    return NextResponse.json({
-      success: true,
-      data: result
-    }, { status: 201 });
+    return v2Ok(result, 201);
 
   } catch (error) {
     logger.error('[POST /api/v2/weight-logs] Error', { error });
     if (error instanceof z.ZodError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid request body',
-        details: error.format()
-      }, { status: 400 });
+      return v2Err('Invalid request body', 400, error.format());
     }
-    return NextResponse.json({
-      success: false,
-      error: 'Internal Server Error'
-    }, { status: 500 });
+    return v2Err('Internal Server Error', 500);
   }
 });
 
@@ -164,40 +126,11 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     const catId = searchParams.get('catId');
 
     if (!catId || typeof catId !== 'string' || !z.string().uuid().safeParse(catId).success) {
-      return NextResponse.json({
-        success: false,
-        error: 'Valid catId query parameter is required'
-      }, { status: 400 });
+      return v2Err('Valid catId query parameter is required', 400);
     }
 
-    // Verify user has access to the cat
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: { household_id: true }
-    });
-
-    if (!cat) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-
-    // Verify user has access to the cat's household
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[GET /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this cat'
-      }, { status: 403 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
 
     const weightLogs = await prisma.cat_weight_logs.findMany({
       where: {
@@ -210,18 +143,11 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 
     logger.info(`[GET /api/v2/weight-logs] Retrieved ${weightLogs.length} logs for cat ${catId}`);
 
-    return NextResponse.json({
-      success: true,
-      data: weightLogs,
-      count: weightLogs.length
-    });
+    return v2Ok(weightLogs);
 
   } catch (error) {
     logger.error('[GET /api/v2/weight-logs] Error', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Internal Server Error'
-    }, { status: 500 });
+    return v2Err('Internal Server Error', 500);
   }
 });
 
@@ -234,10 +160,7 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     const logId = searchParams.get('id');
     
     if (!logId || !z.string().uuid().safeParse(logId).success) {
-      return NextResponse.json({
-        success: false,
-        error: 'Valid log ID query parameter is required'
-      }, { status: 400 });
+      return v2Err('Valid log ID query parameter is required', 400);
     }
 
     const json = await request.json();
@@ -245,45 +168,15 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     
     if (!validatedBody.success) {
       logger.warn('[PUT /api/v2/weight-logs] Invalid request body', { error: validatedBody.error.format() });
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid request body',
-        details: validatedBody.error.format()
-      }, { status: 400 });
+      return v2Err('Invalid request body', 400, validatedBody.error.format());
     }
 
     const { catId, weight, date, notes } = validatedBody.data;
     const logDate = new Date(date);
 
-    // Verify user has access to the cat
-    const catToUpdate = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: { household_id: true }
-    });
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
 
-    if (!catToUpdate) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-
-    // Verify user has access to the cat's household
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: catToUpdate.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[PUT /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Forbidden: You do not have access to this cat'
-      }, { status: 403 });
-    }
-    
     // Verify the log belongs to the specified cat
     const existingLog = await prisma.cat_weight_logs.findUnique({
       where: { id: logId },
@@ -291,17 +184,11 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     });
 
     if (!existingLog) {
-      return NextResponse.json({
-        success: false,
-        error: 'Log not found'
-      }, { status: 404 });
+      return v2Err('Log not found', 404);
     }
     
     if (existingLog.cat_id !== catId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Forbidden: Cannot change the cat associated with this log'
-      }, { status: 403 });
+      return v2Err('Forbidden: Cannot change the cat associated with this log', 403);
     }
 
     const updatedLog = await prisma.$transaction(async (tx) => {
@@ -322,17 +209,11 @@ export const PUT = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 
     logger.info('[PUT /api/v2/weight-logs] Weight log updated:', { logId, catId });
 
-    return NextResponse.json({
-      success: true,
-      data: updatedLog
-    });
+    return v2Ok(updatedLog);
 
   } catch (error) {
     logger.error('[PUT /api/v2/weight-logs] Error', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Internal Server Error'
-    }, { status: 500 });
+    return v2Err('Internal Server Error', 500);
   }
 });
 
@@ -345,10 +226,7 @@ export const DELETE = withHybridAuth(async (request: NextRequest, user: MobileAu
     const logId = searchParams.get('id');
     
     if (!logId || !z.string().uuid().safeParse(logId).success) {
-      return NextResponse.json({
-        success: false,
-        error: 'Valid log ID query parameter is required'
-      }, { status: 400 });
+      return v2Err('Valid log ID query parameter is required', 400);
     }
 
     // Find the log to be deleted to get the catId
@@ -358,42 +236,13 @@ export const DELETE = withHybridAuth(async (request: NextRequest, user: MobileAu
     });
 
     if (!logToDelete) {
-      return NextResponse.json({
-        success: false,
-        error: 'Log not found'
-      }, { status: 404 });
+      return v2Err('Log not found', 404);
     }
 
     const catId = logToDelete.cat_id;
 
-    // Verify user has access to the cat
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: { household_id: true }
-    });
-
-    if (!cat) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-
-    // Verify user has access to the cat's household
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[DELETE /api/v2/weight-logs] User ${user.id} not authorized for cat ${catId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Forbidden: You do not have access to this cat'
-      }, { status: 403 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
 
     await prisma.$transaction(async (tx) => {
       await tx.cat_weight_logs.delete({
@@ -405,17 +254,11 @@ export const DELETE = withHybridAuth(async (request: NextRequest, user: MobileAu
 
     logger.info('[DELETE /api/v2/weight-logs] Weight log deleted:', { logId, catId });
 
-    return NextResponse.json({
-      success: true,
-      message: 'Weight log deleted successfully'
-    });
+    return v2Ok({ message: 'Weight log deleted successfully' });
 
   } catch (error) {
     logger.error('[DELETE /api/v2/weight-logs] Error', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Internal Server Error'
-    }, { status: 500 });
+    return v2Err('Internal Server Error', 500);
   }
 });
 

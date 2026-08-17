@@ -61,7 +61,7 @@ import {
 import { Calendar as CalendarIcon } from "@/components/ui/calendar"
 import { ptBR } from "date-fns/locale"
 import { cn } from "@/lib/utils"
-import { DateTimePicker } from "@/components/ui/datetime-picker-new"
+import { DateTimePicker } from "@/components/ui/datetime-picker"
 import { resolveDateFnsLocale } from "@/lib/utils/dateFnsLocale"
 import { useMemo } from "react"
 import { v2Delete, v2Put } from "@/lib/api/v2-client"
@@ -82,7 +82,7 @@ type EditCatPageState =
 
 export default function EditCatPageContent({ params }: EditCatPageContentProps) {
   const router = useRouter()
-  const { state: catsState, dispatch: catsDispatch } = useCats()
+  const { state: catsState, forceRefresh } = useCats()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { cats, error: errorCats } = catsState
@@ -204,18 +204,15 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
     const opId = `delete-cat-${cat.id}`
     addLoadingOperation({ id: opId, priority: 1, description: `Deleting ${cat.name}...` })
     setIsDeleting(true)
-    const previousCats = cats
-    
-    catsDispatch({ type: "REMOVE_CAT", payload: cat.id })
     
     try {
       await v2Delete(`/api/v2/cats/${cat.id}`)
+      await forceRefresh()
       toast.success(`${cat.name} foi excluído com sucesso`)
       router.push("/cats")
     } catch (error: any) {
       console.error("Erro ao excluir gato:", error)
       toast.error(`Falha ao excluir gato: ${error.message}`)
-      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats })
     } finally {
       setIsDeleting(false)
       removeLoadingOperation(opId)
@@ -260,10 +257,7 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
       
       console.log('Server response:', responseData)
       
-      catsDispatch({
-        type: "UPDATE_CAT",
-        payload: responseData
-      })
+      await forceRefresh()
       
       toast.success(`${responseData.name} foi atualizado com sucesso`)
       router.push(`/cats/${cat.id}`)
@@ -369,8 +363,8 @@ export default function EditCatPageContent({ params }: EditCatPageContentProps) 
                   <DateTimePicker
                     {...(formData.birthdate ? { value: new Date(formData.birthdate) } : {})}
                     onChange={date => setFormData(prev => ({ ...prev, birthdate: date ? date.toISOString().split('T')[0] ?? "" : "" }))}
-                    fromYear={1980}
-                    toYear={2030}
+                    granularity="day"
+                    displayFormat={{ hour24: 'PPP', hour12: 'PP' }}
                     placeholder="Selecione uma data"
                   />
                 </div>
