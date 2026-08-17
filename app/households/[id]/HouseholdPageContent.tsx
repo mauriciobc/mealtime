@@ -79,7 +79,7 @@ export default function HouseholdPageContent({ params }: HouseholdPageContentPro
   const router = useRouter();
   const { state: householdState, dispatch: householdDispatch } = useHousehold();
   const { state: userState } = useUserContext();
-  const { state: catsState, dispatch: _catsDispatch } = useCats();
+  const { state: catsState } = useCats();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { households, error: errorHousehold } = householdState;
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;

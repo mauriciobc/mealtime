@@ -5,86 +5,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { parseGender } from '@/lib/types/common';
 import { requireHouseholdMember } from '@/lib/authz/household-access';
-
-/**
- * Valida e normaliza o peso do gato
- */
-function validateWeight(weight: any): { isValid: boolean; value: number | null; error?: string } {
-  if (weight === null || weight === undefined || weight === '') {
-    return { isValid: true, value: null };
-  }
-
-  const weightNum = Number(parseFloat(weight));
-  
-  if (Number.isNaN(weightNum)) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Peso deve ser um número válido' 
-    };
-  }
-
-  if (weightNum < 0) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Peso não pode ser negativo' 
-    };
-  }
-
-  // Validação adicional: peso máximo razoável para um gato (50kg)
-  if (weightNum > 50) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Peso deve ser menor que 50kg' 
-    };
-  }
-
-  return { isValid: true, value: weightNum };
-}
-
-/**
- * Valida e normaliza a data de nascimento do gato
- */
-function validateBirthDate(birth_date: any): { isValid: boolean; value: Date | null; error?: string } {
-  if (birth_date === null || birth_date === undefined || birth_date === '') {
-    return { isValid: true, value: null };
-  }
-
-  const date = new Date(birth_date);
-  
-  if (isNaN(date.getTime())) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Data de nascimento deve ser uma data válida' 
-    };
-  }
-
-  // Validação adicional: data não pode ser no futuro
-  const now = new Date();
-  if (date > now) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Data de nascimento não pode ser no futuro' 
-    };
-  }
-
-  // Validação adicional: data não pode ser muito antiga (mais de 30 anos)
-  const thirtyYearsAgo = new Date();
-  thirtyYearsAgo.setFullYear(thirtyYearsAgo.getFullYear() - 30);
-  if (date < thirtyYearsAgo) {
-    return { 
-      isValid: false, 
-      value: null, 
-      error: 'Data de nascimento não pode ser há mais de 30 anos' 
-    };
-  }
-
-  return { isValid: true, value: date };
-}
+import { createCatSchema, feedingIntervalOf } from '@/lib/validations/cats';
 
 // GET /api/v2/cats - Listar todos os gatos (filtragem opcional por householdId)
 export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
@@ -168,80 +89,38 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     const body = await request.json();
     logger.debug('[POST /api/v2/cats] Received request body:', body);
 
-    // Validate required fields
-    if (!body.name || !body.householdId) {
-      logger.warn('[POST /api/v2/cats] Missing required fields:', { body });
+    const parsed = createCatSchema.safeParse(body);
+    if (!parsed.success) {
+      logger.warn('[POST /api/v2/cats] Invalid body:', parsed.error.format());
       return NextResponse.json({
         success: false,
-        error: 'Nome e ID do domicílio são obrigatórios'
+        error: 'Dados inválidos',
+        details: parsed.error.format()
       }, { status: 400 });
     }
 
-    // Validate feeding interval (if provided)
-    let feedingInterval = null;
-    if (body.feeding_interval) {
-      const hours = parseInt(String(body.feeding_interval));
-      if (isNaN(hours) || hours < 1 || hours > 24) {
-        logger.warn('[POST /api/v2/cats] Invalid feeding interval:', body.feeding_interval);
-        return NextResponse.json({
-          success: false,
-          error: 'Intervalo de alimentação deve ser entre 1 e 24 horas'
-        }, { status: 400 });
-      }
-      feedingInterval = hours;
-    }
-
-    // Validar e capturar peso se fornecido
-    let validatedWeight: number | null | undefined = undefined;
-    if (body.weight !== undefined) {
-      const weightValidation = validateWeight(body.weight);
-      if (!weightValidation.isValid) {
-        logger.warn('[POST /api/v2/cats] Invalid weight:', body.weight);
-        return NextResponse.json({
-          success: false,
-          error: weightValidation.error
-        }, { status: 400 });
-      }
-      validatedWeight = weightValidation.value;
-    }
-
-    // Validar e capturar data de nascimento se fornecida
-    let validatedBirthDate: Date | null | undefined = undefined;
-    if (body.birthdate !== undefined) {
-      const birthDateValidation = validateBirthDate(body.birthdate);
-      if (!birthDateValidation.isValid) {
-        logger.warn('[POST /api/v2/cats] Invalid birthdate:', body.birthdate);
-        return NextResponse.json({
-          success: false,
-          error: birthDateValidation.error
-        }, { status: 400 });
-      }
-      validatedBirthDate = birthDateValidation.value;
-    }
-
-    const access = await requireHouseholdMember(user.id, body.householdId);
+    const data = parsed.data;
+    const access = await requireHouseholdMember(user.id, data.householdId);
     if (!access.ok) return access.response;
 
-    // Preparar dados para criação com validações aplicadas
     const createData: any = {
-      name: body.name.trim(),
-      photo_url: body.photoUrl || null,
-      household_id: body.householdId,
+      name: data.name,
+      photo_url: data.photoUrl || null,
+      household_id: data.householdId,
       owner_id: user.id,
-      restrictions: body.restrictions?.trim() || null,
-      notes: body.notes?.trim() || null,
-      gender: parseGender(body.gender),
-      feeding_interval: feedingInterval,
-      portion_size: body.portion_size || null
+      restrictions: data.restrictions?.trim() || null,
+      notes: data.notes?.trim() || null,
+      gender: parseGender(data.gender),
+      feeding_interval: feedingIntervalOf(data),
+      portion_size: data.portion_size || null
     };
 
-    // Usar valores já validados (sem re-validação redundante)
-    if (validatedWeight !== undefined) {
-      createData.weight = validatedWeight;
+    if (data.weight !== undefined) {
+      createData.weight = data.weight;
     }
 
-    if (validatedBirthDate !== undefined) {
-      createData.birth_date = validatedBirthDate;
+    if (data.birthdate !== undefined) {
+      createData.birth_date = data.birthdate ? new Date(data.birthdate) : null;
     }
 
     // Create the cat using Prisma's create method
@@ -250,12 +129,12 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
     });
 
     // If weight was provided, create an initial weight log using validated value
-    if (newCat && validatedWeight !== null && validatedWeight !== undefined) {
+    if (newCat && data.weight !== null && data.weight !== undefined) {
       try {
         await prisma.cat_weight_logs.create({
           data: {
             cat_id: newCat.id,
-            weight: validatedWeight,
+            weight: data.weight,
             date: new Date(),
             measured_by: user.id,
           }

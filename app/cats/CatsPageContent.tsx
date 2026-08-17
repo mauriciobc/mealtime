@@ -45,7 +45,7 @@ import { v2Delete } from "@/lib/api/v2-client"
 
 export default function CatsPageContent() {
   const router = useRouter()
-  const { state: catsState, dispatch: catsDispatch } = useCats()
+  const { state: catsState, forceRefresh } = useCats()
   const { state: userState } = useUserContext()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { cats, isLoading: isLoadingCats, error: errorCats } = catsState
@@ -72,19 +72,16 @@ export default function CatsPageContent() {
   }, [feedingLogs])
 
   const handleDeleteCat = async (catId: string) => {
-    const previousCats = cats
     const opId = `delete-cat-${catId}`
     addLoadingOperation({ id: opId, priority: 1, description: `Deleting cat ${catId}...` })
     setIsDeleting(catId)
 
-    catsDispatch({ type: "REMOVE_CAT", payload: catId })
-
     try {
       await v2Delete(`/api/v2/cats/${catId}`)
+      await forceRefresh()
       toast.success("Gato excluído com sucesso!")
     } catch (error: any) {
       toast.error(`Erro ao excluir gato: ${error.message}`)
-      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats })
     } finally {
       setIsDeleting(null)
       removeLoadingOperation(opId)

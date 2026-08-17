@@ -84,7 +84,7 @@ type NewCatPageState =
 export default function NewCatPageContent() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { dispatch: catsDispatch, forceRefresh } = useCats();
+  const { forceRefresh } = useCats();
   const { state: userState } = useUserContext();
   const { addLoadingOperation, removeLoadingOperation } = useLoading();
   const { currentUser, isLoading: isLoadingUser, error: errorUser } = userState;

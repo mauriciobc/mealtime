@@ -51,7 +51,7 @@ interface Schedule {
 
 export default function CatDetailsClient({ id }: { id: string }) {
   const router = useRouter()
-  const { state: catsState, dispatch: catsDispatch } = useCats()
+  const { state: catsState, forceRefresh } = useCats()
   const { addLoadingOperation, removeLoadingOperation } = useLoading()
   const { 
     cat, 
@@ -106,16 +106,13 @@ export default function CatDetailsClient({ id }: { id: string }) {
     const opId = `delete-cat-${id}`;
     addLoadingOperation({ id: opId, description: `Excluindo ${cat?.name || 'gato'}...`, priority: 1 });
     setIsProcessingDelete(true);
-    const previousCats = catsState.cats;
-
-    catsDispatch({ type: "REMOVE_CAT", payload: id });
 
     try {
       await v2Delete(`/api/v2/cats/${id}`);
+      await forceRefresh();
       toast.success(`${cat?.name || 'Gato'} foi excluído com sucesso`);
       router.push('/cats');
     } catch (error: any) {
-      catsDispatch({ type: "FETCH_SUCCESS", payload: previousCats });
       toast.error(`Falha ao excluir gato: ${error.message}`);
     } finally {
       setIsProcessingDelete(false);

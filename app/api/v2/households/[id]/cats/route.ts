@@ -1,30 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { BaseCats, parseGender } from "@/lib/types/common";
-import { z } from "zod";
 import { logger } from "@/lib/monitoring/logger";
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { requireHouseholdMember } from '@/lib/authz/household-access';
+import { createCatInHouseholdSchema, feedingIntervalOf } from '@/lib/validations/cats';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
-
-// Zod schema for POST request body
-const PostBodySchema = z.object({
-  name: z.string().trim().min(1),
-  photoUrl: z.string().url().nullable().optional(),
-  birthdate: z.string().datetime().nullable().optional(),
-  weight: z.number().positive().nullable().optional(),
-  restrictions: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
-  gender: z.enum(['male', 'female']).optional().nullable(),
-  feedingInterval: z.number().int().min(1).max(24).optional(),
-  portion_size: z.number().positive().optional(),
-}).strict();
 
 // GET /api/v2/households/[id]/cats - Listar gatos de um domicílio
 export const GET = withHybridAuth(async (
@@ -168,7 +155,7 @@ export const POST = withHybridAuth(async (
     if (!access.ok) return access.response;
 
     const body = await request.json();
-    const bodyValidation = PostBodySchema.safeParse(body);
+    const bodyValidation = createCatInHouseholdSchema.safeParse(body);
 
     if (!bodyValidation.success) {
       logger.error(`[POST /api/v2/households/${householdId}/cats] Invalid body`, { issues: bodyValidation.error.issues });
@@ -193,7 +180,7 @@ export const POST = withHybridAuth(async (
         restrictions: data.restrictions ?? null,
         notes: data.notes ?? null,
         gender: parseGender(data.gender),
-        feeding_interval: data.feedingInterval ?? null,
+        feeding_interval: feedingIntervalOf(data),
         portion_size: data.portion_size ?? null
       }
     });

@@ -58,9 +58,9 @@ export function EditCatDialog({ open, onOpenChange, catId, householdId }: EditCa
     if (cat && open) {
       form.reset({
         name: cat.name || '',
-        weight: cat.weight || 0,
-        notes: cat.medical_history || '',
-        age: cat.birth_date ? new Date().getFullYear() - new Date(cat.birth_date).getFullYear() : 0,
+        weight: cat.weight != null ? Number(cat.weight) : 0,
+        notes: cat.notes || '',
+        age: cat.birthdate ? new Date().getFullYear() - new Date(cat.birthdate).getFullYear() : 0,
       });
     } else if (!open) {
       form.reset({

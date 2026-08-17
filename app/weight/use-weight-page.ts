@@ -9,7 +9,7 @@ import { useWeight } from "@/lib/context/WeightContext";
 import { calcularIdadeEmAnos, gerarMarcos } from '@/lib/weight/milestoneUtils';
 import { handleAsyncError, AppError, ValidationError } from '@/lib/utils/error-handler';
 import { useLoadingState } from "@/lib/hooks/useLoadingState";
-import { CatsContext } from '@/lib/context/CatsContext';
+import { useCats } from '@/lib/context/CatsContext';
 import { UserContext } from "@/lib/context/UserContext";
 import { logger } from '@/lib/monitoring/logger';
 import { v2Delete, v2Post, v2Put } from '@/lib/api/v2-client';
@@ -37,7 +37,7 @@ export function useWeightPage() {
 
   // Contexts (called unconditionally)
   const userContext = useContext(UserContext);
-  const catsContext = useContext(CatsContext);
+  const { state: catsState, forceRefresh } = useCats();
 
   // All custom hooks MUST be called before any early returns
   const feedingHook = useFeeding();
@@ -49,7 +49,6 @@ export function useWeightPage() {
   const userId = currentUser?.id;
   const householdId = currentUser?.householdId;
 
-  const { state: catsState, forceRefresh } = catsContext || { state: { cats: [] }, forceRefresh: () => {} };
   const { cats, isLoading: isLoadingCats } = catsState;
 
   const { state: feedingState } = feedingHook;
