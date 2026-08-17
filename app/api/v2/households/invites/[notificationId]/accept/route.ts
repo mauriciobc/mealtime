@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { uuidParamSchema } from '@/lib/validations/params';
 
 /**
  * POST /api/v2/households/invites/[notificationId]/accept
@@ -21,7 +22,7 @@ export const POST = withHybridAuth(async (
     userId: user.id 
   });
 
-  if (!notificationId) {
+  if (!notificationId || !uuidParamSchema.safeParse(notificationId).success) {
     return NextResponse.json({
       success: false,
       error: 'Notification ID is required'

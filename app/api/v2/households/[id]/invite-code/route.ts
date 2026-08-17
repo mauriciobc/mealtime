@@ -6,6 +6,7 @@ import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireHouseholdAdmin } from '@/lib/authz/household-access';
 import { v2Err, v2Ok } from '@/lib/responses/v2-json';
+import { uuidParamSchema } from '@/lib/validations/params';
 
 // Helper to generate a unique invite code
 async function generateInviteCode(): Promise<string> {
@@ -33,7 +34,7 @@ export const PATCH = withHybridAuth(async (
 
   logger.debug(`[PATCH /api/v2/households/${householdId}/invite-code] Request from user: ${user.id}`);
 
-  if (!householdId) {
+  if (!householdId || !uuidParamSchema.safeParse(householdId).success) {
     return v2Err('Household ID is required', 400);
   }
 

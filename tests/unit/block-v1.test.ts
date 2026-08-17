@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { NextRequest } from 'next/server';
 import { v1DeprecatedResponse, isDeprecatedV1ApiPath } from '@/lib/middleware/block-v1';
+import { GET as v1CatchAll } from '@/app/api/[...v1]/route';
 
 describe('v1DeprecatedResponse', () => {
   it('returns 410 with deprecation message', async () => {
@@ -15,6 +17,8 @@ describe('isDeprecatedV1ApiPath', () => {
     expect(isDeprecatedV1ApiPath('/api/feedings')).toBe(true);
     expect(isDeprecatedV1ApiPath('/api/feedings/cats')).toBe(true);
     expect(isDeprecatedV1ApiPath('/api/cats')).toBe(true);
+    expect(isDeprecatedV1ApiPath('/api/users/me')).toBe(true);
+    expect(isDeprecatedV1ApiPath('/api/swagger')).toBe(true);
   });
 
   it('allows v2, auth, health, and monitoring', () => {
@@ -27,5 +31,12 @@ describe('isDeprecatedV1ApiPath', () => {
   it('ignores non-API paths', () => {
     expect(isDeprecatedV1ApiPath('/cats')).toBe(false);
     expect(isDeprecatedV1ApiPath('/login')).toBe(false);
+  });
+});
+
+describe('v1 catch-all route', () => {
+  it('returns 410 for /api/feedings', async () => {
+    const res = await v1CatchAll(new NextRequest('http://localhost/api/feedings'));
+    expect(res.status).toBe(410);
   });
 });

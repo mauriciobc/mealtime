@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
-import { handleApiError, handleValidationError } from '@/lib/utils/api-error-handling';
 import { createNotification } from '@/lib/services/notificationService';
 import { buildScheduleUpdateNotification } from '@/lib/notifications/event-payloads';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
@@ -8,6 +7,7 @@ import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { requireHouseholdMember } from '@/lib/authz/household-access';
 import { v2Err, v2Ok } from '@/lib/responses/v2-json';
+import { updateScheduleSchema } from '@/lib/validations/schedules';
 
 // GET /api/v2/schedules/[id] - Get a specific schedule
 export const GET = withHybridAuth(async (
@@ -76,12 +76,11 @@ export const PATCH = withHybridAuth(async (
 
     logger.debug(`[PATCH /api/v2/schedules/${id}] Request from user: ${user.id}`);
 
-    const {
-      type,
-      interval,
-      times,
-      overrideUntil
-    } = await request.json();
+    const parsed = updateScheduleSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return v2Err('Invalid schedule data', 400, parsed.error.flatten());
+    }
+    const { type, interval, times, overrideUntil } = parsed.data;
 
     // Check if schedule exists
     const existingSchedule = await prisma.schedules.findUnique({
@@ -104,22 +103,12 @@ export const PATCH = withHybridAuth(async (
     const patchAccess = await requireHouseholdMember(user.id, existingSchedule.cat.household_id);
     if (!patchAccess.ok) return patchAccess.response;
 
-    // Validate schedule type if provided
-    if (type && type !== 'interval' && type !== 'fixedTime') {
-      return v2Err('Invalid schedule type', 400);
-    }
-
-    // Determine the effective type (new type or existing type)
     const effectiveType = type ?? existingSchedule.type;
 
-    // Validate type-specific data against the effective type
-    if (effectiveType === 'interval' && interval !== undefined && interval <= 0) {
-      return v2Err('Interval must be greater than zero', 400);
-    }
-
     if (effectiveType === 'fixedTime' && times !== undefined) {
-      const trimmedTimes = typeof times === 'string' ? times.trim() : '';
-      if (trimmedTimes === '') {
+      const emptyString = typeof times === 'string' && times.trim() === '';
+      const emptyArray = Array.isArray(times) && times.length === 0;
+      if (emptyString || emptyArray) {
         return v2Err('Times are required for fixed time schedules', 400);
       }
     }

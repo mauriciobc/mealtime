@@ -6,6 +6,7 @@ import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { parseGender } from '@/lib/types/common';
 import { requireHouseholdMember } from '@/lib/authz/household-access';
 import { createCatSchema, feedingIntervalOf } from '@/lib/validations/cats';
+import { catsListQuerySchema } from '@/lib/validations/params';
 import { v2Err, v2Ok } from '@/lib/responses/v2-json';
 
 // GET /api/v2/cats - Listar todos os gatos (filtragem opcional por householdId)
@@ -18,7 +19,13 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     logger.debug(`[GET /api/v2/cats] User ${user.id} authorized for households:`, { householdIds: userHouseholdIds });
 
     const searchParams = request.nextUrl.searchParams;
-    const requestedHouseholdId = searchParams.get('householdId');
+    const query = catsListQuerySchema.safeParse({
+      householdId: searchParams.get('householdId') || undefined,
+    });
+    if (!query.success) {
+      return v2Err('Parâmetros de consulta inválidos', 400, query.error.flatten());
+    }
+    const requestedHouseholdId = query.data.householdId;
 
     let targetHouseholdIds: string[];
 
