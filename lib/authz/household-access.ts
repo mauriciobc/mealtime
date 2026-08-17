@@ -97,7 +97,12 @@ export async function requireHouseholdAdmin(
   }
 }
 
-export async function requireCatAccess(userId: string, catId: string) {
+type CatRecord = NonNullable<Awaited<ReturnType<typeof prisma.cats.findUnique>>>;
+
+export async function requireCatAccess(
+  userId: string,
+  catId: string
+): Promise<AuthzResult<{ cat: CatRecord; membership: HouseholdMembership }>> {
   try {
     const cat = await prisma.cats.findUnique({ where: { id: catId } });
 
