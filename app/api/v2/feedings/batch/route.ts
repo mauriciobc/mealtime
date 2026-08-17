@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireCatAccess } from '@/lib/authz/household-access';
 
 /**
  * Helper function to report errors to monitoring/alerting services
@@ -97,55 +98,21 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 
     const { logs } = validationResult.data;
 
-    // Get user's household ID
-    logger.debug(`[POST /api/v2/feedings/batch] Getting household for user ${user.id}`);
-    const userHousehold = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id
-      },
-      select: {
-        household_id: true
-      }
-    });
-
-    if (!userHousehold) {
-      logger.warn(`[POST /api/v2/feedings/batch] User ${user.id} not associated with any household`);
-      return NextResponse.json({
-        success: false,
-        error: "User not associated with any household"
-      }, { status: 403 });
-    }
-
-    // Verify user has access to all cats through their household
     const catIds = [...new Set(logs.map(f => f.catId))];
     logger.debug(`[POST /api/v2/feedings/batch] Verifying access to cats:`, { catIds });
-    
-    const accessibleCats = await prisma.cats.findMany({
-      where: {
-        id: { in: catIds },
-        household_id: userHousehold.household_id
-      },
-      select: { 
-        id: true,
-        name: true,
-        feeding_interval: true,
-        household_id: true
-      }
-    });
 
-    const accessibleCatIds = new Set(accessibleCats.map(c => c.id));
-    const unauthorizedCats = catIds.filter(id => !accessibleCatIds.has(id));
-
-    if (unauthorizedCats.length > 0) {
-      logger.warn(`[POST /api/v2/feedings/batch] Unauthorized access to cats`, { unauthorizedCats });
-      return NextResponse.json({
-        success: false,
-        error: `Unauthorized access to cats: ${unauthorizedCats.join(", ")}`
-      }, { status: 403 });
+    const catInfoMap = new Map<string, { id: string; name: string; feeding_interval: number | null; household_id: string }>();
+    for (const catId of catIds) {
+      const catAccess = await requireCatAccess(user.id, catId);
+      if (!catAccess.ok) return catAccess.response;
+      const cat = catAccess.data.cat;
+      catInfoMap.set(cat.id, {
+        id: cat.id,
+        name: cat.name,
+        feeding_interval: cat.feeding_interval,
+        household_id: cat.household_id,
+      });
     }
-
-    // Create a map of cat info for later use
-    const catInfoMap = new Map(accessibleCats.map(cat => [cat.id, cat]));
 
     // Create all feeding logs in a transaction
     logger.debug(`[POST /api/v2/feedings/batch] Creating ${logs.length} feeding logs`);
@@ -154,7 +121,7 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
         prisma.feeding_logs.create({
           data: {
             cat_id: log.catId,
-            household_id: userHousehold.household_id,
+            household_id: catInfoMap.get(log.catId)!.household_id,
             meal_type: log.mealType,
             amount: new Prisma.Decimal(log.portionSize),
             unit: log.unit,
@@ -170,16 +137,18 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 
     logger.info(`[POST /api/v2/feedings/batch] Created ${createdFeedings.length} feeding logs`);
 
+    const householdIds = [...new Set(
+      [...catInfoMap.values()].map((cat) => cat.household_id)
+    )];
+
     // Fetch household members once (excluding the user who fed)
     const householdMembers = await prisma.household_members.findMany({
       where: {
-        household_id: userHousehold.household_id,
+        household_id: { in: householdIds },
         user_id: { not: user.id }
       },
-      select: { user_id: true }
+      select: { user_id: true, household_id: true }
     });
-    
-    const reminderMemberIds = householdMembers.map(member => member.user_id);
 
     // Track scheduling warnings to include in response
     const schedulingWarnings: string[] = [];
@@ -192,6 +161,10 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
         logger.debug(`[POST /api/v2/feedings/batch] Skipping scheduling for cat ${feeding.cat_id} (no interval)`);
         continue;
       }
+
+      const reminderMemberIds = householdMembers
+        .filter((member) => member.household_id === cat.household_id)
+        .map((member) => member.user_id);
 
       if (reminderMemberIds.length === 0) {
         logger.debug(`[POST /api/v2/feedings/batch] No reminder members for cat ${feeding.cat_id}`);

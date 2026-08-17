@@ -6,6 +6,7 @@ import { MobileAuthUser } from "@/lib/middleware/mobile-auth";
 import { logger } from "@/lib/monitoring/logger";
 import { startOfDay, endOfDay, subDays } from "date-fns";
 import { toZonedTime, fromZonedTime } from "date-fns-tz";
+import { requireCatAccess } from "@/lib/authz/household-access";
 
 // Validation schema for query parameters
 const statsQuerySchema = z.object({
@@ -39,8 +40,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
 
     const { catId, days } = validationResult.data;
 
-    // Validate user has a household
-    if (!user.household_id) {
+    if (!user.household_ids?.length) {
       logger.warn(`[GET /api/v2/feedings/stats] User ${user.id} has no household`);
       return NextResponse.json({
         success: false,
@@ -48,28 +48,9 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 403 });
     }
 
-    // If catId is provided, validate it belongs to user's household BEFORE querying
     if (catId) {
-      const cat = await prisma.cats.findUnique({
-        where: { id: catId },
-        select: { household_id: true }
-      });
-      
-      if (!cat) {
-        logger.warn(`[GET /api/v2/feedings/stats] Cat ${catId} not found`);
-        return NextResponse.json({
-          success: false,
-          error: 'Cat not found'
-        }, { status: 404 });
-      }
-      
-      if (cat.household_id !== user.household_id) {
-        logger.warn(`[GET /api/v2/feedings/stats] User ${user.id} not authorized for cat ${catId}`);
-        return NextResponse.json({
-          success: false,
-          error: 'Access denied to this cat'
-        }, { status: 403 });
-      }
+      const catAccess = await requireCatAccess(user.id, catId);
+      if (!catAccess.ok) return catAccess.response;
     }
 
     // Calculate the date range with UTC-normalized day boundaries
@@ -93,7 +74,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
         lte: endDate,
       },
       cat: {
-        household_id: user.household_id // SECURITY: Always filter by user's household
+        household_id: { in: user.household_ids }
       }
     };
     

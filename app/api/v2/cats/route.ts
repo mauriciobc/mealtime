@@ -4,6 +4,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { parseGender } from '@/lib/types/common';
+import { requireHouseholdMember } from '@/lib/authz/household-access';
 
 /**
  * Valida e normaliza o peso do gato
@@ -90,29 +91,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
   logger.debug('[GET /api/v2/cats] Authenticated user:', { userId: user.id, householdId: user.household_id });
 
   try {
-    // Get user's households for authorization
-    const userProfile = await prisma.profiles.findUnique({
-      where: { id: user.id },
-      select: { household_members: { select: { household_id: true } } }
-    });
-
-    if (!userProfile) {
-      logger.error(`[GET /api/v2/cats] Prisma profile not found for auth user ID: ${user.id}`);
-      return NextResponse.json({ 
-        success: false,
-        error: 'Perfil de usuário não encontrado' 
-      }, { status: 404 });
-    }
-
-    const userHouseholdIds = userProfile.household_members.map(m => m.household_id);
-    if (userHouseholdIds.length === 0) {
-      logger.info(`[GET /api/v2/cats] User ${user.id} belongs to no households. Returning empty.`);
-      return NextResponse.json({ 
-        success: true,
-        data: [],
-        count: 0
-      });
-    }
+    const userHouseholdIds = user.household_ids ?? [];
     
     logger.debug(`[GET /api/v2/cats] User ${user.id} authorized for households:`, { householdIds: userHouseholdIds });
 
@@ -122,18 +101,19 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     let targetHouseholdIds: string[];
 
     if (requestedHouseholdId) {
-      // If a specific household is requested, check authorization
-      if (!userHouseholdIds.includes(requestedHouseholdId)) {
-        logger.warn(`[GET /api/v2/cats] User ${user.id} not authorized for requested household ${requestedHouseholdId}`);
-        return NextResponse.json({ 
-          success: false,
-          error: 'Não autorizado para este domicílio' 
-        }, { status: 403 });
-      }
+      const access = await requireHouseholdMember(user.id, requestedHouseholdId);
+      if (!access.ok) return access.response;
       targetHouseholdIds = [requestedHouseholdId];
       logger.debug(`[GET /api/v2/cats] Filtering by requested household: ${requestedHouseholdId}`);
     } else {
-      // If no specific household is requested, fetch for all user's households
+      if (userHouseholdIds.length === 0) {
+        logger.info(`[GET /api/v2/cats] User ${user.id} belongs to no households. Returning empty.`);
+        return NextResponse.json({ 
+          success: true,
+          data: [],
+          count: 0
+        });
+      }
       targetHouseholdIds = userHouseholdIds;
       logger.debug(`[GET /api/v2/cats] Fetching for all authorized households.`);
     }
@@ -239,22 +219,8 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       validatedBirthDate = birthDateValidation.value;
     }
 
-    // Check if the user is a member of the target household
-    const householdMember = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: body.householdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!householdMember) {
-      logger.warn(`[POST /api/v2/cats] User ${user.id} not authorized for household ${body.householdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Usuário não autorizado para este domicílio'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, body.householdId);
+    if (!access.ok) return access.response;
 
     // Preparar dados para criação com validações aplicadas
     const createData: any = {

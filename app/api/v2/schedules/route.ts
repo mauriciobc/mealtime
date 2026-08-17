@@ -4,6 +4,7 @@ import { handleApiError, handleAuthError, handleValidationError } from '@/lib/ut
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireCatAccess, requireHouseholdMember } from '@/lib/authz/household-access';
 
 // GET /api/v2/schedules - Listar agendamentos for a specific household
 export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthUser) => {
@@ -20,22 +21,8 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 400 });
     }
 
-    // Authorization Check
-    logger.debug(`[GET /api/v2/schedules] Verifying access for user ${user.id} to household ${householdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId,
-      },
-    });
-
-    if (!userAccess) {
-      logger.warn(`[GET /api/v2/schedules] Access denied for user ${user.id} to household ${householdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this household'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     // Fetch schedules for the specified household
     logger.debug(`[GET /api/v2/schedules] Fetching schedules for household ${householdId}`);
@@ -99,36 +86,9 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
       }, { status: 400 });
     }
     
-    // Authorization & Validation
-    // First, fetch the cat
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: { household_id: true }
-    });
-
-    if (!cat) {
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-
-    // Then, verify user's membership in the cat's household
-    logger.debug(`[POST /api/v2/schedules] Verifying user ${user.id} membership in household ${cat.household_id}`);
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[POST /api/v2/schedules] Access denied: User ${user.id} is not a member of household ${cat.household_id} (cat ${catId})`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: Cat does not belong to user\'s household'
-      }, { status: 403 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
+    const cat = catAccess.data.cat;
 
     // Validate schedule type
     if (type !== 'interval' && type !== 'fixedTime') {

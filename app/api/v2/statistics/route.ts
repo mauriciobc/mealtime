@@ -10,21 +10,7 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
   logger.debug('[GET /api/v2/statistics] Authenticated user:', { userId: user.id });
 
   try {
-    // Get user's households for authorization
-    const userProfile = await prisma.profiles.findUnique({
-      where: { id: user.id },
-      select: { household_members: { select: { household_id: true } } }
-    });
-
-    if (!userProfile) {
-      logger.error(`[GET /api/v2/statistics] Prisma profile not found for auth user ID: ${user.id}`);
-      return NextResponse.json({ 
-        success: false,
-        error: 'Perfil de usuário não encontrado' 
-      }, { status: 404 });
-    }
-
-    const userHouseholdIds = userProfile.household_members.map(m => m.household_id);
+    const userHouseholdIds = user.household_ids ?? [];
     if (userHouseholdIds.length === 0) {
       logger.warn(`[GET /api/v2/statistics] User ${user.id} has no households`);
       return NextResponse.json(

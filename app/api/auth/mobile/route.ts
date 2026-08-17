@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/monitoring/logger';
 import prisma from '@/lib/prisma';
+import { householdIdsFromMembers } from '@/lib/authz/household-access';
 import { authRateLimiter } from '@/lib/middleware/rate-limit';
 
 // Configuração de runtime para Netlify/Vercel
@@ -90,6 +91,7 @@ async function handleMobileLogin(request: NextRequest) {
 
     // Preparar dados do usuário para resposta
     const firstHousehold = prismaUser.household_members?.[0]?.household;
+    const household_ids = householdIdsFromMembers(prismaUser.household_members ?? []);
     
     const userData = {
       id: prismaUser.id,
@@ -97,6 +99,7 @@ async function handleMobileLogin(request: NextRequest) {
       full_name: prismaUser.full_name,
       email: prismaUser.email,
       household_id: firstHousehold?.id || null,
+      household_ids,
       household: firstHousehold ? {
         id: firstHousehold.id,
         name: firstHousehold.name,

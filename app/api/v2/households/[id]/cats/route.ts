@@ -5,6 +5,7 @@ import { z } from "zod";
 import { logger } from "@/lib/monitoring/logger";
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
+import { requireHouseholdMember } from '@/lib/authz/household-access';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -64,25 +65,8 @@ export const GET = withHybridAuth(async (
   }
 
   try {
-    // Verify user has access to this household
-    const membership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      }
-    });
-
-    if (!membership) {
-      logger.warn("[GET /api/v2/households/[id]/cats] User not authorized for household", {
-        requestId,
-        userId: user.id,
-        householdId,
-      });
-      return NextResponse.json({
-        success: false,
-        error: "Not authorized to access this household"
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     // Fetch cats for the household
     const cats = await prisma.cats.findMany({
@@ -180,21 +164,8 @@ export const POST = withHybridAuth(async (
   }
 
   try {
-    // Verify user has access to this household
-    const membership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      }
-    });
-
-    if (!membership) {
-      logger.warn(`[POST /api/v2/households/${householdId}/cats] User ${user.id} not authorized`);
-      return NextResponse.json({
-        success: false,
-        error: "Not authorized to access this household"
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     const body = await request.json();
     const bodyValidation = PostBodySchema.safeParse(body);

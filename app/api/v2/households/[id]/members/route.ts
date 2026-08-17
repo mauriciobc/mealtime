@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
+import { requireHouseholdAdmin, requireHouseholdMember } from '@/lib/authz/household-access';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -25,119 +26,22 @@ const PostBodySchema = z.object({
 }).strict();
 
 // Helper function for authorization & role check
-async function authorizeAdmin(userId: string, householdId: string): Promise<{ 
-  authorized: boolean; 
-  error?: NextResponse 
+async function authorizeAdmin(userId: string, householdId: string): Promise<{
+  authorized: boolean;
+  error?: NextResponse
 }> {
-  try {
-    // Find user profile
-    const prismaUser = await prisma.profiles.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-
-    if (!prismaUser) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Usuário não encontrado'
-        }, { status: 404 })
-      };
-    }
-
-    // Check if user is a member of the household
-    const membership = await prisma.household_members.findFirst({
-      where: {
-        household_id: householdId,
-        user_id: prismaUser.id
-      },
-      select: { role: true }
-    });
-
-    if (!membership) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Você não pertence a este domicílio'
-        }, { status: 403 })
-      };
-    }
-
-    if (membership.role !== 'admin') {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Apenas administradores podem gerenciar membros.'
-        }, { status: 403 })
-      };
-    }
-
-    return { authorized: true };
-  } catch (error) {
-    logger.error('Admin Authorization error:', { error });
-    return { 
-      authorized: false, 
-      error: NextResponse.json({
-        success: false,
-        error: 'Erro interno do servidor durante autorização'
-      }, { status: 500 })
-    };
-  }
+  const result = await requireHouseholdAdmin(userId, householdId);
+  if (!result.ok) return { authorized: false, error: result.response };
+  return { authorized: true };
 }
 
-// Helper function for basic household membership authorization
-async function authorizeMember(userId: string, householdId: string): Promise<{ 
-  authorized: boolean; 
-  error?: NextResponse 
+async function authorizeMember(userId: string, householdId: string): Promise<{
+  authorized: boolean;
+  error?: NextResponse
 }> {
-  try {
-    const prismaUser = await prisma.profiles.findUnique({
-      where: { id: userId },
-      select: { id: true },
-    });
-
-    if (!prismaUser) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Usuário não encontrado'
-        }, { status: 404 })
-      };
-    }
-
-    // Check if user is a member of the household
-    const membership = await prisma.household_members.findFirst({
-      where: {
-        household_id: householdId,
-        user_id: prismaUser.id
-      }
-    });
-
-    if (!membership) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Você não tem permissão para acessar este domicílio'
-        }, { status: 403 })
-      };
-    }
-
-    return { authorized: true };
-  } catch (error) {
-    logger.error('Member Authorization error:', { error });
-    return { 
-      authorized: false, 
-      error: NextResponse.json({
-        success: false,
-        error: 'Erro interno do servidor durante autorização'
-      }, { status: 500 })
-    };
-  }
+  const result = await requireHouseholdMember(userId, householdId);
+  if (!result.ok) return { authorized: false, error: result.response };
+  return { authorized: true };
 }
 
 // GET /api/v2/households/[id]/members - List household members

@@ -4,6 +4,7 @@ import { calculateNextFeedingTime } from '@/lib/utils/dateUtils';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireCatAccess } from '@/lib/authz/household-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,46 +36,8 @@ export const GET = withHybridAuth(async (
   logger.debug(`[GET /api/v2/cats/${catId}/next-feeding] Request from user ${user.id}`);
 
   try {
-    // 1. Fetch Cat and Verify Ownership/Household Access
-    logger.debug(`[GET /api/v2/cats/${catId}/next-feeding] Fetching cat and verifying access...`);
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: {
-        household_id: true,
-      }
-    });
-
-    if (!cat) {
-      logger.warn(`[GET /api/v2/cats/${catId}/next-feeding] Cat not found`);
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-
-    const householdId = cat.household_id;
-    if (!householdId) {
-      logger.error(`[GET /api/v2/cats/${catId}/next-feeding] Cat ${catId} has no household ID`);
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not linked to a household'
-      }, { status: 500 });
-    }
-
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[GET /api/v2/cats/${catId}/next-feeding] User ${user.id} not member of household ${householdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this cat\'s household'
-      }, { status: 403 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
     
     logger.info(`[GET /api/v2/cats/${catId}/next-feeding] Access verified for user ${user.id}`);
 

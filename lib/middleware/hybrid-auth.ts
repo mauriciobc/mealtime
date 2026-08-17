@@ -84,17 +84,17 @@ export async function validateHybridAuth(request: NextRequest): Promise<{
       };
     }
     
-    // Buscar o household_id do primeiro household_member
-    const householdId = prismaUser.household_members.length > 0
-      ? prismaUser.household_members[0]?.household_id || null
-      : null;
-    
+    const household_ids = prismaUser.household_members
+      .map((m) => m.household_id)
+      .filter(Boolean);
+
     const user: MobileAuthUser = {
       id: prismaUser.id,
       auth_id: sessionUser.id,
       full_name: prismaUser.full_name || '',
       email: prismaUser.email || '',
-      household_id: householdId
+      household_id: household_ids[0] ?? null,
+      household_ids,
     };
     
     logger.info('[Hybrid Auth] Supabase Session authentication successful', {

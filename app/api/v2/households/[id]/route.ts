@@ -5,6 +5,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { parseGender } from '@/lib/types/common';
+import { requireHouseholdAdmin, requireHouseholdMember } from '@/lib/authz/household-access';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -26,109 +27,15 @@ const PatchBodySchema = z.object({
 
 // Authorizes if the user is a member of the household
 async function authorizeMember(userId: string, householdId: string): Promise<{ authorized: boolean; error?: NextResponse }> {
-  try {
-    const prismaUser = await prisma.profiles.findUnique({ 
-      where: { id: userId }, 
-      select: { 
-        id: true, 
-        household_members: {
-          where: { household_id: householdId },
-          select: { household_id: true }
-        }
-      } 
-    });
-    
-    if (!prismaUser) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Usuário não encontrado'
-        }, { status: 404 })
-      };
-    }
-    
-    // Check if user is a member of the household
-    const isMember = prismaUser.household_members.length > 0;
-    if (!isMember) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Você não tem permissão para acessar este domicílio'
-        }, { status: 403 })
-      };
-    }
-    
-    return { authorized: true };
-  } catch (error) { 
-    logger.error('Member Auth Error:', { error });
-    return { 
-      authorized: false, 
-      error: NextResponse.json({
-        success: false,
-        error: 'Erro interno do servidor'
-      }, { status: 500 })
-    };
-  }
+  const result = await requireHouseholdMember(userId, householdId);
+  if (!result.ok) return { authorized: false, error: result.response };
+  return { authorized: true };
 }
 
-// Authorizes if the user is an admin of the household
 async function authorizeAdmin(userId: string, householdId: string): Promise<{ authorized: boolean; error?: NextResponse }> {
-  try {
-    const prismaUser = await prisma.profiles.findUnique({ 
-      where: { id: userId }, 
-      select: { 
-        id: true, 
-        household_members: {
-          where: { household_id: householdId },
-          select: { role: true }
-        }
-      } 
-    });
-    
-    if (!prismaUser) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Usuário não encontrado'
-        }, { status: 404 })
-      };
-    }
-    
-    const membership = prismaUser.household_members[0];
-    if (!membership) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Você não pertence a este domicílio'
-        }, { status: 403 })
-      };
-    }
-    
-    if (membership.role.trim().toLowerCase() !== 'admin') {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Apenas administradores podem executar esta ação.'
-        }, { status: 403 })
-      };
-    }
-    
-    return { authorized: true };
-  } catch (error) { 
-    logger.error('Admin Auth Error:', { error });
-    return { 
-      authorized: false, 
-      error: NextResponse.json({
-        success: false,
-        error: 'Erro interno do servidor'
-      }, { status: 500 })
-    };
-  }
+  const result = await requireHouseholdAdmin(userId, householdId);
+  if (!result.ok) return { authorized: false, error: result.response };
+  return { authorized: true };
 }
 
 // GET /api/v2/households/[id] - Get a specific household

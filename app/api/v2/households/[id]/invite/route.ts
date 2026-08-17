@@ -5,55 +5,12 @@ import { createAdminClient } from '@/utils/supabase/admin';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireHouseholdAdmin } from '@/lib/authz/household-access';
 
 // Define input schema
 const inviteSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
 });
-
-// Helper function to check admin/owner status
-async function isUserAdmin(userId: string, householdId: string): Promise<boolean> {
-  if (!userId || !householdId) {
-    logger.debug('[isUserAdmin] Missing userId or householdId');
-    return false;
-  }
-  
-  try {
-    logger.debug(`[isUserAdmin] Checking permissions for user ${userId} in household ${householdId}`);
-    
-    // First check if user is the owner of the household
-    const household = await prisma.households.findUnique({
-      where: { id: householdId },
-      select: { owner_id: true }
-    });
-    
-    if (household?.owner_id === userId) {
-      logger.debug(`[isUserAdmin] User ${userId} is the owner of household ${householdId}`);
-      return true;
-    }
-    
-    // Then check membership role
-    const membership = await prisma.household_members.findUnique({
-      where: {
-        household_id_user_id: {
-          household_id: householdId,
-          user_id: userId,
-        },
-      },
-      select: { role: true },
-    });
-    
-    const role = membership?.role;
-    const hasPermission = role === 'admin';
-    
-    logger.debug(`[isUserAdmin] User ${userId} ${hasPermission ? 'has' : 'does not have'} admin permissions. Role: "${role}"`);
-    
-    return hasPermission;
-  } catch (error) {
-    logger.error('[isUserAdmin] Error checking admin status', { error });
-    return false;
-  }
-}
 
 export const POST = withHybridAuth(async (
   request: NextRequest,
@@ -72,15 +29,8 @@ export const POST = withHybridAuth(async (
     }, { status: 400 });
   }
 
-  // Verify requester is admin/owner of the target household
-  const isAdmin = await isUserAdmin(user.id, householdId);
-  if (!isAdmin) {
-    logger.warn(`[POST /api/v2/households/invite] User ${user.id} not authorized for household ${householdId}`);
-    return NextResponse.json({
-      success: false,
-      error: 'Forbidden: User does not have permission to invite members to this household'
-    }, { status: 403 });
-  }
+  const adminAccess = await requireHouseholdAdmin(user.id, householdId);
+  if (!adminAccess.ok) return adminAccess.response;
 
   // Validate request body
   let validatedData;

@@ -9,6 +9,7 @@ export interface MobileAuthUser {
   full_name: string;
   email: string;
   household_id: string | null;
+  household_ids: string[];
 }
 
 /**
@@ -99,17 +100,17 @@ export async function validateMobileAuth(request: NextRequest): Promise<{
       };
     }
 
-    // Buscar o household_id do primeiro household_member (assumindo que o usuário pertence a apenas um household)
-    const householdId = prismaUser.household_members.length > 0 
-      ? prismaUser.household_members[0]?.household_id || null
-      : null;
+    const household_ids = prismaUser.household_members
+      .map((m) => m.household_id)
+      .filter(Boolean);
 
     const mobileUser: MobileAuthUser = {
       id: prismaUser.id,
       auth_id: supabaseUser.id,
       full_name: prismaUser.full_name || '',
       email: prismaUser.email || '',
-      household_id: householdId
+      household_id: household_ids[0] ?? null,
+      household_ids,
     };
 
     logger.debug('[Mobile Auth Middleware] User authenticated', { 
@@ -163,45 +164,19 @@ export function withMobileAuth(handler: (request: NextRequest, user: MobileAuthU
  * Middleware para verificar se o usuário pertence ao household especificado
  */
 export async function validateHouseholdAccess(
-  request: NextRequest, 
-  user: MobileAuthUser, 
+  request: NextRequest,
+  user: MobileAuthUser,
   householdId: string
 ): Promise<{ success: boolean; error?: string; statusCode?: number }> {
-  try {
-    void request;
-    const membership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId,
-      },
-      select: { household_id: true },
-    });
-
-    if (!membership) {
-      return {
-        success: false,
-        error: 'Acesso negado ao household',
-        statusCode: 403
-      };
-    }
-
-    return { success: true };
-  } catch (error: unknown) {
-    // Normalizar erro desconhecido para logging seguro
-    const normalizedError = error instanceof Error 
-      ? { message: error.message, stack: error.stack }
-      : { message: String(error), stack: undefined, rawValue: error };
-    
-    logger.error('[Mobile Auth] Household validation error', { 
-      ...normalizedError,
-      userId: user.id,
-      householdId 
-    });
-    
+  void request;
+  const { requireHouseholdMember } = await import('@/lib/authz/household-access');
+  const result = await requireHouseholdMember(user.id, householdId);
+  if (!result.ok) {
     return {
       success: false,
-      error: 'Erro ao validar acesso ao household',
-      statusCode: 500
+      error: 'Acesso negado ao household',
+      statusCode: result.response.status,
     };
   }
+  return { success: true };
 }

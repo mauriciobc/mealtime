@@ -4,42 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
-
-// Helper function to check admin/owner status
-async function isUserAdmin(userId: string, householdId: string): Promise<boolean> {
-  if (!userId || !householdId) {
-    return false;
-  }
-  
-  try {
-    // First check if user is the owner of the household
-    const household = await prisma.households.findUnique({
-      where: { id: householdId },
-      select: { owner_id: true }
-    });
-    
-    if (household?.owner_id === userId) {
-      return true;
-    }
-    
-    // Then check membership role
-    const membership = await prisma.household_members.findUnique({
-      where: {
-        household_id_user_id: {
-          household_id: householdId,
-          user_id: userId,
-        },
-      },
-      select: { role: true },
-    });
-    
-    const role = membership?.role;
-    return role === 'admin';
-  } catch (error) {
-    logger.error('[isUserAdmin] Error checking admin status', { error });
-    return false;
-  }
-}
+import { requireHouseholdAdmin } from '@/lib/authz/household-access';
 
 // Helper to generate a unique invite code
 async function generateInviteCode(): Promise<string> {
@@ -74,15 +39,8 @@ export const PATCH = withHybridAuth(async (
     }, { status: 400 });
   }
 
-  // Verify requester is admin/owner of the target household
-  const isAdmin = await isUserAdmin(user.id, householdId);
-  if (!isAdmin) {
-    logger.warn(`[PATCH /api/v2/households/invite-code] User ${user.id} not authorized for household ${householdId}`);
-    return NextResponse.json({
-      success: false,
-      error: 'Forbidden: User does not have permission to modify this household'
-    }, { status: 403 });
-  }
+  const adminAccess = await requireHouseholdAdmin(user.id, householdId);
+  if (!adminAccess.ok) return adminAccess.response;
 
   try {
     const newInviteCode = await generateInviteCode();

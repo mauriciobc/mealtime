@@ -5,6 +5,7 @@ import { logger } from '@/lib/monitoring/logger';
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { BaseFeedingLog } from '@/lib/types/common';
+import { requireHouseholdMember } from '@/lib/authz/household-access';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -49,43 +50,6 @@ function parsePositiveInteger(
   return parsed;
 }
 
-// Helper function for authorization
-async function authorizeMember(userId: string, householdId: string): Promise<{ 
-  authorized: boolean; 
-  error?: NextResponse 
-}> {
-  try {
-    // Check if user is a member of the household
-    const householdMember = await prisma.household_members.findFirst({
-      where: { 
-        user_id: userId,
-        household_id: householdId
-      },
-    });
-
-    if (!householdMember) {
-      return { 
-        authorized: false, 
-        error: NextResponse.json({
-          success: false,
-          error: 'Você não tem permissão para acessar este domicílio'
-        }, { status: 403 })
-      };
-    }
-
-    return { authorized: true };
-  } catch (error) {
-    logger.error('Authorization error:', { error });
-    return { 
-      authorized: false, 
-      error: NextResponse.json({
-        success: false,
-        error: 'Erro interno do servidor durante autorização'
-      }, { status: 500 })
-    };
-  }
-}
-
 // GET /api/v2/households/[id]/feeding-logs - Get feeding logs for a household
 export const GET = withHybridAuth(async (
   request: NextRequest,
@@ -127,11 +91,8 @@ export const GET = withHybridAuth(async (
       householdId
     });
 
-    // Authorize user
-    const authResult = await authorizeMember(user.id, householdId);
-    if (!authResult.authorized) {
-      return authResult.error!;
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     // Parse query parameters for filtering
     const searchParams = request.nextUrl.searchParams;

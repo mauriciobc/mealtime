@@ -4,6 +4,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { BaseCats, parseGender } from "@/lib/types/common";
+import { requireHouseholdMember } from '@/lib/authz/household-access';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -25,23 +26,8 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
       }, { status: 400 });
     }
 
-    // Verify user access to the household
-    logger.debug(`[GET /api/v2/feedings/cats] Verifying user ${user.id} access to household ${householdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        household_id: householdId,
-        user_id: user.id
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[GET /api/v2/feedings/cats] User ${user.id} not authorized for household ${householdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this household'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
 
     // Consulta para obter gatos com informações necessárias para alimentação
     logger.debug(`[GET /api/v2/feedings/cats] Fetching cats for household ${householdId}`);

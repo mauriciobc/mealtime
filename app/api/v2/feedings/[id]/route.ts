@@ -6,6 +6,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { parseGender } from '@/lib/types/common';
+import { requireHouseholdMember } from '@/lib/authz/household-access';
 
 /**
  * Extrai e valida o ID do parâmetro de rota de forma robusta
@@ -113,21 +114,8 @@ export const GET = withHybridAuth(async (
     }
 
     logger.debug(`[GET /api/v2/feedings/${logId}] Verifying user ${user.id} membership in household ${logHouseholdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: logHouseholdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[GET /api/v2/feedings/${logId}] User ${user.id} not member of household ${logHouseholdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: User cannot view this log'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, logHouseholdId);
+    if (!access.ok) return access.response;
     
     logger.info(`[GET /api/v2/feedings/${logId}] User ${user.id} authorized`);
 
@@ -273,21 +261,8 @@ export const PUT = withHybridAuth(async (
     }
 
     logger.debug(`[PUT /api/v2/feedings/${logId}] Verifying user ${user.id} membership in household ${logHouseholdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: logHouseholdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[PUT /api/v2/feedings/${logId}] User ${user.id} not member of household ${logHouseholdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: User cannot update this log'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, logHouseholdId);
+    if (!access.ok) return access.response;
     
     logger.info(`[PUT /api/v2/feedings/${logId}] User ${user.id} authorized`);
 
@@ -455,21 +430,8 @@ export const DELETE = withHybridAuth(async (
     }
 
     logger.debug(`[DELETE /api/v2/feedings/${logId}] Verifying user ${user.id} membership in household ${householdId}`);
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[DELETE /api/v2/feedings/${logId}] User ${user.id} not member of household ${householdId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: User does not belong to this household'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, householdId);
+    if (!access.ok) return access.response;
     
     logger.info(`[DELETE /api/v2/feedings/${logId}] User ${user.id} authorized`);
 

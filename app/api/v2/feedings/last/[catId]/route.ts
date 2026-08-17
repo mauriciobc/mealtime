@@ -4,6 +4,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
 import { parseGender } from '@/lib/types/common';
+import { requireCatAccess } from '@/lib/authz/household-access';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -53,40 +54,8 @@ export const GET = withHybridAuth(async (
   logger.debug(`[GET /api/v2/feedings/last/${catId}] Request from user ${user.id}`);
 
   try {
-    // Find the user's household via household_members
-    const householdMember = await prisma.household_members.findFirst({
-      where: { user_id: user.id },
-      select: { household_id: true }
-    });
-
-    if (!householdMember?.household_id) {
-      logger.warn(`[GET /api/v2/feedings/last/${catId}] User ${user.id} not associated with any household`);
-      return NextResponse.json({
-        success: false,
-        error: 'Usuário não associado a uma residência'
-      }, { status: 403 });
-    }
-
-    // Verify the cat belongs to the user's household
-    const cat = await prisma.cats.findUnique({
-      where: {
-        id: catId,
-        household_id: householdMember.household_id
-      },
-      select: { 
-        id: true,
-        name: true,
-        household_id: true
-      }
-    });
-
-    if (!cat) {
-      logger.warn(`[GET /api/v2/feedings/last/${catId}] Cat not found or user ${user.id} not authorized`);
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado ou acesso não autorizado'
-      }, { status: 404 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
 
     // Find the last feeding log for this cat
     logger.debug(`[GET /api/v2/feedings/last/${catId}] Fetching last feeding log`);

@@ -12,6 +12,7 @@ import {
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireCatAccess, requireHouseholdMember } from '@/lib/authz/household-access';
 
 // Explicitly set runtime to Node.js
 export const runtime = 'nodejs';
@@ -48,46 +49,17 @@ export const POST = withHybridAuth(async (request: NextRequest, user: MobileAuth
 
     const { catId, amount, notes, meal_type: mealType, unit, food_type } = validationResult.data;
 
-    // Authorization & Validation
     logger.debug(`[POST /api/v2/feedings] Verifying access for user ${user.id} and cat ${catId}`);
-    const [cat, userHouseholds, lastFeedingLog] = await Promise.all([
-      prisma.cats.findUnique({
-        where: { id: catId },
-        select: { id: true, name: true, photo_url: true, household_id: true, feeding_interval: true, portion_size: true, gender: true }
-      }),
-      prisma.household_members.findMany({
-        where: { user_id: user.id },
-        select: { household_id: true }
-      }),
+    const [catAccess, lastFeedingLog] = await Promise.all([
+      requireCatAccess(user.id, catId),
       prisma.feeding_logs.findFirst({
         where: { cat_id: catId },
         orderBy: { fed_at: 'desc' }
       })
     ]);
 
-    const userHouseholdIds = userHouseholds.map(h => h.household_id);
-
-    if (!cat) {
-      logger.warn(`[POST /api/v2/feedings] Cat not found: ${catId}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Cat not found'
-      }, { status: 404 });
-    }
-    if (userHouseholdIds.length === 0) {
-      logger.warn(`[POST /api/v2/feedings] User ${user.id} not associated with any household.`);
-      return NextResponse.json({
-        success: false,
-        error: 'User household not found'
-      }, { status: 403 });
-    }
-    if (!userHouseholdIds.includes(cat.household_id)) {
-      logger.warn(`[POST /api/v2/feedings] Access Denied: Cat ${catId} (household ${cat.household_id}) does not belong to user ${user.id} (households ${userHouseholdIds.join(', ')})`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied: Cat does not belong to user\'s household'
-      }, { status: 403 });
-    }
+    if (!catAccess.ok) return catAccess.response;
+    const cat = catAccess.data.cat;
 
     const userHouseholdId = cat.household_id;
     logger.info(`[POST /api/v2/feedings] Access granted for user ${user.id} to cat ${catId} in household ${userHouseholdId}`);
@@ -241,26 +213,8 @@ export const GET = withHybridAuth(async (request: NextRequest, user: MobileAuthU
     }, { status: 400 });
   }
 
-  // Verify user access
-  try {
-    const userAccess = await prisma.household_members.findFirst({
-      where: { household_id: householdId, user_id: user.id }
-    });
-    
-    if (!userAccess) {
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this household'
-      }, { status: 403 });
-    }
-  } catch (error) {
-    logger.error('[GET /api/v2/feedings] Failed to verify household access', { error });
-    return NextResponse.json({
-      success: false,
-      error: 'Failed to verify household access',
-      details: (error instanceof Error) ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
+  const access = await requireHouseholdMember(user.id, householdId);
+  if (!access.ok) return access.response;
 
   // Fetch feedings
   try {

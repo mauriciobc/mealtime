@@ -25,9 +25,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/utils/supabase/server"
-// import { cookies } from "next/headers"
-import prisma from "@/lib/prisma"
 import { notFound } from 'next/navigation';
+import { requireCatAccess } from '@/lib/authz/household-access';
 
 // TODO: Define SettingsClientPage component later
 // import SettingsClientPage from './settings-client-page'; 
@@ -70,17 +69,9 @@ export default async function CatSettingsPage({ params }: { params: Promise<{ id
     notFound()
   }
 
-  // Fix: Use the correct Prisma model (profiles) and field (id)
-  const prismaProfile = await prisma.profiles.findUnique({
-    where: { id: supabaseUser.id },
-    select: { household_members: { select: { household_id: true } } }
-  })
-
-  // Extract householdId from the first household_members entry (if any)
-  const householdId = prismaProfile?.household_members?.[0]?.household_id
-
-  if (!prismaProfile || !householdId || householdId !== cat.household_id) {
-    console.error(`CatSettingsPage: User ${supabaseUser.id} (household ${householdId}) unauthorized attempt to access cat ${cat.id} (household ${cat.household_id}).`)
+  const catAccess = await requireCatAccess(supabaseUser.id, cat.id);
+  if (!catAccess.ok) {
+    console.error(`CatSettingsPage: User ${supabaseUser.id} unauthorized attempt to access cat ${cat.id} (household ${cat.household_id}).`)
     notFound()
   }
 

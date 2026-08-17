@@ -5,6 +5,7 @@ import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { z } from 'zod';
 import { parseGender } from '@/lib/types/common';
+import { requireCatAccess } from '@/lib/authz/household-access';
 
 /**
  * Valida e normaliza o peso do gato
@@ -124,18 +125,11 @@ export const GET = withHybridAuth(async (
       catId 
     });
 
-    // Get the cat and verify the user has access through their household
-    const cat = await prisma.cats.findFirst({
-      where: {
-        id: catId,
-        household: {
-          household_members: {
-            some: {
-              user_id: user.id
-            }
-          }
-        }
-      },
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
+
+    const cat = await prisma.cats.findUnique({
+      where: { id: catId },
       include: {
         household: {
           select: {
@@ -254,34 +248,8 @@ export const PUT = withHybridAuth(async (
       }
     }
 
-    // Get the cat and verify the user has access through their household
-    const cat = await prisma.cats.findFirst({
-      where: {
-        id: catId,
-        household: {
-          household_members: {
-            some: {
-              user_id: user.id
-            }
-          }
-        }
-      },
-      select: {
-        id: true,
-        household_id: true
-      }
-    });
-
-    if (!cat) {
-      logger.warn(`[PUT /api/v2/cats/[catId]] Cat not found or access denied:`, {
-        catId,
-        userId: user.id
-      });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado ou acesso negado'
-      }, { status: 404 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
 
     // Preparar dados para atualização com validações aplicadas
     const updateData: any = {};
@@ -407,52 +375,8 @@ export const DELETE = withHybridAuth(async (
       catId
     });
 
-    // 1. Find the cat and its household ID
-    const cat = await prisma.cats.findUnique({
-      where: { id: catId },
-      select: { household_id: true, name: true }
-    });
-
-    if (!cat) {
-      logger.warn(`[DELETE /api/v2/cats/[catId]] Cat not found:`, { catId });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não encontrado'
-      }, { status: 404 });
-    }
-    
-    const householdId = cat.household_id;
-    if (!householdId) {
-      logger.error(`[DELETE /api/v2/cats/[catId]] Cat has no associated household:`, { catId });
-      return NextResponse.json({
-        success: false,
-        error: 'Gato não está associado a um domicílio'
-      }, { status: 500 });
-    }
-
-    // 2. Verify user membership in that household
-    logger.debug(`[DELETE /api/v2/cats/[catId]] Verifying user membership:`, {
-      userId: user.id,
-      householdId
-    });
-    const userAccess = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: householdId
-      },
-      select: { user_id: true }
-    });
-
-    if (!userAccess) {
-      logger.warn(`[DELETE /api/v2/cats/[catId]] Access denied:`, {
-        userId: user.id,
-        householdId
-      });
-      return NextResponse.json({
-        success: false,
-        error: 'Acesso negado: Usuário não pertence a este domicílio'
-      }, { status: 403 });
-    }
+    const catAccess = await requireCatAccess(user.id, catId);
+    if (!catAccess.ok) return catAccess.response;
     
     logger.debug(`[DELETE /api/v2/cats/[catId]] User authorized, starting deletion transaction`);
 

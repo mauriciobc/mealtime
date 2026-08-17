@@ -6,6 +6,7 @@ import { buildScheduleUpdateNotification } from '@/lib/notifications/event-paylo
 import { withHybridAuth } from '@/lib/middleware/hybrid-auth';
 import { MobileAuthUser } from '@/lib/middleware/mobile-auth';
 import { logger } from '@/lib/monitoring/logger';
+import { requireHouseholdMember } from '@/lib/authz/household-access';
 
 // GET /api/v2/schedules/[id] - Get a specific schedule
 export const GET = withHybridAuth(async (
@@ -47,21 +48,8 @@ export const GET = withHybridAuth(async (
       }, { status: 404 });
     }
 
-    // Verify user has access to the cat's household
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: schedule.cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[GET /api/v2/schedules/${id}] Access denied for user ${user.id}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this schedule'
-      }, { status: 403 });
-    }
+    const access = await requireHouseholdMember(user.id, schedule.cat.household_id);
+    if (!access.ok) return access.response;
 
     return NextResponse.json({
       success: true,
@@ -130,21 +118,8 @@ export const PATCH = withHybridAuth(async (
       }, { status: 404 });
     }
 
-    // Verify user has access to the cat's household
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: existingSchedule.cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[PATCH /api/v2/schedules/${id}] Access denied for user ${user.id}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this schedule'
-      }, { status: 403 });
-    }
+    const patchAccess = await requireHouseholdMember(user.id, existingSchedule.cat.household_id);
+    if (!patchAccess.ok) return patchAccess.response;
 
     // Validate schedule type if provided
     if (type && type !== 'interval' && type !== 'fixedTime') {
@@ -294,21 +269,8 @@ export const DELETE = withHybridAuth(async (
       }, { status: 404 });
     }
 
-    // Verify user has access to the cat's household
-    const userMembership = await prisma.household_members.findFirst({
-      where: {
-        user_id: user.id,
-        household_id: existingSchedule.cat.household_id,
-      },
-    });
-
-    if (!userMembership) {
-      logger.warn(`[DELETE /api/v2/schedules/${id}] Access denied for user ${user.id}`);
-      return NextResponse.json({
-        success: false,
-        error: 'Access denied to this schedule'
-      }, { status: 403 });
-    }
+    const deleteAccess = await requireHouseholdMember(user.id, existingSchedule.cat.household_id);
+    if (!deleteAccess.ok) return deleteAccess.response;
 
     // Delete schedule
     await prisma.schedules.delete({
